@@ -11,7 +11,7 @@
 # Make all describe routines work like DescribeTree
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
 package Nasm::X86;
-our $VERSION = "20210918";
+our $VERSION = "20210921";
 use warnings FATAL => qw(all);
 use strict;
 use Carp qw(confess cluck);
@@ -953,7 +953,7 @@ sub Nasm::X86::Sub::callTo($$$@)                                                
     $p{$n} = ref($v) ? $v : V($n, $v);
    }
 
-  my %with = ($sub->options->{with}{variables}//{})->%*;                        # The list of args the containing subroutine was called with
+  my %with = ($sub->options->{with}{variables}//{})->%*;                        # The list of arguments the containing subroutine was called with
 
   if (1)                                                                        # Check for missing arguments
    {my %m = $sub->args->%*;                                                     # Formal arguments
@@ -984,12 +984,12 @@ sub Nasm::X86::Sub::callTo($$$@)                                                
        {Lea r15, "[$label]";
        }
       my $q = $sub->variables->{$a}->label;
-         $q =~ s(rbp) (rsp);                                                    # Labels are based off the stack fram but we are building a new stack frame here
+         $q =~ s(rbp) (rsp);                                                    # Labels are based off the stack frame but we are building a new stack frame here so we must rename the stack pointer.
       Mov "[$q-$w*2]", r15;                                                     # Step over subroutine name pointer and previous frame pointer.
      }
    }
 
-  if ($mode)                                                                    # Dereference and call subrotuine
+  if ($mode)                                                                    # Dereference and call subroutine
    {Mov r15, $label;
     Mov r15, "[r15]";
     Call r15;
@@ -1577,7 +1577,7 @@ sub Variable($;$%)                                                              
     RComment qq(Constant name: "$name", value $expr);
     $label = Rq($expr);
    }
-  elsif ($global)                                                               # Global variable
+  elsif ($global)                                                               # Global variables are held in teh data segment not on the stack
    {$label = Dq($expr // 0);
    }
   else                                                                          # Local variable: Position on stack of variable
@@ -1608,7 +1608,7 @@ sub Variable($;$%)                                                              
    );
  }
 
-sub G(*;$%)                                                                     # Define a global variable.
+sub G(*;$%)                                                                     # Define a global variable. Global variables with the same name are not necessarily the same variable.  Two globals are identical iff they have have the same label field.
  {my ($name, $expr, %options) = @_;                                             # Name of variable, initializing expression, options
   &Variable($name, $expr, global => 1, %options);
  }
@@ -8436,7 +8436,7 @@ present. If the test fails we continue rather than calling L<Carp::confess>.
 Generate X86 assembler code using Perl as a macro pre-processor.
 
 
-Version "20210918".
+Version "20210921".
 
 
 The following sections describe the methods in each functional area of this
