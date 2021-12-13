@@ -1229,7 +1229,7 @@ sub Subroutine2(&$%)                                                            
   my $P = @$parameters;                                                         # Number of parameters supplied
   my $E = @text;                                                                # Code entry that will contain the Enter instruction
   Enter 0, 0;                                                                   # The Enter instruction is 4 bytes long
-  V("rbp_$_") for 0..$D;                                                        # Rbp for a prior stack frames
+  V("rbp_$_") for 1..$D;                                                        # Rbp for a prior stack frames
   V('subroutineDescription');                                                   # Pointer to data structures describing the subroutine
   my %p = map {$_ => R("parameter_$_")} @$parameters;                           # Each parameter
 
@@ -28513,7 +28513,7 @@ END
  }
 
 latest:
-if (1) {
+if (0) {
   my $s = Subroutine2
    {my ($p, $s) = @_;
 Comment "SetReg";
