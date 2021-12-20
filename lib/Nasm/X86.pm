@@ -46,8 +46,6 @@ my @GeneralPurposeRegisters = (qw(rax rbx rcx rdx rsi rdi), map {"r$_"} 8..15); 
 my @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});              # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
 my $bitsInByte;                                                                 # The number of bits in a byte
 
-my @VariableStack = (0);                                                        # Counts the number of parameters and variables on the stack in each invocation of L<Subroutine>.  There is at least one variable - the first holds the traceback.
-
 BEGIN{
   $bitsInByte  = 8;                                                             # The number of bits in a byte
   my %r = (    map {$_=>[ 8,  '8'  ]}  qw(al bl cl dl r8b r9b r10b r11b r12b r13b r14b r15b r8l r9l r10l r11l r12l r13l r14l r15l sil dil spl bpl ah bh ch dh));
@@ -896,6 +894,8 @@ sub Macro(&%)                                                                   
 
 #D2 Call                                                                        # Call a subroutine
 
+my @VariableStack = (1);                                                        # Counts the number of parameters and variables on the stack in each invocation of L<Subroutine>.  There is at least one variable - the first holds the traceback.
+
 sub SubroutineStartStack()                                                      # Initialize a new stack frame.  The first quad of each frame has the address of the name of the sub in the low dword, and the parameter count in the upper byte of the quad.  This field is all zeroes in the initial frame.
  {push @VariableStack, 1;                                                       # Counts the number of variables on the stack in each invocation of L<Subroutine>.  The first quad provides the traceback.
  }
@@ -1002,17 +1002,14 @@ sub Nasm::X86::Sub::callTo($$$@)                                                
     for my $a(sort keys %a)                                                     # Transfer parameters from current frame to next frame
      {my $label = $a{$a}->label;                                                # Source in current frame
       if ($a{$a}->reference)                                                    # Source is a reference
-       {Comment "load address of reference variable";
-        Mov r15, "[$label]";
+       {Mov r15, "[$label]";
        }
       else                                                                      # Source is not a reference
-       {Comment "load address of variable";
-        Lea r15, "[$label]";
+       {Lea r15, "[$label]";
        }
       my $q = $sub->variables->{$a}->label;
          $q =~ s(rbp) (rsp);                                                    # Labels are based off the stack frame but we are building a new stack frame here so we must rename the stack pointer.
-Comment "SAve parameter";
-              Mov "[$q-$w*2]", r15;                                                     # Step over subroutine name pointer and previous frame pointer.
+      Mov "[$q-$w*2]", r15;                                                     # Step over subroutine name pointer and previous frame pointer.
      }
    }
 
@@ -1191,320 +1188,6 @@ sub OnSegv()                                                                    
  }
 
 sub cr(&@)                                                                      # Call a subroutine with a reordering of the registers.
- {my ($block, @registers) = @_;                                                 # Code to execute with reordered registers, registers to reorder
-  ReorderSyscallRegisters   @registers;
-  &$block;
-  UnReorderSyscallRegisters @registers;
- }
-
-#D2 Call2                                                                       # Call a subroutine
-
-sub SubroutineStartStack2()                                                     # Initialize a new stack frame.  The first quad of each frame has the address of the name of the sub in the low dword, and the parameter count in the upper byte of the quad.  This field is all zeroes in the initial frame.
- {push @VariableStack, 0;                                                       # Counts the number of variables on the stack in each invocation of L<Subroutine>.
- }
-
-sub SubroutineEndStack2()                                                       # Finish with the current stack frame.
- {pop @VariableStack;                                                           # The number of variables defined
- }
-
-sub Subroutine2(&$%)                                                            # Create a subroutine that can be called in assembler code.
- {my ($block, $parameters, %options) = @_;                                      # Block, parameter names as an array reference, options.
-  @_ >= 1 or confess;
-
-  if ($parameters)                                                              # Confirm there are no duplicate parameters
-   {my %p;
-    $p{$_}++ for @$parameters;
-    for(keys %p) {delete $p{$_} if $p{$_} <= 1}
-    if (my @d = sort keys %p)
-     {my $d = join ", ", @d;
-      confess "Duplicate parameters: $d\n";
-     }
-   }
-
-  my $end   =    Label; Jmp $end;                                               # End label.  Subroutines are only ever called - they are not executed in-line so we jump over the implementation of the subroutine.  This can cause several forward jumps in a row if a number of subroutines are defined together.
-  my $start = SetLabel;                                                         # Start label
-
-  SubroutineStartStack2;
-  my $D = @VariableStack - 1;                                                   # Lexical depth - the first frame is the outer code at lexical level 0
-  my $P = @$parameters;                                                         # Number of parameters supplied
-  my $E = @text;                                                                # Code entry that will contain the Enter instruction
-  Enter 0, 0;                                                                   # The Enter instruction is 4 bytes long
-  V("rbp_$_") for 1..$D;                                                        # Rbp for a prior stack frames
-  V('subroutineDescription');                                                   # Pointer to data structures describing the subroutine
-  my %p = map {$_ => R("parameter_$_")} @$parameters;                           # Each parameter
-
-  my $s = genHash(__PACKAGE__."::Subroutine",                                   # Subroutine definition
-    start      => $start,                                                       # Start label for this subroutine which includes the enter instruction used to create a new stack frame
-    end        => $start,                                                       # End label for this subroutine
-    options    => \%options,                                                    # Options used by the author of the subroutine
-    parameters => \%p,                                                          # Position of each parameter in the stack by parameter name
-   );
-
-  &$block(\%p, $s);                                                             # Generate the code and the variables for the sub passing it a description of the parameter list
-
-  my $V = SubroutineEndStack2;                                                  # Number of variables
-
-  Leave;                                                                        # Remove frame if there was one
-  Ret;                                                                          # Return from the sub
-  SetLabel $end;                                                                # The end point of the sub where we return to normal code
-  my $w = RegisterSize rax;
-  $text[$E] = <<END;                                                            # Rewrite enter instruction now that we know how much stack space we need
-  Enter $V*$w, $D;
-END
-
-  $s                                                                            # Subroutine definition
- }
-
-sub Nasm::X86::Subroutine::call($%)                                             # Call a sub passing it some parameters.
- {my ($sub, %parameters) = @_;                                                  # Subroutine descriptor, parameter variables
-
-  PushR r15;
-  for my $p(sort keys %parameters)                                              # Copy in each parameter
-   {if (my $t = $sub->parameters->{$p})                                         # Target variable corresponding to parameter
-     {my $s = $parameters{$p};                                                  # Source variable to be loaded into variable
-      my $S = $s->label;                                                        # Address in old stack frame
-      my $T = $t->label =~ s(rbp) (rsp)gsr;                                     # Address in new stack frame
-      if ($s->reference)                                                        # Reference
-       {Lea r15, "[$S]";
-        Mov r15, "[$S]";
-       }
-      else                                                                      # Non reference
-       {Lea r15, "[$S]";
-       }
-      Mov "[$T]", r15;                                                          # Load the parameter with e address of the referenced variable
-     }
-    else
-     {confess "No parameter $p";
-     }
-   }
-
-  Call $sub->start;
- }
-
-sub Nasm::X86::Subroutine::callTo($$$@)                                         #P Call a sub passing it some parameters.
- {my ($sub, $mode, $label, @parameters) = @_;                                   # Subroutine descriptor, mode 0 - direct call or 1 - indirect call, label of sub, parameter variables
-
-  my %p;
-  while(@parameters)                                                            # Copy parameters supplied by the caller
-   {my $p = shift @parameters;                                                  # Check parameters provided by caller
-    my $n = ref($p) ? $p->name : $p;
-    defined($n) or confess "No name or variable";
-    my $v = ref($p) ? $p       : shift @parameters;                             # Each actual parameter is a variable or an expression that can loaded into a register
-    unless ($sub->args->{$n})                                                   # Describe valid parameters using a table
-     {my @t;
-      push @t, map {[$_]} keys $sub->args->%*;
-      my $t = formatTable([@t], [qw(Name)]);
-      confess "Invalid parameter: '$n'\n$t";
-     }
-    $p{$n} = ref($v) ? $v : V($n, $v);
-   }
-
-  my %with = ($sub->options->{with}{variables}//{})->%*;                        # The list of arguments the containing subroutine was called with
-
-  if (1)                                                                        # Check for missing arguments
-   {my %m = $sub->args->%*;                                                     # Formal arguments
-    delete $m{$_} for sort keys %p;                                             # Remove actual arguments
-    delete $m{$_} for sort keys %with;                                          # Remove arguments from calling environment if supplied
-    keys %m and confess "Missing arguments ".dump([sort keys %m]);              # Print missing parameter names
-   }
-
-  if (1)                                                                        # Check for misnamed arguments
-   {my %m = %p;                                                                 # Actual arguments
-    delete $m{$_} for sort keys($sub->args->%*), sort keys(%with);              # Remove formal arguments
-    keys %m and confess "Invalid arguments ".dump([sort keys %m]);              # Print misnamed arguments
-   }
-
-  my $w = RegisterSize r15;
-  PushR r15;                                                                    # Use this register to transfer between the current frame and the next frame
-  Mov "dword[rsp  -$w*3]", $sub->nameString;                                    # Point to name
-  Mov "byte [rsp-1-$w*2]", scalar $sub->parameters->@*;                         # Number of parameters to enable traceback with parameters
-
-  if (1)                                                                        # Transfer parameters by copying them to the base of the stack frame
-   {my %a = (%with, %p);                                                        # The consolidated argument list
-    for my $a(sort keys %a)                                                     # Transfer parameters from current frame to next frame
-     {my $label = $a{$a}->label;                                                # Source in current frame
-      if ($a{$a}->reference)                                                    # Source is a reference
-       {Mov r15, "[$label]";
-       }
-      else                                                                      # Source is not a reference
-       {Lea r15, "[$label]";
-       }
-      my $q = $sub->variables->{$a}->label;
-         $q =~ s(rbp) (rsp);                                                    # Labels are based off the stack frame but we are building a new stack frame here so we must rename the stack pointer.
-      Mov "[$q-$w*2]", r15;                                                     # Step over subroutine name pointer and previous frame pointer.
-     }
-   }
-
-  if ($mode)                                                                    # Dereference and call subroutine
-   {Mov r15, $label;
-    Mov r15, "[r15]";
-    Call r15;
-   }
-  else                                                                          # Call via label
-   {Call $label;
-   }
-  PopR;
- }
-
-sub Nasm::X86::Sub::via2($$@)                                                   # Call a sub by reference passing it some parameters.
- {my ($sub, $ref, @parameters) = @_;                                            # Subroutine descriptor, variable containing a reference to the sub, parameter variables
-  PushR r14, r15;
-  if ($ref->reference)                                                          # Dereference address of subroutine.
-   {Mov r14, "[$$ref{label}]";                                                  # Reference
-   }
-  else
-   {Lea r14, "[$$ref{label}]";                                                  # Direct
-   }
-  $sub->callTo(1, r14, @parameters);                                            # Call the subroutine
-  PopR;
- }
-
-sub Nasm::X86::Sub::V2($)                                                       # Put the address of a subroutine into a stack variable so that it can be passed as a parameter.
- {my ($sub) = @_;                                                               # Subroutine descriptor
-  V('call', $sub->start);                                                       # Address subroutine via a stack variable
- }
-
-sub Nasm::X86::Sub::dispatch2($$)                                               # Jump into the specified subroutine so that code of the target subroutine is executed instead of the code of the current subroutine allowing the target subroutine to be dispatched to process the parameter list of the current subroutine.  When the target subroutine returns it returns to the caller of the current sub, not to the current subroutine.
- {my ($sub, $transfer) = @_;                                                    # Subroutine descriptor of target subroutine, transfer register
-  $sub->V()->setReg($transfer);                                                 # Start of sub routine
-  Add $transfer, 4;                                                             # Skip initial enter as to prevent a new stack from being created
-  Jmp $transfer;                                                                # Start h specified sub - when it exits it will return to the code that called us.
- }
-
-sub Nasm::X86::Sub::dispatchV2($$$)                                             # L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specified register.
- {my ($sub, $reference, $transfer) = @_;                                        # Subroutine descriptor, variable referring to the target subroutine, transfer register
-  $reference->setReg($transfer);                                                # Start of sub routine
-  Add $transfer, 4;                                                             # Skip initial enter as to prevent a new stack from being created
-  Jmp $transfer;                                                                # Start h specified sub - when it exits it will return to the code that called us.
- }
-
-sub PrintTraceBack2($)                                                          # Trace the call stack.
- {my ($channel) = @_;                                                           # Channel to write on
-  my $s = Subroutine
-   {PushR my @save = (rax, rdi, r9, r10, r8, r12, r13, r14, r15);
-    my $stack     = r15;
-    my $count     = r14;
-    my $index     = r13;
-    my $parameter = r12;                                                        # Number of parameters
-    my $maxCount  = r8;                                                         # Maximum number of parameters - should be r11 when we have found out why r11 does not print correctly.
-    my $depth     = r10;                                                        # Depth of trace back
-    ClearRegisters @save;
-
-    Mov $stack, rbp;                                                            # Current stack frame
-    AndBlock                                                                    # Each level
-     {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
-      Mov $stack, "[$stack]";                                                   # Up one level
-      Mov rax, "[$stack-8]";
-      Mov $count, rax;
-      Shr $count, 56;                                                           # Top byte contains the parameter count
-      Cmp $count, $maxCount;                                                    # Compare this count with maximum so far
-      Cmovg $maxCount, $count;                                                  # Update count if greater
-      Shl rax, 8; Shr rax, 8;                                                   # Remove parameter count
-      Je $end;                                                                  # Reached top of stack if rax is zero
-      Inc $depth;                                                               # Depth of trace back
-      Jmp $start;                                                               # Next level
-     };
-
-    Mov $stack, rbp;                                                            # Current stack frame
-    &PrintNL($channel);                                                         # Print title
-    &PrintString($channel, "Subroutine trace back, depth: ");
-    PushR rax;
-    Mov rax, $depth;
-    &PrintRaxRightInDec(2, $channel);
-    PopR rax;
-    &PrintNL($channel);
-
-    AndBlock                                                                    # Each level
-     {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
-      Mov $stack, "[$stack]";                                                   # Up one level
-      Mov rax, "[$stack-8]";
-      Mov $count, rax;
-      Shr $count, 56;                                                           # Top byte contains the parameter count
-      Shl rax, 8; Shr rax, 8;                                                   # Remove parameter count
-      Je $end;                                                                  # Reached top of stack
-      Cmp $count, 0;                                                            # Check for parameters
-      IfGt
-      Then                                                                      # One or more parameters
-       {Mov $index, 0;
-        For
-         {my ($start, $end, $next) = @_;
-          Mov $parameter, $index;
-          Add $parameter, 2;                                                    # Skip traceback
-          Shl $parameter, 3;                                                    # Each parameter is a quad
-          Neg $parameter;                                                       # Offset from stack
-          Add $parameter, $stack;                                               # Position on stack
-          Mov $parameter, "[$parameter]";                                       # Parameter reference to variable
-          Push rax;
-          Mov rax, "[$parameter]";                                              # Variable content
-          &PrintRaxInHex($channel);
-          Pop rax;
-          &PrintSpace($channel, 4);
-         } $index, $count;
-        For                                                                     # Vertically align subroutine names
-         {my ($start, $end, $next) = @_;
-          &PrintSpace($channel, 23);
-         } $index, $maxCount;
-       };
-
-      Push $stack;                                                              # Print the name of the subroutine
-      &Cstrlen();                                                               # Length of name
-      Mov rdi, $stack;
-      Pop $stack;
-      &PrintMemoryNL($channel);                                                 # Print name
-      Jmp $start;                                                               # Next level
-     };
-    &PrintNL($channel);
-    PopR;
-   } [], name => 'SubroutineTraceBack';
-
-  $s->call;
- }
-
-sub PrintErrTraceBack2()                                                        # Print sub routine track back on stderr.
- {PrintTraceBack($stderr);
- }
-
-sub PrintOutTraceBack2()                                                        # Print sub routine track back on stdout.
- {PrintTraceBack($stdout);
- }
-
-sub OnSegv2()                                                                   # Request a trace back followed by exit on a B<segv> signal.
- {my $s = Subroutine                                                            # Subroutine that will cause an error to occur to force a trace back to be printed
-   {my $end = Label;
-    Jmp $end;                                                                   # Jump over subroutine definition
-    my $start = SetLabel;
-    Enter 0, 0;                                                                 # Inline code of signal handler
-    Mov r15, rbp;                                                               # Preserve the new stack frame
-    Mov rbp, "[rbp]";                                                           # Restore our last stack frame
-    PrintOutTraceBack;                                                          # Print our trace back
-    Mov rbp, r15;                                                               # Restore supplied stack frame
-    Exit(0);                                                                    # Exit so we do not trampoline. Exit with code zero to show that the program is functioning correctly, else L<Assemble> will report an error.
-    Leave;
-    Ret;
-    SetLabel $end;
-
-    Mov r15, 0;                                                                 # Push sufficient zeros onto the stack to make a structure B<sigaction> as described in: https://www.man7.org/linux/man-pages/man2/sigaction.2.html
-    Push r15 for 1..16;
-
-    Mov r15, $start;                                                            # Actual signal handler
-    Mov "[rsp]", r15;                                                           # Show as signal handler
-    Mov "[rsp+0x10]", r15;                                                      # Add as trampoline as well - which is fine because we exit in the handler so this will never be called
-    Mov r15, 0x4000000;                                                         # Mask to show we have a trampoline which is, apparently, required on x86
-    Mov "[rsp+0x8]", r15;                                                       # Confirm we have a trampoline
-
-    Mov rax, 13;                                                                # B<Sigaction> from B<kill -l>
-    Mov rdi, 11;                                                                # Confirmed B<SIGSEGV = 11> from B<kill -l> and tracing with B<sde64>
-    Mov rsi, rsp;                                                               # Structure B<sigaction> structure on stack
-    Mov rdx, 0;                                                                 # Confirmed by trace
-    Mov r10, 8;                                                                 # Found by tracing B<signal.c> with B<sde64> it is the width of the signal set and mask. B<signal.c> is reproduced below.
-    Syscall;
-    Add rsp, 128;
-   } [], name=>"on segv";
-
-  $s->call;
- }
-
-sub cr2(&@)                                                                      # Call a subroutine with a reordering of the registers.
  {my ($block, @registers) = @_;                                                 # Code to execute with reordered registers, registers to reorder
   ReorderSyscallRegisters   @registers;
   &$block;
@@ -2170,8 +1853,7 @@ sub Variable($;$%)                                                              
     label     => $label,                                                        # Address in memory
     name      => $name,                                                         # Name of the variable
     level     => scalar @VariableStack,                                         # Lexical level
-    stack     => $VariableStack[-1],                                            # The number of the variable in the stack frame
-    reference => $options{reference},                                           # Reference to another variable if set
+    reference => undef,                                                         # Reference to another variable
     width     => RegisterSize(rax),                                             # Size of the variable in bytes
    );
  }
@@ -2188,7 +1870,9 @@ sub K(*;$%)                                                                     
 
 sub R(*)                                                                        # Define a reference variable.
  {my ($name) = @_;                                                              # Name of variable
-  &Variable($name, undef, reference => 1);                                             # The referring variable is 64 bits wide
+  my $r = &Variable($name);                                                     # The referring variable is 64 bits wide
+  $r->reference = 1;                                                            # Mark variable as a reference
+  $r                                                                            # Size of the referenced variable
  }
 
 sub V(*;$%)                                                                     # Define a variable.
@@ -28427,107 +28111,6 @@ if (1) {                                                                        
 END
 
   unlink $e, $f;
- }
-
-#latest:
-if (1) {                                                                        # Whether a string is all digits - Nicole
-  my $good = Label;
-  my $bad  = Label;
-  my $end  = Label;
-  my $endIsAllDigits = Label;
-
-  Jmp $endIsAllDigits;
-
-  my $startIsAllDigits = SetLabel;                                              # Start of subroutine allDigits. Its parameter is on the stack above the return address. The parameter is the address of the string.
-
-  Mov rax, "[rsp+8]";                                                           # The stack contains first the return address and then the parameter - get the parameter without disturbing the return address.
-  my $loop = SetLabel;                                                          # Do While loop
-    Cmp "byte[rax]", 0x0;                                                       # Test for 0x0 which marks the end of the string
-    Je $good;                                                                   # Reached end of string so it must be all digits
-    Cmp "byte[rax]", 0x30;                                                      # '0'
-    Jl $bad;                                                                    # Less than '0' in ascii table so must be bad
-    Cmp "byte[rax]", 0x39;                                                      # '9'
-    Jg $bad;                                                                    # Greater than '9' in ascii table so must be bad
-    Inc rax;                                                                    # Next character
-  Jmp $loop;
-
-  SetLabel $good;                                                               # No non digits found
-  Mov rax, 1;
-  Jmp $end;
-
-  SetLabel $bad;                                                                # Non digit found
-  Mov rax, 0;
-  Jmp $end;
-
-  SetLabel $end;                                                                # End of subroutine allDigits
-  Ret;
-  SetLabel $endIsAllDigits;
-
-  my $s1 = Rs("1234");
-  Mov rax, $s1;                                                                 # Test a string that has all digits - we should get 1 in rax
-  Push rax;
-  Call $startIsAllDigits;
-  PrintOutRegisterInHex rax;
-  Pop rax;
-
-  my $s2 = Rs("12a4");
-  Mov rax, $s2;                                                                 # Test a string that has a non digit - we should get 0 in rax
-  Push rax;
-  Call $startIsAllDigits;
-  PrintOutRegisterInHex rax;
-  Pop rax;
-
-  ok Assemble eq => <<END;                                                      # Assemble and test output
-   rax: 0000 0000 0000 0001
-   rax: 0000 0000 0000 0000
-END
- }
-
-#latest:
-if (1) {
-
-  my $s = Subroutine2
-   {Mov rax, 2;
-
-    my $s = Subroutine2
-     {Mov rax, 3;
-     } [];
-
-    $s->call;
-   } [];
-
-  Mov rax, 1;
-  $s->call;
-  PrintOutRegisterInHex rax;
-  ok Assemble eq => <<END;
-   rax: 0000 0000 0000 0003
-END
- }
-
-#latest:
-if (1) {
-  my $N = V(N => 42);
-
-  ok Assemble eq => <<END;
-END
- }
-
-latest:
-if (0) {
-  my $s = Subroutine2
-   {my ($p, $s) = @_;
-Comment "SetReg";
-    $$p{N}->setReg(rax);
-   } [qw(N)];
-
-Comment "Load variable";
-  my $N = V(N => 42);
-Comment "Call";
-  $s->call(N => $N);
-
-  ok Assemble eq => <<END, trace => 1;
-   rax: 0000 0000 0000 002A
-END
  }
 
 #latest:
