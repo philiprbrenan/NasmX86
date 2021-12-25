@@ -1368,7 +1368,7 @@ sub Nasm::X86::Subroutine::call($$$)                                            
 
   for my $name(sort keys $structures->%*)                                       # Upload the variables of each referenced structure to the new stack frame
    {my $s = $sub->structureVariables->{$name};
-    $$structures{$name}->passStructureVariablesAsParameters($s, $sub);
+    $$structures{$name}->uploadStructureVariables($s, $sub);
    }
 
 #  if (1)                                                                        # Transfer parameters by copying them to the base of the stack frame
@@ -28336,7 +28336,7 @@ if (1) {                                                                        
       my $v = $$parameters{1} = Nasm::X86::R('one');                            # Variable in subroutine stack frame
       describe(value=>$v);                                                      # Describe a copy of the original structure using variables in the stack frame of the subroutine
      }
-    sub passStructureVariablesAsParameters($$$)                                 # Pass parameters
+    sub uploadStructureVariables($$$)                                           # Pass parameters
      {my ($struct, $parameters, $sub) = @_;                                     # Structure, Parameters
       $sub->uploadToNewStackFrame($struct->value, $$parameters{1});             # Upload variables in structure into next stack frame
      }
