@@ -28322,9 +28322,9 @@ latest:
 if (1) {                                                                        #TSubroutine2
   package TestSubroutine
    {use Data::Table::Text qw(:all);
-    sub new(%)                                                                  # Create a new structure
-     {my (%options) = @_;                                                       # Parameters
-       describe(value => $options{value})
+    sub new($)                                                                  # Create a new structure
+     {my ($value) = @_;                                                         # Value for structure variable
+      describe(value => Nasm::X86::V(var => $_[0]))
      };
     sub describe(%)                                                             # Describe the components of a structure
      {my (%options) = @_;                                                       # Structure, Options
@@ -28341,13 +28341,9 @@ if (1) {                                                                        
      {my ($struct, $parameters, $sub) = @_;                                     # Structure, Parameters
       $sub->uploadToNewStackFrame($struct->value, $$parameters{1});             # Upload variables in structure into next stack frame
      }
-    sub reloadParameters($$$)                                                   # Reload structures
-     {my ($struct, $parameters, $sub) = @_;                                     # Structure, Parameters
-      $sub->uploadToNewStackFrame($struct->value, $$parameters{1});             # Upload variables in structure into next stack frame
-     }
    }
 
-  my $t = TestSubroutine::new value => V(var => 0);
+  my $t = TestSubroutine::new(42);
 
   my $s = Subroutine2
    {my ($parameters, $structures, $sub) = @_;                                   # Variable parameters, structure variables, structure copies, subroutine description
@@ -28359,7 +28355,7 @@ if (1) {                                                                        
     $$parameters{p}->setReg(rdx);
    } [qw(p)], structures => {test => $t}, name => 'test';
 
-  my $T = TestSubroutine::new value => V(var => 42);
+  my $T = TestSubroutine::new(42);
   my $V = V parameter => 21;
   $s->call({p => $V}, {test => $T});
 
@@ -28371,7 +28367,7 @@ if (1) {                                                                        
   ok Assemble(debug => 0, trace => 1, eq => <<END);
 42
 21
-0
+42
 84
 END
  }
