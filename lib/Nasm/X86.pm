@@ -28277,12 +28277,12 @@ END
   unlink $e, $f;
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TSubroutine2
   package TestSubroutine
    {use Data::Table::Text qw(:all);
-     sub new()
-     {describe(value => Nasm::X86::V(var => 42))
+     sub new($)
+     {describe(value => Nasm::X86::V(var => $_[0]))
      };
     sub describe(%)                                                             # Describe the components of a structure
      {my (%options) = @_;                                                       # Structure, Options
@@ -28305,14 +28305,15 @@ if (1) {                                                                        
      }
    }
 
-  my $t = TestSubroutine::new();
+  my $t = TestSubroutine::new(0);
   my $s = Subroutine2
    {my ($parameters, $structureCopies, $sub) = @_;                              # Variable parameters, structure variables, structure copies, subroutine description
     $$structureCopies{test}->value->setReg(rax);
    } [], structures => {test => $t}, name => 'test';
 
 
-  $s->call(undef, {test => $t});
+  my $T = TestSubroutine::new(42);
+  $s->call(undef, {test => $T});
 
   PrintOutRaxInDecNL;
   ok Assemble(debug => 0, trace => 1, eq => <<END);
