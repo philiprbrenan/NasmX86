@@ -1285,6 +1285,44 @@ sub Nasm::X86::Subroutine::uploadToNewStackFrame($$$)                           
 sub Nasm::X86::Subroutine::call($$$)                                            #P Call a sub passing it some parameters.
  {my ($sub, $parameters, $structures) = @_;                                     # Subroutine descriptor, parameters hash, structures hash
 
+  !$parameters or ref($parameters) =~ m(hash)i or confess
+    "Parameters must be formatted as a hash";
+
+  !$structures or ref($structures) =~ m(hash)i or confess
+    "Structures must be formatted as a hash";
+
+  if ($parameters)                                                              # Check for invalid or missing parameters
+   {my %p = map {$_=>1} $sub->parameters->@*;
+    my @m;
+    for my $p(sort keys %$parameters)
+     {push @m, "Invalid parameter: '$p'" unless $p{$p};
+     }
+    for my $p(sort keys %p)
+     {push @m, "Missing parameter: '$p'" unless $$parameters{$p};
+     }
+    if (@m)
+     {push @m, "Valid parameters : ";
+           $m[-1] .= join ", ", map {"'$_'"} sort $sub->parameters->@*;
+      confess join '', map {"$_\n"} @m;
+     }
+   }
+
+  if ($structures)                                                              # Check for invalid or missing structures
+   {my %s = $sub->options->{structures}->%*;
+    my @m;
+    for my $s(sort keys %$structures)
+     {push @m, "Invalid structure: '$s'" unless $s{$s};
+     }
+    for my $s(sort keys %s)
+     {push @m, "Missing structure: '$s'" unless $$structures{$s};
+     }
+    if (@m)
+     {push @m, "Valid structures : ";
+           $m[-1] .= join ", ", map {"'$_'"} sort keys %s;
+      confess join '', map {"$_\n"} @m;
+     }
+   }
+
 =pod
   my %p;
   while(@parameters)                                                            # Copy parameters supplied by the caller
@@ -1322,12 +1360,15 @@ sub Nasm::X86::Subroutine::call($$$)                                            
   Mov "dword[rsp  -$w*3]", $sub->nameString;                                    # Point to subroutine name
   Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable traceback with parameters
 
+  for my $name(sort keys $parameters->%*)                                       # Upload the variables referenced by the parameters to the new stack frame
+   {my $s = $$parameters{$name};
+    my $t = $sub->variables->{$name};
+    $sub->uploadToNewStackFrame($s, $t);
+   }
+
   for my $name(sort keys $structures->%*)                                       # Upload the variables of each referenced structure to the new stack frame
-   {if (my $s = $sub->structureVariables->{$name})
-     {$$structures{$name}->passStructureVariablesAsParameters($s, $sub);
-      next;
-     }
-    confess "Unknown structure parameter: $name";
+   {my $s = $sub->structureVariables->{$name};
+    $$structures{$name}->passStructureVariablesAsParameters($s, $sub);
    }
 
 #  if (1)                                                                        # Transfer parameters by copying them to the base of the stack frame
@@ -28309,15 +28350,19 @@ if (1) {                                                                        
   my $s = Subroutine2
    {my ($parameters, $structureCopies, $sub) = @_;                              # Variable parameters, structure variables, structure copies, subroutine description
     $$structureCopies{test}->value->setReg(rax);
-   } [], structures => {test => $t}, name => 'test';
-
+    $$parameters{p}->setReg(rdx);
+   } [qw(p)], structures => {test => $t}, name => 'test';
 
   my $T = TestSubroutine::new(42);
-  $s->call(undef, {test => $T});
+  my $V = V parameter => 21;
+  $s->call({p => $V}, {test => $T});
 
+  PrintOutRaxInDecNL;
+  Mov rax, rdx;
   PrintOutRaxInDecNL;
   ok Assemble(debug => 0, trace => 1, eq => <<END);
 42
+21
 END
  }
 
