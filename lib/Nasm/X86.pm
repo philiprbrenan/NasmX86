@@ -2659,7 +2659,7 @@ sub Nasm::X86::Variable::setReg($$)                                             
   $register
  }
 
-sub Nasm::X86::Variable::getReg($$@)                                            # Load the variable from the named registers.
+sub Nasm::X86::Variable::getReg($$@)                                            # Load the variable from a register expression.
  {my ($variable, $register, @registers) = @_;                                   # Variable, register to load, optional further registers to load from
   if ($variable->isRef)                                                         # Move to the location referred to by this variable
    {$Registers{$register} or confess "No such register: $register";             # Check we have been given a register
@@ -28322,8 +28322,9 @@ latest:
 if (1) {                                                                        #TSubroutine2
   package TestSubroutine
    {use Data::Table::Text qw(:all);
-     sub new($)
-     {describe(value => Nasm::X86::V(var => $_[0]))
+    sub new(%)                                                                  # Create a new structure
+     {my (%options) = @_;                                                       # Parameters
+       describe(value => $options{value})
      };
     sub describe(%)                                                             # Describe the components of a structure
      {my (%options) = @_;                                                       # Structure, Options
@@ -28346,23 +28347,32 @@ if (1) {                                                                        
      }
    }
 
-  my $t = TestSubroutine::new(0);
+  my $t = TestSubroutine::new value => V(var => 0);
+
   my $s = Subroutine2
-   {my ($parameters, $structureCopies, $sub) = @_;                              # Variable parameters, structure variables, structure copies, subroutine description
-    $$structureCopies{test}->value->setReg(rax);
+   {my ($parameters, $structures, $sub) = @_;                                   # Variable parameters, structure variables, structure copies, subroutine description
+
+    $$structures{test}->value->setReg(rax);
+    Mov r15, 84;
+    $$structures{test}->value->getReg(r15);
+
     $$parameters{p}->setReg(rdx);
    } [qw(p)], structures => {test => $t}, name => 'test';
 
-  my $T = TestSubroutine::new(42);
+  my $T = TestSubroutine::new value => V(var => 42);
   my $V = V parameter => 21;
   $s->call({p => $V}, {test => $T});
 
   PrintOutRaxInDecNL;
   Mov rax, rdx;
   PrintOutRaxInDecNL;
+  $t->value->outInDecNL;
+  $T->value->outInDecNL;
   ok Assemble(debug => 0, trace => 1, eq => <<END);
 42
 21
+0
+84
 END
  }
 
