@@ -1201,6 +1201,19 @@ sub cr(&@)                                                                      
 
 # Second subroutine version
 
+sub copyStructureMinusVariables($)                                              # Copy a non recursive structure ignoring variables
+ {my ($s) = @_;                                                                 # Structure to copy
+
+  my %s = %$s;
+  for my $k(sort keys %s)                                                       # Look for sub structures
+   {if (my $r = ref($s{$k}))
+     {$s{$k} = __SUB__->($s{$k}) unless $r =~ m(\AVariable\Z);                  # We do not want to copy the variables yet because we are going to make them into references.
+     }
+   }
+
+  bless \%s, ref $s;                                                            # Return a copy of the structure
+ }
+
 sub Subroutine2(&;$@)                                                           # Create a subroutine that can be called in assembler code.
  {my ($block, $parameters, %options) = @_;                                      # Block of code as a sub, optional [parameters  names], options.
   @_ >= 1 or confess "Subroutine requires at least a block";
@@ -1222,12 +1235,10 @@ sub Subroutine2(&;$@)                                                           
   SubroutineStartStack;                                                         # Open new stack layout with references to parameters
   my %parameters = map {$_ => R($_)} @$parameters;                              # Create a reference for each parameter.
 
-  my %structureVariables;                                                       # Variables needed by structures provided as parameters
-  my %structureCopies;                                                          # Copies of the structure being passed that can be use inside the subroutine to access their variables in the stack frame of the sub routine
-  if (my $structures = $options{structures})
+  my %structureCopies;                                                          # Copies of the structures being passed that can be use inside the subroutine to access their variables in the stack frame of the subroutine
+  if (my $structures = $options{structures})                                    # Structure provided in the parameter list
    {for my $name(sort keys %$structures)                                        # Each structure passed
-     {$structureCopies{$name} =                                                 # A new copy of the structure with its variables in the stack frame of the subroutine
-       $$structures{$name}->layoutStructureVariables($structureVariables{$name} = {});
+     {$structureCopies{$name} = copyStructureMinusVariables($$structures{$name})# A new copy of the structure with its variables left in place
      }
    }
 
@@ -1238,14 +1249,18 @@ sub Subroutine2(&;$@)                                                           
     start              => $start,                                               # Start label for this subroutine which includes the enter instruction used to create a new stack frame
     end                => $end,                                                 # End label for this subroutine
     name               => $name,                                                # Name of the subroutine from which the entry label is located
-#   args               => {map {$_=>1} @$parameters},                           # Hash of {argument name, argument variable}
     variables          => {%parameters},                                        # Map parameters to references at known positions in the sub
-    structureVariables => {%structureVariables},                                # Map structure variables to references at known positions in the sub
+    structureCopies    => \%structureCopies,                                    # Copies of the structures passed to this subroutine with their variables replaced with references
+    structureVariables => {},                                                   # Map structure variables to references at known positions in the sub
     options            => \%options,                                            # Options used by the author of the subroutine
     parameters         => $parameters,                                          # Parameters definitions supplied by the author of the subroutine which get mapped in to parameter variables.
     vars               => $VariableStack[-1],                                   # Number of variables in subroutine
     nameString         => Rs($name),                                            # Name of the sub as a string constant in read only storage
    );
+
+  if (my $structures = $options{structures})                                    # Map structures
+   {$s->mapStructureVariables(\%structureCopies);
+   }
 
   my $E = @text;                                                                # Code entry that will contain the Enter instruction
   Enter 0, 0;                                                                   # The Enter instruction is 4 bytes long
@@ -1264,10 +1279,56 @@ END
   $s                                                                            # Subroutine definition
  }
 
-sub Nasm::X86::Subroutine::uploadToNewStackFrame($$$)                           #P Map a variable in the current stack from into the next stack frame that will be used by this sub
- {my ($sub, $source, $target) = @_;                                             # Subroutine descriptor, source variable in teh current stack frame, the reference in the new stack frame
+sub Nasm::X86::Subroutine::mapStructureVariables($$$@)                          # Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined
+ {my ($sub, $S, @P) = @_;                                                       # Sub definition, copies of source structures, path through copies of source structures to a variable that becomes a reference
+  for my $s(sort keys %$S)                                                      # Source keys
+   {my $e = $$S{$s};
+    my $r = ref $e;
+    next unless $r;
+
+    if ($r =~ m(Variable)i)                                                     # Replace a variable with a reference in the copy of a structure passed in as a parameter
+     {push @P, $s;
+      my $R = $sub->structureVariables->{dump([@P])} = $$S{$s} = R();           # Path to a reference in the copy of a structure passed as as a parameter
+      pop @P;
+     }
+    else                                                                        # A reference to something else - for the moment we assume that structures are built from non recursive hash references
+     {push @P, $s;                                                              # Extend path
+      $sub->mapStructureVariables($e, @P);                                      # Map structure variable
+      pop @P;
+     }
+   }
+ }
+
+sub Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame($$@)         # Create references to variables in parameter structures from variables in the stack frame of the subroutine.
+ {my ($sub, $S, @P) = @_;                                                       # Sub definition, Source tree of input structures, path through sourtce structures tree
+
+  for my $s(sort keys %$S)                                                      # Source keys
+   {my $e = $$S{$s};
+    my $r = ref $e;
+    next unless $r;                                                             # Element in structure is not a variable or another hash describing a sub structure
+    if ($r =~ m(Variable)i)                                                     # Variable located
+     {push @P, $s;                                                              # Extend path
+      my $p = dump([@P]);                                                       # Path as string
+      my $R = $sub->structureVariables->{$p};                                   # Reference
+      if (defined($R))
+       {$sub->uploadToNewStackFrame($e, $R);                                    # Reference to structure variable from subroutine stack frame
+       }
+      else                                                                      # Unable to locate the corresponding reference
+       {confess "No entry for $p in structure variables";
+       }
+      pop @P;
+     }
+    else                                                                        # A hash that is not a variable and is therefore assumed to be a non recursive substructure
+     {push @P, $s;
+      $sub->uploadStructureVariablesToNewStackFrame($e, @P);
+      pop @P;
+     }
+   }
+ }
+
+sub Nasm::X86::Subroutine::uploadToNewStackFrame($$$)                           #P Map a variable in the current stack into a reference in the next stack frame being the one that will be used by this sub
+ {my ($sub, $source, $target) = @_;                                             # Subroutine descriptor, source variable in the current stack frame, the reference in the new stack frame
   my $label = $source->label;                                                   # Source in current frame
-  Comment("Copy parameter");
 
   if ($source->reference)                                                       # Source is a reference
    {Mov r15, "[$label]";
@@ -1323,42 +1384,10 @@ sub Nasm::X86::Subroutine::call($$$)                                            
      }
    }
 
-=pod
-  my %p;
-  while(@parameters)                                                            # Copy parameters supplied by the caller
-   {my $p = shift @parameters;                                                  # Check parameters provided by caller
-    my $n = ref($p) ? $p->name : $p;
-    defined($n) or confess "No name or variable";
-    my $v = ref($p) ? $p       : shift @parameters;                             # Each actual parameter is a variable or an expression that can loaded into a register
-    unless ($sub->args->{$n})                                                   # Describe valid parameters using a table
-     {my @t;
-      push @t, map {[$_]} keys $sub->args->%*;
-      my $t = formatTable([@t], [qw(Name)]);
-      confess "Invalid parameter: '$n'\n$t";
-     }
-    $p{$n} = ref($v) ? $v : V($n, $v);
-   }
-
-  my %with = ($sub->options->{with}{variables}//{})->%*;                        # The list of arguments the containing subroutine was called with
-
-  if (1)                                                                        # Check for missing arguments
-   {my %m = $sub->args->%*;                                                     # Formal arguments
-    delete $m{$_} for sort keys %p;                                             # Remove actual arguments
-    delete $m{$_} for sort keys %with;                                          # Remove arguments from calling environment if supplied
-    keys %m and confess "Missing arguments ".dump([sort keys %m]);              # Print missing parameter names
-   }
-
-  if (1)                                                                        # Check for misnamed arguments
-   {my %m = %p;                                                                 # Actual arguments
-    delete $m{$_} for sort keys($sub->args->%*), sort keys(%with);              # Remove formal arguments
-    keys %m and confess "Invalid arguments ".dump([sort keys %m]);              # Print misnamed arguments
-   }
-=cut
-
   my $w = RegisterSize r15;
   PushR r15;                                                                    # Use this register to transfer between the current frame and the next frame
   Mov "dword[rsp  -$w*3]", $sub->nameString;                                    # Point to subroutine name
-  Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable traceback with parameters
+  Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable trace back with parameters
 
   for my $name(sort keys $parameters->%*)                                       # Upload the variables referenced by the parameters to the new stack frame
    {my $s = $$parameters{$name};
@@ -1366,26 +1395,9 @@ sub Nasm::X86::Subroutine::call($$$)                                            
     $sub->uploadToNewStackFrame($s, $t);
    }
 
-  for my $name(sort keys $structures->%*)                                       # Upload the variables of each referenced structure to the new stack frame
-   {my $s = $sub->structureVariables->{$name};
-    $$structures{$name}->uploadStructureVariables($s, $sub);
+  if ($structures)                                                              # Upload the variables of each referenced structure to the new stack frame
+   {$sub->uploadStructureVariablesToNewStackFrame($structures);
    }
-
-#  if (1)                                                                        # Transfer parameters by copying them to the base of the stack frame
-#   {my %a = (%with, %p);                                                        # The consolidated argument list
-#    for my $a(sort keys %a)                                                     # Transfer parameters from current frame to next frame
-#     {my $label = $a{$a}->label;                                                # Source in current frame
-#      if ($a{$a}->reference)                                                    # Source is a reference
-#       {Mov r15, "[$label]";
-#       }
-#      else                                                                      # Source is not a reference
-#       {Lea r15, "[$label]";
-#       }
-#      my $q = $sub->variables->{$a}->label;
-#         $q =~ s(rbp) (rsp);                                                    # Labels are based off the stack frame but we are building a new stack frame here so we must rename the stack pointer.
-#      Mov "[$q-$w*2]", r15;                                                     # Step over subroutine name pointer and previous frame pointer.
-#     }
-#   }
 
   my $mode = 0;   # Assume call by address for the moment
   if ($mode)                                                                    # Dereference and call subroutine
@@ -28320,30 +28332,39 @@ END
 
 latest:
 if (1) {                                                                        #TSubroutine2
-  package TestSubroutine
+  package InnerStructure
    {use Data::Table::Text qw(:all);
     sub new($)                                                                  # Create a new structure
      {my ($value) = @_;                                                         # Value for structure variable
-      describe(value => Nasm::X86::V(var => $_[0]))
+      describe(value => Nasm::X86::V(var => $value))
      };
     sub describe(%)                                                             # Describe the components of a structure
-     {my (%options) = @_;                                                       # Structure, Options
+     {my (%options) = @_;                                                       # Options
       genHash(__PACKAGE__,
         value => $options{value},
        );
      }
-    sub layoutStructureVariables($$)                                            # Layout parameters describing structure
-     {my ($struct, $parameters) = @_;                                           # Structure, Parameters
-      my $v = $$parameters{1} = Nasm::X86::R('one');                            # Variable in subroutine stack frame
-      describe(value=>$v);                                                      # Describe a copy of the original structure using variables in the stack frame of the subroutine
-     }
-    sub uploadStructureVariables($$$)                                           # Pass parameters
-     {my ($struct, $parameters, $sub) = @_;                                     # Structure, Parameters
-      $sub->uploadToNewStackFrame($struct->value, $$parameters{1});             # Upload variables in structure into next stack frame
+   }
+
+  package OuterStructure
+   {use Data::Table::Text qw(:all);
+    sub new($$)                                                                 # Create a new structure
+     {my ($valueOuter, $valueInner) = @_;                                       # Value for structure variable
+      describe
+       (value => Nasm::X86::V(var => $valueOuter),
+        inner => InnerStructure::new($valueInner),
+       )
+     };
+    sub describe(%)                                                             # Describe the components of a structure
+     {my (%options) = @_;                                                       # Options
+      genHash(__PACKAGE__,
+        value => $options{value},
+        inner => $options{inner},
+       );
      }
    }
 
-  my $t = TestSubroutine::new(42);
+  my $t = OuterStructure::new(42, 4);
 
   my $s = Subroutine2
    {my ($parameters, $structures, $sub) = @_;                                   # Variable parameters, structure variables, structure copies, subroutine description
@@ -28351,24 +28372,31 @@ if (1) {                                                                        
     $$structures{test}->value->setReg(rax);
     Mov r15, 84;
     $$structures{test}->value->getReg(r15);
+    Mov r15, 8;
+    $$structures{test}->inner->value->getReg(r15);
 
     $$parameters{p}->setReg(rdx);
    } [qw(p)], structures => {test => $t}, name => 'test';
 
-  my $T = TestSubroutine::new(42);
+  my $T = OuterStructure::new(42, 4);
   my $V = V parameter => 21;
+
   $s->call({p => $V}, {test => $T});
 
   PrintOutRaxInDecNL;
   Mov rax, rdx;
   PrintOutRaxInDecNL;
   $t->value->outInDecNL;
+  $t->inner->value->outInDecNL;
   $T->value->outInDecNL;
+  $T->inner->value->outInDecNL;
   ok Assemble(debug => 0, trace => 1, eq => <<END);
 42
 21
 42
+4
 84
+8
 END
  }
 
