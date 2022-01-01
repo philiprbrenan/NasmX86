@@ -1200,6 +1200,14 @@ sub Subroutine2(&%)                                                             
  {my ($block, %options) = @_;                                                   # Block of code as a sub, options
   @_ >= 1 or confess "Subroutine requires at least a block";
 
+  if (1)                                                                        # Validate options
+   {my %o = %options;
+    delete $o{$_} for qw(parameters structures name);
+    if (my @i = sort keys %o)
+     {confess "Invalid parameters: ".join(', ',@i);
+     }
+   }
+
   my $name = $options{name};                                                    # Subroutine name
   $name or confess "Name required for subroutine, use [], name=>";
   if ($name and my $n = $subroutines{$name}) {return $n}                        # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
@@ -1326,7 +1334,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
 
   if (1)                                                                        # Validate options
    {my %o = %options;
-    delete $o{$_} for qw(parameters structures name);
+    delete $o{$_} for qw(parameters structures);
     if (my @i = sort keys %o)
      {confess "Invalid parameters: ".join(', ',@i);
      }
@@ -5711,25 +5719,23 @@ sub Nasm::X86::String::concatenate($$)                                          
  }
 
 sub Nasm::X86::String::insertChar($$$)                                          # Insert a character into a string.
- {my ($String, $character, $position) = @_;                                     # String, variable character, variable position
+ {my ($string, $character, $position) = @_;                                     # String, variable character, variable position
   @_ == 3 or confess "Three parameters";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     PushR (k7, r14, r15, zmm30, zmm31);
-#   my $B = $$p{bs};                                                            # The arena underlying the string
-    my $F = $$p{first};                                                         # The first block in string
     my $c = $$p{character};                                                     # The character to insert
     my $P = $$p{position};                                                      # The position in the string at which we want to insert the character
 
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $String = $arena->DescribeString;                                        # String
+    my $string = $$s{string};                                                   # String
+    my $F      = $string->first;                                                # The first block in string
 
-    $String->getZmmBlock($F, 31);                                               # The first source block
+    $string->getZmmBlock($F, 31);                                               # The first source block
 
     my $C   = V('Current character position', 0);                               # Current character position
-    my $L   = $String->getBlockLength(31);                                      # Length of last block
-    my $M   = V('Block length', $String->length);                               # Maximum length of a block
+    my $L   = $string->getBlockLength(31);                                      # Length of last block
+    my $M   = V('Block length', $string->length);                               # Maximum length of a block
     my $One = V('One', 1);                                                      # Literal one
     my $current = $F->clone('current');                                         # Current position in scan of block chain
 
@@ -5751,59 +5757,61 @@ sub Nasm::X86::String::insertChar($$$)                                          
           Then                                                                  # Current block has space
            {($P+1-$C)->setMask($C + $L - $P + 1, k7);                           # Set mask for reload
             Vmovdqu8 "zmm31{k7}", "[rsp-1]";                                    # Reload
-            $String->setBlockLengthInZmm($L + 1, 31);                           # Length of block
+            $string->setBlockLengthInZmm($L + 1, 31);                           # Length of block
            },
           Else                                                                  # In the current block but no space so split the block
            {$One->setMask($C + $L - $P + 2, k7);                                # Set mask for reload
             Vmovdqu8 "zmm30{k7}", "[rsp+r14-1]";                                # Reload
-            $String->setBlockLengthInZmm($O,          31);                      # New shorter length of original block
-            $String->setBlockLengthInZmm($L - $O + 1, 30);                      # Set length of  remainder plus inserted char in the new block
+            $string->setBlockLengthInZmm($O,          31);                      # New shorter length of original block
+            $string->setBlockLengthInZmm($L - $O + 1, 30);                      # Set length of  remainder plus inserted char in the new block
 
-            my $new = $String->allocBlock;                                      # Allocate new block
-            my ($next, $prev) = $String->getNextAndPrevBlockOffsetFromZmm(31);  # Linkage from last block
+            my $new = $string->allocBlock;                                      # Allocate new block
+            my ($next, $prev) = $string->getNextAndPrevBlockOffsetFromZmm(31);  # Linkage from last block
 
             If $next == $prev,
             Then                                                                # The existing string has one block, add new as the second block
-             {$String->putNextandPrevBlockOffsetIntoZmm(31, $new,  $new);
-              $String->putNextandPrevBlockOffsetIntoZmm(30, $next, $prev);
+             {$string->putNextandPrevBlockOffsetIntoZmm(31, $new,  $new);
+              $string->putNextandPrevBlockOffsetIntoZmm(30, $next, $prev);
              },
             Else                                                                # The existing string has two or more blocks
-             {$String->putNextandPrevBlockOffsetIntoZmm(31, $new,  $prev);      # From last block
-              $String->putNextandPrevBlockOffsetIntoZmm(30, $next, $current);   # From new block
+             {$string->putNextandPrevBlockOffsetIntoZmm(31, $new,  $prev);      # From last block
+              $string->putNextandPrevBlockOffsetIntoZmm(30, $next, $current);   # From new block
              };
 
-            $String->putZmmBlock($new, 30);                                     # Save the modified block
+            $string->putZmmBlock($new, 30);                                     # Save the modified block
            };
 
-          $String->putZmmBlock($current, 31);                                   # Save the modified block
+          $string->putZmmBlock($current, 31);                                   # Save the modified block
           PopR zmm31;                                                           # Restore stack
           Jmp $end;                                                             # Character successfully inserted
          };
        };
 
-      my ($next, $prev) = $String->getNextAndPrevBlockOffsetFromZmm(31);        # Get links from current source block
+      my ($next, $prev) = $string->getNextAndPrevBlockOffsetFromZmm(31);        # Get links from current source block
 
       If $next == $F,
       Then                                                                      # Last source block
        {$c->setReg(r15);                                                        # Character to insert
         Push r15;
         Mov r15, rsp;                                                           # Address content on the stack
-        $String->append($F, V(size, 1), V(source, r15));                        # Append character if we go beyond limit
+        $string->append($F, V(size, 1), V(source, r15));                        # Append character if we go beyond limit
         Pop  r15;
         Jmp $end;
        };
 
       $C += $L;                                                                 # Current character position at the start of the next block
       $current->copy($next);                                                    # Address next block
-      $String->getZmmBlock($current, 31);                                       # Next block
-      $L->copy($String->getBlockLength(31));                                    # Length of block
+      $string->getZmmBlock($current, 31);                                       # Next block
+      $L->copy($string->getBlockLength(31));                                    # Length of block
      };
 
     PopR;
-   } [qw(bs first character position)], name => 'Nasm::X86::String::insertChar';
+   } parameters=>[qw(character position)],
+     structures=>{string => $string},
+     name => 'Nasm::X86::String::insertChar';
 
-  $s->call(bs => $String->address, first => $String->first,
-    character => $character, position => $position)
+  $s->call(structures=>{string => $string},
+           parameters=>{character => $character, position => $position});
  } #insertChar
 
 sub Nasm::X86::String::deleteChar($$)                                           # Delete a character in a string.
@@ -24805,11 +24813,9 @@ if (1) {                                                                        
   my $S = CreateArena;
   my $s = $S->CreateString;
 
-  $s->append    (V(source => $c),   V(size => 3)); $s->dump;
-
-  $s->insertChar(V(source => 0x44), V(size => 2)); $s->dump;
-
-  $s->insertChar(V(source => 0x88), V(size => 2)); $s->dump;
+  $s->append     (V(source => $c),   V(size => 3)); $s->dump;
+   $s->insertChar(V(source => 0x44), V(size => 2)); $s->dump;
+   $s->insertChar(V(source => 0x88), V(size => 2)); $s->dump;
 
   ok Assemble(debug => 0, eq => <<END);
 String Dump      Total Length:        3
@@ -24830,9 +24836,7 @@ if (1) {                                                                        
   my $S = CreateArena;   my $s = $S->CreateString;
 
   $s->append    (V(source => $c),       V(size => 58));       $s->dump;
-
   $s->insertChar(V(character  => 0x44), V(position => 22));   $s->dump;
-
   $s->insertChar(V(character  => 0x88), V(position => 22));   $s->dump;
 
   ok Assemble(debug => 0, eq => <<END);
