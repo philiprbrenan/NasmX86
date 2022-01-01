@@ -1339,12 +1339,14 @@ sub Nasm::X86::Subroutine::uploadToNewStackFrame($$$)                           
   Mov "[$q-$w*2]", r15;                                                         # Step over subroutine name pointer and previous frame pointer.
  }
 
-sub Nasm::X86::Subroutine::call($$$)                                            #P Call a sub passing it some parameters.
- {my ($sub, $parameters, $structures) = @_;                                     # Subroutine descriptor, parameters hash, structures hash
+sub Nasm::X86::Subroutine::call($%)                                             #P Call a sub optionally passing it parameters.
+ {my ($sub, %options) = @_;                                                     # Subroutine descriptor, options
 
+  my $parameters = $options{parameters};                                        # Parameters hash
   !$parameters or ref($parameters) =~ m(hash)i or confess
     "Parameters must be formatted as a hash";
 
+  my $structures = $options{structures};                                        # Structures hash
   !$structures or ref($structures) =~ m(hash)i or confess
     "Structures must be formatted as a hash";
 
@@ -1775,7 +1777,7 @@ sub PrintOutZF                                                                  
 sub PrintUtf8Char($)                                                            # Print the utf-8 character addressed by rax to the specified channel. The character must be in little endian form.
  {my ($channel) = @_;                                                           # Channel
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p, $s) = @_;                                                           # Parameters
     PushR rax, rdi, r15;
     Mov r15d, "[rax]";                                                          # Load character - this assumes that each utf8 character sits by itself, right adjusted, in a block of 4 bytes
@@ -1785,9 +1787,9 @@ sub PrintUtf8Char($)                                                            
     Sub rdi, r15;                                                               # Width in bytes
     PrintMemory($channel);                                                      # Print letter from stack
     PopR;
-   } [], name => qq(Nasm::X86::printUtf8Char_$channel);
+   } name => qq(Nasm::X86::printUtf8Char_$channel);
 
-  $s->call();
+  $s->call;
  }
 
 sub PrintErrUtf8Char()                                                          # Print the utf-8 character addressed by rax to stderr.
@@ -1802,7 +1804,7 @@ sub PrintUtf32($$$)                                                             
  {my ($channel, $size, $address) = @_;                                          # Channel, variable: number of characters to print, variable: address of memory
   @_ == 3 or confess "Three parameters";
 
-  my $s = Subroutine                                                            # Subroutine
+  my $s = Subroutine2                                                           # Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, subroutine description
 
     PushR (rax, r14, r15);
@@ -1833,7 +1835,7 @@ sub PrintUtf32($$$)                                                             
     PopR;
    } [qw(size address)], name => qq(Nasm::X86::printUtf32_$channel);
 
-  $s->call(size => $size, address => $address);
+  $s->call(parameters=>{size => $size, address => $address});
  }
 
 sub PrintErrUtf32($$)                                                           # Print the utf-8 character addressed by rax to stderr.
@@ -28379,7 +28381,7 @@ if (1) {                                                                        
   my $T = OuterStructure::new(42, 4);
   my $V = V parameter => 21;
 
-  $s->call({p => $V}, {test => $T});
+  $s->call(parameters=>{p => $V}, structures=>{test => $T});
 
   PrintOutRaxInDecNL;
   Mov rax, rdx;
