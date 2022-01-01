@@ -1854,7 +1854,7 @@ sub PrintRaxInDec($)                                                            
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {PushR rax, rdi, rdx, r9, r10;
     Mov r9, 0;                                                                  # Number of decimal digits
     Mov r10, 10;                                                                # Base of number system
@@ -1877,7 +1877,7 @@ sub PrintRaxInDec($)                                                            
     Jnz $print;
 
     PopR;
-   } [], name => "PrintRaxInDec_$channel";
+   } name => "PrintRaxInDec_$channel";
 
   $s->call;
  }
@@ -1903,7 +1903,7 @@ sub PrintErrRaxInDecNL                                                          
 sub PrintRaxRightInDec($$)                                                      # Print rax in decimal right justified in a field of the specified width on the specified channel.
  {my ($width, $channel) = @_;                                                   # Width, channel
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     PushR rax, rdi, rdx, r9, r10;
     Mov r9, 0;                                                                  # Number of decimal digits
@@ -1933,9 +1933,9 @@ sub PrintRaxRightInDec($$)                                                      
     Jnz $print;
 
     PopR;
-   } [qw(width)], name => "PrintRaxRightInDec_${channel}";
+   } parameters=>[qw(width)], name => "PrintRaxRightInDec_${channel}";
 
-  $s->call(width => $width);
+  $s->call(parameters=>{width => $width});
  }
 
 sub PrintErrRaxRightInDec                                                       # Print rax in decimal right justified in a field of the specified width on stderr.
