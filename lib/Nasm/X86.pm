@@ -24741,7 +24741,7 @@ if (1) {                                                                        
 
   V(loop => 5)->for(sub
    {my $s = $a->CreateString;
-    $s->append(V(source => $t), K(size => 256));
+    $s->append(V(source => $t), K size => 256);
     $s->free;
     $a->length->outNL;
    });
@@ -24761,7 +24761,7 @@ if (1) {                                                                        
   my $S = CreateArena;   my $s = $S->CreateString;
   my $T = CreateArena;   my $t = $T->CreateString;
 
-  $s->append(V(source => $c), V(size => 256));
+  $s->append(V(source => $c), K size => 256);
   $t->concatenate($s);
   $t->dump;
 
@@ -24784,10 +24784,10 @@ if (1) {                                                                        
   my $S = CreateArena;   my $s = $S->CreateString;
   my $T = CreateArena;   my $t = $T->CreateString;
 
-  $s->append(V(source => $s1), V(size => 64));
-  $t->append(V(source => $s2), V(size => 64));
-  $s->append(V(source => $s1), V(size => 64));
-  $t->append(V(source => $s2), V(size => 64));
+  $s->append(V(source => $s1), K size => 64);
+  $t->append(V(source => $s2), K size => 64);
+  $s->append(V(source => $s1), K size => 64);
+  $t->append(V(source => $s2), K size => 64);
 
   $s->dump;
   $t->dump;
@@ -24812,9 +24812,9 @@ if (1) {                                                                        
   my $S = CreateArena;
   my $s = $S->CreateString;
 
-  $s->append     (V(source => $c),   V(size => 3)); $s->dump;
-   $s->insertChar(V(source => 0x44), V(size => 2)); $s->dump;
-   $s->insertChar(V(source => 0x88), V(size => 2)); $s->dump;
+  $s->append     (V(source => $c),   K size => 3); $s->dump;
+   $s->insertChar(V(source => 0x44), K size => 2); $s->dump;
+   $s->insertChar(V(source => 0x88), K size => 2); $s->dump;
 
   ok Assemble(debug => 0, eq => <<END);
 String Dump      Total Length:        3
@@ -24834,9 +24834,9 @@ if (1) {                                                                        
   my $c = Rb(0..255);
   my $S = CreateArena;   my $s = $S->CreateString;
 
-  $s->append    (V(source => $c),       V(size => 58));       $s->dump;
-  $s->insertChar(V(character  => 0x44), V(position => 22));   $s->dump;
-  $s->insertChar(V(character  => 0x88), V(position => 22));   $s->dump;
+  $s->append    (V(source => $c),       K size     => 58);  $s->dump;
+  $s->insertChar(V(character  => 0x44), K position => 22);  $s->dump;
+  $s->insertChar(V(character  => 0x88), K position => 22);  $s->dump;
 
   ok Assemble(debug => 0, eq => <<END);
 String Dump      Total Length:       58
@@ -24862,17 +24862,17 @@ if (1) {                                                                        
   my $S = CreateArena;
   my $s = $S->CreateString;
 
-  $s->append    (V(source => $c),      K(size => 54));      $s->dump;
+  $s->append    (V(source => $c),      K size     => 54);  $s->dump;
 
-  $s->insertChar(V(character => 0x77), K(position =>  4));  $s->dump;
-  $s->insertChar(V(character => 0x88), K(position =>  5));  $s->dump;
-  $s->insertChar(V(character => 0x99), K(position =>  6));  $s->dump;
-  $s->insertChar(V(character => 0xAA), K(position =>  7));  $s->dump;
-  $s->insertChar(V(character => 0xBB), K(position =>  8));  $s->dump;
-  $s->insertChar(V(character => 0xCC), K(position =>  9));  $s->dump;
-  $s->insertChar(V(character => 0xDD), K(position => 10));  $s->dump;
-  $s->insertChar(V(character => 0xEE), K(position => 11));  $s->dump;
-  $s->insertChar(V(character => 0xFF), K(position => 12));  $s->dump;
+  $s->insertChar(V(character => 0x77), K position =>  4);  $s->dump;
+  $s->insertChar(V(character => 0x88), K position =>  5);  $s->dump;
+  $s->insertChar(V(character => 0x99), K position =>  6);  $s->dump;
+  $s->insertChar(V(character => 0xAA), K position =>  7);  $s->dump;
+  $s->insertChar(V(character => 0xBB), K position =>  8);  $s->dump;
+  $s->insertChar(V(character => 0xCC), K position =>  9);  $s->dump;
+  $s->insertChar(V(character => 0xDD), K position => 10);  $s->dump;
+  $s->insertChar(V(character => 0xEE), K position => 11);  $s->dump;
+  $s->insertChar(V(character => 0xFF), K position => 12);  $s->dump;
 
   ok Assemble(debug => 0, eq => <<END);
 String Dump      Total Length:       54
