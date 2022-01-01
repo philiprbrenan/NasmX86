@@ -1731,7 +1731,7 @@ sub PrintOutRflagsInHex                                                         
 sub PrintOutRegistersInHex                                                      # Print the general purpose registers in hex.
  {@_ == 0 or confess "No parameters required";
 
-  my $sub = Macro
+  my $s = Subroutine2
    {PrintOutRipInHex;
     PrintOutRflagsInHex;
 
@@ -1753,7 +1753,7 @@ sub PrintOutRegistersInHex                                                      
     PopR @regs;
    } name=> "PrintOutRegistersInHex";
 
-  Call $sub;
+  $s->call;
  }
 
 sub PrintErrZF                                                                  # Print the zero flag without disturbing it on stderr.
