@@ -4525,7 +4525,7 @@ sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   
    } parameters => [qw(address size classification)],
      name       => "ClassifyWithInRangeAndSaveWordOffset";
 
-  $s->call($address, $size, $classification);
+  $s->call(parameters=>{address=>$address, size=>$size, classification=>$classification);
  } # ClassifyWithInRangeAndSaveWordOffset
 
 #D1 Short Strings                                                               # Operations on Short Strings
