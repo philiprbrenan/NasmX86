@@ -5306,7 +5306,6 @@ sub Nasm::X86::Arena::clear($)                                                  
 
   my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    Comment "Clear arena";
     PushR (rax, rdi);
     $$p{bs}->setReg(rax);
     Mov rdi, $arena->data;
@@ -5321,9 +5320,8 @@ sub Nasm::X86::Arena::write($$)                                                 
  {my ($arena, $file) = @_;                                                      # Arena descriptor, variable addressing file name
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    Comment "Write an arena to a file";
     SaveFirstFour;
 
     $$p{file}->setReg(rax);
@@ -5342,33 +5340,32 @@ sub Nasm::X86::Arena::write($$)                                                 
     $file->setReg(rax);
     CloseFile;
     RestoreFirstFour;
-   }  [qw(file bs)], name => 'Nasm::X86::Arena::write';
+   } parameters=>[qw(file bs)], name => 'Nasm::X86::Arena::write';
 
-  $s->call(bs => $arena->bs, file => $file);
+  $s->call(parameters=>{bs => $arena->bs, file => $file});
  }
 
 sub Nasm::X86::Arena::read($@)                                                  # Read a file specified by a variable addressed zero terminated string and place the contents of the file into the named arena.
  {my ($arena, $file) = @_;                                                      # Arena descriptor, variable addressing file name
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     Comment "Read an arena";
     my ($address, $size) = ReadFile $$p{file};
     $arena->m($address, $size);                                                 # Move data into arena
     FreeMemory($size, $address);                                                # Free memory allocated by read
-   } [qw(bs file)], name => 'Nasm::X86::Arena::read';
+   } parameters=>[qw(bs file)], name => 'Nasm::X86::Arena::read';
 
-  $s->call(bs => $arena->bs, file => $file);
+  $s->call(parameters=>{bs => $arena->bs, file => $file});
  }
 
 sub Nasm::X86::Arena::out($)                                                    # Print the specified arena on sysout.
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    Comment "Write an arena";
     SaveFirstFour;
     $$p{bs}->setReg(rax);
 
@@ -5377,9 +5374,9 @@ sub Nasm::X86::Arena::out($)                                                    
     Lea rax, "[rax+$$arena{data}]";                                             # Address of data field
     PrintOutMemory;
     RestoreFirstFour;
-   } [qw(bs)], name => 'Nasm::X86::Arena::out';
+   } parameters=>[qw(bs)], name => 'Nasm::X86::Arena::out';
 
-  $s->call(bs => $arena->bs);
+  $s->call(parameters=>{bs => $arena->bs});
  }
 
 sub Nasm::X86::Arena::dump($;$)                                                 # Dump details of an arena.
