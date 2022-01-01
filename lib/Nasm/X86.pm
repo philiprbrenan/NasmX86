@@ -3804,134 +3804,133 @@ sub ClearMemory($$)                                                             
   $s->call(parameters => {address => $address, size => $size});
  }
 
-sub MaskMemory22(@)                                                             # Write the specified byte into locations in the target mask that correspond to the locations in the source that contain the specified byte.
- {my (@variables) = @_;                                                         # Variables
-  @_ >= 2 or confess;
-  Comment "Clear memory";
+#sub MaskMemory22(@)                                                             # Write the specified byte into locations in the target mask that correspond to the locations in the source that contain the specified byte.
+# {my (@variables) = @_;                                                         # Variables
+#  @_ >= 2 or confess;
+#  Comment "Clear memory";
+#
+#  my $size = RegisterSize zmm0;
+#
+#  my $s = Subroutine
+#   {my ($p) = @_;                                                               # Parameters
+#    PushR (k6, k7, rax, rdi, rsi, rdx, r8, r9, r10, zmm0, zmm1, zmm2);
+#    $$p{source}->setReg(rax);
+#    $$p{mask}  ->setReg(rdx);
+#    $$p{match} ->setReg(rsi);
+#    $$p{set}   ->setReg(rdi);
+#    $$p{size}  ->setReg(r8);
+#    Lea r9, "[rax+r8]";                                                         # Address of upper limit of source
+#
+#    Vpbroadcastb zmm1, rsi;                                                     # Character to match
+#    Vpbroadcastb zmm2, rdi;                                                     # Character to write into mask
+#
+#    Mov r10, r8;                                                                # Modulus the size of zmm
+#    And r10, 0x3f;
+#    Test r10, r10;
+#    IfNz sub                                                                    # Need to align so that the rest of the clear can be done in full zmm blocks
+#     {V(align, r10)->setMaskFirst(k7);                                          # Set mask bits
+#      Vmovdqu8 "zmm0\{k7}", "[rax]";                                            # Load first incomplete block of source
+#      Vpcmpub  "k6{k7}", zmm0, zmm1, 0;                                         # Characters in source that match
+#      Vmovdqu8 "[rdx]{k6}", zmm2;                                               # Write set byte into mask at match points
+#      Add rax, r10;                                                             # Update point to mask from
+#      Add rdx, r10;                                                             # Update point to mask to
+#      Sub  r8, r10;                                                             # Reduce mask length
+#     };
+#
+#    For                                                                         # Clear remaining memory in full zmm blocks
+#     {Vmovdqu8 zmm0, "[rax]";                                                   # Load complete block of source
+#      Vpcmpub  "k7", zmm0, zmm1, 0;                                             # Characters in source that match
+#      Vmovdqu8 "[rdx]{k7}", zmm2;                                               # Write set byte into mask at match points
+#      Add rdx, $size;                                                           # Update point to mask to
+#     } rax, r9, $size;
+#
+#    PopR;
+#   } [qw(size source mask match set)];                                          # Match is the character to match on in the source, set is the character to write into the mask at the corresponding position.
+#
+#  $s->call(@variables);
+# }
 
-  my $size = RegisterSize zmm0;
+#sub MaskMemoryInRange4_22(@)                                                    # Write the specified byte into locations in the target mask that correspond to the locations in the source that contain 4 bytes in the specified range.
+# {my (@variables) = @_;                                                         # Variables
+#  @_ >= 6 or confess;
+#  Comment "Clear memory";
+#
+#  my $size = RegisterSize zmm0;
+#
+#  my $s = Subroutine
+#   {my ($p) = @_;                                                               # Parameters
+#    PushR (k4, k5, k6, k7, zmm(0..9), map{"r$_"} qw(ax di si dx), 8..15);
+#    $$p{source}->setReg(rax);
+#    $$p{mask}  ->setReg(rdx);
+#    $$p{low}   ->setReg(r10);
+#    $$p{high}  ->setReg(r11);
+#    $$p{set}   ->setReg(rdi);
+#    $$p{size}  ->setReg(rsi);
+#
+#    Vpbroadcastb zmm1, rdi;                                                     # Character to write into mask
+#                Vpbroadcastb zmm2, r10;                                         # Character 1 low
+#    Shr r10, 8; Vpbroadcastb zmm3, r10;                                         # Character 2 low
+#    Shr r10, 8; Vpbroadcastb zmm4, r10;                                         # Character 3 low
+#    Shr r10, 8; Vpbroadcastb zmm5, r10;                                         # Character 4 low
+#                Vpbroadcastb zmm6, r11;                                         # Character 1 high
+#    Shr r11, 8; Vpbroadcastb zmm7, r11;                                         # Character 2 high
+#    Shr r11, 8; Vpbroadcastb zmm8, r11;                                         # Character 3 high
+#    Shr r11, 8; Vpbroadcastb zmm9, r11;                                         # Character 4 high
+#    Lea r8, "[rax+rsi]";                                                        # Address of upper limit of source
+#
+#    my sub check($$)                                                            # Check a character
+#     {my ($z, $f) = @_;                                                         # First zmm, finished label
+#      my $Z = $z + 4;
+#      Vpcmpub  "k6{k7}", zmm0, "zmm$z", 5;                                      # Greater than or equal
+#      Vpcmpub  "k7{k6}", zmm0, "zmm$Z", 2;                                      # Less than or equal
+#      Ktestq k7, k7;
+#      Jz $f;                                                                    # No match
+#      Kshiftlq k7, k7, 1;                                                       # Match - move up to next character
+#     };
+#
+#    my sub last4()                                                              # Expand each set bit four times
+#     {Kshiftlq k6, k7, 1;  Kandq k7, k6, k7;                                    # We have found a character in the specified range
+#      Kshiftlq k6, k7, 2;  Kandq k7, k6, k7;                                    # Last four
+#     };
+#
+#    For                                                                         # Mask remaining memory in full zmm blocks
+#     {my $finished = Label;                                                     # Point where we have finished the initial comparisons
+#      Vmovdqu8 zmm0, "[rax]";                                                   # Load complete block of source
+#      Kxnorq k7, k7, k7;                                                        # Complete block - sets register to all ones
+#      check($_, $finished) for 2..5;  last4;                                    # Check a range
+#
+#      Vmovdqu8 "[rdx]{k7}", zmm1;                                               # Write set byte into mask at match points
+#      Add rdx, $size;                                                           # Update point to mask to
+#      SetLabel $finished;
+#     } rax, r8, $size;
+#
+#
+#    Mov r10, rsi; And r10, 0x3f;                                                # Modulus the size of zmm
+#    Test r10, r10;
+#    IfNz sub                                                                    # Need to align so that the rest of the mask can be done in full zmm blocks
+#     {my $finished = Label;                                                     # Point where we have finished the initial comparisons
+#      V(align, r10)->setMaskFirst(k7);                                          # Set mask bits
+#      Vmovdqu8 "zmm0\{k7}", "[rax]";                                            # Load first incomplete block of source
+#      check($_, $finished) for 2..5;  last4;                                    # Check a range
+#      Vmovdqu8 "[rdx]{k7}", zmm1;                                               # Write set byte into mask at match points
+#      Add rax, r10;                                                             # Update point to mask from
+#      Add rdx, r10;                                                             # Update point to mask to
+#      Sub  r8, r10;                                                             # Reduce mask length
+#      SetLabel $finished;
+#     };
+#
+#    PopR;
+#   } [qw(size source mask set low high)];
+#
+#  $s->call(@variables);
+# } # MaskMemoryInRange4
 
-  my $s = Subroutine
+sub CopyMemory($$$)                                                             # Copy memory.
+ {my ($source, $target, $size) = @_;                                            # Source address variable, target address variable, length variable
+  @_ == 3 or confess "Source, target, size required";
+
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    PushR (k6, k7, rax, rdi, rsi, rdx, r8, r9, r10, zmm0, zmm1, zmm2);
-    $$p{source}->setReg(rax);
-    $$p{mask}  ->setReg(rdx);
-    $$p{match} ->setReg(rsi);
-    $$p{set}   ->setReg(rdi);
-    $$p{size}  ->setReg(r8);
-    Lea r9, "[rax+r8]";                                                         # Address of upper limit of source
-
-    Vpbroadcastb zmm1, rsi;                                                     # Character to match
-    Vpbroadcastb zmm2, rdi;                                                     # Character to write into mask
-
-    Mov r10, r8;                                                                # Modulus the size of zmm
-    And r10, 0x3f;
-    Test r10, r10;
-    IfNz sub                                                                    # Need to align so that the rest of the clear can be done in full zmm blocks
-     {V(align, r10)->setMaskFirst(k7);                                          # Set mask bits
-      Vmovdqu8 "zmm0\{k7}", "[rax]";                                            # Load first incomplete block of source
-      Vpcmpub  "k6{k7}", zmm0, zmm1, 0;                                         # Characters in source that match
-      Vmovdqu8 "[rdx]{k6}", zmm2;                                               # Write set byte into mask at match points
-      Add rax, r10;                                                             # Update point to mask from
-      Add rdx, r10;                                                             # Update point to mask to
-      Sub  r8, r10;                                                             # Reduce mask length
-     };
-
-    For                                                                         # Clear remaining memory in full zmm blocks
-     {Vmovdqu8 zmm0, "[rax]";                                                   # Load complete block of source
-      Vpcmpub  "k7", zmm0, zmm1, 0;                                             # Characters in source that match
-      Vmovdqu8 "[rdx]{k7}", zmm2;                                               # Write set byte into mask at match points
-      Add rdx, $size;                                                           # Update point to mask to
-     } rax, r9, $size;
-
-    PopR;
-   } [qw(size source mask match set)];                                          # Match is the character to match on in the source, set is the character to write into the mask at the corresponding position.
-
-  $s->call(@variables);
- }
-
-sub MaskMemoryInRange4_22(@)                                                    # Write the specified byte into locations in the target mask that correspond to the locations in the source that contain 4 bytes in the specified range.
- {my (@variables) = @_;                                                         # Variables
-  @_ >= 6 or confess;
-  Comment "Clear memory";
-
-  my $size = RegisterSize zmm0;
-
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-    PushR (k4, k5, k6, k7, zmm(0..9), map{"r$_"} qw(ax di si dx), 8..15);
-    $$p{source}->setReg(rax);
-    $$p{mask}  ->setReg(rdx);
-    $$p{low}   ->setReg(r10);
-    $$p{high}  ->setReg(r11);
-    $$p{set}   ->setReg(rdi);
-    $$p{size}  ->setReg(rsi);
-
-    Vpbroadcastb zmm1, rdi;                                                     # Character to write into mask
-                Vpbroadcastb zmm2, r10;                                         # Character 1 low
-    Shr r10, 8; Vpbroadcastb zmm3, r10;                                         # Character 2 low
-    Shr r10, 8; Vpbroadcastb zmm4, r10;                                         # Character 3 low
-    Shr r10, 8; Vpbroadcastb zmm5, r10;                                         # Character 4 low
-                Vpbroadcastb zmm6, r11;                                         # Character 1 high
-    Shr r11, 8; Vpbroadcastb zmm7, r11;                                         # Character 2 high
-    Shr r11, 8; Vpbroadcastb zmm8, r11;                                         # Character 3 high
-    Shr r11, 8; Vpbroadcastb zmm9, r11;                                         # Character 4 high
-    Lea r8, "[rax+rsi]";                                                        # Address of upper limit of source
-
-    my sub check($$)                                                            # Check a character
-     {my ($z, $f) = @_;                                                         # First zmm, finished label
-      my $Z = $z + 4;
-      Vpcmpub  "k6{k7}", zmm0, "zmm$z", 5;                                      # Greater than or equal
-      Vpcmpub  "k7{k6}", zmm0, "zmm$Z", 2;                                      # Less than or equal
-      Ktestq k7, k7;
-      Jz $f;                                                                    # No match
-      Kshiftlq k7, k7, 1;                                                       # Match - move up to next character
-     };
-
-    my sub last4()                                                              # Expand each set bit four times
-     {Kshiftlq k6, k7, 1;  Kandq k7, k6, k7;                                    # We have found a character in the specified range
-      Kshiftlq k6, k7, 2;  Kandq k7, k6, k7;                                    # Last four
-     };
-
-    For                                                                         # Mask remaining memory in full zmm blocks
-     {my $finished = Label;                                                     # Point where we have finished the initial comparisons
-      Vmovdqu8 zmm0, "[rax]";                                                   # Load complete block of source
-      Kxnorq k7, k7, k7;                                                        # Complete block - sets register to all ones
-      check($_, $finished) for 2..5;  last4;                                    # Check a range
-
-      Vmovdqu8 "[rdx]{k7}", zmm1;                                               # Write set byte into mask at match points
-      Add rdx, $size;                                                           # Update point to mask to
-      SetLabel $finished;
-     } rax, r8, $size;
-
-
-    Mov r10, rsi; And r10, 0x3f;                                                # Modulus the size of zmm
-    Test r10, r10;
-    IfNz sub                                                                    # Need to align so that the rest of the mask can be done in full zmm blocks
-     {my $finished = Label;                                                     # Point where we have finished the initial comparisons
-      V(align, r10)->setMaskFirst(k7);                                          # Set mask bits
-      Vmovdqu8 "zmm0\{k7}", "[rax]";                                            # Load first incomplete block of source
-      check($_, $finished) for 2..5;  last4;                                    # Check a range
-      Vmovdqu8 "[rdx]{k7}", zmm1;                                               # Write set byte into mask at match points
-      Add rax, r10;                                                             # Update point to mask from
-      Add rdx, r10;                                                             # Update point to mask to
-      Sub  r8, r10;                                                             # Reduce mask length
-      SetLabel $finished;
-     };
-
-    PopR;
-   } [qw(size source mask set low high)];
-
-  $s->call(@variables);
- } # MaskMemoryInRange4
-
-sub CopyMemory(@)                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi.
- {my (@variables) = @_;                                                         # Variables
-  @_ >= 3 or confess;
-
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-    Comment "Copy memory";
     SaveFirstSeven;
     $$p{source}->setReg(rsi);
     $$p{target}->setReg(rax);
@@ -3942,9 +3941,9 @@ sub CopyMemory(@)                                                               
       Mov "[rax+rdx]", "r8b";
      } rdx, rdi, 1;
     RestoreFirstSeven;
-   } [qw(source target size)], name => 'CopyMemory';
+   } parameters=>[qw(source target size)], name => 'CopyMemory';
 
-  $s->call(@variables);
+  $s->call(parameters=>{source => $source, target=>$target, size=>$size});
  }
 
 #D2 Files                                                                       # Interact with the operating system via files.
@@ -4974,7 +4973,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
       my $oldSize = V(size, $size);                                             # The old size of the arena
       my $newSize = V(size, $proposed);                                         # The old size of the arena
       my $address = AllocateMemory($newSize);                                   # Create new arena
-      CopyMemory(target   => $address, source => $$p{bs}, $oldSize);            # Copy old arena into new arena
+      CopyMemory($$p{bs}, $address, $oldSize);                                  # Copy old arena into new arena
       FreeMemory $$p{bs}, $oldSize;                                             # Free previous memory previously occupied arena
       $$p{bs}->copy($address);                                                  # Save new arena address
 
@@ -5236,7 +5235,7 @@ sub Nasm::X86::Arena::m($$$)                                                    
     $arena->updateSpace($$p{size});                                             # Update space if needed
 
     my $target  = $oldUsed + $$p{bs};
-    CopyMemory(source => $$p{address}, $$p{size}, target => $target);           # Move data in
+    CopyMemory($$p{address}, $target, $$p{size});                               # Copy data into the arena
 
     my $newUsed = $oldUsed + $$p{size};
 
@@ -24203,10 +24202,10 @@ if (1) {                                                                        
   my $N = 256;
   my $s = Rb 0..$N-1;
   my $a = AllocateMemory K size => $N;
-  CopyMemory(V(source => $s), V(size => $N), target => $a);
+  CopyMemory(V(source => $s), $a, K(size => $N));
 
   my $b = AllocateMemory K size => $N;
-  CopyMemory(source => $a, target => $b, K size => $N);
+  CopyMemory($a, $b, K size => $N);
 
   $b->setReg(rax);
   Mov rdi, $N;
@@ -25695,7 +25694,7 @@ if (1) {                                                                        
   my $l = StringLength $s;
 
   my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
-  CopyMemory(source => $s, target => $address, $l);
+  CopyMemory($s, $address, $l);
 
   GetNextUtf8CharAsUtf32 in=>$address, @p;
   $out->out('outA : ');     $size->outNL(' size : ');
