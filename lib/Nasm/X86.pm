@@ -4945,7 +4945,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
  {my ($arena, $size) = @_;                                                      # Arena descriptor, variable size needed
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     PushR (rax, r11, r12, r13, r14, r15);
     my $base     = rax;                                                         # Base of arena
@@ -4985,16 +4985,16 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
      };
 
     PopR;
-   } [qw(bs size)] , name => 'Nasm::X86::Arena::updateSpace';
+   } parameters=>[qw(bs size)], name => 'Nasm::X86::Arena::updateSpace';
 
-  $s->call(bs => $arena->bs, size => $size);
+  $s->call(parameters=>{bs => $arena->bs, size => $size});
  } # updateSpace
 
 sub Nasm::X86::Arena::makeReadOnly($)                                           # Make an arena read only.
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     Comment "Make an arena readable";
     SaveFirstFour;
@@ -5006,16 +5006,16 @@ sub Nasm::X86::Arena::makeReadOnly($)                                           
     Mov rax, 10;
     Syscall;
     RestoreFirstFour;                                                           # Return the possibly expanded arena
-   } [qw(bs)], name => 'Nasm::X86::Arena::makeReadOnly';
+   } parameters=>[qw(bs)], name => 'Nasm::X86::Arena::makeReadOnly';
 
-  $s->call(bs => $arena->bs);
+  $s->call(parameters=>{bs => $arena->bs});
  }
 
 sub Nasm::X86::Arena::makeWriteable($)                                          # Make an arena writable.
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     Comment "Make an arena writable";
     SaveFirstFour;
@@ -5026,9 +5026,9 @@ sub Nasm::X86::Arena::makeWriteable($)                                          
     Mov rax, 10;
     Syscall;
     RestoreFirstFour;                                                           # Return the possibly expanded arena
-   } [qw(bs)], name => 'Nasm::X86::Arena::makeWriteable';
+   } parameters=>[qw(bs)], name => 'Nasm::X86::Arena::makeWriteable';
 
-  $s->call(bs => $arena->bs);
+  $s->call(parameters=>{bs => $arena->bs});
  }
 
 sub Nasm::X86::Arena::allocate($$)                                              # Allocate the variable amount of space in the variable addressed arena and return the offset of the allocation in the arena as a variable.
