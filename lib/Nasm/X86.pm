@@ -3544,7 +3544,7 @@ sub GetPidInHex()                                                               
   Comment "Get Pid";
   my $hexTranslateTable = hexTranslateTable;
 
-  my $sub = Macro
+  my $s = Subroutine2
    {SaveFirstFour;
     Mov rax, 39;                                                                # Get pid
     Syscall;
@@ -3565,7 +3565,7 @@ sub GetPidInHex()                                                               
     RestoreFirstFourExceptRax;
    } name => "GetPidInHex";
 
-  Call $sub;
+  $s->call;
  }
 
 sub GetPPid()                                                                   # Get parent process identifier.
@@ -23752,6 +23752,7 @@ if (1) {                                                                        
   is_deeply stringMd5Sum($r), fileMd5Sum($0);                                   # Output contains this file
  }
 
+#latest:;
 if (1) {                                                                        # Print rdi in hex into an arena #TGetPidInHex
   GetPidInHex;
   PrintOutRegisterInHex rax;
@@ -23759,6 +23760,7 @@ if (1) {                                                                        
   ok Assemble =~ m(rax: 00);
  }
 
+#latest:;
 if (1) {                                                                        # Execute the content of an arena #TexecuteFileViaBash #TArena::write #TArena::out #TunlinkFile #TArena::ql
   my $s = CreateArena;                                                          # Create a string
   $s->ql(<<END);                                                                # Write code to execute
@@ -23775,6 +23777,7 @@ END
   ok Assemble(emulator => 0) =~ m($u);                                          # The Intel Software Development Emulator is way too slow on these operations.
  }
 
+#latest:;
 if (1) {                                                                        # Make an arena readonly
   my $s = CreateArena;                                                          # Create an arena
   $s->q("Hello");                                                               # Write code to arena
@@ -23784,6 +23787,7 @@ if (1) {                                                                        
   ok Assemble(debug=>2) =~ m(SDE ERROR: DEREFERENCING BAD MEMORY POINTER.*mov byte ptr .rax.rdx.1., r8b);
  }
 
+#latest:;
 if (1) {                                                                        # Make a read only arena writable  #TArena::makeReadOnly #TArena::makeWriteable
   my $s = CreateArena;                                                          # Create an arena
   $s->q("Hello");                                                               # Write data to arena
