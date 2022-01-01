@@ -4525,7 +4525,8 @@ sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   
    } parameters => [qw(address size classification)],
      name       => "ClassifyWithInRangeAndSaveWordOffset";
 
-  $s->call(parameters=>{address=>$address, size=>$size, classification=>$classification);
+  $s->call(parameters=>{address=>$address, size=>$size,
+           classification=>$classification});
  } # ClassifyWithInRangeAndSaveWordOffset
 
 #D1 Short Strings                                                               # Operations on Short Strings
@@ -4687,7 +4688,7 @@ sub Nasm::X86::ShortString::append($$)                                          
   my $w  = $left->lengthWidth;                                                  # The length of the initial field followed by the data
   my $m  = $left->maximumLength;                                                # Maximum width of a short string
 
-  my $s = Subroutine                                                            # Append two short strings
+  my $s = Subroutine2                                                           # Append two short strings
    {PushR (k7, rcx, r14, r15);
     Pextrb r15, $rx, 0;                                                         # Length of right hand string
     Mov   r14, -1;                                                              # Expand mask
@@ -4705,7 +4706,7 @@ sub Nasm::X86::ShortString::append($$)                                          
     Add   rcx, r15;                                                             # Length of combined string = length of left plus length of right
     Pinsrb $lx, cl, 0;                                                          # Save new length in left hand result
     PopR;
-   } [], name=> "Nasm::X86::ShortString::append_${lz}_${rz}";
+   } name=> "Nasm::X86::ShortString::append_${lz}_${rz}";
 
   my $R = V result => 0;                                                        # Assume we will fail
   If $left->len + $right->len <= $m,                                            # Complain if result will be too long
@@ -4724,7 +4725,7 @@ sub Nasm::X86::ShortString::appendByte($$)                                      
   my $x = $string->x;                                                           # Corresponding xmm
   my $w = $string->lengthWidth;                                                 # The length of the initial field followed by the data
 
-  my $s = Subroutine                                                            # Append byte to short string
+  my $s = Subroutine2                                                           # Append byte to short string
    {my ($p) = @_;                                                               # Parameters
     PushR r14, r15;
     Pextrb r15, $x, 0;                                                          # Length of string
@@ -4740,10 +4741,11 @@ sub Nasm::X86::ShortString::appendByte($$)                                      
       $$p{result}->copy(1);                                                     # Show success
      };
     PopR;
-   } [qw(result char)], name=> "Nasm::X86::ShortString::appendByte_$z";
+   } parameters=>[qw(result char)],
+     name=> "Nasm::X86::ShortString::appendByte_$z";
 
   my $R = V result => 0;                                                        # Assume we will fail
-  $s->call($R, char => $char);
+  $s->call(parameters=>{result=>$R, char => $char});
 
   $R
  }
