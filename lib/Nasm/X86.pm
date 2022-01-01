@@ -3588,7 +3588,7 @@ sub WaitPid()                                                                   
  {@_ == 0 or confess;
   Comment "WaitPid - wait for the pid in rax";
 
-    my $sub = Macro
+    my $s = Subroutine2
    {SaveFirstSeven;
     Mov rdi,rax;
     Mov rax, 61;
@@ -3599,13 +3599,13 @@ sub WaitPid()                                                                   
     RestoreFirstSevenExceptRax;
    } name => "WaitPid";
 
-  Call $sub;
+  $s->call;
  }
 
 sub ReadTimeStampCounter()                                                      # Read the time stamp counter and return the time in nanoseconds in rax.
  {@_ == 0 or confess;
 
-  my $sub = Macro
+  my $s = Subroutine2
    {Comment "Read Time-Stamp Counter";
     PushR rdx;
     ClearRegisters rax;
@@ -3616,7 +3616,7 @@ sub ReadTimeStampCounter()                                                      
     PopR;
    } name => "ReadTimeStampCounter";
 
-  Call $sub;
+  $s->call;
  }
 
 #D2 Memory                                                                      # Allocate and print memory
@@ -3626,7 +3626,7 @@ sub PrintMemoryInHex($)                                                         
   @_ == 1 or confess "One parameter";
   Comment "Print out memory in hex on channel: $channel";
 
-  Call Macro
+  my $s = Subroutine2
    {my $size = RegisterSize rax;
     SaveFirstFour;
     Test rdi, 0x7;                                                              # Round the number of bytes to be printed
@@ -3645,6 +3645,8 @@ sub PrintMemoryInHex($)                                                         
      } rsi, rdi, $size;
     RestoreFirstFour;
    } name=> "PrintOutMemoryInHexOnChannel$channel";
+
+  $s->call;
  }
 
 sub PrintErrMemoryInHex                                                         # Dump memory from the address in rax for the length in rdi on stderr.
@@ -3673,7 +3675,7 @@ sub PrintMemory($)                                                              
  {my ($channel) = @_;                                                           # Channel
   @_ == 1 or confess "One parameter";
 
-  Call Macro
+  my $s = Subroutine2
    {Comment "Print memory on channel: $channel";
     SaveFirstFour rax, rdi;
     Mov rsi, rax;
@@ -3683,6 +3685,8 @@ sub PrintMemory($)                                                              
     Syscall;
     RestoreFirstFour();
    } name => "PrintOutMemoryOnChannel$channel";
+
+  $s->call;
  }
 
 sub PrintMemoryNL                                                               # Print the memory addressed by rax for a length of rdi on the specified channel followed by a new line.
@@ -3714,11 +3718,11 @@ sub PrintOutMemoryNL                                                            
   PrintOutNL;
  }
 
-sub AllocateMemory(@)                                                           # Allocate the specified amount of memory via mmap and return its address.
- {my (@variables) = @_;                                                         # Parameters
-  @_ >= 2 or confess;
+sub AllocateMemory(@)                                                           # Allocate the variable specified amount of memory via mmap and return its address as a variable.
+ {my ($size) = @_;                                                              # Size as a variable
+  @_ == 1 or confess "Size required";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     Comment "Allocate memory";
     SaveFirstSeven;
@@ -3758,9 +3762,11 @@ sub AllocateMemory(@)                                                           
      $$p{address}->getReg(rax);                                                 # Amount of memory
 
     RestoreFirstSeven;
-   } [qw(address size)], name => 'AllocateMemory';
+   } parameters=>[qw(address size)], name => 'AllocateMemory';
 
-  $s->call(@variables);
+  $s->call(parameters=>{size=>$size, address => my $address = V address => 0});
+
+  $address;
  }
 
 sub FreeMemory(@)                                                               # Free memory.
@@ -4871,9 +4877,10 @@ sub CreateArena(%)                                                              
    {my ($p) = @_;                                                               # Parameters
     SaveFirstFour;
 
-    AllocateMemory(K(size, $N), address=>$$p{bs});                              # Allocate memory and save its location in a variable
+    my $arena = AllocateMemory K size=> $N;                                     # Allocate memory and save its location in a variable
 
-    $$p{bs}->setReg(rax);
+    $$p{bs}->copy($arena);                                                      # Save address of arena
+    $arena->setReg(rax);
     Mov "dword[rax+$used]", $data;                                              # Initially used space
     Mov "dword[rax+$size]", $N;                                                 # Size
 
@@ -4980,7 +4987,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
        });
       my $oldSize = V(size, $size);                                             # The old size of the arena
       my $newSize = V(size, $proposed);                                         # The old size of the arena
-      AllocateMemory(size => $newSize, my $address = V(address));               # Create new arena
+      my $address = AllocateMemory($newSize);                                   # Create new arena
       CopyMemory(target   => $address, source => $$p{bs}, $oldSize);            # Copy old arena into new arena
       FreeMemory(address  => $$p{bs},  size   => $oldSize);                     # Free previous memory previously occupied arena
       $$p{bs}->copy($address);                                                  # Save new arena address
@@ -23279,9 +23286,9 @@ END
 
 #latest:
 if (1) {                                                                        #TAllocateMemory #TNasm::X86::Variable::freeMemory
-  my $N = V(size, 2048);
+  my $N = K size => 2048;
   my $q = Rs('a'..'p');
-  AllocateMemory($N, my $address = V(address));
+  my $address = AllocateMemory $N;
 
   Vmovdqu8 xmm0, "[$q]";
   $address->setReg(rax);
@@ -23549,9 +23556,9 @@ END
 
 #latest:;
 if (1) {                                                                        #TAllocateMemory #TFreeMemory #TClearMemory
-  my $N = V(size, 4096);                                                        # Size of the initial allocation which should be one or more pages
+  my $N = V size => 4096;                                                       # Size of the initial allocation which should be one or more pages
 
-  AllocateMemory($N, my $A = V(address));
+  my $A = AllocateMemory $N;
 
   ClearMemory($N, $A);
 
@@ -24198,11 +24205,11 @@ END
 if (1) {                                                                        #TAllocateMemory #TPrintOutMemoryInHexNL #TCopyMemory
   my $N = 256;
   my $s = Rb 0..$N-1;
-  AllocateMemory(K(size, $N), my $a = V(address));
-  CopyMemory(V(source, $s), V(size, $N), target => $a);
+  my $a = AllocateMemory K size => $N;
+  CopyMemory(V(source => $s), V(size => $N), target => $a);
 
-  AllocateMemory(K(size, $N), my $b = V(address));
-  CopyMemory(source => $a, target => $b, K(size, $N));
+  my $b = AllocateMemory K size => $N;
+  CopyMemory(source => $a, target => $b, K size => $N);
 
   $b->setReg(rax);
   Mov rdi, $N;
@@ -25689,7 +25696,7 @@ if (1) {                                                                        
   my $s = K(statement, Rutf8($statement));
   my $l = StringLength string => $s;
 
-  AllocateMemory($l, my $address = V(address));                                 # Allocate enough memory for a copy of the string
+  my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
   CopyMemory(source => $s, target => $address, $l);
 
   GetNextUtf8CharAsUtf32 in=>$address, @p;
@@ -27831,11 +27838,11 @@ Quark : 0000 0000 0000 0002 => 0000 0000 0000 01D8 == 0000 01D8 0000 01D8   0000
 Quark : 0000 0000 0000 0003 => 0000 0000 0000 0218 == 0000 0218 0000 0218   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0074 7474 7404
 Subs
 Quark : 0000 0000 0000 0000 => 0000 0000 0000 0318 == 0000 0318 0000 0318   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0073 7373 7300   0000 0000 4010 090C
-Quark : 0000 0000 0000 0001 => 0000 0000 0000 03D8 == 0000 03D8 0000 03D8   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0074 7474 7400   0000 0000 4012 FA0C
+Quark : 0000 0000 0000 0001 => 0000 0000 0000 03D8 == 0000 03D8 0000 03D8   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0074 7474 7400   0000 0000 4013 870C
 sub: 0000 0000 0040 1009
-sub: 0000 0000 0040 12FA
+sub: 0000 0000 0040 1387
 sub: 0000 0000 0040 1009
-sub: 0000 0000 0040 12FA
+sub: 0000 0000 0040 1387
 SSSS   r15: 0000 0000 0000 0001
 TTTT   r15: 0000 0000 0000 0002
 SSSS   r15: 0000 0000 0000 0011
