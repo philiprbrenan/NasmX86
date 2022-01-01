@@ -3588,7 +3588,7 @@ sub WaitPid()                                                                   
  {@_ == 0 or confess;
   Comment "WaitPid - wait for the pid in rax";
 
-  my $sub = Macro
+    my $sub = Macro
    {SaveFirstSeven;
     Mov rdi,rax;
     Mov rax, 61;
@@ -23816,7 +23816,7 @@ offset: 0000 0000 0000 0068
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
   my $A = CreateArena;
   my $t = $A->checkYggdrasilCreated;
@@ -28268,7 +28268,8 @@ if (1) {                                                                        
   V(N => $N)->for(sub                                                           # Generate each Fibonacci number by adding the two previous ones together
    {my ($index, $start, $next, $end) = @_;
     $index->outRightInDec(V(width => 2));                                       # Index
-    Mov rax, r13; PrintOutRaxRightInDecNL 12;                                   # Fibonacci number at this index
+    Mov rax, r13;
+    PrintOutRaxRightInDecNL V width => 12;                                      # Fibonacci number at this index
 
     Mov r15, r14;                                                               # Next number is the sum of the two previous ones
     Add r15, r13;
