@@ -6190,22 +6190,19 @@ sub Nasm::X86::Array::allocBlock($)                                             
   $Array->bs->allocBlock;
  }
 
-sub Nasm::X86::Array::dump($@)                                                  # Dump a array.
- {my ($Array, @variables) = @_;                                                 # Array descriptor, variables
+sub Nasm::X86::Array::dump($)                                                   # Dump a array.
+ {my ($array) = @_;                                                             # Array descriptor
   @_ >= 1 or confess;
-# my $b = $Array->bs;                                                           # Underlying arena
   my $W = RegisterSize zmm0;                                                    # The size of a block
-  my $w = $Array->width;                                                        # The size of an entry in a block
-  my $n = $Array->slots1;                                                       # The number of slots per block
-  my $N = $Array->slots2;                                                       # The number of slots per block
+  my $w = $array->width;                                                        # The size of an entry in a block
+  my $n = $array->slots1;                                                       # The number of slots per block
+  my $N = $array->slots2;                                                       # The number of slots per block
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-
-#    my $B = $$p{bs};                                                            # Arena
-#    my $F = $$p{first};                                                         # First block
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $Array = $arena->DescribeArray(first => my $F = $$p{first});             # Array
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $array = $$s{array};                                                     # Array
+    my $F     = $array->first;                                                  # First
+    my $arena = $array->bs;                                                     # Arena
 
     PushR (r8, zmm30, zmm31);
     $arena->getZmmBlock($F, 31);                                                # Get the first block
@@ -6236,9 +6233,10 @@ sub Nasm::X86::Array::dump($@)                                                  
      };
 
     PopR;
-   }  [qw(bs first)], name => q(Nasm::X86::Array::dump);
+   } structures => {array => $array},
+     name       => q(Nasm::X86::Array::dump);
 
-  $s->call($Array->address, $Array->first, @variables);
+  $s->call(structures => {array => $array});
  }
 
 sub Nasm::X86::Array::push($$)                                                  # Push a variable element onto an array.
@@ -24716,7 +24714,7 @@ Offset: 0000 0000 0000 0158  Length: 46  0000 0018 0000 0118   0000 0000 0000 00
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Arena::length #TNasm::X86::Arena::clear
   my $t = Rb(0..255);
   my $a = CreateArena;
