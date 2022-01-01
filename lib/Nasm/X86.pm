@@ -10,6 +10,7 @@
 # Make all describe routines work like DescribeTree
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
 # Replace registerSize(rax) with $variable->width
+# Make hash accept parameters at: #THash
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -276,6 +277,7 @@ sub PrintOutStringNL(@);                                                        
 sub PrintString($@);                                                            # Print a constant string to the specified channel.
 sub PushR(@);                                                                   # Push a list of registers onto the stack.
 sub PushRR(@);                                                                  # Push a list of registers onto the stack without tracking.
+sub StringLength($);                                                            # Length of a zero terminated string.
 sub Syscall();                                                                  # System call in linux 64 format.
 
 #D1 Data                                                                        # Layout data
@@ -1068,6 +1070,7 @@ sub Nasm::X86::Sub::dispatchV($$$)                                              
 
 sub PrintTraceBack($)                                                           # Trace the call stack.
  {my ($channel) = @_;                                                           # Channel to write on
+
   my $s = Subroutine
    {PushR my @save = (rax, rdi, r9, r10, r8, r12, r13, r14, r15);
     my $stack     = r15;
@@ -1134,11 +1137,8 @@ sub PrintTraceBack($)                                                           
          } $index, $maxCount;
        };
 
-      Push $stack;                                                              # Print the name of the subroutine
-      &Cstrlen();                                                               # Length of name
-      Mov rdi, $stack;
-      Pop $stack;
-      &PrintMemoryNL($channel);                                                 # Print name
+      StringLength(&V(string => rax))->setReg(rdi);                             # Length of name of subroutine
+      &PrintMemoryNL($channel);                                                 # Print name of subroutine
       Jmp $start;                                                               # Next level
      };
     &PrintNL($channel);
@@ -1530,10 +1530,10 @@ sub PrintOutStringNL(@)                                                         
 sub PrintCString($$)                                                            # Print a zero terminated C style string addressed by a variable on the specified channel.
  {my ($channel, $string) = @_;                                                  # Channel, String
 
-  PushR rax, rdi, r15;
-  $string->setReg(rax);                                                         # Address of string
-  &Cstrlen();                                                                   # Length of string
-  Mov rdi, r15;
+  PushR rax, rdi;
+  my $length = StringLength $string;                                            # Length of string
+  $string->setReg(rax);
+  $length->setReg(rdi);
   &PrintOutMemory();                                                            # Print string
   PopR;
  }
@@ -4798,11 +4798,10 @@ sub Nasm::X86::ShortString::appendVar($$)                                       
 #D1 C Strings                                                                   # C strings are a series of bytes terminated by a zero byte.
 
 sub Cstrlen()                                                                   #P Length of the C style string addressed by rax returning the length in r15.
- {@_ == 0 or confess "No parameters";
+ {@_ == 0 or confess "Deprecated in favor of StringLength";
 
   my $s = Subroutine2                                                           # Create arena
-   {Comment "C strlen";
-    PushR my @regs = (rax, rdi, rcx);
+   {PushR my @regs = (rax, rdi, rcx);
     Mov rdi, rax;
     Mov rcx, -1;
     ClearRegisters rax;
@@ -4818,20 +4817,28 @@ END
   $s->call;
  }
 
-sub StringLength(@)                                                             # Length of a zero terminated string.
- {my (@parameters) = @_;                                                        # Parameters
-  Comment "Length of zero terminated string";
+sub StringLength($)                                                             # Length of a zero terminated string.
+ {my ($string) = @_;                                                            # String
+  @_ == 1 or confess "One parameter: zero terminated string";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    SaveFirstFour;
+    PushR rax, rdi, rcx;
     $$p{string}->setReg(rax);                                                   # Address string
-    Cstrlen;                                                                    # Length now in r15
-    $$p{size}->getReg(r15);                                                     # Save length
-    RestoreFirstFour;
-   } [qw(string size)], name => 'StringLength';
+    Mov rdi, rax;
+    Mov rcx, -1;
+    ClearRegisters rax;
+    push @text, <<END;
+    repne scasb
+END
+    Not rcx;
+    Dec rcx;
+    $$p{size}->getReg(rcx);                                                     # Save length
+    PopR;
+   } parameters => [qw(string size)], name => 'StringLength';
 
-  $s->call(@parameters, my $z = V(size));                                       # Variable that holds the length of the string
+  $s->call(parameters=>{string=>$string, size => my $z = V size => 0});         # Variable that holds the length of the string
+
   $z
  }
 
@@ -23130,6 +23137,7 @@ World
 END
  }
 
+#latest:;
 if (1) {                                                                        #TMov #TComment #TRs #TPrintOutMemory #TExit
   Comment "Print a string from memory";
   my $s = "Hello World";
@@ -23141,11 +23149,12 @@ if (1) {                                                                        
   ok Assemble =~ m(Hello World);
  }
 
-if (1) {                                                                        #TPrintOutMemoryNL  #TCstrlen
+#latest:;
+if (1) {                                                                        #TPrintOutMemoryNL #TStringLength
   my $s = Rs("Hello World\n\nHello Skye");
-  Mov rax, $s;
-  Cstrlen;
-  Mov rdi, r15;
+  my $l = StringLength(my $t = V string => $s);
+  $t->setReg(rax);
+  $l->setReg(rdi);
   PrintOutMemoryNL;
 
   ok Assemble(debug => 0, eq => <<END);
@@ -23155,6 +23164,7 @@ Hello Skye
 END
  }
 
+#latest:;
 if (1) {                                                                        #TPrintOutRaxInHex #TPrintOutNL #TPrintOutString
   my $q = Rs('abababab');
   Mov(rax, "[$q]");
@@ -23169,6 +23179,7 @@ if (1) {                                                                        
   ok Assemble =~ m(rax: 6261 6261 6261 6261.*rax: 0000 0000 0000 0000)s;
  }
 
+#latest:;
 if (1) {                                                                        #TPrintOutRegistersInHex #TRs
   my $q = Rs('abababab');
   Mov(rax, 1);
@@ -23184,6 +23195,7 @@ if (1) {                                                                        
   ok $r =~ m(rbx: 0000 0000 0000 0002.*rcx: 0000 0000 0000 0003.*rdx: 0000 0000 0000 0004)s;
  }
 
+#latest:;
 if (1) {                                                                        #TDs TRs
   my $q = Rs('a'..'z');
   Mov rax, Ds('0'x64);                                                          # Output area
@@ -23196,6 +23208,7 @@ if (1) {                                                                        
   ok Assemble =~ m(efghabcdmnopijkl)s;
  }
 
+#latest:;
 if (1) {
   my $q = Rs(('a'..'p')x2);
   Mov rax, Ds('0'x64);
@@ -23208,6 +23221,7 @@ if (1) {
   ok Assemble =~ m(efghabcdmnopijklefghabcdmnopijkl)s;
  }
 
+#latest:;
 if (1) {
   my $q = Rs my $s = join '', ('a'..'p')x4;                                     # Sample string
   Mov rax, Ds('0'x128);
@@ -23228,6 +23242,7 @@ efghabcdmnopijklefghabcdmnopijklefghabcdmnopijklefghabcdmnopijkl
 END
  }
 
+#latest:;
 if (1) {                                                                        #TPrintOutRegisterInHex
   my $q = Rs(('a'..'p')x4);
   Mov r8,"[$q]";
@@ -23238,6 +23253,7 @@ if (1) {                                                                        
 END
  }
 
+#latest:;
 if (1) {
   my $q = Rs('a'..'p');
   Vmovdqu8 xmm0, "[$q]";
@@ -23570,17 +23586,18 @@ if (1) {                                                                        
 END
  }
 
-if (1) {                                                                        #TCall #TS
+#latest:;
+if (1) {
   Mov rax, 0x44332211;
   PrintOutRegisterInHex rax;
 
-  my $s = Macro
+  my $s = Subroutine2
    {PrintOutRegisterInHex rax;
     Inc rax;
     PrintOutRegisterInHex rax;
-   };
+   } name => "printIncPrint";
 
-  Call $s;
+  $s->call;
 
   PrintOutRegisterInHex rax;
 
@@ -24062,6 +24079,7 @@ g: 0000 0000 0000 0000
 END
  }
 
+#latest:
 if (1) {                                                                        #TPrintOutTraceBack
   my $d = V depth => 3;                                                         # Create a variable on the stack
 
@@ -24317,15 +24335,16 @@ END
  }
 
 #latest:;
-if (1) {                                                                        # Hash a string #THash
-  Mov rax, "[rbp+24]";
-  Cstrlen;                                                                      # Length of string to hash
-  Mov rdi, r15;
+if (0) {                                                                        # Hash a string #THash
+  Mov rax, "[rbp+24]";                                                          # Address of string as parameter
+  StringLength(V string => rax)->setReg(rdi);                                   # Length of string to hash
   Hash();                                                                       # Hash string
 
   PrintOutRegisterInHex r15;
 
   my $e = Assemble keep => 'hash';                                              # Assemble to the specified file name
+  say STDERR qx($e "");
+  say STDERR qx($e "a");
   ok qx($e "")  =~ m(r15: 0000 3F80 0000 3F80);                                 # Test well known hashes
   ok qx($e "a") =~ m(r15: 0000 3F80 C000 45B2);
 
@@ -25691,7 +25710,7 @@ if (1) {                                                                        
   my $statement = qq(𝖺\n 𝑎𝑠𝑠𝑖𝑔𝑛 【【𝖻 𝐩𝐥𝐮𝐬 𝖼】】\nAAAAAAAA);                        # A sample sentence to parse
 
   my $s = K(statement, Rutf8($statement));
-  my $l = StringLength string => $s;
+  my $l = StringLength $s;
 
   my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
   CopyMemory(source => $s, target => $address, $l);
