@@ -24924,9 +24924,9 @@ if (1) {
   my $c = Rb(0..255);
   my $S = CreateArena;   my $s = $S->CreateString;
 
-  $s->append    (V(source    => $c),   V(size     => 4)); $s->dump;
-  $s->insertChar(V(character => 0xFF), V(position => 4)); $s->dump;
-  $s->insertChar(V(character => 0xEE), V(position => 4)); $s->dump;
+  $s->append    (V(source    => $c),   K size     => 4); $s->dump;
+  $s->insertChar(V(character => 0xFF), K position => 4); $s->dump;
+  $s->insertChar(V(character => 0xEE), K position => 4); $s->dump;
   $s->len->outInDecNL;
 
   ok Assemble(debug => 0, eq => <<END);
@@ -24948,8 +24948,8 @@ if (1) {                                                                        
   my $c = Rb(0..255);
   my $S = CreateArena;   my $s = $S->CreateString;
 
-  $s->append    (V(source   => $c),  V(size => 165)); $s->dump;
-  $s->deleteChar(V(position => 0x44));                $s->dump;
+  $s->append    (V(source   => $c),  K size => 165); $s->dump;
+  $s->deleteChar(V(position => 0x44));               $s->dump;
   $s->len->outInDecNL;
 
   ok Assemble(debug => 0, eq => <<END);
@@ -24972,8 +24972,8 @@ if (1) {                                                                        
   my $c = Rb(0..255);
   my $S = CreateArena;   my $s = $S->CreateString;
 
-  $s->append      (V(source => $c),  V(size => 110)); $s->dump;
-  $s->getCharacter(V position => 0x44)->outNL;
+  $s->append      (V(source => $c),  K size => 110); $s->dump;
+  $s->getCharacter(K position => 0x44)->outNL;
 
   ok Assemble(debug => 0, eq => <<END);
 String Dump      Total Length:      110
@@ -24990,18 +24990,13 @@ if (1) {                                                                        
   my $a = CreateArena;   my $s = $a->CreateString;
 
   $s->append(V(source => Rb(1)), V(size => 1));
-  Mov r15, -1;
-  $s->appendVar(V value => r15);
-  Mov r15, +1;
-  $s->appendVar(V value => r15);
+  Mov r15, -1;  $s->appendVar(V value => r15);
+  Mov r15, +1;  $s->appendVar(V value => r15);
 
-  Mov r15, -2;
-  $s->appendVar(V value => r15);
-  Mov r15, +2;
-  $s->appendVar(V value => r15);
+  Mov r15, -2;  $s->appendVar(V value => r15);
+  Mov r15, +2;  $s->appendVar(V value => r15);
 
-  Mov r15, -3;
-  $s->appendVar(V value => r15);
+  Mov r15, -3;  $s->appendVar(V value => r15);
 
   $s->dump;
 
@@ -25026,7 +25021,6 @@ if (1) {                                                                        
 
   $t->setMask($o,       k1); PrintOutRegisterInHex k1;
   $t->setMask($t,       k0); PrintOutRegisterInHex k0;
-
 
   ok Assemble(debug => 0, eq => <<END);
     k7: 0000 0000 0000 0001
@@ -25081,11 +25075,11 @@ if (1) {                                                                        
   my $A = CreateArena;  my $a = $A->CreateArray;
   my $B = CreateArena;  my $b = $B->CreateArray;
 
-  $a->push(V(element, $_)), $b->push(V(element, $_ + 0x11)) for 1..15;
-  $a->push(V(element, $_)), $b->push(V(element, $_ + 0x11)) for 0xff;
-  $a->push(V(element, $_)), $b->push(V(element, $_ + 0x11)) for 17..31;
-  $a->push(V(element, $_)), $b->push(V(element, $_ + 0x11)) for 0xee;
-  $a->push(V(element, $_)), $b->push(V(element, $_ + 0x11)) for 33..36;
+  $a->push(V(element, $_)), $b->push(K element, $_ + 0x11) for 1..15;
+  $a->push(V(element, $_)), $b->push(K element, $_ + 0x11) for 0xff;
+  $a->push(V(element, $_)), $b->push(K element, $_ + 0x11) for 17..31;
+  $a->push(V(element, $_)), $b->push(K element, $_ + 0x11) for 0xee;
+  $a->push(V(element, $_)), $b->push(K element, $_ + 0x11) for 33..36;
 
   $A->dump;
   $B->dump;
