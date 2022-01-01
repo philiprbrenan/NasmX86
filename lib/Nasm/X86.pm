@@ -5229,9 +5229,8 @@ sub Nasm::X86::Arena::m($$$)                                                    
 
   my $used = "[rax+$$arena{used}]";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    Comment "Append memory to an arena";
     SaveFirstFour;
     $$p{bs}->setReg(rax);
     my $oldUsed = V("used", $used);
@@ -5247,9 +5246,9 @@ sub Nasm::X86::Arena::m($$$)                                                    
     Mov $used, rdi;
 
     RestoreFirstFour;
-   } [qw(bs address size)], name => 'Nasm::X86::Arena::m';
+   } parameters=>[qw(bs address size)], name => 'Nasm::X86::Arena::m';
 
-  $s->call(bs => $arena->bs, address => $address, size => $size);
+  $s->call(parameters=>{bs => $arena->bs, address => $address, size => $size});
  }
 
 sub Nasm::X86::Arena::q($$)                                                     # Append a constant string to the arena.
@@ -5305,7 +5304,7 @@ sub Nasm::X86::Arena::clear($)                                                  
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     Comment "Clear arena";
     PushR (rax, rdi);
@@ -5313,9 +5312,9 @@ sub Nasm::X86::Arena::clear($)                                                  
     Mov rdi, $arena->data;
     Mov "[rax+$$arena{used}]", rdi;
     PopR;
-   } [qw(bs)], name => 'Nasm::X86::Arena::clear';
+   } parameters=>[qw(bs)], name => 'Nasm::X86::Arena::clear';
 
-  $s->call(bs => $arena->bs);
+  $s->call(parameters=>{bs => $arena->bs});
  }
 
 sub Nasm::X86::Arena::write($$)                                                 # Write the content of the specified arena to a file specified by a zero terminated string.
