@@ -4148,7 +4148,7 @@ sub ReadFile(@)                                                                 
   my $file    = ref($File) ? $File : V file => Rs $File;
   my $size    = V('size');
   my $address = V('address');
-  $s->call(parameters=>{file => $file, $size, $address});
+  $s->call(parameters=>{file => $file, size=>$size, address=>$address});
 
   ($address, $size)                                                             # Return address and size of mapped file
  }
@@ -4261,13 +4261,12 @@ sub Hash()                                                                      
 
 #D1 Unicode                                                                     # Convert utf8 to utf32
 
-sub GetNextUtf8CharAsUtf32(@)                                                   # Get the next utf8 encoded character from the addressed memory and return it as a utf32 char.
- {my (@parameters) = @_;                                                        # Parameters
-  @_ >= 1 or confess;
+sub GetNextUtf8CharAsUtf32($$$$)                                                # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+ {my ($in, $out, $size, $fail) = @_;                                            # Address of character variable, output character variable, output size of input, output error  if any
+  @_ == 4 or confess "In, out, size, fail required";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    Comment "Get next Utf8 char";
 
     PushR (r11, r12, r13, r14, r15);
     $$p{fail}->getConst(0);                                                     # Clear failure indicator
@@ -4340,19 +4339,17 @@ sub GetNextUtf8CharAsUtf32(@)                                                   
     SetLabel $success;
 
     PopR;
-   } [qw(in out  size  fail)], name => 'GetNextUtf8CharAsUtf32';
+   } parameters=>[qw(in out  size  fail)], name => 'GetNextUtf8CharAsUtf32';
 
-  $s->call(@parameters);
+  $s->call(parameters=>{in=>$in, out=>$out, size=>$size, fail=>$fail});
  } # GetNextUtf8CharAsUtf32
 
 sub ConvertUtf8ToUtf32(@)                                                       # Convert a string of utf8 to an allocated block of utf32 and return its address and length.
- {my (@parameters) = @_;                                                        # Parameters
-  @_ >= 1 or confess;
+ {my ($u8, $size8, $u32, $size32, $count) = @_;                                 # utf8 string address variable, utf8 length variable, utf32 string address variable, utf32 length variable, number of utf8 characters converteed
+  @_ == 5 or confess "Five parameters required";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    Comment "Convert utf8 to utf32";
-
     PushR (r10, r11, r12, r13, r14, r15);
 
     my $size = $$p{size8} * 4;                                                  # Estimated length for utf32
@@ -4365,8 +4362,8 @@ sub ConvertUtf8ToUtf32(@)                                                       
 
     ForEver sub                                                                 # Loop through input string  converting each utf8 sequence to utf32
      {my ($start, $end) = @_;
-      my @p = my ($out, $size, $fail) = (V(out), V(size), V('fail'));
-      GetNextUtf8CharAsUtf32 V(in, r14), @p;                                    # Get next utf-8 character and convert it to utf32
+      my ($out, $size, $fail) = (V(out), V(size), V('fail'));
+      GetNextUtf8CharAsUtf32 V(in, r14), $out, $size, $fail;                    # Get next utf-8 character and convert it to utf32
       If $fail > 0,
       Then
        {PrintErrStringNL "Invalid utf8 character at index:";
@@ -4389,9 +4386,10 @@ sub ConvertUtf8ToUtf32(@)                                                       
     $$p{size32}->copy($size);                                                   # Size of allocation
     $$p{count} ->getReg(r12);                                                   # Number of unicode points converted from utf8 to utf32
     PopR;
-   } [qw(u8  size8 u32 size32 count)], name => 'ConvertUtf8ToUtf32';
+   } parameters=>[qw(u8 size8 u32 size32 count)], name => 'ConvertUtf8ToUtf32';
 
-  $s->call(@parameters);
+  $s->call(parameters=>
+    {u8=>$u8, size8=>$size8, u32=>$u32, size32=>$size32, count=>$count});
  } # ConvertUtf8ToUtf32
 
 #   4---+---3---+---2---+---1---+---0  Octal not decimal
@@ -25669,24 +25667,24 @@ END
 
 #latest:
 if (1) {                                                                        #TConvertUtf8ToUtf32
-  my @p = my ($out, $size, $fail) = (V(out), V(size), V('fail'));
+  my ($out, $size, $fail) = (V(out), V(size), V('fail'));
 
   my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
   my $chars = V(chars, $Chars);
 
-  GetNextUtf8CharAsUtf32 in=>$chars, @p;                                        # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
+  GetNextUtf8CharAsUtf32 $chars+0, $out, $size, $fail;                          # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
   $out->out('out1 : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 in=>$chars+1, @p;                                      # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
+  GetNextUtf8CharAsUtf32 $chars+1, $out, $size, $fail;                          # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
   $out->out('out2 : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 in=>$chars+3, @p;                                      # Alpha                UTF-8 Encoding: 0xC9 0x91           UTF-32 Encoding: 0x00000251
+  GetNextUtf8CharAsUtf32 $chars+3, $out, $size, $fail;                          # Alpha                UTF-8 Encoding: 0xC9 0x91           UTF-32 Encoding: 0x00000251
   $out->out('out3 : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 in=>$chars+5, @p;                                      # Euro                 UTF-8 Encoding: 0xE2 0x82 0xAC      UTF-32 Encoding: 0x000020AC
+  GetNextUtf8CharAsUtf32 $chars+5, $out, $size, $fail;                          # Euro                 UTF-8 Encoding: 0xE2 0x82 0xAC      UTF-32 Encoding: 0x000020AC
   $out->out('out4 : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 in=>$chars+8, @p;                                      # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
+  GetNextUtf8CharAsUtf32 $chars+8, $out, $size, $fail;                          # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
   $out->out('out5 : ');     $size->outNL(' size : ');
 
   my $statement = qq(𝖺\n 𝑎𝑠𝑠𝑖𝑔𝑛 【【𝖻 𝐩𝐥𝐮𝐬 𝖼】】\nAAAAAAAA);                        # A sample sentence to parse
@@ -25697,19 +25695,19 @@ if (1) {                                                                        
   my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
   CopyMemory($s, $address, $l);
 
-  GetNextUtf8CharAsUtf32 in=>$address, @p;
+  GetNextUtf8CharAsUtf32 $address, $out, $size, $fail;
   $out->out('outA : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 in=>$address+4, @p;
+  GetNextUtf8CharAsUtf32 $address+4, $out, $size, $fail;
   $out->out('outB : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 in=>$address+5, @p;
+  GetNextUtf8CharAsUtf32 $address+5, $out, $size, $fail;
   $out->out('outC : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 in=>$address+30, @p;
+  GetNextUtf8CharAsUtf32 $address+30, $out, $size, $fail;
   $out->out('outD : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 in=>$address+35, @p;
+  GetNextUtf8CharAsUtf32 $address+35, $out, $size, $fail;
   $out->out('outE : ');     $size->outNL(' size : ');
 
   $address->printOutMemoryInHexNL($l);
