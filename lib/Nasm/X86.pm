@@ -278,6 +278,7 @@ sub PrintString($@);                                                            
 sub PushR(@);                                                                   # Push a list of registers onto the stack.
 sub PushRR(@);                                                                  # Push a list of registers onto the stack without tracking.
 sub StringLength($);                                                            # Length of a zero terminated string.
+sub Subroutine2(&%);                                                            # Create a subroutine that can be called in assembler code.
 sub Syscall();                                                                  # System call in linux 64 format.
 
 #D1 Data                                                                        # Layout data
@@ -1124,7 +1125,7 @@ sub PrintTraceBack($)                                                           
      };
     &PrintNL($channel);
     PopR;
-   } name => 'SubroutineTraceBack';
+   } name => "SubroutineTraceBack_$channel";
 
   $s->call;
  }
@@ -3767,12 +3768,12 @@ sub FreeMemory(@)                                                               
   $s->call(parameters => {address=>$address, size=>$size});
  }
 
-sub ClearMemory(@)                                                              # Clear memory.
- {my (@variables) = @_;                                                         # Variables
-  @_ >= 2 or confess;
+sub ClearMemory($$)                                                             # Clear memory wit a variable address and variable length
+ {my ($address, $size) = @_;                                                    # Variables
+  @_ == 2 or confess "address, size required";
   Comment "Clear memory";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     PushR (zmm0, rax, rdi, rsi, rdx);
     $$p{address}->setReg(rax);
@@ -3798,9 +3799,9 @@ sub ClearMemory(@)                                                              
      } rax, rdx, RegisterSize zmm0;
 
     PopR;
-   } [qw(size address)], name => 'ClearMemory';
+   } parameters=>[qw(size address)], name => 'ClearMemory';
 
-  $s->call(@variables);
+  $s->call(parameters => {address => $address, size => $size});
  }
 
 sub MaskMemory22(@)                                                             # Write the specified byte into locations in the target mask that correspond to the locations in the source that contain the specified byte.
@@ -23539,7 +23540,7 @@ if (1) {                                                                        
   Mov rax, rsp;
   Mov rdi, 8*9;
   PrintOutMemoryInHexNL;
-  ClearMemory(K(size, 8*9), V(address, rax));
+  ClearMemory(V(address, rax), K(size, 8*9));
   PrintOutMemoryInHexNL;
 
   ok Assemble(debug => 0, eq => <<END);
@@ -23550,11 +23551,11 @@ END
 
 #latest:;
 if (1) {                                                                        #TAllocateMemory #TFreeMemory #TClearMemory
-  my $N = V size => 4096;                                                       # Size of the initial allocation which should be one or more pages
+  my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
 
   my $A = AllocateMemory $N;
 
-  ClearMemory($N, $A);
+  ClearMemory($A, $N);
 
   $A->setReg(rax);
   Mov rdi, 128;
@@ -23818,7 +23819,7 @@ offset: 0000 0000 0000 0068
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
   my $A = CreateArena;
   my $t = $A->checkYggdrasilCreated;
