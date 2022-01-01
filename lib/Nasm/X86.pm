@@ -1574,7 +1574,7 @@ sub PrintRaxInHex($;$)                                                          
   my $hexTranslateTable = hexTranslateTable;
   $end //= 7;                                                                   # Default end byte
 
-  my $sub = Subroutine2
+  my $s = Subroutine2
    {SaveFirstFour rax;                                                          # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
@@ -1593,7 +1593,7 @@ sub PrintRaxInHex($;$)                                                          
     RestoreFirstFour;
    } name => "PrintOutRaxInHexOn-$channel-$end";
 
-  Call $sub;
+  $s->call;
  }
 
 sub PrintErrRaxInHex()                                                          # Write the content of register rax in hexadecimal in big endian notation to stderr.
