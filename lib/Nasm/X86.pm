@@ -875,25 +875,6 @@ sub ForEver(&)                                                                  
   SetLabel $end;                                                                # End of loop
  }
 
-#sub Macro(&%)                                                                   # Create a sub with optional parameters name=> the name of the subroutine so it can be reused rather than regenerated, comment=> a comment describing the sub.
-# {my ($block, %options) = @_;                                                   # Block, options.
-#
-#  @_ >= 1 or confess;
-#  my $name = $options{name} // [caller(1)]->[3];                                # Optional name for subroutine reuse
-#  if ($name and !$options{keepOut} and my $n = $subroutines{$name}) {return $n} # Return the label of a pre-existing copy of the code
-#
-#  my $start = Label;
-#  my $end   = Label;
-#  Jmp $end;
-#  SetLabel $start;
-#  &$block;
-#  Ret;
-#  SetLabel $end;
-#  $subroutines{$name} = $start if $name;                                        # Cache a reference to the generated code if a name was supplied
-#
-#  $start
-# }
-
 #D2 Call                                                                        # Call a subroutine
 
 my @VariableStack = (1);                                                        # Counts the number of parameters and variables on the stack in each invocation of L<Subroutine>.  There is at least one variable - the first holds the traceback.
@@ -1071,7 +1052,7 @@ sub Nasm::X86::Sub::dispatchV($$$)                                              
 sub PrintTraceBack($)                                                           # Trace the call stack.
  {my ($channel) = @_;                                                           # Channel to write on
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {PushR my @save = (rax, rdi, r9, r10, r8, r12, r13, r14, r15);
     my $stack     = r15;
     my $count     = r14;
@@ -1143,7 +1124,7 @@ sub PrintTraceBack($)                                                           
      };
     &PrintNL($channel);
     PopR;
-   } [], name => 'SubroutineTraceBack';
+   } name => 'SubroutineTraceBack';
 
   $s->call;
  }
