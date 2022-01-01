@@ -1347,7 +1347,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
      {push @m, "Invalid parameter: '$p'" unless $p{$p};
      }
     for my $p(sort keys %p)
-     {push @m, "Missing parameter: '$p'" unless $$parameters{$p};
+     {push @m, "Missing parameter: '$p'" unless defined $$parameters{$p};
      }
     if (@m)
      {push @m, "Valid parameters : ";
@@ -4980,7 +4980,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine2
-   {my ($p) = @_;                                                               # Parameters
+   {my ($p, $s) = @_;                                                           # Parameters, structures
     PushR (rax, r11, r12, r13, r14, r15);
     my $base     = rax;                                                         # Base of arena
     my $size     = r15;                                                         # Current size
@@ -4989,7 +4989,8 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
     my $newSize  = r12;                                                         # New size needed
     my $proposed = r11;                                                         # Proposed size
 
-    $$p{bs}  ->setReg($base);                                                   # Address arena
+    my $arena = $$s{arena};                                                     # Address arena
+    $arena->bs->setReg($base);                                                  # Address arena
     $$p{size}->setReg($request);                                                # Requested space
 
     Mov $size, "[$base+$$arena{size}]";
@@ -5010,18 +5011,20 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
       my $oldSize = V(size, $size);                                             # The old size of the arena
       my $newSize = V(size, $proposed);                                         # The old size of the arena
       my $address = AllocateMemory($newSize);                                   # Create new arena
-      CopyMemory($$p{bs}, $address, $oldSize);                                  # Copy old arena into new arena
-      FreeMemory $$p{bs}, $oldSize;                                             # Free previous memory previously occupied arena
-      $$p{bs}->copy($address);                                                  # Save new arena address
+      CopyMemory($arena->bs, $address, $oldSize);                               # Copy old arena into new arena
+      FreeMemory $arena->bs, $oldSize;                                          # Free previous memory previously occupied arena
+      $arena->bs->copy($address);                                               # Save new arena address
 
-      $$p{bs}->setReg($base);                                                   # Address arena
+      $arena->bs->setReg($base);                                                # Address arena
       Mov "[$base+$$arena{size}]", $proposed;                                   # Save the new size in the arena
      };
 
     PopR;
-   } parameters=>[qw(bs size)], name => 'Nasm::X86::Arena::updateSpace';
+   } parameters => [qw(size)],
+     structures => {arena => $arena},
+     name       => 'Nasm::X86::Arena::updateSpace';
 
-  $s->call(parameters=>{bs => $arena->bs, size => $size});
+  $s->call(parameters=>{size => $size}, structures=>{arena => $arena});
  } # updateSpace
 
 sub Nasm::X86::Arena::makeReadOnly($)                                           # Make an arena read only.
@@ -5633,7 +5636,7 @@ sub Nasm::X86::String::len($)                                                   
     Comment "Length of a string";
     PushR zmm31;
     my $string = $$s{string};                                                   # String
-    my $block  = $$p{first};                                                    # The first block
+    my $block  = $string->first;                                                # The first block
                  $string->getZmmBlock($block, 31);                              # The first block in zmm31
     my $length = $string->getBlockLength(  31);                                 # Length of block
 
@@ -5660,15 +5663,13 @@ sub Nasm::X86::String::concatenate($$)                                          
  {my ($target, $source) = @_;                                                   # Target string, source string
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s) = @_;                                                           # Parameters, structures
     Comment "Concatenate strings";
     PushZmm 29..31;
 
-    my $sourceArena = DescribeArena($$p{sBs});                                  # Source arena
-    my $targetArena = DescribeArena($$p{tBs});                                  # Target arena
-    my $source      = $sourceArena->DescribeString(first=>my $sf = $$p{sFirst});# Source string
-    my $target      = $targetArena->DescribeString(first=>my $tf = $$p{tFirst});# Target string
+    my $source = $$s{source}; my $sf = $source->first;                          # Source string
+    my $target = $$s{target}; my $tf = $target->first;                          # Target string
 
     $source->getZmmBlock($sf, 31);                                              # The first source block
     $target->getZmmBlock($tf, 30);                                              # The first target block
@@ -5703,10 +5704,10 @@ sub Nasm::X86::String::concatenate($$)                                          
      };
 
     PopZmm;
-   } [qw(sBs sFirst tBs tFirst)], name => 'Nasm::X86::String::concatenate';
+   } structures => {source=>$source, target=>$target},
+     name       => 'Nasm::X86::String::concatenate';
 
-  $s->call(sBs => $source->address, sFirst => $source->first,
-           tBs => $target->address, tFirst => $target->first);
+  $s->call(structures => {source=>$source, target=>$target});
  }
 
 sub Nasm::X86::String::insertChar($$$)                                          # Insert a character into a string.
@@ -28172,7 +28173,6 @@ if (1) {                                                                        
 
   Assemble keep => $e;
 
-  say STDERR qx(./$e AaAaAaAaAa BbCcDdEe 123456789);
   is_deeply scalar(qx(./$e AaAaAaAaAa BbCcDdEe 123456789)), <<END;
 string: 4
 ./parameters
