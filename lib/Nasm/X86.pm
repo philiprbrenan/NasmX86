@@ -3769,12 +3769,11 @@ sub AllocateMemory(@)                                                           
   $address;
  }
 
-sub FreeMemory(@)                                                               # Free memory.
- {my (@variables) = @_;                                                         # Variables
-  @_ >= 2 or confess;
-  Comment "Free memory";
+sub FreeMemory(@)                                                               # Free memory specified by variables.
+ {my ($address, $size) = @_;                                                    # Variable address of memory, variable size of memory
+  @_ == 2 or confess "Address, size to free";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     SaveFirstFour;
     Mov rax, 11;                                                                # Munmap
@@ -3782,9 +3781,9 @@ sub FreeMemory(@)                                                               
     $$p{size}   ->setReg(rsi);                                                  # Length
     Syscall;
     RestoreFirstFour;
-   } [qw(size address)], name=> 'FreeMemory';
+   } parameters=>[qw(size address)], name=> 'FreeMemory';
 
-  $s->call(@variables);
+  $s->call(parameters => {address=>$address, size=>$size});
  }
 
 sub ClearMemory(@)                                                              # Clear memory.
@@ -4989,7 +4988,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
       my $newSize = V(size, $proposed);                                         # The old size of the arena
       my $address = AllocateMemory($newSize);                                   # Create new arena
       CopyMemory(target   => $address, source => $$p{bs}, $oldSize);            # Copy old arena into new arena
-      FreeMemory(address  => $$p{bs},  size   => $oldSize);                     # Free previous memory previously occupied arena
+      FreeMemory $$p{bs}, $oldSize;                                             # Free previous memory previously occupied arena
       $$p{bs}->copy($address);                                                  # Save new arena address
 
       $$p{bs}->setReg($base);                                                   # Address arena
@@ -23297,7 +23296,7 @@ if (1) {                                                                        
   PrintOutMemory;
   PrintOutNL;
 
-  FreeMemory(address => $address, size=> $N);
+  FreeMemory $address, $N;
 
   ok Assemble(debug => 0, eq => <<END);
 abcdefghijklmnop
@@ -23566,7 +23565,7 @@ if (1) {                                                                        
   Mov rdi, 128;
   PrintOutMemoryInHexNL;
 
-  FreeMemory($N, $A);
+  FreeMemory $A, $N;
 
   ok Assemble(debug => 1, eq => <<END);
 0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
