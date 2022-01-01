@@ -5624,69 +5624,34 @@ sub Nasm::X86::String::dump($)                                                  
   $s->call(structures=>{string=>$string});
  }
 
-sub Nasm::X86::String::dump2($)                                                  # Dump a string to sysout.
- {my ($String) = @_;                                                            # String descriptor
-  @_ == 1 or confess "One parameter";
-
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-    PushR (zmm31);
-
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $String = $arena->DescribeString;                                        # String
-
-    my $block  = $$p{first};                                                    # The first block
-                 $String->getZmmBlock($block, 31);                              # The first block in zmm31
-    my $length = $String->getBlockLength(  31);                                 # Length of block
-    PrintOutStringNL "string Dump";
-    $block ->out("Offset: ");
-    PrintOutString "   ";
-    $length->outNL("Length: "); PrintOutRegisterInHex zmm31;                    # Print block
-
-    ForEver                                                                     # Each block in string
-     {my ($start, $end) = @_;
-      my ($next, $prev) = $String->getNextAndPrevBlockOffsetFromZmm(31);        # Get links from current block
-      If $next == $block, sub{Jmp $end};                                        # Next block is the first block so we have printed the string
-      $String->getZmmBlock($next, 31);                                          # Next block in zmm
-      my $length = $String->getBlockLength(31);                                 # Length of block
-      $next  ->out("Offset: ");                                                 # Print block
-      PrintOutString "   ";
-      $length->outNL("Length: "); PrintOutRegisterInHex zmm31;
-     };
-    PrintOutNL;
-
-    PopR;
-   } [qw(first bs)], name => 'Nasm::X86::String::dump';
-
-  $s->call(bs => $String->address, first => $String->first);
- }
-
 sub Nasm::X86::String::len($)                                                   # Find the length of a string.
- {my ($String) = @_;                                                            # String descriptor
+ {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
   my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+   {my ($p, $s) = @_;                                                           # Parameters, structures
     Comment "Length of a string";
-    PushR (zmm31);
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $String = $arena->DescribeString;                                        # String
+    PushR zmm31;
+    my $string = $$s{string};                                                   # String
     my $block  = $$p{first};                                                    # The first block
-                 $String->getZmmBlock($block, 31);                              # The first block in zmm31
-    my $length = $String->getBlockLength(  31);                                 # Length of block
+                 $string->getZmmBlock($block, 31);                              # The first block in zmm31
+    my $length = $string->getBlockLength(  31);                                 # Length of block
 
     ForEver                                                                     # Each block in string
      {my ($start, $end) = @_;
-      my ($next, $prev) = $String->getNextAndPrevBlockOffsetFromZmm(31);        # Get links from current block
+      my ($next, $prev) = $string->getNextAndPrevBlockOffsetFromZmm(31);        # Get links from current block
       If  $next == $block, sub{Jmp $end};                                       # Next block is the first block so we have traversed the entire string
-      $String->getZmmBlock($next, 31);                                          # Next block in zmm
-      $length += $String->getBlockLength(31);                                   # Add length of block
+      $string->getZmmBlock($next, 31);                                          # Next block in zmm
+      $length += $string->getBlockLength(31);                                   # Add length of block
      };
     $$p{size}->copy($length);
     PopR;
-   } [qw(first bs size)], name => 'Nasm::X86::String::len';
+   } parameters => [qw(size)],
+     structures => {string => $string},
+     name       => 'Nasm::X86::String::len';
 
-  $s->call(bs => $String->address, first => $String->first, my $size = V(size));
+  $s->call(parameters => {size   => my $size = V size => 0},
+           structures => {string => $string});
 
   $size
  }
