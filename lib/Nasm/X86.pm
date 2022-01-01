@@ -3968,10 +3968,9 @@ sub CopyMemory(@)                                                               
 #D2 Files                                                                       # Interact with the operating system via files.
 
 sub OpenRead()                                                                  # Open a file, whose name is addressed by rax, for read and return the file descriptor in rax.
- {@_ == 0 or confess;
-  Comment "Open a file for read";
+ {@_ == 0 or confess "Zero parameters";
 
-  my $sub = Macro
+  my $s = Subroutine2
    {my %s = getSystemConstantsFromIncludeFile  "fcntl.h", qw(O_RDONLY);         # Constants for reading a file
 
     SaveFirstFour;
@@ -3983,14 +3982,13 @@ sub OpenRead()                                                                  
     RestoreFirstFourExceptRax;
    } name=> "OpenRead";
 
-  Call $sub;
+  $s->call;
  }
 
 sub OpenWrite()                                                                 # Create the file named by the terminated string addressed by rax for write.
- {@_ == 0 or confess;
-  Comment "Open a file for write";
+ {@_ == 0 or confess "Zero parameters";
 
-  my $sub = Macro
+  my $s = Subroutine2
    {my %s = getSystemConstantsFromIncludeFile                                   # Constants for creating a file
       "fcntl.h", qw(O_CREAT O_WRONLY);
     my $write = $s{O_WRONLY} | $s{O_CREAT};
@@ -4005,13 +4003,13 @@ sub OpenWrite()                                                                 
     RestoreFirstFourExceptRax;
    } name=> "OpenWrite";
 
-  Call $sub;
+  $s->call;
  }
 
 sub CloseFile()                                                                 # Close the file whose descriptor is in rax.
- {@_ == 0 or confess;
+ {@_ == 0 or confess "Zero parameters";
 
-  my $sub = Macro
+  my $s = Subroutine2
    {Comment "Close a file";
     SaveFirstFour;
     Mov rdi, rax;
@@ -4020,17 +4018,17 @@ sub CloseFile()                                                                 
     RestoreFirstFourExceptRax;
    } name=> "CloseFile";
 
-  Call $sub;
+  $s->call;
  }
 
 sub StatSize()                                                                  # Stat a file whose name is addressed by rax to get its size in rax.
- {@_ == 0 or confess;
+ {@_ == 0 or confess "Zero parameters";
 
   my ($F, $S) = (q(sys/stat.h), q(struct stat));                                # Get location of struct stat.st_size field
   my $Size = getStructureSizeFromIncludeFile $F, $S;
   my $off  = getFieldOffsetInStructureFromIncludeFile $F, $S, q(st_size);
 
-  my $sub = Macro
+  my $s = Subroutine2
    {Comment "Stat a file for size";
     SaveFirstFour rax;
     Mov rdi, rax;                                                               # File name
@@ -4041,7 +4039,7 @@ sub StatSize()                                                                  
     RestoreFirstFourExceptRax;
    } name=> "StatSize";
 
-  Call $sub;
+  $s->call;
  }
 
 sub ReadChar()                                                                  # Read a character from stdin and return it in rax else return -1 in rax if no character was read.
