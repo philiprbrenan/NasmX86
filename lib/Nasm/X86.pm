@@ -6240,24 +6240,22 @@ sub Nasm::X86::Array::dump($)                                                   
  }
 
 sub Nasm::X86::Array::push($$)                                                  # Push a variable element onto an array.
- {my ($Array, $element) = @_;                                                   # Array descriptor, variable element to push
+ {my ($array, $element) = @_;                                                   # Array descriptor, variable element to push
   @_ == 2 or confess "Two parameters";
-# my $b = $Array->bs;                                                           # Underlying arena
-  my $W = RegisterSize zmm0;                                                    # The size of a block
-  my $w = $Array->width;                                                        # The size of an entry in a block
-  my $n = $Array->slots1;                                                       # The number of slots per block
-  my $N = $Array->slots2;                                                       # The number of slots per block
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $W = RegisterSize zmm0;                                                    # The size of a block
+  my $w = $array->width;                                                        # The size of an entry in a block
+  my $n = $array->slots1;                                                       # The number of slots per block
+  my $N = $array->slots2;                                                       # The number of slots per block
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-#   my $B = $$p{bs};                                                            # Arena
-    my $F = $$p{first};                                                         # First block
-    my $E = $$p{element};                                                       # The element to be inserted
-
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $Array = $arena->DescribeArray;                                          # Array
+    my $array = $$s{array};                                                     # Array
+    my $arena = $array->bs;                                                     # Arena
+    my $F = $array->first;                                                      # First block
+    my $E = $$s{element};                                                       # The element to be inserted
 
     PushR r8, zmm31;
     my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
@@ -6320,9 +6318,10 @@ sub Nasm::X86::Array::push($$)                                                  
 
     SetLabel $success;
     PopR;
-   }  [qw(bs first element)], name => 'Nasm::X86::Array::push';
+   } structures => {array=>$array, element=>$element},
+     name       => 'Nasm::X86::Array::push';
 
-  $s->call(bs => $Array->address, first => $Array->first, element => $element);
+  $s->call(structures => {array=>$array, element=>$element});
  }
 
 sub Nasm::X86::Array::pop($)                                                    # Pop an element from an array and return it in a variable.
