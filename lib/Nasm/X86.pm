@@ -5628,7 +5628,7 @@ sub Nasm::X86::String::len($)                                                   
  {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p, $s) = @_;                                                           # Parameters, structures
     Comment "Length of a string";
     PushR zmm31;
