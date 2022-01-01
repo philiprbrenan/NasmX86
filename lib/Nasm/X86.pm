@@ -1214,19 +1214,15 @@ sub copyStructureMinusVariables($)                                              
   bless \%s, ref $s;                                                            # Return a copy of the structure
  }
 
-sub Subroutine2(&;$@)                                                           # Create a subroutine that can be called in assembler code.
- {my ($block, $parameters, %options) = @_;                                      # Block of code as a sub, optional [parameters  names], options.
+sub Subroutine2(&%)                                                             # Create a subroutine that can be called in assembler code.
+ {my ($block, %options) = @_;                                                   # Block of code as a sub, options
   @_ >= 1 or confess "Subroutine requires at least a block";
-
-  $block      = shift;
-  $parameters = @_ && ref($_[0]) ? shift : [];                                  # Optional parameters block
-  %options    = @_;                                                             # Anything else will be options - the most important of which is the name of the subroutine
 
   my $name = $options{name};                                                    # Subroutine name
   $name or confess "Name required for subroutine, use [], name=>";
-
   if ($name and my $n = $subroutines{$name}) {return $n}                        # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
 
+  my $parameters = $options{parameters};                                        # Optional parameters block
   if (1)                                                                        # Check for duplicate parameters
    {my %c;
     $c{$_}++ && confess "Duplicate parameter $_" for @$parameters;
@@ -1455,7 +1451,7 @@ sub PrintNL($)                                                                  
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
-  Call Macro
+  my $s = Subroutine2
    {SaveFirstFour;
     Mov rax, 1;
     Mov rdi, $channel;                                                          # Write below stack
@@ -1466,6 +1462,8 @@ sub PrintNL($)                                                                  
     Syscall;
     RestoreFirstFour()
    } name => qq(PrintNL_$channel);
+
+  $s->call;
  }
 
 sub PrintErrNL()                                                                # Print a new line to stderr.
@@ -1486,7 +1484,7 @@ sub PrintString($@)                                                             
   my $l = length($c);
   my $a = Rs($c);
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {SaveFirstFour;
     Mov rax, 1;
     Mov rdi, $channel;
@@ -1494,7 +1492,7 @@ sub PrintString($@)                                                             
     Mov rdx, $l;
     Syscall;
     RestoreFirstFour();
-   } [], name => "PrintString_${channel}_${c}";
+   } name => "PrintString_${channel}_${c}";
 
   $s->call;
  }
@@ -1576,9 +1574,8 @@ sub PrintRaxInHex($;$)                                                          
   my $hexTranslateTable = hexTranslateTable;
   $end //= 7;                                                                   # Default end byte
 
-  my $sub = Macro
-   {Comment "Print Rax In Hex on channel: $channel start";
-    SaveFirstFour rax;                                                          # Rax is a parameter
+  my $sub = Subroutine2
+   {SaveFirstFour rax;                                                          # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
 
@@ -1594,7 +1591,6 @@ sub PrintRaxInHex($;$)                                                          
       PrintString($channel, ' ') if $i % 2 and $i < 7;
      }
     RestoreFirstFour;
-    Comment "Print Rax In Hex on channel: $channel start";
    } name => "PrintOutRaxInHexOn-$channel-$end";
 
   Call $sub;
@@ -28376,7 +28372,7 @@ if (1) {                                                                        
     $$structures{test}->inner->value->getReg(r15);
 
     $$parameters{p}->setReg(rdx);
-   } [qw(p)], structures => {test => $t}, name => 'test';
+   } parameters=>[qw(p)], structures => {test => $t}, name => 'test';
 
   my $T = OuterStructure::new(42, 4);
   my $V = V parameter => 21;
