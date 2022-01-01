@@ -1631,7 +1631,7 @@ sub PrintOneRegisterInHex($$)                                                   
  {my ($channel, $r) = @_;                                                       # Channel to print on, register to print
   @_ == 2 or confess "Two parameters";
 
-  Call Macro                                                                    # Print non general purpose registers
+  my $s = Subroutine2                                                           # Print non general purpose registers
    {if   ($r =~ m(\Ar))                                                         # General purpose register
      {if ($r =~ m(\Arax\Z))
        {PrintRaxInHex($channel);
@@ -1667,6 +1667,8 @@ sub PrintOneRegisterInHex($$)                                                   
       elsif ($r =~ m(\Az))    {printReg qw(rax rbx rcx rdx r8 r9 r10 r11)}      # Zmm*
      }
    } name => "PrintOneRegister${r}InHexOn$channel";                             # One routine per register printed
+
+  $s->call;
  }
 
 sub PrintRegisterInHex($@)                                                      # Print the named registers as hex strings.
@@ -27620,7 +27622,7 @@ if (1) {                                                                        
    {PrintOutStringNL "22222";
    } [], name => 'test2';
 
-  my $s = CreateShortString(0);
+  my $s  = CreateShortString(0);
 
   my $a  = CreateArena;
   my $q  = $a->CreateQuarks;
@@ -27652,9 +27654,9 @@ if (1) {                                                                        
 call: 0000 0000 0040 1009
  sub: 0000 0000 0040 1009
  sub: 0000 0000 0040 1009
-call: 0000 0000 0040 10A3
- sub: 0000 0000 0040 10A3
- sub: 0000 0000 0040 10A3
+call: 0000 0000 0040 10B9
+ sub: 0000 0000 0040 10B9
+ sub: 0000 0000 0040 10B9
 11111
 22222
 END
@@ -27823,11 +27825,11 @@ Quark : 0000 0000 0000 0002 => 0000 0000 0000 01D8 == 0000 01D8 0000 01D8   0000
 Quark : 0000 0000 0000 0003 => 0000 0000 0000 0218 == 0000 0218 0000 0218   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0074 7474 7404
 Subs
 Quark : 0000 0000 0000 0000 => 0000 0000 0000 0318 == 0000 0318 0000 0318   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0073 7373 7300   0000 0000 4010 090C
-Quark : 0000 0000 0000 0001 => 0000 0000 0000 03D8 == 0000 03D8 0000 03D8   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0074 7474 7400   0000 0000 4012 B80C
+Quark : 0000 0000 0000 0001 => 0000 0000 0000 03D8 == 0000 03D8 0000 03D8   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0074 7474 7400   0000 0000 4012 FA0C
 sub: 0000 0000 0040 1009
-sub: 0000 0000 0040 12B8
+sub: 0000 0000 0040 12FA
 sub: 0000 0000 0040 1009
-sub: 0000 0000 0040 12B8
+sub: 0000 0000 0040 12FA
 SSSS   r15: 0000 0000 0000 0001
 TTTT   r15: 0000 0000 0000 0002
 SSSS   r15: 0000 0000 0000 0011
@@ -28326,7 +28328,7 @@ END
   unlink $e, $f;
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TSubroutine2
   package InnerStructure
    {use Data::Table::Text qw(:all);
