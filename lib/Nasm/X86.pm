@@ -1695,7 +1695,7 @@ sub PrintOutRegisterInHex(@)                                                    
 sub PrintOutRipInHex                                                            #P Print the instruction pointer in hex.
  {@_ == 0 or confess;
   my @regs = qw(rax);
-  my $sub = Macro
+  my $s = Subroutine2
    {PushR @regs;
     my $l = Label;
     push @text, <<END;
@@ -1708,14 +1708,14 @@ END
     PopR @regs;
    } name=> "PrintOutRipInHex";
 
-  Call $sub;
+  $s->call;
  }
 
 sub PrintOutRflagsInHex                                                         #P Print the flags register in hex.
  {@_ == 0 or confess;
   my @regs = qw(rax);
 
-  my $sub = Macro
+  my $s = Subroutine2
    {PushR @regs;
     Pushfq;
     Pop rax;
@@ -1725,7 +1725,7 @@ sub PrintOutRflagsInHex                                                         
     PopR @regs;
    } name=> "PrintOutRflagsInHex";
 
-  Call $sub;
+  $s->call;
  }
 
 sub PrintOutRegistersInHex                                                      # Print the general purpose registers in hex.
@@ -27155,7 +27155,7 @@ if (1) {                                                                        
   ok Assemble(debug => 0, keep2=>'z', emulator => 0, eq => <<END);
 a
    rax: 0000 0000 0000 0202
-   r11: 0000 0000 0000 0206
+   r11: 0000 0000 0000 0212
 END
  }
 
