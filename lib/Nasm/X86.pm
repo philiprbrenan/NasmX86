@@ -4024,7 +4024,8 @@ sub StatSize()                                                                  
  }
 
 sub ReadChar()                                                                  # Read a character from stdin and return it in rax else return -1 in rax if no character was read.
- {my $s = Subroutine
+ {@_ == 0 or confess "Zero parameters";
+  my $s = Subroutine2
    {my ($p) = @_;
     SaveFirstFour;                                                              # Generated code
 
@@ -4044,13 +4045,14 @@ sub ReadChar()                                                                  
      };
 
     RestoreFirstFourExceptRax;
-   } [], name => 'ReadChar';
+   } name => 'ReadChar';
 
   $s->call
  }
 
 sub ReadLine()                                                                  # Reads up to 8 characters followed by a terminating return and place them into rax.
- {my $s = Subroutine
+ {@_ == 0 or confess "Zero parameters";
+  my $s = Subroutine2
    {my ($p) = @_;
     PushR rcx, r14, r15;
     ClearRegisters rax, rcx, r14, r15;
@@ -4072,13 +4074,14 @@ sub ReadLine()                                                                  
 
     Mov rax, r15;                                                               # Return result in rax
     PopR;
-   } [], name => 'ReadLine';
+   } name => 'ReadLine';
 
   $s->call
  }
 
 sub ReadInteger()                                                               # Reads an integer in decimal and returns it in rax.
- {my $s = Subroutine
+ {@_ == 0 or confess "Zero parameters";
+  my $s = Subroutine2
    {my ($p) = @_;
     PushR r15;
     ClearRegisters rax, r15;
@@ -4098,7 +4101,7 @@ sub ReadInteger()                                                               
 
     Mov rax, r15;                                                               # Return result in rax
     PopR;
-   } [], name => 'ReadInteger';
+   } name => 'ReadInteger';
 
   $s->call
  }
@@ -4107,7 +4110,7 @@ sub ReadFile(@)                                                                 
  {my ($File) = @_;                                                              # Variable addressing a zero terminated string naming the file
   @_ == 1 or confess "One parameter required";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;
     Comment "Read a file into memory";
     SaveFirstSeven;                                                             # Generated code
@@ -4140,23 +4143,22 @@ sub ReadFile(@)                                                                 
     $$p{address}->getReg(rax);
     $$p{size}   ->getReg(rdi);
     RestoreFirstSeven;
-   } [qw(file address size)], name => 'ReadFile';
+   } parameters=>[qw(file address size)], name => 'ReadFile';
 
   my $file    = ref($File) ? $File : V file => Rs $File;
   my $size    = V('size');
   my $address = V('address');
-  $s->call(file => $file, $size, $address);
+  $s->call(parameters=>{file => $file, $size, $address});
 
   ($address, $size)                                                             # Return address and size of mapped file
  }
 
-sub executeFileViaBash(@)                                                       # Execute the file named in the arena addressed by rax with bash.
- {my (@variables) = @_;                                                         # Variables
-  @_ >= 1 or confess;
+sub executeFileViaBash($)                                                       # Execute the file named in a variable
+ {my ($file) = @_;                                                              # File variable
+  @_ == 1 or confess "File required";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    Comment "Execute a file via bash";
     SaveFirstFour;
     Fork;                                                                       # Fork
 
@@ -4174,26 +4176,25 @@ sub executeFileViaBash(@)                                                       
       Syscall;
      };
     RestoreFirstFour;
-   } [qw(file)], name => 'executeFileViaBash';
+   } parameters=>[qw(file)], name => 'executeFileViaBash';
 
-  $s->call(@variables);
+  $s->call(parameters=>{file => $file});
  }
 
 sub unlinkFile(@)                                                               # Unlink the named file.
- {my (@variables) = @_;                                                         # Variables
-  @_ >= 1 or confess;
+ {my ($file) = @_;                                                              # File variable
+  @_ == 1 or confess "File required";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    Comment "Unlink a file";
     SaveFirstFour;
     $$p{file}->setReg(rdi);
     Mov rax, 87;
     Syscall;
     RestoreFirstFour;
-   } [qw(file)], name => 'unlinkFile';
+   } parameters=>[qw(file)], name => 'unlinkFile';
 
-  $s->call(@variables);
+  $s->call(parameters=>{file => $file});
  }
 
 #D1 Hash functions                                                              # Hash functions
@@ -23818,7 +23819,7 @@ offset: 0000 0000 0000 0068
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
   my $A = CreateArena;
   my $t = $A->checkYggdrasilCreated;
