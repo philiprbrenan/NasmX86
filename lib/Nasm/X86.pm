@@ -5384,7 +5384,7 @@ sub Nasm::X86::Arena::dump($;$)                                                 
   @_ == 1 or @_ == 2 or confess "One or two parameters";
   my $blockSize = 64;                                                           # Print in blocks of this size
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     Comment "Print details of an arena";
 
@@ -5416,9 +5416,9 @@ sub Nasm::X86::Arena::dump($;$)                                                 
      });
 
     PopR;
-   } [qw(bs depth)], name => "Nasm::X86::Arena::dump";
+   } parameters=>[qw(bs depth)], name => "Nasm::X86::Arena::dump";
 
-  $s->call(bs => $arena->bs, depth => ($depth // V('depth', 4)));
+  $s->call(parameters=>{bs => $arena->bs, depth => ($depth // V('depth', 4))});
  }
 
 #D1 String                                                                      # Strings made from zmm sized blocks of text
@@ -5437,7 +5437,7 @@ sub DescribeString(%)                                                           
     prev        => $b - 2 * $o,                                                 # Location of prev offset in block in bytes
     length      => $b - 2 * $o - $l,                                            # Maximum length in a block
     lengthWidth => $l,                                                          # Maximum length in a block
-    first       => ($options{first}//G('first')),                               # Variable addressing first block in string if one has not been supplied
+    first       => ($options{first}//V('first')),                               # Variable addressing first block in string if one has not been supplied
    );
  }
 
@@ -26228,7 +26228,7 @@ if (1) {                                                                        
     $t->insertTree(V(key,  $i)), $t->data->outNL unless $i % 2;
    }
 
-  $b->dump(20);
+  $b->dump(K blocks=>20);
   ok Assemble(debug => 0, eq => <<END);
 data: 0000 0000 0000 0002
 data: 0000 0000 0000 0098
