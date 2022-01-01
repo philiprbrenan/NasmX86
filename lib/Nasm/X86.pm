@@ -1274,7 +1274,7 @@ sub Nasm::X86::Subroutine::mapStructureVariables($$$@)                          
 
     if ($r =~ m(Variable)i)                                                     # Replace a variable with a reference in the copy of a structure passed in as a parameter
      {push @P, $s;
-      my $R = $sub->structureVariables->{dump([@P])} = $$S{$s} = R();           # Path to a reference in the copy of a structure passed as as a parameter
+      my $R = $sub->structureVariables->{dump([@P])} = $$S{$s} = R($e->name);   # Path to a reference in the copy of a structure passed as as a parameter
       pop @P;
      }
     else                                                                        # A reference to something else - for the moment we assume that structures are built from non recursive hash references
@@ -5926,6 +5926,7 @@ sub Nasm::X86::String::append($$$)                                              
     my $O       = K(one,  1);                                                   # One
     my $string  = $$s{string};
     my $first   = $string->first;                                               # First (preallocated) block in string
+
     my $source  = $$p{source}->clone('source');                                 # Address of content to be appended
     my $size    = $$p{size}  ->clone('size');                                   # Size of content
     my $L       = V(size, $string->length);                                     # Length of string
@@ -6036,99 +6037,99 @@ sub Nasm::X86::String::getQ1($)                                                 
  {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $string = $arena->DescribeString(first => $$p{first});                   # String
+    my $string = $$s{string};                                                   # String
 
     PushR r8, r9, zmm0;
-    $arena->getZmmBlock($string->first, 0, r8, r9);                             # Load the first block on the free chain
+    $string->bs->getZmmBlock($string->first, 0, r8, r9);                        # Load the first block on the free chain
     Psrldq xmm0, $string->lengthWidth;                                          # Shift off the length field of the long string block
     Pextrq r8, xmm0, 0;                                                         # Extract first quad word
     $$p{q1}->getReg(r8);                                                        # Return first quad word  as a variable
     PopR;
-   } [qw(bs first q1)], name => "Nasm::X86::String::getQ1";
+   } parameters => [qw(q1)],
+     structures => {string => $string},
+     name       => "Nasm::X86::String::getQ1";
 
-  $s->call(bs => $string->address, first => $string->first, my $q = V q1 => -1);
+  $s->call(parameters=>{q1 => my $q = V q1 => -1},
+           structures=>{string => $string});
 
   $q
  }
 
 sub Nasm::X86::String::clear($)                                                 # Clear the string by freeing all but the first block and putting the remainder on the free chain addressed by Yggdrasil.
- {my ($String) = @_;                                                            # String descriptor
+ {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $String = $arena->DescribeString(first => $$p{first});                   # String
+    my $string = $$s{string};                                                   # String
 
     PushR rax, r14, r15; PushZmm 29..31;
 
-    my $first = $$p{first};                                                     # First block
-    $String->getZmmBlock($first, 29);                                           # Get the first block
-    my ($second, $last) = $String->getNextAndPrevBlockOffsetFromZmm(29);        # Get the offsets of the second and last blocks
+    my $first = $string->first;                                                 # First block
+    $string->getZmmBlock($first, 29);                                           # Get the first block
+    my ($second, $last) = $string->getNextAndPrevBlockOffsetFromZmm(29);        # Get the offsets of the second and last blocks
     ClearRegisters zmm29;                                                       # Clear first block to empty string
-    $String->putNextandPrevBlockOffsetIntoZmm(29, $first, $first);              # Initialize block chain so string is ready for reuse
-    $String->putZmmBlock($first, 29);                                           # Put the first block to make an empty string
+    $string->putNextandPrevBlockOffsetIntoZmm(29, $first, $first);              # Initialize block chain so string is ready for reuse
+    $string->putZmmBlock($first, 29);                                           # Put the first block to make an empty string
 
     If $last != $first,
     Then                                                                        # Two or more blocks on the chain
-     {my $ffb = $String->bs->firstFreeBlock;                                    # First free block
+     {my $ffb = $string->bs->firstFreeBlock;                                    # First free block
 
       If $second == $last,
       Then                                                                      # Two blocks on the chain
        {ClearRegisters zmm30;                                                   # Second block
-        $String->putNextandPrevBlockOffsetIntoZmm(30, $ffb, undef);             # Put second block on head of the list
-        $String->putZmmBlock($second, 30);                                      # Put the second block
+        $string->putNextandPrevBlockOffsetIntoZmm(30, $ffb, undef);             # Put second block on head of the list
+        $string->putZmmBlock($second, 30);                                      # Put the second block
        },
       Else                                                                      # Three or more blocks on the chain
        {my $z = V(zero, 0);                                                     # A variable with zero in it
-        $String->getZmmBlock($second, 30);                                      # Get the second block
-        $String->getZmmBlock($last,   31);                                      # Get the last block
-        $String->putNextandPrevBlockOffsetIntoZmm(30, undef, $z);               # Reset prev pointer in second block
-        $String->putNextandPrevBlockOffsetIntoZmm(31, $ffb, undef);             # Reset next pointer in last block to remainder of free chain
-        $String->putZmmBlock($second, 30);                                      # Put the second block
-        $String->putZmmBlock($last, 31);                                        # Put the last block
+        $string->getZmmBlock($second, 30);                                      # Get the second block
+        $string->getZmmBlock($last,   31);                                      # Get the last block
+        $string->putNextandPrevBlockOffsetIntoZmm(30, undef, $z);               # Reset prev pointer in second block
+        $string->putNextandPrevBlockOffsetIntoZmm(31, $ffb, undef);             # Reset next pointer in last block to remainder of free chain
+        $string->putZmmBlock($second, 30);                                      # Put the second block
+        $string->putZmmBlock($last, 31);                                        # Put the last block
        };
-      $String->bs->setFirstFreeBlock($second);                                  # The second block becomes the head of the free chain
+      $string->bs->setFirstFreeBlock($second);                                  # The second block becomes the head of the free chain
      };
 
     PopZmm; PopR;
-   }  [qw(first bs)], name => 'Nasm::X86::String::clear';
+   } structures=>{string=>$string}, name => 'Nasm::X86::String::clear';
 
-  $s->call(bs => $String->address, first => $String->first);
+  $s->call(structures=>{string=>$string});
  }
 
 sub Nasm::X86::String::free($)                                                  # Free a string by putting all of its blocks on the free chain addressed by Yggdrasil .
- {my ($String) = @_;                                                            # String descriptor
+ {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $String = $arena->DescribeString;                                        # String
+    my $string = $$s{string};                                                   # String
 
     PushR rax, r14, r15; PushZmm  30..31;
 
-    my $first = $$p{first};                                                     # First block
-    $String->getZmmBlock($first,  30);                                          # Get the first block
-    my ($second, $last) = $String->getNextAndPrevBlockOffsetFromZmm(30);        # Get the offsets of the second and last blocks
+    my $first = $string->first;                                                 # First block
+    $string->getZmmBlock($first,  30);                                          # Get the first block
+    my ($second, $last) = $string->getNextAndPrevBlockOffsetFromZmm(30);        # Get the offsets of the second and last blocks
 
-    my $ffb = $String->bs->firstFreeBlock;                                      # First free block
-    $String->getZmmBlock($last,   31);                                          # Get the last block
-    $String->putNextandPrevBlockOffsetIntoZmm(31, $ffb, undef);                 # Reset next pointer in last block to remainder of free chain
-    $String->bs->setFirstFreeBlock($first);                                     # The first block becomes the head of the free chain
-    $String->putZmmBlock($first,  30);                                          # Put the second block
-    $String->putZmmBlock($last,   31);                                          # Put the last block
+    my $ffb = $string->bs->firstFreeBlock;                                      # First free block
+    $string->getZmmBlock($last,   31);                                          # Get the last block
+    $string->putNextandPrevBlockOffsetIntoZmm(31, $ffb, undef);                 # Reset next pointer in last block to remainder of free chain
+    $string->bs->setFirstFreeBlock($first);                                     # The first block becomes the head of the free chain
+    $string->putZmmBlock($first,  30);                                          # Put the second block
+    $string->putZmmBlock($last,   31);                                          # Put the last block
 
     PopZmm; PopR;
-   }  [qw(first bs)], name => 'Nasm::X86::String::free';
+   } structures=>{string => $string}, name => 'Nasm::X86::String::free';
 
-  $s->call(bs => $String->address, first => $String->first);
+  $s->call(structures=>{string => $string});
  }
 
 #D1 Array                                                                       # Array constructed as a set of blocks in an arena
@@ -24715,12 +24716,11 @@ Offset: 0000 0000 0000 0158  Length: 46  0000 0018 0000 0118   0000 0000 0000 00
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #TNasm::X86::Arena::length #TNasm::X86::Arena::clear
   my $t = Rb(0..255);
   my $a = CreateArena;
   my $s = $a->CreateString;
-
   V(loop => 5)->for(sub
    {$s->append(V(source => $t), K(size => 256));
     $s->clear;
