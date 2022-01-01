@@ -873,24 +873,24 @@ sub ForEver(&)                                                                  
   SetLabel $end;                                                                # End of loop
  }
 
-sub Macro(&%)                                                                   # Create a sub with optional parameters name=> the name of the subroutine so it can be reused rather than regenerated, comment=> a comment describing the sub.
- {my ($block, %options) = @_;                                                   # Block, options.
-
-  @_ >= 1 or confess;
-  my $name = $options{name} // [caller(1)]->[3];                                # Optional name for subroutine reuse
-  if ($name and !$options{keepOut} and my $n = $subroutines{$name}) {return $n} # Return the label of a pre-existing copy of the code
-
-  my $start = Label;
-  my $end   = Label;
-  Jmp $end;
-  SetLabel $start;
-  &$block;
-  Ret;
-  SetLabel $end;
-  $subroutines{$name} = $start if $name;                                        # Cache a reference to the generated code if a name was supplied
-
-  $start
- }
+#sub Macro(&%)                                                                   # Create a sub with optional parameters name=> the name of the subroutine so it can be reused rather than regenerated, comment=> a comment describing the sub.
+# {my ($block, %options) = @_;                                                   # Block, options.
+#
+#  @_ >= 1 or confess;
+#  my $name = $options{name} // [caller(1)]->[3];                                # Optional name for subroutine reuse
+#  if ($name and !$options{keepOut} and my $n = $subroutines{$name}) {return $n} # Return the label of a pre-existing copy of the code
+#
+#  my $start = Label;
+#  my $end   = Label;
+#  Jmp $end;
+#  SetLabel $start;
+#  &$block;
+#  Ret;
+#  SetLabel $end;
+#  $subroutines{$name} = $start if $name;                                        # Cache a reference to the generated code if a name was supplied
+#
+#  $start
+# }
 
 #D2 Call                                                                        # Call a subroutine
 
@@ -4220,7 +4220,7 @@ sub unlinkFile(@)                                                               
 sub Hash()                                                                      # Hash a string addressed by rax with length held in rdi and return the hash code in r15.
  {@_ == 0 or confess;
 
-  my $sub = Macro                                                               # Read file
+  my $s = Subroutine2                                                           # Read file
    {Comment "Hash";
 
     PushR my @regs = (rax, rdi, k1, zmm0, zmm1);                                # Save registers
@@ -4274,7 +4274,7 @@ sub Hash()                                                                      
     PopR @regs;
    } name=> "Hash";
 
-  Call $sub;
+  $s->call;
  }
 
 #D1 Unicode                                                                     # Convert utf8 to utf32
@@ -4800,7 +4800,7 @@ sub Nasm::X86::ShortString::appendVar($$)                                       
 sub Cstrlen()                                                                   #P Length of the C style string addressed by rax returning the length in r15.
  {@_ == 0 or confess "No parameters";
 
-  my $sub  = Macro                                                              # Create arena
+  my $s = Subroutine2                                                           # Create arena
    {Comment "C strlen";
     PushR my @regs = (rax, rdi, rcx);
     Mov rdi, rax;
@@ -4815,7 +4815,7 @@ END
     PopR @regs;
    } name => "Cstrlen";
 
-  Call $sub;
+  $s->call;
  }
 
 sub StringLength(@)                                                             # Length of a zero terminated string.
