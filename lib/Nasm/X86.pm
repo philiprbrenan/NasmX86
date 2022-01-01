@@ -5815,23 +5815,21 @@ sub Nasm::X86::String::insertChar($$$)                                          
  } #insertChar
 
 sub Nasm::X86::String::deleteChar($$)                                           # Delete a character in a string.
- {my ($String, $position) = @_;                                                 # String, variable position in string
+ {my ($string, $position) = @_;                                                 # String, variable position in string
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-    Comment "Delete a character in a string";
-    PushR (k7, zmm31);
-    my $F = $$p{first};                                                         # The first block in string
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    PushR k7, zmm31;
+    my $string = $$s{string};                                                   # String
+    my $F = $string->first;                                                     # The first block in string
     my $P = $$p{position};                                                      # The position in the string at which we want to insert the character
 
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $String = $arena->DescribeString;                                        # String
-
-    $String->getZmmBlock($F, 31);                                               # The first source block
+    $string->getZmmBlock($F, 31);                                               # The first source block
 
     my $C = V('Current character position', 0);                                 # Current character position
-    my $L = $String->getBlockLength(31);                                        # Length of last block
+    my $L = $string->getBlockLength(31);                                        # Length of last block
     my $current = $F->clone('current');                                         # Current position in scan of block chain
 
     ForEver                                                                     # Each block in source string
@@ -5845,44 +5843,43 @@ sub Nasm::X86::String::deleteChar($$)                                           
           PushR zmm31;                                                          # Stack block
           ($O+1)->setMask($L - $O, k7);                                         # Set mask for reload
           Vmovdqu8 "zmm31{k7}", "[rsp+1]";                                      # Reload
-          $String->setBlockLengthInZmm($L-1, 31);                               # Length of block
-          $String->putZmmBlock($current, 31);                                   # Save the modified block
+          $string->setBlockLengthInZmm($L-1, 31);                               # Length of block
+          $string->putZmmBlock($current, 31);                                   # Save the modified block
           PopR zmm31;                                                           # Stack block
           Jmp $end;                                                             # Character successfully inserted
          };
        };
 
-      my ($next, $prev) = $String->getNextAndPrevBlockOffsetFromZmm(31);        # Get links from current source block
-      $String->getZmmBlock($next, 31);                                          # Next block
+      my ($next, $prev) = $string->getNextAndPrevBlockOffsetFromZmm(31);        # Get links from current source block
+      $string->getZmmBlock($next, 31);                                          # Next block
       $current->copy($next);
-      $L->copy($String->getBlockLength(31));                                    # Length of block
+      $L->copy($string->getBlockLength(31));                                    # Length of block
       $C += $L;                                                                 # Current character position at the start of this block
      };
 
     PopR;
-   } [qw(first position bs)], name => 'Nasm::X86::String::deleteChar';
+   } parameters=>[qw(position)],
+     structures=>{string=>$string},
+     name => 'Nasm::X86::String::deleteChar';
 
-  $s->call(bs => $String->address, first => $String->first,
-    position => $position)
+  $s->call(parameters=>{position => $position}, structures=>{string => $string});
  }
 
 sub Nasm::X86::String::getCharacter($$)                                         # Get a character from a string at the variable position.
- {my ($String, $position) = @_;                                                 # String, variable position
+ {my ($string, $position) = @_;                                                 # String, variable position
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-    Comment "Get a character from a string";
-    PushR (r15, zmm31);
-    my $F = $$p{first};                                                         # The first block in string
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    PushR r15, zmm31;
+    my $string = $$s{string};                                                   # String
+    my $F = $string->first;                                                     # The first block in string
     my $P = $$p{position};                                                      # The position in the string at which we want to insert the character
 
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $String = $arena->DescribeString;                                        # String
-
-    $String->getZmmBlock($F, 31);                                               # The first source block
+    $string->getZmmBlock($F, 31);                                               # The first source block
     my $C = V('Current character position', 0);                                 # Current character position
-    my $L = $String->getBlockLength(31);                                        # Length of last block
+    my $L = $string->getBlockLength(31);                                        # Length of last block
 
     ForEver                                                                     # Each block in source string
      {my ($start, $end) = @_;                                                   # Start and end labels
@@ -5901,80 +5898,84 @@ sub Nasm::X86::String::getCharacter($$)                                         
          };
        };
 
-      my ($next, $prev) = $String->getNextAndPrevBlockOffsetFromZmm(31);        # Get links from current source block
-      $String->getZmmBlock($next, 31);                                          # Next block
-      $L = $String->getBlockLength(31);                                         # Length of block
+      my ($next, $prev) = $string->getNextAndPrevBlockOffsetFromZmm(31);        # Get links from current source block
+      $string->getZmmBlock($next, 31);                                          # Next block
+      $L = $string->getBlockLength(31);                                         # Length of block
       $C += $L;                                                                 # Current character position at the start of this block
      };
 
     PopR;
-   } [qw(first position bs out)], name => 'Nasm::X86::String::getCharacter';
+   } parameters => [qw(position out)],
+     structures => {string => $string},
+     name       => 'Nasm::X86::String::getCharacter';
 
-  $s->call(bs => $String->address, first => $String->first,
-    position => $position, my $out = V('out'));
+  $s->call(parameters=>{position=>$position, out => my $out = V('out')},
+     structures=>{string => $string});
+
   $out
  }
 
 sub Nasm::X86::String::append($$$)                                              # Append the specified content in memory to the specified string.
- {my ($String, $source, $size) = @_;                                            # String descriptor, variable source address, variable length
+ {my ($string, $source, $size) = @_;                                            # String descriptor, variable source address, variable length
   @_ >= 3 or confess;
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $Z       = K(zero, 0);                                                   # Zero
     my $O       = K(one,  1);                                                   # One
-    my $L       = V(size, $String->length);                                     # Length of string
+    my $string  = $$s{string};
+    my $first   = $string->first;                                               # First (preallocated) block in string
     my $source  = $$p{source}->clone('source');                                 # Address of content to be appended
     my $size    = $$p{size}  ->clone('size');                                   # Size of content
-    my $first   = $$p{first};                                                   # First (preallocated) block in string
-    my $arena  = DescribeArena($$p{bs});
-    my $String = $arena->DescribeString(first => $first);
+    my $L       = V(size, $string->length);                                     # Length of string
 
     PushZmm 29..31;
     ForEver                                                                     # Append content until source exhausted
      {my ($start, $end) = @_;                                                   # Parameters
 
-      $String->getZmmBlock($first, 29);                                         # Get the first block
-      my ($second, $last) = $String->getNextAndPrevBlockOffsetFromZmm(29);      # Get the offsets of the second and last blocks
-      $String->getZmmBlock($last,  31);                                         # Get the last block
-      my $lengthLast      = $String->getBlockLength(31);                        # Length of last block
+      $string->getZmmBlock($first, 29);                                         # Get the first block
+      my ($second, $last) = $string->getNextAndPrevBlockOffsetFromZmm(29);      # Get the offsets of the second and last blocks
+      $string->getZmmBlock($last,  31);                                         # Get the last block
+      my $lengthLast      = $string->getBlockLength(31);                        # Length of last block
       my $spaceLast       = $L - $lengthLast;                                   # Space in last block
       my $toCopy          = $spaceLast->min($size);                             # Amount of data required to fill first block
       my $startPos        = $O + $lengthLast;                                   # Start position in zmm
 
       $source->setZmm(31, $startPos, $toCopy);                                  # Append bytes
-      $String->setBlockLengthInZmm($lengthLast + $toCopy, 31);                  # Set the length
-      $String->putZmmBlock($last, 31);                                          # Put the block
+      $string->setBlockLengthInZmm($lengthLast + $toCopy, 31);                  # Set the length
+      $string->putZmmBlock($last, 31);                                          # Put the block
       If $size <= $spaceLast, sub {Jmp $end};                                   # We are finished because the last block had enough space
       $source += $toCopy;                                                       # Remaining source
       $size   -= $toCopy;                                                       # Remaining source length
 
-      my $new = $String->allocBlock;                                            # Allocate new block
-      $String->getZmmBlock($new, 30);                                           # Load the new block
+      my $new = $string->allocBlock;                                            # Allocate new block
+      $string->getZmmBlock($new, 30);                                           # Load the new block
       ClearRegisters zmm30;
-      my ($next, $prev) = $String->getNextAndPrevBlockOffsetFromZmm(31);        # Linkage from last block
+      my ($next, $prev) = $string->getNextAndPrevBlockOffsetFromZmm(31);        # Linkage from last block
 
       If $first == $last,
       Then                                                                      # The existing string has one block, add new as the second block
-        {$String->putNextandPrevBlockOffsetIntoZmm(31, $new,  $new);
-         $String->putNextandPrevBlockOffsetIntoZmm(30, $last, $last);
+        {$string->putNextandPrevBlockOffsetIntoZmm(31, $new,  $new);
+         $string->putNextandPrevBlockOffsetIntoZmm(30, $last, $last);
         },
       Else                                                                      # The existing string has two or more blocks
-       {$String->putNextandPrevBlockOffsetIntoZmm(31, $new,    $prev);          # From last block
-        $String->putNextandPrevBlockOffsetIntoZmm(30, $next,   $last);          # From new block
-        $String->putNextandPrevBlockOffsetIntoZmm(29, undef,   $new);           # From first block
-        $String->putZmmBlock($first, 29);                                       # Put the modified last block
+       {$string->putNextandPrevBlockOffsetIntoZmm(31, $new,    $prev);          # From last block
+        $string->putNextandPrevBlockOffsetIntoZmm(30, $next,   $last);          # From new block
+        $string->putNextandPrevBlockOffsetIntoZmm(29, undef,   $new);           # From first block
+        $string->putZmmBlock($first, 29);                                       # Put the modified last block
         };
 
-      $String->putZmmBlock($last, 31);                                          # Put the modified last block
-      $String->putZmmBlock($new,  30);                                          # Put the modified new block
+      $string->putZmmBlock($last, 31);                                          # Put the modified last block
+      $string->putZmmBlock($new,  30);                                          # Put the modified new block
      };
     PopZmm;
-   }  [qw(bs first source size)], name => 'Nasm::X86::String::append';
+   }  parameters=>[qw(source size)],
+      structures=>{string => $string},
+     name => 'Nasm::X86::String::append';
 
-  $s->call(bs => $String->address, first => $String->first,
-           source => $source, size => $size);
+  $s->call(structures => {string => $string},
+           parameters => {source => $source, size => $size});
  }
 
 sub Nasm::X86::String::appendShortString($$)                                    # Append the content of the specified short string to the string.
@@ -6003,30 +6004,30 @@ sub Nasm::X86::String::appendVar($$)                                            
  }
 
 sub Nasm::X86::String::saveToShortString($$;$)                                  # Place as much as possible of the specified string into the specified short string.
- {my ($String, $short, $first) = @_;                                            # String descriptor, short string descriptor, optional offset to first block of string
+ {my ($string, $short, $first) = @_;                                            # String descriptor, short string descriptor, optional offset to first block of string
   @_ == 2 or confess "Two parameters";
   my $z = $short->z; $z eq zmm31 and confess "Cannot use zmm31";                # Zmm register in short string to load must not be zmm31
 
-  my $s = Subroutine       ### At the moment we only read the first block - we need to read more data out of the string if necessary
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2       ### At the moment we only read the first block - we need to read more data out of the string if necessary
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     PushR k7, zmm31, r14, r15;
 
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $String = $arena->DescribeString;                                        # String
+    my $string = $$s{string};                                                   # String
 
-    $String->getZmmBlock($$p{first}, 31);                                       # The first block in zmm31
+    $string->getZmmBlock($string->first, 31);                                   # The first block in zmm31
 
     Mov r15, -1; Shr r15, 1; Shl r15, 9; Shr r15, 8; Kmovq k7, r15;             # Mask for the most we can get out of a block of the string
     $short->clear;
     Vmovdqu8 "${z}{k7}", zmm31;                                                 # Move all the data in the first block
 
-    my $b = $String->getBlockLength(31);                                        # Length of block
+    my $b = $string->getBlockLength(31);                                        # Length of block
     $short->setLength($b);                                                      # Set length of short string
 
     PopR;
-   } [qw(bs first)], name => "Nasm::X86::String::saveToShortString_$z";         # Separate by zmm register being loaded
+   } structures=>{string => $string},
+     name => "Nasm::X86::String::saveToShortString_$z";                         # Separate by zmm register being loaded
 
-  $s->call(bs => $String->address, first => ($first//$String->first));
+  $s->call(structures=>{string => $string});
 
   $short                                                                        # Chain
  }
