@@ -4397,13 +4397,12 @@ sub ConvertUtf8ToUtf32(@)                                                       
 # 1  XXXXXXXX                          ClassifyWithInRange              X == offset in range
 # 2  CCCCCCCC                XXXXXXXX  ClassifyWithInRangeAndSaveOffset C == classification, X == offset in range 0-2**10
 
-sub ClassifyRange($@)                                                           #P Implementation of ClassifyInRange and ClassifyWithinRange.
- {my ($recordOffsetInRange, @parameters) = @_;                                  # Record offset in classification in high byte if 1 else in classification if 2, parameters
-  @_ >= 1 or confess;
+sub ClassifyRange($$$)                                                          #P Implementation of ClassifyInRange and ClassifyWithinRange.
+ {my ($recordOffsetInRange, $address, $size) = @_;                              # Record offset in classification in high byte if 1 else in classification if 2, variable address of utf32 string to classify, variable length of utf32 string to classify
+  @_ == 3 or confess "Three parameters required";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
-    Comment "Classify characters in utf32 format";
     my $finish = Label;
 
     PushR my @save =  (($recordOffsetInRange ? (r11, r12, r13) : ()),           # More registers required if we are recording position in range
@@ -4463,24 +4462,28 @@ sub ClassifyRange($@)                                                           
 
     SetLabel $finish;
     PopR;
-   } [qw(address size)],  name => "ClassifyRange_$recordOffsetInRange";
+   } parameters=>[qw(address size)],
+     name => "ClassifyRange_$recordOffsetInRange";
 
-  $s->call(@parameters);
+  $s->call(parameters=>{address=>$address, size=>$size});
  } # ClassifyRange
 
-sub ClassifyInRange(@)                                                          # Character classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with each double word in zmm0 having the classification in the highest 8 bits and with zmm0 and zmm1 having the utf32 character at the start (zmm0) and end (zmm1) of each range in the lowest 18 bits.  The classification bits from the first matching range are copied into the high (unused) byte of each utf32 character in the block of memory.  The effect is to replace the high order byte of each utf32 character with a classification code saying what type of character we are working.
- {my (@parameters) = @_;                                                        # Parameters
-  ClassifyRange(0, @_);
+sub ClassifyInRange($$)                                                         # Character classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with each double word in zmm0 having the classification in the highest 8 bits and with zmm0 and zmm1 having the utf32 character at the start (zmm0) and end (zmm1) of each range in the lowest 18 bits.  The classification bits from the first matching range are copied into the high (unused) byte of each utf32 character in the block of memory.  The effect is to replace the high order byte of each utf32 character with a classification code saying what type of character we are working.
+ {my ($address, $size) = @_;                                                    # Variable address of utf32 string to classify, variable length of utf32 string to classify
+  @_ == 2 or confess "Two parameters required";
+  ClassifyRange(0, $address, $size);
  }
 
 sub ClassifyWithInRange(@)                                                      # Bracket classification: Classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification range in the high byte of each dword in zmm0 and the utf32 character at the start (zmm0) and end (zmm1) of each range in the lower 18 bits of each dword.  The classification bits from the position within the first matching range are copied into the high (unused) byte of each utf32 character in the block of memory.  With bracket matching this gives us a normalized bracket number.
- {my (@parameters) = @_;                                                        # Parameters
-  ClassifyRange(1, @_);
+ {my ($address, $size) = @_;                                                    # Variable address of utf32 string to classify, variable length of utf32 string to classify
+  @_ == 2 or confess "Two parameters required";
+  ClassifyRange(1, $address, $size);
  }
 
 sub ClassifyWithInRangeAndSaveOffset(@)                                         # Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification code in the highest byte of each double word in zmm0 and the offset of the first element in the range in the highest byte of each dword in zmm1.  The lowest 18 bits of each double word in zmm0 and zmm1  contain the utf32 characters marking the start and end of each range. The classification bits from zmm1 for the first matching range are copied into the high byte of each utf32 character in the block of memory.  The offset in the range is copied into the lowest byte of each utf32 character in the block of memory.  The middle two bytes are cleared.  The classification byte is placed in the lowest byte of the utf32 character.
- {my (@parameters) = @_;                                                        # Parameters
-  ClassifyRange(2, @_);
+ {my ($address, $size) = @_;                                                    # Variable address of utf32 string to classify, variable length of utf32 string to classify
+  @_ == 2 or confess "Two parameters required";
+  ClassifyRange(2, $address, $size);
  }
 
 #AAAA
