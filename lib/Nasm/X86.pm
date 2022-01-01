@@ -4486,16 +4486,14 @@ sub ClassifyWithInRangeAndSaveOffset(@)                                         
   ClassifyRange(2, $address, $size);
  }
 
-#AAAA
-
 #   4---+---3---+---2---+---1---+---0  Octal not decimal
 #    CCCCCCCC        XXXXXXXXXXXXXXXX  ClassifyWithInRangeAndSaveWordOffset C == classification, X == offset in range 0-2**16
 
 sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   # Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1, zmm2 formatted in double words. Zmm0 contains the low end of the range, zmm1 the high end and zmm2 contains the range offset in the high word of each Dword and the lexical classification on the lowest byte of each dword. Each utf32 character recognized is replaced by a dword whose upper byte is the lexical classification and whose lowest word is the range offset.
  {my ($address, $size, $classification) = @_;                                   # Variable address of string of utf32 characters, variable size of string in utf32 characters, variable one byte classification code for this range
-  @_ == 3 or confess;
+  @_ == 3 or confess "Three parameters required";
 
-  my $s = Subroutine
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     my $finish = Label;
 
@@ -4524,9 +4522,10 @@ sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   
       Mov "[r15-4]", r12d;                                                      # Classification in highest byte of dword, offset in range in lowest word
      });
     PopR;
-   } [qw(address size classification)],  name => "ClassifyWithInRangeAndSaveWordOffset";
+   } parameters => [qw(address size classification)],
+     name       => "ClassifyWithInRangeAndSaveWordOffset";
 
-  $s->call(address=>$address, size=>$size, classification=>$classification);
+  $s->call($address, $size, $classification);
  } # ClassifyWithInRangeAndSaveWordOffset
 
 #D1 Short Strings                                                               # Operations on Short Strings
