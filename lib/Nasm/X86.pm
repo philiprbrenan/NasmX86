@@ -1202,15 +1202,33 @@ sub Subroutine2(&%)                                                             
 
   if (1)                                                                        # Validate options
    {my %o = %options;
-    delete $o{$_} for qw(parameters structures name);
+    delete $o{$_} for qw(parameters structures name run);
     if (my @i = sort keys %o)
      {confess "Invalid parameters: ".join(', ',@i);
      }
    }
 
+  my $run = sub                                                                 # We can run the sub immediately if it has just structure parameter (which can be single variables) and no other parameters
+   {my ($s) = @_;                                                               # Parameters
+    if ($s->options->{run})                                                     # Run the existing copy of the subroutine if it only requires structure arguments which can include just variables.
+     {if (!$s->options->{parameters})                                           # Cannot run -as the subroutine requires parameters as well as structures.
+       {$s->call(structures=>$s->options->{structures});                        # Call the subroutine
+        return $s                                                               # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
+       }
+      else                                                                      # Cannot run the subroutine as it requires parameters which we do not have yet.  However, we can use strucutures which can be just variables.
+       {confess "Cannot run subroutine as it has parameters, uses structures instead";
+       }
+     }
+    else                                                                        # Run not requested
+     {return $s                                                                 # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
+     }
+   };
+
   my $name = $options{name};                                                    # Subroutine name
   $name or confess "Name required for subroutine, use [], name=>";
-  if ($name and my $n = $subroutines{$name}) {return $n}                        # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
+  if ($name and my $s = $subroutines{$name})                                    # Return the label of a pre-existing copy of the code possibly after running the subroutine. Make sure that the subroutine name is different for different subs as otherwise the unexpected results occur.
+   {return &$run($s);
+   }
 
   my $parameters = $options{parameters};                                        # Optional parameters block
   if (1)                                                                        # Check for duplicate parameters
@@ -1262,7 +1280,7 @@ sub Subroutine2(&%)                                                             
   Enter $V*$w, 0
 END
 
-  $s                                                                            # Subroutine definition
+  &$run($s)                                                                     # Run subroutine if requested and return its definition definition
  }
 
 sub Nasm::X86::Subroutine::mapStructureVariables($$$@)                          # Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined
@@ -28351,13 +28369,29 @@ if (1) {                                                                        
   $t->inner->value->outInDecNL;
   $T->value->outInDecNL;
   $T->inner->value->outInDecNL;
-  ok Assemble(debug => 0, trace => 1, eq => <<END);
+  ok Assemble(debug => 0, trace => 0, eq => <<END);
 42
 21
 var: 42
 var: 4
 var: 84
 var: 8
+END
+ }
+
+latest:
+if (1) {
+  Subroutine2                                                                   #TSubroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    $$s{var}->setReg(rax);
+    Dec rax;
+    $$s{var}->getReg(rax);
+   } structures => {var => my $v = V var => 42}, name => 'test', run => 1;
+
+  $v->outNL;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END);
+var: 0000 0000 0000 0029
 END
  }
 
