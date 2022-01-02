@@ -1877,7 +1877,7 @@ sub PrintRaxInDec($)                                                            
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  Subroutine2
    {PushR rax, rdi, rdx, r9, r10;
     Mov r9, 0;                                                                  # Number of decimal digits
     Mov r10, 10;                                                                # Base of number system
@@ -1900,9 +1900,7 @@ sub PrintRaxInDec($)                                                            
     Jnz $print;
 
     PopR;
-   } name => "PrintRaxInDec_$channel";
-
-  $s->call;
+   } name => "PrintRaxInDec_$channel", call=>1;
  }
 
 sub PrintOutRaxInDec                                                            # Print rax in decimal on stdout.
