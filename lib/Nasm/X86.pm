@@ -1641,7 +1641,7 @@ sub PrintOneRegisterInHex($$)                                                   
  {my ($channel, $r) = @_;                                                       # Channel to print on, register to print
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine2                                                           # Print non general purpose registers
+  Subroutine2
    {if   ($r =~ m(\Ar))                                                         # General purpose register
      {if ($r =~ m(\Arax\Z))
        {PrintRaxInHex($channel);
@@ -1676,9 +1676,7 @@ sub PrintOneRegisterInHex($$)                                                   
       elsif ($r =~ m(\Ay))    {printReg qw(rax rbx rcx rdx)}                    # Ymm*
       elsif ($r =~ m(\Az))    {printReg qw(rax rbx rcx rdx r8 r9 r10 r11)}      # Zmm*
      }
-   } name => "PrintOneRegister${r}InHexOn$channel";                             # One routine per register printed
-
-  $s->call;
+   } name => "PrintOneRegister${r}InHexOn$channel", call=>1;                    # One routine per register printed
  }
 
 sub PrintErrOneRegisterInHex($)                                                 # Print the named register as a hex string on stderr.
