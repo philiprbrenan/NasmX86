@@ -1729,7 +1729,7 @@ sub PrintOutRegisterInHex(@)                                                    
 sub PrintOutRipInHex                                                            #P Print the instruction pointer in hex.
  {@_ == 0 or confess;
   my @regs = qw(rax);
-  my $s = Subroutine2
+  Subroutine2
    {PushR @regs;
     my $l = Label;
     push @text, <<END;
@@ -1740,16 +1740,14 @@ END
     PrintOutRaxInHex;
     PrintOutNL;
     PopR @regs;
-   } name=> "PrintOutRipInHex";
-
-  $s->call;
+   } name=> "PrintOutRipInHex", call => 1;
  }
 
 sub PrintOutRflagsInHex                                                         #P Print the flags register in hex.
  {@_ == 0 or confess;
   my @regs = qw(rax);
 
-  my $s = Subroutine2
+  Subroutine2
    {PushR @regs;
     Pushfq;
     Pop rax;
@@ -1757,15 +1755,13 @@ sub PrintOutRflagsInHex                                                         
     PrintOutRaxInHex;
     PrintOutNL;
     PopR @regs;
-   } name=> "PrintOutRflagsInHex";
-
-  $s->call;
+   } name=> "PrintOutRflagsInHex", call => 1;
  }
 
 sub PrintOutRegistersInHex                                                      # Print the general purpose registers in hex.
  {@_ == 0 or confess "No parameters required";
 
-  my $s = Subroutine2
+  Subroutine2
    {PrintOutRipInHex;
     PrintOutRflagsInHex;
 
@@ -1785,9 +1781,7 @@ sub PrintOutRegistersInHex                                                      
       PrintOutNL;
      }
     PopR @regs;
-   } name=> "PrintOutRegistersInHex";
-
-  $s->call;
+   } name=> "PrintOutRegistersInHex", call => 1;
  }
 
 sub PrintErrZF                                                                  # Print the zero flag without disturbing it on stderr.
@@ -1809,7 +1803,7 @@ sub PrintOutZF                                                                  
 sub PrintUtf8Char($)                                                            # Print the utf-8 character addressed by rax to the specified channel. The character must be in little endian form.
  {my ($channel) = @_;                                                           # Channel
 
-  my $s = Subroutine2
+  Subroutine2
    {my ($p, $s) = @_;                                                           # Parameters
     PushR rax, rdi, r15;
     Mov r15d, "[rax]";                                                          # Load character - this assumes that each utf8 character sits by itself, right adjusted, in a block of 4 bytes
@@ -1819,9 +1813,7 @@ sub PrintUtf8Char($)                                                            
     Sub rdi, r15;                                                               # Width in bytes
     PrintMemory($channel);                                                      # Print letter from stack
     PopR;
-   } name => qq(Nasm::X86::printUtf8Char_$channel);
-
-  $s->call;
+   } name => qq(Nasm::X86::printUtf8Char_$channel), call=>1;
  }
 
 sub PrintErrUtf8Char()                                                          # Print the utf-8 character addressed by rax to stderr.
@@ -1836,7 +1828,7 @@ sub PrintUtf32($$$)                                                             
  {my ($channel, $size, $address) = @_;                                          # Channel, variable: number of characters to print, variable: address of memory
   @_ == 3 or confess "Three parameters";
 
-  my $s = Subroutine2                                                           # Subroutine
+  Subroutine2
    {my ($p, $s) = @_;                                                           # Parameters, subroutine description
 
     PushR (rax, r14, r15);
@@ -1865,9 +1857,8 @@ sub PrintUtf32($$$)                                                             
      });
     PrintOutNL;
     PopR;
-   } [qw(size address)], name => qq(Nasm::X86::printUtf32_$channel);
-
-  $s->call(parameters=>{size => $size, address => $address});
+   } structures=>{size => $size, address => $address}, call=>1,
+     name => qq(Nasm::X86::printUtf32_$channel);
  }
 
 sub PrintErrUtf32($$)                                                           # Print the utf-8 character addressed by rax to stderr.
