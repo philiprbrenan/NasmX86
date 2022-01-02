@@ -1125,7 +1125,7 @@ sub PrintTraceBack($)                                                           
      };
     &PrintNL($channel);
     PopR;
-   } name => "SubroutineTraceBack_$channel";
+   } name => "SubroutineTraceBack_$channel", call=>1;
  }
 
 sub PrintErrTraceBack()                                                         # Print sub routine track back on stderr.
@@ -1194,14 +1194,13 @@ sub copyStructureMinusVariables($)                                              
   bless \%s, ref $s;                                                            # Return a copy of the structure
  }
 
-sub Subroutine2(&%)                                                             # Create a subroutine that can be called in assembler code.  The subroutine will be automatically called if it has only structure parameters and occurs in void context. Confesses to any subroutines that occur in void context with non structure parameters.
+sub Subroutine2(&%)                                                             # Create a subroutine that can be called in assembler code.
  {my ($block, %options) = @_;                                                   # Block of code as a sub, options
   @_ >= 1 or confess "Subroutine requires at least a block";
-  my $context = wantarray;                                                      # undef if called in void context, "" in scalar context, 1 in array context
 
   if (1)                                                                        # Validate options
    {my %o = %options;
-    delete $o{$_} for qw(parameters structures name);
+    delete $o{$_} for qw(parameters structures name call);
     if (my @i = sort keys %o)
      {confess "Invalid parameters: ".join(', ',@i);
      }
@@ -1209,7 +1208,7 @@ sub Subroutine2(&%)                                                             
 
   my $run = sub                                                                 # We can call and run the sub immediately if it has just structure parameter (which can be single variables) and no other parameters
    {my ($s) = @_;                                                               # Parameters
-    if (!defined $context)                                                      # Call and run the existing copy of the subroutine if it only requires structure arguments which can include just variables.
+    if ($s->options->{call})                                                    # Call and run the existing copy of the subroutine if it only requires structure arguments which can include just variables.
      {if (!$s->options->{parameters})                                           # Cannot run -as the subroutine requires parameters as well as structures.
        {$s->call(structures=>$s->options->{structures});                        # Call the subroutine
         return $s                                                               # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
@@ -1478,7 +1477,7 @@ sub PrintNL($)                                                                  
     Mov rdx, 1;
     Syscall;
     RestoreFirstFour()
-   } name => qq(PrintNL_$channel);
+   } name => qq(PrintNL_$channel), call=>1;
  }
 
 sub PrintErrNL()                                                                # Print a new line to stderr.
@@ -1507,7 +1506,7 @@ sub PrintString($@)                                                             
     Mov rdx, $l;
     Syscall;
     RestoreFirstFour();
-   } name => "PrintString_${channel}_${c}";
+   } name => "PrintString_${channel}_${c}", call=>1;
  }
 
 sub PrintStringNL($@)                                                           # Print a constant string to the specified channel followed by a new line.
@@ -1604,7 +1603,7 @@ sub PrintRaxInHex($;$)                                                          
       PrintString($channel, ' ') if $i % 2 and $i < 7;
      }
     RestoreFirstFour;
-   } name => "PrintOutRaxInHexOn-$channel-$end";
+   } name => "PrintOutRaxInHexOn-$channel-$end", call=>1;
  }
 
 sub PrintErrRaxInHex()                                                          # Write the content of register rax in hexadecimal in big endian notation to stderr.
@@ -1677,7 +1676,7 @@ sub PrintOneRegisterInHex($$)                                                   
       elsif ($r =~ m(\Ay))    {printReg qw(rax rbx rcx rdx)}                    # Ymm*
       elsif ($r =~ m(\Az))    {printReg qw(rax rbx rcx rdx r8 r9 r10 r11)}      # Zmm*
      }
-   } name => "PrintOneRegister${r}InHexOn$channel";                    # One routine per register printed
+   } name => "PrintOneRegister${r}InHexOn$channel", call=>1;                    # One routine per register printed
  }
 
 sub PrintErrOneRegisterInHex($)                                                 # Print the named register as a hex string on stderr.
@@ -1741,7 +1740,7 @@ END
     PrintOutRaxInHex;
     PrintOutNL;
     PopR @regs;
-   } name=> "PrintOutRipInHex";
+   } name=> "PrintOutRipInHex", call => 1;
  }
 
 sub PrintOutRflagsInHex                                                         #P Print the flags register in hex.
@@ -1756,7 +1755,7 @@ sub PrintOutRflagsInHex                                                         
     PrintOutRaxInHex;
     PrintOutNL;
     PopR @regs;
-   } name=> "PrintOutRflagsInHex";
+   } name=> "PrintOutRflagsInHex", call => 1;
  }
 
 sub PrintOutRegistersInHex                                                      # Print the general purpose registers in hex.
@@ -1782,7 +1781,7 @@ sub PrintOutRegistersInHex                                                      
       PrintOutNL;
      }
     PopR @regs;
-   } name=> "PrintOutRegistersInHex";
+   } name=> "PrintOutRegistersInHex", call => 1;
  }
 
 sub PrintErrZF                                                                  # Print the zero flag without disturbing it on stderr.
@@ -1814,7 +1813,7 @@ sub PrintUtf8Char($)                                                            
     Sub rdi, r15;                                                               # Width in bytes
     PrintMemory($channel);                                                      # Print letter from stack
     PopR;
-   } name => qq(Nasm::X86::printUtf8Char_$channel);
+   } name => qq(Nasm::X86::printUtf8Char_$channel), call=>1;
  }
 
 sub PrintErrUtf8Char()                                                          # Print the utf-8 character addressed by rax to stderr.
@@ -1858,7 +1857,7 @@ sub PrintUtf32($$$)                                                             
      });
     PrintOutNL;
     PopR;
-   } structures=>{size => $size, address => $address},
+   } structures=>{size => $size, address => $address}, call=>1,
      name => qq(Nasm::X86::printUtf32_$channel);
  }
 
@@ -1901,7 +1900,7 @@ sub PrintRaxInDec($)                                                            
     Jnz $print;
 
     PopR;
-   } name => "PrintRaxInDec_$channel";
+   } name => "PrintRaxInDec_$channel", call=>1;
  }
 
 sub PrintOutRaxInDec                                                            # Print rax in decimal on stdout.
@@ -1925,7 +1924,7 @@ sub PrintErrRaxInDecNL                                                          
 sub PrintRaxRightInDec($$)                                                      # Print rax in decimal right justified in a field of the specified width on the specified channel.
  {my ($width, $channel) = @_;                                                   # Width, channel
 
-  Subroutine2
+  my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     PushR rax, rdi, rdx, r9, r10;
     Mov r9, 0;                                                                  # Number of decimal digits
@@ -1955,7 +1954,9 @@ sub PrintRaxRightInDec($$)                                                      
     Jnz $print;
 
     PopR;
-   } structures=>{width => $width}, name => "PrintRaxRightInDec_${channel}";
+   } parameters=>[qw(width)], name => "PrintRaxRightInDec_${channel}";
+
+  $s->call(parameters=>{width => $width});
  }
 
 sub PrintErrRaxRightInDec                                                       # Print rax in decimal right justified in a field of the specified width on stderr.
@@ -3564,7 +3565,7 @@ sub GetPidInHex()                                                               
   Comment "Get Pid";
   my $hexTranslateTable = hexTranslateTable;
 
-  Subroutine2
+  my $s = Subroutine2
    {SaveFirstFour;
     Mov rax, 39;                                                                # Get pid
     Syscall;
@@ -3584,6 +3585,8 @@ sub GetPidInHex()                                                               
     Pop rax;                                                                    # Get result from stack
     RestoreFirstFourExceptRax;
    } name => "GetPidInHex";
+
+  $s->call;
  }
 
 sub GetPPid()                                                                   # Get parent process identifier.
@@ -3606,7 +3609,7 @@ sub WaitPid()                                                                   
  {@_ == 0 or confess;
   Comment "WaitPid - wait for the pid in rax";
 
-  Subroutine2
+    my $s = Subroutine2
    {SaveFirstSeven;
     Mov rdi,rax;
     Mov rax, 61;
@@ -3616,6 +3619,8 @@ sub WaitPid()                                                                   
     Syscall;
     RestoreFirstSevenExceptRax;
    } name => "WaitPid";
+
+  $s->call;
  }
 
 sub ReadTimeStampCounter()                                                      # Read the time stamp counter and return the time in nanoseconds in rax.
@@ -28353,16 +28358,15 @@ var: 8
 END
  }
 
-#latest:
+latest:
 if (1) {
   my $s = Subroutine2                                                           #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     $$s{var}->setReg(rax);
     Dec rax;
     $$s{var}->getReg(rax);
-   } structures => {var => V var => 0}, name => 'test';
+   } structures => {var => my $v = V var => 42}, name => 'test', call => 1;
 
-  $s->call(structures => {var => my $v = V var => 42});
   $v->outNL;
 
   $s->call(structures => {var => my $V = V var => 2});
