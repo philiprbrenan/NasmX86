@@ -1053,7 +1053,7 @@ sub Nasm::X86::Sub::dispatchV($$$)                                              
 sub PrintTraceBack($)                                                           # Trace the call stack.
  {my ($channel) = @_;                                                           # Channel to write on
 
-  my $s = Subroutine2
+  Subroutine2
    {PushR my @save = (rax, rdi, r9, r10, r8, r12, r13, r14, r15);
     my $stack     = r15;
     my $count     = r14;
@@ -1125,9 +1125,7 @@ sub PrintTraceBack($)                                                           
      };
     &PrintNL($channel);
     PopR;
-   } name => "SubroutineTraceBack_$channel";
-
-  $s->call;
+   } name => "SubroutineTraceBack_$channel", call=>1;
  }
 
 sub PrintErrTraceBack()                                                         # Print sub routine track back on stderr.
@@ -1500,7 +1498,7 @@ sub PrintString($@)                                                             
   my $l = length($c);
   my $a = Rs($c);
 
-  my $s = Subroutine2
+  Subroutine2
    {SaveFirstFour;
     Mov rax, 1;
     Mov rdi, $channel;
@@ -1508,9 +1506,7 @@ sub PrintString($@)                                                             
     Mov rdx, $l;
     Syscall;
     RestoreFirstFour();
-   } name => "PrintString_${channel}_${c}";
-
-  $s->call;
+   } name => "PrintString_${channel}_${c}", call=>1;
  }
 
 sub PrintStringNL($@)                                                           # Print a constant string to the specified channel followed by a new line.
@@ -1590,7 +1586,7 @@ sub PrintRaxInHex($;$)                                                          
   my $hexTranslateTable = hexTranslateTable;
   $end //= 7;                                                                   # Default end byte
 
-  my $s = Subroutine2
+  Subroutine2
    {SaveFirstFour rax;                                                          # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
@@ -1607,9 +1603,7 @@ sub PrintRaxInHex($;$)                                                          
       PrintString($channel, ' ') if $i % 2 and $i < 7;
      }
     RestoreFirstFour;
-   } name => "PrintOutRaxInHexOn-$channel-$end";
-
-  $s->call;
+   } name => "PrintOutRaxInHexOn-$channel-$end", call=>1;
  }
 
 sub PrintErrRaxInHex()                                                          # Write the content of register rax in hexadecimal in big endian notation to stderr.
@@ -28388,12 +28382,12 @@ if (1) {
 
   $v->outNL;
 
-  $s->call(structures => {var => $v});
-  $v->outNL;
+  $s->call(structures => {var => my $V = V var => 2});
+  $V->outNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
 var: 0000 0000 0000 0029
-var: 0000 0000 0000 0028
+var: 0000 0000 0000 0001
 END
  }
 
