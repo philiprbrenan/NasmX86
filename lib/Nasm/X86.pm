@@ -1202,20 +1202,20 @@ sub Subroutine2(&%)                                                             
 
   if (1)                                                                        # Validate options
    {my %o = %options;
-    delete $o{$_} for qw(parameters structures name run);
+    delete $o{$_} for qw(parameters structures name call);
     if (my @i = sort keys %o)
      {confess "Invalid parameters: ".join(', ',@i);
      }
    }
 
-  my $run = sub                                                                 # We can run the sub immediately if it has just structure parameter (which can be single variables) and no other parameters
+  my $run = sub                                                                 # We can call and run the sub immediately if it has just structure parameter (which can be single variables) and no other parameters
    {my ($s) = @_;                                                               # Parameters
-    if ($s->options->{run})                                                     # Run the existing copy of the subroutine if it only requires structure arguments which can include just variables.
+    if ($s->options->{call})                                                    # Call and run the existing copy of the subroutine if it only requires structure arguments which can include just variables.
      {if (!$s->options->{parameters})                                           # Cannot run -as the subroutine requires parameters as well as structures.
        {$s->call(structures=>$s->options->{structures});                        # Call the subroutine
         return $s                                                               # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
        }
-      else                                                                      # Cannot run the subroutine as it requires parameters which we do not have yet.  However, we can use strucutures which can be just variables.
+      else                                                                      # Cannot call and run the subroutine as it requires parameters which we do not have yet.  However, we can use strucutures which can be just variables.
        {confess "Cannot run subroutine as it has parameters, uses structures instead";
        }
      }
@@ -1469,7 +1469,7 @@ sub PrintNL($)                                                                  
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  Subroutine2
    {SaveFirstFour;
     Mov rax, 1;
     Mov rdi, $channel;                                                          # Write below stack
@@ -1479,9 +1479,7 @@ sub PrintNL($)                                                                  
     Mov rdx, 1;
     Syscall;
     RestoreFirstFour()
-   } name => qq(PrintNL_$channel);
-
-  $s->call;
+   } name => qq(PrintNL_$channel), call=>1;
  }
 
 sub PrintErrNL()                                                                # Print a new line to stderr.
@@ -28381,17 +28379,21 @@ END
 
 latest:
 if (1) {
-  Subroutine2                                                                   #TSubroutine2
+  my $s = Subroutine2                                                           #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     $$s{var}->setReg(rax);
     Dec rax;
     $$s{var}->getReg(rax);
-   } structures => {var => my $v = V var => 42}, name => 'test', run => 1;
+   } structures => {var => my $v = V var => 42}, name => 'test', call => 1;
 
+  $v->outNL;
+
+  $s->call(structures => {var => $v});
   $v->outNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
 var: 0000 0000 0000 0029
+var: 0000 0000 0000 0028
 END
  }
 
