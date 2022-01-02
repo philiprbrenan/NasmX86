@@ -1925,7 +1925,7 @@ sub PrintErrRaxInDecNL                                                          
 sub PrintRaxRightInDec($$)                                                      # Print rax in decimal right justified in a field of the specified width on the specified channel.
  {my ($width, $channel) = @_;                                                   # Width, channel
 
-  my $s = Subroutine2
+  Subroutine2
    {my ($p) = @_;                                                               # Parameters
     PushR rax, rdi, rdx, r9, r10;
     Mov r9, 0;                                                                  # Number of decimal digits
@@ -1955,9 +1955,7 @@ sub PrintRaxRightInDec($$)                                                      
     Jnz $print;
 
     PopR;
-   } parameters=>[qw(width)], name => "PrintRaxRightInDec_${channel}";
-
-  $s->call(parameters=>{width => $width});
+   } structures=>{width => $width}, name => "PrintRaxRightInDec_${channel}";
  }
 
 sub PrintErrRaxRightInDec                                                       # Print rax in decimal right justified in a field of the specified width on stderr.
@@ -3566,7 +3564,7 @@ sub GetPidInHex()                                                               
   Comment "Get Pid";
   my $hexTranslateTable = hexTranslateTable;
 
-  my $s = Subroutine2
+  Subroutine2
    {SaveFirstFour;
     Mov rax, 39;                                                                # Get pid
     Syscall;
@@ -3586,8 +3584,6 @@ sub GetPidInHex()                                                               
     Pop rax;                                                                    # Get result from stack
     RestoreFirstFourExceptRax;
    } name => "GetPidInHex";
-
-  $s->call;
  }
 
 sub GetPPid()                                                                   # Get parent process identifier.
@@ -3610,7 +3606,7 @@ sub WaitPid()                                                                   
  {@_ == 0 or confess;
   Comment "WaitPid - wait for the pid in rax";
 
-    my $s = Subroutine2
+  Subroutine2
    {SaveFirstSeven;
     Mov rdi,rax;
     Mov rax, 61;
@@ -3620,8 +3616,6 @@ sub WaitPid()                                                                   
     Syscall;
     RestoreFirstSevenExceptRax;
    } name => "WaitPid";
-
-  $s->call;
  }
 
 sub ReadTimeStampCounter()                                                      # Read the time stamp counter and return the time in nanoseconds in rax.
