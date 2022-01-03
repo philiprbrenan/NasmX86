@@ -6575,7 +6575,7 @@ sub DescribeTree(%)                                                             
     maxKeys      => $length,                                                    # Maximum number of keys.
     splittingKey => $split,                                                     # Point at which to split a full block
     rightLength  => $length - 1 - $length / 2,                                  # Right split length
-    subTree      => $options{subTree},                                          # Variable indicating whether the last find found a sub tree
+    subTree      => G(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
     treeBits     => $b - $o * 2 + 2,                                            # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
     treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
     up           => $b - $o * 2,                                                # Offset of up in data block.
@@ -27564,6 +27564,7 @@ found: 0000 0000 0000 0002
 found: 0000 0000 0000 0003
 found: 0000 0000 0000 0002
 END
+exit;
  }
 
 #latest:
