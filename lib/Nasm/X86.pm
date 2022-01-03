@@ -6495,23 +6495,24 @@ sub Nasm::X86::Array::get($$)                                                   
  }
 
 sub Nasm::X86::Array::put($$$)                                                  # Put an element into an array at the specified index as long as it is with in its limits established by pushing.
- {my ($Array, $index, $element) = @_;                                           # Array descriptor, index as a variable, element as a variable - bu t only the lowest four bytes will be stored in the array
+ {my ($array, $index, $element) = @_;                                           # Array descriptor, index as a variable, element as a variable - bu t only the lowest four bytes will be stored in the array
   @_ == 3 or confess 'Three parameters';
 
   my $W = RegisterSize zmm0;                                                    # The size of a block
-  my $w = $Array->width;                                                        # The size of an entry in a block
-  my $n = $Array->slots1;                                                       # The number of slots in the first block
-  my $N = $Array->slots2;                                                       # The number of slots in the secondary blocks
+  my $w = $array->width;                                                        # The size of an entry in a block
+  my $n = $array->slots1;                                                       # The number of slots in the first block
+  my $N = $array->slots2;                                                       # The number of slots in the secondary blocks
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $E = $$p{element};                                                       # The element to be added
     my $I = $$p{index};                                                         # Index of the element to be inserted
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $Array = $arena->DescribeArray(first => my $F = $$p{first});             # Array
+    my $array = $$s{array};                                                     # Array
+    my $F     = $array->first;                                                  # First block of array
+    my $arena = $array->bs;                                                     # Arena
 
     PushR (r8, zmm31);
     my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
@@ -6542,9 +6543,11 @@ sub Nasm::X86::Array::put($$$)                                                  
 
     SetLabel $success;
     PopR;
-   }  [qw(first index element  bs)], name => 'Nasm::X86::Array::put';
+   } parameters=>[qw(index element)],
+     structures=>{array=>$array}, name => 'Nasm::X86::Array::put';
 
-  $s->call($Array->address, $Array->first, index=>$index, element=>$element);
+  $s->call(parameters=>{index=>$index, element => $element},
+           structures=>{array=>$array});
  }
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an arena.
