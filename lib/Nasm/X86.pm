@@ -6567,7 +6567,7 @@ sub DescribeTree(%)                                                             
   genHash(__PACKAGE__."::Tree",                                                 # Tree.
     bs           => DescribeArena($options{arena}),                             # Arena definition.
     data         => G(data), # Fails                                                    # Variable containing the last data found
-    first        => ($options{first}),                              # Variable addressing offset to first block of keys.
+    first        => ($options{first} // G(first)), # Fails                              # Variable addressing offset to first block of keys.
     found        => ($options{found} // G(found)),                              # Variable indicating whether the last find was successful or not
     leftLength   => $length / 2,                                                # Left split length
     lengthOffset => $b - $o * 2,                                                # Offset of length in keys block.  The length field is a word - see: "MultiWayTree.svg"
