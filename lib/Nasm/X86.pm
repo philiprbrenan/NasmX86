@@ -6566,7 +6566,7 @@ sub DescribeTree(%)                                                             
 
   genHash(__PACKAGE__."::Tree",                                                 # Tree.
     bs           => DescribeArena($options{arena}),                             # Arena definition.
-    data         => G(data),                                                    # Variable containing the last data found
+    data         => V(data),                                                    # Variable containing the last data found
     first        => ($options{first} // G(first)),                              # Variable addressing offset to first block of keys.
     found        => ($options{found} // G(found)),                              # Variable indicating whether the last find was successful or not
     leftLength   => $length / 2,                                                # Left split length
@@ -6575,7 +6575,7 @@ sub DescribeTree(%)                                                             
     maxKeys      => $length,                                                    # Maximum number of keys.
     splittingKey => $split,                                                     # POint at which to split a full block
     rightLength  => $length - 1 - $length / 2,                                  # Right split length
-    subTree      => V(subTree),                                                 # Variable indicating whether the last find found a sub tree
+    subTree      => G(subTree),  # Fails                                                # Variable indicating whether the last find found a sub tree
     treeBits     => $b - $o * 2 + 2,                                            # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
     treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
     up           => $b - $o * 2,                                                # Offset of up in data block.
