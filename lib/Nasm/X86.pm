@@ -6566,16 +6566,16 @@ sub DescribeTree(%)                                                             
 
   genHash(__PACKAGE__."::Tree",                                                 # Tree.
     bs           => DescribeArena($options{arena}),                             # Arena definition.
-    data         => G(data),                                                    # Variable containing the last data found
-    first        => ($options{first} // G(first)),                              # Variable addressing offset to first block of keys.
-    found        => ($options{found} // G(found)),                              # Variable indicating whether the last find was successful or not
+    data         => V(data => 0),                                               # Variable containing the last data found
+    first        => ($options{first} // V(first => 0)),                         # Variable addressing offset to first block of keys.
+    found        => ($options{found} // V(found => 0)),                         # Variable indicating whether the last find was successful or not
     leftLength   => $length / 2,                                                # Left split length
     lengthOffset => $b - $o * 2,                                                # Offset of length in keys block.  The length field is a word - see: "MultiWayTree.svg"
     loop         => $b - $o,                                                    # Offset of keys, data, node loop.
     maxKeys      => $length,                                                    # Maximum number of keys.
-    splittingKey => $split,                                                     # POint at which to split a full block
+    splittingKey => $split,                                                     # Point at which to split a full block
     rightLength  => $length - 1 - $length / 2,                                  # Right split length
-    subTree      => G(subTree),                                                 # Variable indicating whether the last find found a sub tree
+    subTree      => V(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
     treeBits     => $b - $o * 2 + 2,                                            # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
     treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
     up           => $b - $o * 2,                                                # Offset of up in data block.
