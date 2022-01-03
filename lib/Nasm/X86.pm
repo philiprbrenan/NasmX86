@@ -6322,25 +6322,25 @@ sub Nasm::X86::Array::push($$)                                                  
  }
 
 sub Nasm::X86::Array::pop($)                                                    # Pop an element from an array and return it in a variable.
- {my ($Array) = @_;                                                             # Array descriptor
+ {my ($array) = @_;                                                             # Array descriptor
   @_ == 1 or confess "One parameter";
 # my $b = $Array->bs;                                                           # Underlying arena
   my $W = RegisterSize zmm0;                                                    # The size of a block
-  my $w = $Array->width;                                                        # The size of an entry in a block
-  my $n = $Array->slots1;                                                       # The number of slots per block
-  my $N = $Array->slots2;                                                       # The number of slots per block
+  my $w = $array->width;                                                        # The size of an entry in a block
+  my $n = $array->slots1;                                                       # The number of slots per block
+  my $N = $array->slots2;                                                       # The number of slots per block
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-#    my $B = $$p{bs};                                                            # Arena
-#    my $F = $$p{first};                                                         # First block
     my $E = $$p{element};                                                       # The element being popped
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $Array = $arena->DescribeArray(first => my $F = $$p{first});             # Array
-    PushR (r8, zmm31);
+    my $array = $$s{array};                                                     # Array
+    my $arena = $array->bs;                                                     # Arena
+    my $F     = $array->first;                                                  # First block of array
+
+    PushR r8, zmm31;
     my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
     $arena->getZmmBlock($F, 31);                                                # Get the first block
     my $size = getDFromZmm(31, 0, $transfer);                                   # Size of array
@@ -6403,10 +6403,13 @@ sub Nasm::X86::Array::pop($)                                                    
 
     SetLabel $success;
     PopR;
-   }  [qw(bs first element)], name => 'Nasm::X86::Array::pop';
+   } parameters => [qw(element)],
+     structures => {array=>$array},
+     name       => 'Nasm::X86::Array::pop';
 
-  $s->call(bs => $Array->address, first => $Array->first,
-    my $element = V('element'));
+  $s->call
+   (structures =>{array   => $array},
+    parameters =>{element => my $element = V element => 0});
 
   $element
  }
@@ -25030,14 +25033,32 @@ if (1) {                                                                        
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #TNasm::X86::Array::size
-my $t = time;
+  my $N = 15;
+  my $A = CreateArena;
+  my $a = $A->CreateArray;
+
+  $a->push(V(element, 1));  $a->pop()->outInDecNL;
+  $a->push(V(element, 2));  $a->pop()->outInDecNL;
+  $a->size()->outInDecNL;
+
+  ok Assemble(debug => 0, eq => <<END);
+element: 1
+element: 2
+size: 0
+END
+ }
+
+latest:;
+if (1) {                                                                        #TNasm::X86::Array::size
   my $N = 15;
   my $A = CreateArena;
   my $a = $A->CreateArray;
 
   $a->push(V(element, $_)) for 1..$N;
+
+  $a->size()->outInDecNL;
 
   K(loop, $N)->for(sub
    {my ($start, $end, $next) = @_;
@@ -25048,6 +25069,7 @@ my $t = time;
    });
 
   ok Assemble(debug => 0, eq => <<END);
+size: 15
 element: 0000 0000 0000 000F
 element: 0000 0000 0000 000E
 element: 0000 0000 0000 000D
@@ -25080,6 +25102,8 @@ if (1) {                                                                        
   $A->dump;
   $B->dump;
 
+  $_->size()->outInDecNL for $a, $b;
+
   ok Assemble(debug => 0, eq => <<END);
 Arena
   Size: 0000 0000 0000 1000
@@ -25095,6 +25119,8 @@ Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00000000 0000 000
 Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00001200 0000 1300 00001400 0000 1500 00001600 0000 1700 00001800 0000 1900 00001A00 0000 1B00 0000
 Block:  0000 0000 0000 0002  1C00 0000 1D00 00001E00 0000 1F00 00002000 0000 1001 00002200 0000 2300 00002400 0000 2500 00002600 0000 2700 00002800 0000 2900 00002A00 0000 2B00 0000
 Block:  0000 0000 0000 0003  2C00 0000 2D00 00002E00 0000 2F00 00003000 0000 FF00 00003200 0000 3300 00003400 0000 3500 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+size: 36
+size: 36
 END
  }
 
@@ -28358,7 +28384,7 @@ var: 8
 END
  }
 
-latest:
+#latest:
 if (1) {
   my $s = Subroutine2                                                           #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
