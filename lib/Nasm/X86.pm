@@ -28470,13 +28470,13 @@ if (1) {
     $$p{out}->copy($v);
    } parameters => [qw(in out)], name => 'test';
 
-  $s->call(parameters => {in =>(my $i = V var => 22), $out => (my $o = V var => 0)});
-  $i->outNL;
-  $o->outNL;
+  $s->call(parameters => {in =>(my $i = V var => 22), out => (my $o = V var => 0)});
+  $i->outInDecNL;
+  $o->outInDecNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
-var: 0000 0000 0000 0029
-var: 0000 0000 0000 0001
+var: 22
+var: 22
 END
  }
 
