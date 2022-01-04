@@ -28464,7 +28464,7 @@ END
 latest:
 if (1) {
 
- my $t = V structure => 33;
+ my $t = V struct => 33;
 
   my $s = Subroutine2                                                           #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
@@ -28472,6 +28472,7 @@ if (1) {
     $v->copy($$p{in});
     $$p{out}->copy($v);
     $$p{out2}->copy($$s{struct});
+    $$s{struct}->copy($$s{struct} + 1);
    } structures => {struct => $t},  parameters => [qw(in out out2)], name => 'test';
 
   $s->call(parameters => {in => (my $i = K in => 22), out => (my $o = V out => 0), out2 => (my $o2 = V out2 => 0)},
@@ -28479,11 +28480,13 @@ if (1) {
   $i->outInDecNL;
   $o->outInDecNL;
   $o2->outInDecNL;
+  $t->outInDecNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
 in: 22
 out: 22
 out2: 33
+struct: 34
 END
  }
 
