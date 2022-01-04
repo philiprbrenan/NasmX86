@@ -28470,7 +28470,7 @@ if (1) {
     $$p{out}->copy($v);
    } parameters => [qw(in out)], name => 'test';
 
-  $s->call(parameters => {in =>(my $i = V var => 22), out => (my $o = V var => 0)});
+  $s->call(parameters => {in => (my $i = K var => 22), out => (my $o = V var => 0)});
   $i->outInDecNL;
   $o->outInDecNL;
 
