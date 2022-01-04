@@ -28468,17 +28468,19 @@ if (1) {
 
   my $s = Subroutine2                                                           #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    SaveFirstFour;
     my $v = V var => 0;
     $v->copy($$p{i});
     $$p{o}->copy($v);
     $$p{O}->copy($$s{struct});
     $$s{struct}->copy($$s{struct} + 1);
 
-    $$p{M}->copy(AllocateMemory K size => $N);                                  # Allocate memory and save its location in a variable
-    $$p{M}->setReg(rax);
+    my $M = AllocateMemory K size => $N;                                        # Allocate memory and save its location in a variable
+    $$p{M}->copy($M);
+    $M->setReg(rax);
     Mov "qword[rax]", -1;
-    FreeMemory $$p{M}, K size => $N;                                            # Free memory
-
+    FreeMemory $M, K size => $N;                                            # Free memory
+    RestoreFirstFour;
    } structures => {struct => $t}, parameters => [qw(i o O M)], name => 'test';
 
   $s->call(parameters => {i => (my $i = K i => 22),
