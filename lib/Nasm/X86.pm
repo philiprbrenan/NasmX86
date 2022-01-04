@@ -28461,6 +28461,25 @@ var: 0000 0000 0000 0001
 END
  }
 
+latest:
+if (1) {
+  my $s = Subroutine2                                                           #TSubroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    my $v = V var => 0;
+    $v->copy($$p{in});
+    $$p{out}->copy($v);
+   } parameters => [qw(in out)], name => 'test';
+
+  $s->call(parameters => {in =>(my $i = V var => 22), $out => (my $o = V var => 0)});
+  $i->outNL;
+  $o->outNL;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END);
+var: 0000 0000 0000 0029
+var: 0000 0000 0000 0001
+END
+ }
+
 #latest:
 if (0) {
   ok Assemble eq => <<END;
