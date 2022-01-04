@@ -28475,7 +28475,9 @@ if (1) {
     $$s{struct}->copy($$s{struct} + 1);
 
     $$p{M}->copy(AllocateMemory K size => $N);                                  # Allocate memory and save its location in a variable
-    $FreeMemory $p{M}->copy(AllocateMemory K size => $N);                                  # Allocate memory and save its location in a variable
+    $$p{M}->setReg(rax);
+    Mov "qword[rax]", -1;
+    FreeMemory $$p{M}, K size => $N;                                            # Free memory
 
    } structures => {struct => $t}, parameters => [qw(i o O M)], name => 'test';
 
@@ -28488,7 +28490,6 @@ if (1) {
   $o->outInDecNL;
   $O->outInDecNL;
   $t->outInDecNL;
-  $M->outNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
 i: 22
