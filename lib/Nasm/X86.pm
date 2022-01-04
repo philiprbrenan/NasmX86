@@ -28463,29 +28463,37 @@ END
 
 latest:
 if (1) {
-
- my $t = V struct => 33;
+  my $N = 256;
+  my $t = V struct => 33;
 
   my $s = Subroutine2                                                           #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     my $v = V var => 0;
-    $v->copy($$p{in});
-    $$p{out}->copy($v);
-    $$p{out2}->copy($$s{struct});
+    $v->copy($$p{i});
+    $$p{o}->copy($v);
+    $$p{O}->copy($$s{struct});
     $$s{struct}->copy($$s{struct} + 1);
-   } structures => {struct => $t},  parameters => [qw(in out out2)], name => 'test';
 
-  $s->call(parameters => {in => (my $i = K in => 22), out => (my $o = V out => 0), out2 => (my $o2 = V out2 => 0)},
+    $$p{M}->copy(AllocateMemory K size => $N);                                  # Allocate memory and save its location in a variable
+    $FreeMemory $p{M}->copy(AllocateMemory K size => $N);                                  # Allocate memory and save its location in a variable
+
+   } structures => {struct => $t}, parameters => [qw(i o O M)], name => 'test';
+
+  $s->call(parameters => {i => (my $i = K i => 22),
+                          o => (my $o = V o =>  0),
+                          O => (my $O = V O =>  0),
+                          M => (my $M = V M =>  0)},
            structures => {struct => $t});
   $i->outInDecNL;
   $o->outInDecNL;
-  $o2->outInDecNL;
+  $O->outInDecNL;
   $t->outInDecNL;
+  $M->outNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
-in: 22
-out: 22
-out2: 33
+i: 22
+o: 22
+O: 33
 struct: 34
 END
  }
