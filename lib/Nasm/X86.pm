@@ -4867,10 +4867,10 @@ END
 
 #D1 Arenas                                                                      # An arena is single extensible block of memory which contains other data structures such as strings, arrays, trees within it.
 
-our $ArenaFreeChain = 0;                                                        # The Yggdrasil tree entry in the arena recording the start of the free chain
+our $ArenaFreeChain = 0;                                                        # The key of the Yggdrasil tree entry in the arena recording the start of the free chain
 
-sub DescribeArena(;$)                                                           # Describe a relocatable arena.
- {my ($bs) = @_;                                                                # Optional variable addressing the start of the arena
+sub DescribeArena(%)                                                            # Describe a relocatable arena.
+ {my (%options) = @_;                                                           # Optional variable addressing the start of the arena
   my $N = 4096;                                                                 # Initial size of arena
 
   my $quad = RegisterSize rax;                                                  # Field offsets
@@ -4885,7 +4885,7 @@ sub DescribeArena(;$)                                                           
     used       => $used,                                                        # Used field offset
     tree       => $tree,                                                        # Yggdrasil - a tree of global variables in this arena
     data       => $data,                                                        # The start of the data
-    bs         => $bs,                                                          # Variable that addresses the arena
+    bs         => $options{bs},                                                 # Variable that addresses the arena
     zmmBlock   => RegisterSize(zmm0),                                           # Size of a zmm block - 64 bytes
     nextOffset => RegisterSize(zmm0) - RegisterSize(eax),                       # Position of next offset on free chain
    );
@@ -4893,30 +4893,30 @@ sub DescribeArena(;$)                                                           
 
 sub CreateArena(%)                                                              # Create an relocatable arena and returns its address in rax. We add a chain header so that 64 byte blocks of memory can be freed and reused within the arena.
  {my (%options) = @_;                                                           # Free=>1 adds a free chain.
-  my $arena = DescribeArena;                                                    # Describe an arena
+  my $arena = DescribeArena(bs => V bs => 0);                                   # Describe an arena
   my $N     = $arena->N;
   my $used  = $arena->used;
   my $tree  = $arena->tree;
   my $data  = $arena->data;
   my $size  = $arena->size;
 
-  my $s = Subroutine                                                            # Allocate arena
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2                                                           # Allocate arena
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     SaveFirstFour;
 
     my $arena = AllocateMemory K size=> $N;                                     # Allocate memory and save its location in a variable
 
-    $$p{bs}->copy($arena);                                                      # Save address of arena
+    $$s{arena}->bs->copy($arena);                                               # Save address of arena
     $arena->setReg(rax);
     Mov "dword[rax+$used]", $data;                                              # Initially used space
     Mov "dword[rax+$size]", $N;                                                 # Size
 
     RestoreFirstFour;
-   } [qw(bs)], name => 'CreateArena';
+   } structures=>{arena=>$arena}, name => 'CreateArena';
 
-  $s->call(my $bs = G(bs));                                                     # Variable that holds the reference to the arena which is updated when the arena is reallocated
+  $s->call(structures=>{arena=>$arena});                                        # Variable that holds the reference to the arena which is updated when the arena is reallocated
 
-  DescribeArena($bs);                                                           # Describe the arena with its address
+  $arena
  }
 
 sub Nasm::X86::Arena::chain($$@)                                                #P Return a variable with the end point of a chain of double words in the arena starting at the specified variable.
@@ -5272,25 +5272,29 @@ sub Nasm::X86::Arena::m($$$)                                                    
   my $used = "[rax+$$arena{used}]";
 
   my $s = Subroutine2
-   {my ($p) = @_;                                                               # Parameters
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     SaveFirstFour;
-    $$p{bs}->setReg(rax);
+    my $arena = $$s{arena};
+    $arena->bs->setReg(rax);
     my $oldUsed = V("used", $used);
     $arena->updateSpace($$p{size});                                             # Update space if needed
 
-    my $target  = $oldUsed + $$p{bs};
+    my $target  = $oldUsed + $arena->bs;
     CopyMemory($$p{address}, $target, $$p{size});                               # Copy data into the arena
 
     my $newUsed = $oldUsed + $$p{size};
 
-    $$p{bs} ->setReg(rax);                                                      # Update used field
+    $arena->bs->setReg(rax);                                                    # Update used field
     $newUsed->setReg(rdi);
     Mov $used, rdi;
 
     RestoreFirstFour;
-   } parameters=>[qw(bs address size)], name => 'Nasm::X86::Arena::m';
+   } structures => {arena => $arena},
+     parameters => [qw(address size)],
+     name       => 'Nasm::X86::Arena::m';
 
-  $s->call(parameters=>{bs => $arena->bs, address => $address, size => $size});
+  $s->call(structures => {arena => $arena},
+           parameters => {address => $address, size => $size});
  }
 
 sub Nasm::X86::Arena::q($$)                                                     # Append a constant string to the arena.
@@ -5392,14 +5396,17 @@ sub Nasm::X86::Arena::read($@)                                                  
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine2
-   {my ($p) = @_;                                                               # Parameters
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     Comment "Read an arena";
     my ($address, $size) = ReadFile $$p{file};
+    my $arena = $$s{arena};
     $arena->m($address, $size);                                                 # Move data into arena
     FreeMemory($size, $address);                                                # Free memory allocated by read
-   } parameters=>[qw(bs file)], name => 'Nasm::X86::Arena::read';
+   } structures => {arena=>$arena},
+     parameters => [qw(file)],
+     name       => 'Nasm::X86::Arena::read';
 
-  $s->call(parameters=>{bs => $arena->bs, file => $file});
+  $s->call(structures => {arena => $arena}, parameters => {file => $file});
  }
 
 sub Nasm::X86::Arena::out($)                                                    # Print the specified arena on sysout.
@@ -5419,6 +5426,14 @@ sub Nasm::X86::Arena::out($)                                                    
    } parameters=>[qw(bs)], name => 'Nasm::X86::Arena::out';
 
   $s->call(parameters=>{bs => $arena->bs});
+ }
+
+sub Nasm::X86::Arena::outNL($)                                                  # Print the specified arena on sysout followed by a new line.
+ {my ($arena) = @_;                                                             # Arena descriptor
+  @_ == 1 or confess "One parameter";
+
+  $arena->out;
+  PrintOutNL;
  }
 
 sub Nasm::X86::Arena::dump($;$)                                                 # Dump details of an arena.
@@ -23778,6 +23793,7 @@ if (1) {                                                                        
   ok Assemble =~ m(rax: 0000 0000 0000 003C.*rax: 0000 0000 0000 0003)s;
  }
 
+#latest:;
 if (1) {                                                                        #TArena::nl
   my $s = CreateArena;
   $s->q("A");
@@ -23866,8 +23882,8 @@ offset: 0000 0000 0000 0068
 END
  }
 
-#latest:;
-if (1) {                                                                        #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
+latest:;
+if (0) {                                                                        #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
   my $A = CreateArena;
   my $t = $A->checkYggdrasilCreated;
      $t->found->outNL;
@@ -28461,7 +28477,7 @@ var: 0000 0000 0000 0001
 END
  }
 
-latest:
+#latest:
 if (1) {
   my $N = 256;
   my $t = V struct => 33;
@@ -28498,6 +28514,34 @@ i: 22
 o: 22
 O: 33
 struct: 34
+END
+ }
+
+
+latest:
+#  my $a = CreateArena;
+#  my $b = CreateArena;
+#  $a->q('aa');
+#  $b->q('bb');
+#  $a->out;
+#  PrintOutNL;
+#  $b->out;
+#  PrintOutNL;
+
+if (1) {
+  my $a = CreateArena;
+  my $b = CreateArena;
+  $a->q("aa");
+#$a->dump;
+#$b->dump;
+#  $a->length->outNL;
+  $b->q("bb");
+  $a->outNL;
+  $b->outNL;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END);
+size: 0000 0000 0000 0000
+aa
 END
  }
 
