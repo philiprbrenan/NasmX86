@@ -11,6 +11,11 @@
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
 # Replace registerSize(rax) with $variable->width
 # Make hash accept parameters at: #THash
+# if (0) in tests from subroutine conversion
+# Call - validate that all parameter keys have a definition
+# Use decimal where appropriate in tree/string/quark dumps
+# Have K and possibly V accept a flat hash of variable names and expressions
+# treeDescribe really means make a new descriptor with a copy of the first position so it can be modified
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -2096,10 +2101,10 @@ sub Variable($;$%)                                                              
    );
  }
 
-sub G(*;$%)                                                                     # Define a global variable. Global variables with the same name are not necessarily the same variable.  Two global variables are identical iff they have have the same label field.
- {my ($name, $expr, %options) = @_;                                             # Name of variable, initializing expression, options
-  &Variable($name, $expr, global => 1, %options);
- }
+#sub G(*;$%)                                                                     # Define a global variable. Global variables with the same name are not necessarily the same variable.  Two global variables are identical iff they have have the same label field.
+# {my ($name, $expr, %options) = @_;                                             # Name of variable, initializing expression, options
+#  &Variable($name, $expr, global => 1, %options);
+# }
 
 sub K(*;$%)                                                                     # Define a constant variable.
  {my ($name, $expr, %options) = @_;                                             # Name of variable, initializing expression, options
@@ -4885,7 +4890,7 @@ sub DescribeArena(%)                                                            
     used       => $used,                                                        # Used field offset
     tree       => $tree,                                                        # Yggdrasil - a tree of global variables in this arena
     data       => $data,                                                        # The start of the data
-    bs         => $options{bs},                                                 # Variable that addresses the arena
+    address    => ($options{address} // V address => 0),                        # Variable that addresses the memory containing the arena
     zmmBlock   => RegisterSize(zmm0),                                           # Size of a zmm block - 64 bytes
     nextOffset => RegisterSize(zmm0) - RegisterSize(eax),                       # Position of next offset on free chain
    );
@@ -4893,7 +4898,7 @@ sub DescribeArena(%)                                                            
 
 sub CreateArena(%)                                                              # Create an relocatable arena and returns its address in rax. We add a chain header so that 64 byte blocks of memory can be freed and reused within the arena.
  {my (%options) = @_;                                                           # Free=>1 adds a free chain.
-  my $arena = DescribeArena(bs => V bs => 0);                                   # Describe an arena
+  my $arena = DescribeArena;                                                    # Describe an arena
   my $N     = $arena->N;
   my $used  = $arena->used;
   my $tree  = $arena->tree;
@@ -4906,7 +4911,7 @@ sub CreateArena(%)                                                              
 
     my $arena = AllocateMemory K size=> $N;                                     # Allocate memory and save its location in a variable
 
-    $$s{arena}->bs->copy($arena);                                               # Save address of arena
+    $$s{arena}->address->copy($arena);                                               # Save address of arena
     $arena->setReg(rax);
     Mov "dword[rax+$used]", $data;                                              # Initially used space
     Mov "dword[rax+$size]", $N;                                                 # Size
@@ -4924,7 +4929,7 @@ sub Nasm::X86::Arena::chain($$@)                                                
   @_ >= 2 or confess "Two or more parameters";
 
   PushR (r14, r15);                                                             # Register 14 is the arena address, 15 the current offset in the arena
-  $arena->bs->setReg(r14);
+  $arena->address->setReg(r14);
   $variable->setReg(r15);
   for my $o(@offsets)                                                           # Each offset
    {Mov r15d, "dword[r14+r15+$o]";                                              # Step through each offset
@@ -4939,7 +4944,7 @@ sub Nasm::X86::Arena::putChain($$$@)                                            
   @_ >= 3 or confess "Three or more parameters";
 
   PushR (r14, r15);                                                             # Register 14 is the arena address, 15 the current offset in the arena
-  $arena->bs->setReg(r14);                                                      # Address arena
+  $arena->address->setReg(r14);                                                 # Address arena
   $start->setReg(r15);
   for my $i(keys @offsets)                                                      # Each offset
    {my $o = $offsets[$i];
@@ -4960,7 +4965,7 @@ sub Nasm::X86::Arena::length($)                                                 
   @_ == 1 or confess "One parameter";
 
   SaveFirstFour;
-  $arena->bs->setReg(rax);                                                      # Address arena
+  $arena->address->setReg(rax);                                                 # Address arena
   Mov rdx, "[rax+$$arena{used}]";                                               # Used
   Sub rdx, $arena->data;                                                        # Subtract size of header so we get the actual amount in use
   my $size = V(size => rdx);                                                    # Save length in a variable
@@ -4973,7 +4978,7 @@ sub Nasm::X86::Arena::arenaSize($)                                              
   @_ == 1 or confess "One parameter";
 
   PushR rax;
-  $arena->bs->setReg(rax);                                                      # Address arena
+  $arena->address->setReg(rax);                                                      # Address arena
   Mov rax, "[rax+$$arena{size}]";                                               # Get size
   my $size = V('size', rax);                                                    # Save size in a variable
   PopR;
@@ -4995,7 +5000,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
     my $proposed = r11;                                                         # Proposed size
 
     my $arena = $$s{arena};                                                     # Address arena
-    $arena->bs->setReg($base);                                                  # Address arena
+    $arena->address->setReg($base);                                                  # Address arena
     $$p{size}->setReg($request);                                                # Requested space
 
     Mov $size, "[$base+$$arena{size}]";
@@ -5016,11 +5021,11 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
       my $oldSize = V(size, $size);                                             # The old size of the arena
       my $newSize = V(size, $proposed);                                         # The old size of the arena
       my $address = AllocateMemory($newSize);                                   # Create new arena
-      CopyMemory($arena->bs, $address, $oldSize);                               # Copy old arena into new arena
-      FreeMemory $arena->bs, $oldSize;                                          # Free previous memory previously occupied arena
-      $arena->bs->copy($address);                                               # Save new arena address
+      CopyMemory($arena->address, $address, $oldSize);                               # Copy old arena into new arena
+      FreeMemory $arena->address, $oldSize;                                          # Free previous memory previously occupied arena
+      $arena->address->copy($address);                                               # Save new arena address
 
-      $arena->bs->setReg($base);                                                # Address arena
+      $arena->address->setReg($base);                                                # Address arena
       Mov "[$base+$$arena{size}]", $proposed;                                   # Save the new size in the arena
      };
 
@@ -5040,7 +5045,7 @@ sub Nasm::X86::Arena::makeReadOnly($)                                           
    {my ($p) = @_;                                                               # Parameters
     Comment "Make an arena readable";
     SaveFirstFour;
-    $$p{bs}->setReg(rax);
+    $$p{address}->setReg(rax);
     Mov rdi, rax;                                                               # Address of arena
     Mov rsi, "[rax+$$arena{size}]";                                             # Size of arena
 
@@ -5048,9 +5053,9 @@ sub Nasm::X86::Arena::makeReadOnly($)                                           
     Mov rax, 10;
     Syscall;
     RestoreFirstFour;                                                           # Return the possibly expanded arena
-   } parameters=>[qw(bs)], name => 'Nasm::X86::Arena::makeReadOnly';
+   } parameters=>[qw(address)], name => 'Nasm::X86::Arena::makeReadOnly';
 
-  $s->call(parameters=>{bs => $arena->bs});
+  $s->call(parameters=>{address => $arena->address});
  }
 
 sub Nasm::X86::Arena::makeWriteable($)                                          # Make an arena writable.
@@ -5061,16 +5066,16 @@ sub Nasm::X86::Arena::makeWriteable($)                                          
    {my ($p) = @_;                                                               # Parameters
     Comment "Make an arena writable";
     SaveFirstFour;
-    $$p{bs}->setReg(rax);
+    $$p{address}->setReg(rax);
     Mov rdi, rax;                                                               # Address of arena
     Mov rsi, "[rax+$$arena{size}]";                                             # Size of arena
     Mov rdx, 3;                                                                 # Read only access
     Mov rax, 10;
     Syscall;
     RestoreFirstFour;                                                           # Return the possibly expanded arena
-   } parameters=>[qw(bs)], name => 'Nasm::X86::Arena::makeWriteable';
+   } parameters=>[qw(address)], name => 'Nasm::X86::Arena::makeWriteable';
 
-  $s->call(parameters=>{bs => $arena->bs});
+  $s->call(parameters=>{address => $arena->address});
  }
 
 sub Nasm::X86::Arena::allocate($$)                                              # Allocate the variable amount of space in the variable addressed arena and return the offset of the allocation in the arena as a variable.
@@ -5080,7 +5085,7 @@ sub Nasm::X86::Arena::allocate($$)                                              
   SaveFirstFour;
   my $offset = V("offset");                                                     # Variable to hold offset of allocation
   $arena->updateSpace($size);                                                   # Update space if needed
-  $arena->bs->setReg(rax);
+  $arena->address->setReg(rax);
   Mov rsi, "[rax+$$arena{used}]";                                               # Currently used
   $offset->getReg(rsi);
   $size  ->setReg(rdi);
@@ -5118,7 +5123,7 @@ sub Nasm::X86::Arena::checkYggdrasilCreated($)                                  
   my $y = "Yggdrasil";
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
   PushR rax;
-  $arena->bs->setReg(rax);                                                      #P Address underlying arena
+  $arena->address->setReg(rax);                                                      #P Address underlying arena
   Mov rax, "[rax+$$arena{tree}]";                                               # Address Yggdrasil
   my $v = V('Yggdrasil', rax);                                                  # Offset to Yggdrasil if Yggdrasil exists else zero
   Cmp rax, 0;                                                                   # Does Yggdrasil even exist?
@@ -5142,7 +5147,7 @@ sub Nasm::X86::Arena::establishYggdrasil($)                                     
   my $y = "Yggdrasil";
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
   PushR my @save = (rax, rdi);
-  $arena->bs->setReg(rax);                                                      #P Address underlying arena
+  $arena->address->setReg(rax);                                                      #P Address underlying arena
   Mov rdi, "[rax+$$arena{tree}]";                                               # Address Yggdrasil
   Cmp rdi, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
@@ -5225,7 +5230,7 @@ sub Nasm::X86::Arena::getZmmBlock($$$;$$)                                       
   my $o = $work2 // r15;
   PushR my @save = ($a, $o) unless $work1 && $work2;
 
-  $arena->bs->setReg($a);                                                       # Arena address
+  $arena->address->setReg($a);                                                       # Arena address
   $block->setReg($o);                                                           # Offset of block in arena
 
   Cmp $o, $arena->data;
@@ -5249,7 +5254,7 @@ sub Nasm::X86::Arena::putZmmBlock($$$;$$)                                       
   my $o = $work2 // r15;
   PushR my @save = ($a, $o) unless $work1 && $work2;
 
-  $arena->bs->setReg($a);                                                       # Arena address
+  $arena->address->setReg($a);                                                       # Arena address
   $block->setReg($o);                                                           # Offset of block in arena
 
   Cmp $o, $arena->data;
@@ -5275,16 +5280,16 @@ sub Nasm::X86::Arena::m($$$)                                                    
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     SaveFirstFour;
     my $arena = $$s{arena};
-    $arena->bs->setReg(rax);
+    $arena->address->setReg(rax);
     my $oldUsed = V("used", $used);
     $arena->updateSpace($$p{size});                                             # Update space if needed
 
-    my $target  = $oldUsed + $arena->bs;
+    my $target  = $oldUsed + $arena->address;
     CopyMemory($$p{address}, $target, $$p{size});                               # Copy data into the arena
 
     my $newUsed = $oldUsed + $$p{size};
 
-    $arena->bs->setReg(rax);                                                    # Update used field
+    $arena->address->setReg(rax);                                                    # Update used field
     $newUsed->setReg(rdi);
     Mov $used, rdi;
 
@@ -5338,7 +5343,7 @@ sub Nasm::X86::Arena::append($@)                                                
   @_ == 2 or confess "Two parameters";
 
   SaveFirstFour;
-  $source->bs->setReg(rax);
+  $source->address->setReg(rax);
   Mov rdi, "[rax+$$source{used}]";
   Sub rdi, $source->data;
   Lea rsi, "[rax+$$source{data}]";
@@ -5353,13 +5358,13 @@ sub Nasm::X86::Arena::clear($)                                                  
   my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     PushR (rax, rdi);
-    $$p{bs}->setReg(rax);
+    $$p{address}->setReg(rax);
     Mov rdi, $arena->data;
     Mov "[rax+$$arena{used}]", rdi;
     PopR;
-   } parameters=>[qw(bs)], name => 'Nasm::X86::Arena::clear';
+   } parameters=>[qw(address)], name => 'Nasm::X86::Arena::clear';
 
-  $s->call(parameters=>{bs => $arena->bs});
+  $s->call(parameters=>{address => $arena->address});
  }
 
 sub Nasm::X86::Arena::write($$)                                                 # Write the content of the specified arena to a file specified by a zero terminated string.
@@ -5374,7 +5379,7 @@ sub Nasm::X86::Arena::write($$)                                                 
     OpenWrite;                                                                  # Open file
     my $file = V('fd', rax);                                                    # File descriptor
 
-    $$p{bs}->setReg(rax);                                                       # Write file
+    $$p{address}->setReg(rax);                                                       # Write file
     Lea rsi, "[rax+$$arena{data}]";
     Mov rdx, "[rax+$$arena{used}]";
     Sub rdx, $arena->data;
@@ -5386,9 +5391,9 @@ sub Nasm::X86::Arena::write($$)                                                 
     $file->setReg(rax);
     CloseFile;
     RestoreFirstFour;
-   } parameters=>[qw(file bs)], name => 'Nasm::X86::Arena::write';
+   } parameters=>[qw(file address)], name => 'Nasm::X86::Arena::write';
 
-  $s->call(parameters=>{bs => $arena->bs, file => $file});
+  $s->call(parameters=>{address => $arena->address, file => $file});
  }
 
 sub Nasm::X86::Arena::read($@)                                                  # Read a file specified by a variable addressed zero terminated string and place the contents of the file into the named arena.
@@ -5416,16 +5421,16 @@ sub Nasm::X86::Arena::out($)                                                    
   my $s = Subroutine2
    {my ($p) = @_;                                                               # Parameters
     SaveFirstFour;
-    $$p{bs}->setReg(rax);
+    $$p{address}->setReg(rax);
 
     Mov rdi, "[rax+$$arena{used}]";                                             # Length to print
     Sub rdi, $arena->data;                                                      # Length to print
     Lea rax, "[rax+$$arena{data}]";                                             # Address of data field
     PrintOutMemory;
     RestoreFirstFour;
-   } parameters=>[qw(bs)], name => 'Nasm::X86::Arena::out';
+   } parameters=>[qw(address)], name => 'Nasm::X86::Arena::out';
 
-  $s->call(parameters=>{bs => $arena->bs});
+  $s->call(parameters=>{address => $arena->address});
  }
 
 sub Nasm::X86::Arena::outNL($)                                                  # Print the specified arena on sysout followed by a new line.
@@ -5442,11 +5447,11 @@ sub Nasm::X86::Arena::dump($;$)                                                 
   my $blockSize = 64;                                                           # Print in blocks of this size
 
   my $s = Subroutine2
-   {my ($p) = @_;                                                               # Parameters
-    Comment "Print details of an arena";
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     PushR rax, rdi;
-    $$p{bs}->setReg(rax);                                                       # Get address of arena
+    my $arena = $$s{arena};
+    $arena->address->setReg(rax);                                                    # Get address of arena
     PrintOutStringNL("Arena");
 
     PushR rax;                                                                  # Print size
@@ -5467,15 +5472,17 @@ sub Nasm::X86::Arena::dump($;$)                                                 
      {my ($index, $start, $next, $end) = @_;
       Mov rdi, $blockSize;                                                      # Length of each print
       $index->out("Block:  ", "  ");
-      my $address = $$p{bs} + $index * $blockSize;                              # Address of block to print
+      my $address = $arena->address + $index * $blockSize;                           # Address of block to print
       $address->setReg(rax);
       PrintOutMemoryInHexNL;
      });
 
     PopR;
-   } parameters=>[qw(bs depth)], name => "Nasm::X86::Arena::dump";
+   } structures=>{arena=>$arena},
+     parameters=>[qw(depth)],
+     name => "Nasm::X86::Arena::dump";
 
-  $s->call(parameters=>{bs => $arena->bs, depth => ($depth // V('depth', 4))});
+  $s->call(structures=>{arena=>$arena}, parameters=>{depth => ($depth // V('depth', 4))});
  }
 
 #D1 String                                                                      # Strings made from zmm sized blocks of text
@@ -5488,7 +5495,7 @@ sub DescribeString(%)                                                           
   my $l = 1;                                                                    # Length of the per block length field
 
   genHash(__PACKAGE__."::String",                                               # String definition
-    bs          => DescribeArena($options{arena}),                              # Arena
+    arena       => $options{arena},                                             # Arena
     links       => $b - 2 * $o,                                                 # Location of links in bytes in zmm
     next        => $b - 1 * $o,                                                 # Location of next offset in block in bytes
     prev        => $b - 2 * $o,                                                 # Location of prev offset in block in bytes
@@ -5500,14 +5507,14 @@ sub DescribeString(%)                                                           
 
 sub Nasm::X86::Arena::DescribeString($%)                                        # Describe a string and optionally set its first block .
  {my ($arena, %options) = @_;                                                   # Arena description, arena options
-  DescribeString(arena=>$arena->bs, %options);
+  DescribeString(arena=>$arena, %options);
  }
 
 sub Nasm::X86::Arena::CreateString($)                                           # Create a string from a doubly link linked list of 64 byte blocks linked via 4 byte offsets in an arena and return its descriptor.
  {my ($arena) = @_;                                                             # Arena description
   @_ == 1 or confess "One parameter";
 
-  my $s = $arena->DescribeString(arena=>$arena->bs);                            # String descriptor
+  my $s = $arena->DescribeString;                                               # String descriptor
   my $first = $s->allocBlock;                                                   # Allocate first block
   $s->first->copy($first);                                                      # Record offset of first block
 
@@ -5515,7 +5522,7 @@ sub Nasm::X86::Arena::CreateString($)                                           
    {my $nn = $s->next;
     my $pp = $s->prev;
     PushR (r14, r15);
-    $arena->bs->setReg(r15);
+    $arena->address->setReg(r15);
     $first->setReg(r14);
     Mov "[r15+r14+$nn]", r14d;
     Mov "[r15+r14+$pp]", r14d;
@@ -5524,16 +5531,16 @@ sub Nasm::X86::Arena::CreateString($)                                           
   $s                                                                            # Description of string
  }
 
-sub Nasm::X86::String::address($)                                               #P Address of a string.
- {my ($String) = @_;                                                            # String descriptor
-  @_ == 1 or confess "One parameter";
-  $String->bs->bs;
- }
+#sub Nasm::X86::String::address($)                                               #P Address of a string.
+# {my ($String) = @_;                                                            # String descriptor
+#  @_ == 1 or confess "One parameter";
+#  $String->arena->address;
+# }
 
 sub Nasm::X86::String::allocBlock($)                                            #P Allocate a block to hold a zmm register in the specified arena and return the offset of the block in a variable.
- {my ($String) = @_;                                                            # String descriptor
+ {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameters";
-  $String->bs->allocZmmBlock;                                                   # Allocate block and return its offset as a variable
+  $string->arena->allocZmmBlock;                                                   # Allocate block and return its offset as a variable
  }
 
 sub Nasm::X86::String::getBlockLength($$)                                       #P Get the block length of the numbered zmm and return it in a variable.
@@ -5554,13 +5561,13 @@ sub Nasm::X86::String::setBlockLengthInZmm($$$)                                 
 sub Nasm::X86::String::getZmmBlock($$$)                                         #P Get the block with the specified offset in the specified string and return it in the numbered zmm.
  {my ($String, $block, $zmm) = @_;                                              # String descriptor, offset of the block as a variable, number of zmm register to contain block
   @_ == 3 or confess "Three parameters";
-  $String->bs->getZmmBlock($block, $zmm);
+  $String->arena->getZmmBlock($block, $zmm);
  }
 
 sub Nasm::X86::String::putZmmBlock($$$)                                         #P Write the numbered zmm to the block at the specified offset in the specified arena.
  {my ($String, $block, $zmm) = @_;                                              # String descriptor, block in arena, content variable
   @_ == 3 or confess "Three parameters";
-  $String->bs->putZmmBlock($block, $zmm);
+  $String->arena->putZmmBlock($block, $zmm);
  }
 
 sub Nasm::X86::String::getNextAndPrevBlockOffsetFromZmm($$)                     #P Get the offsets of the next and previous blocks as variables from the specified zmm.
@@ -6055,7 +6062,7 @@ sub Nasm::X86::String::getQ1($)                                                 
     my $string = $$s{string};                                                   # String
 
     PushR r8, r9, zmm0;
-    $string->bs->getZmmBlock($string->first, 0, r8, r9);                        # Load the first block on the free chain
+    $string->arena->getZmmBlock($string->first, 0, r8, r9);                        # Load the first block on the free chain
     Psrldq xmm0, $string->lengthWidth;                                          # Shift off the length field of the long string block
     Pextrq r8, xmm0, 0;                                                         # Extract first quad word
     $$p{q1}->getReg(r8);                                                        # Return first quad word  as a variable
@@ -6090,7 +6097,7 @@ sub Nasm::X86::String::clear($)                                                 
 
     If $last != $first,
     Then                                                                        # Two or more blocks on the chain
-     {my $ffb = $string->bs->firstFreeBlock;                                    # First free block
+     {my $ffb = $string->arena->firstFreeBlock;                                    # First free block
 
       If $second == $last,
       Then                                                                      # Two blocks on the chain
@@ -6107,7 +6114,7 @@ sub Nasm::X86::String::clear($)                                                 
         $string->putZmmBlock($second, 30);                                      # Put the second block
         $string->putZmmBlock($last, 31);                                        # Put the last block
        };
-      $string->bs->setFirstFreeBlock($second);                                  # The second block becomes the head of the free chain
+      $string->arena->setFirstFreeBlock($second);                                  # The second block becomes the head of the free chain
      };
 
     PopZmm; PopR;
@@ -6131,10 +6138,10 @@ sub Nasm::X86::String::free($)                                                  
     $string->getZmmBlock($first,  30);                                          # Get the first block
     my ($second, $last) = $string->getNextAndPrevBlockOffsetFromZmm(30);        # Get the offsets of the second and last blocks
 
-    my $ffb = $string->bs->firstFreeBlock;                                      # First free block
+    my $ffb = $string->arena->firstFreeBlock;                                      # First free block
     $string->getZmmBlock($last,   31);                                          # Get the last block
     $string->putNextandPrevBlockOffsetIntoZmm(31, $ffb, undef);                 # Reset next pointer in last block to remainder of free chain
-    $string->bs->setFirstFreeBlock($first);                                     # The first block becomes the head of the free chain
+    $string->arena->setFirstFreeBlock($first);                                     # The first block becomes the head of the free chain
     $string->putZmmBlock($first,  30);                                          # Put the second block
     $string->putZmmBlock($last,   31);                                          # Put the last block
 
@@ -6152,9 +6159,9 @@ sub DescribeArray(%)                                                            
   my $o = RegisterSize eax;                                                     # Size of a double word
 
   my $a = genHash(__PACKAGE__."::Array",                                        # Array definition
-    bs     => $options{arena},                                                  # Variable address of arena for array
+    arena  => ($options{arena} // DescribeArena),                               # Variable address of arena for array
     width  => $o,                                                               # Width of each element
-    first  => ($options{first} // G('first')),                                  # Variable addressing first block in array
+    first  => ($options{first} // V('first')),                                  # Variable addressing first block in array
     slots1 => $b / $o - 1,                                                      # Number of slots in first block
     slots2 => $b / $o,                                                          # Number of slots in second and subsequent blocks
    );
@@ -6174,32 +6181,14 @@ sub Nasm::X86::Arena::CreateArray($)                                            
  {my ($arena) = @_;                                                             # Arena description
   @_ == 1 or confess "One parameter";
 
-  my $a = $arena->DescribeArray;                                                # Describe array
-
-  $a->reload(first => $arena->allocZmmBlock);                                   # Allocate first block and return created array descriptor
- }
-
-sub Nasm::X86::Array::reload($%)                                                # Reload the specified array description.
- {my ($array, %options) = @_;                                                   # Array descriptor, {first=>first block of array if not the existing first node; arena=>arena used by array if not the existing arena}
-  @_ >= 1 or confess "At least one parameter";
-
-  my $a = $array->bs->DescribeArray;                                            # Return a descriptor for an array
-  $a->bs = $options{arena} if $options{arena};
-  $a->first->copy($options{first}//$array->first);                              # Set the first block
-  $a
- }
-
-sub Nasm::X86::Array::address($)                                                #P Address of a string.
- {my ($Array) = @_;                                                             # Array descriptor
-  @_ == 1 or confess "One parameter";
-  $Array->bs->bs;
+  $arena->DescribeArray(first => $arena->allocZmmBlock);                        # Describe array
  }
 
 sub Nasm::X86::Array::allocBlock($)                                             #P Allocate a block to hold a zmm register in the specified arena and return the offset of the block in a variable.
- {my ($Array) = @_;                                                             # Array descriptor
+ {my ($array) = @_;                                                             # Array descriptor
   @_ == 1 or confess "One parameter";
 
-  $Array->bs->allocBlock;
+  $array->arena->allocBlock;
  }
 
 sub Nasm::X86::Array::dump($)                                                   # Dump a array.
@@ -6214,7 +6203,7 @@ sub Nasm::X86::Array::dump($)                                                   
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $array = $$s{array};                                                     # Array
     my $F     = $array->first;                                                  # First
-    my $arena = $array->bs;                                                     # Arena
+    my $arena = $array->arena;                                                     # Arena
 
     PushR (r8, zmm30, zmm31);
     $arena->getZmmBlock($F, 31);                                                # Get the first block
@@ -6265,7 +6254,7 @@ sub Nasm::X86::Array::push($$)                                                  
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $array = $$s{array};                                                     # Array
-    my $arena = $array->bs;                                                     # Arena
+    my $arena = $array->arena;                                                  # Arena
     my $F = $array->first;                                                      # First block
     my $E = $$s{element};                                                       # The element to be inserted
 
@@ -6351,7 +6340,7 @@ sub Nasm::X86::Array::pop($)                                                    
     my $E = $$p{element};                                                       # The element being popped
 
     my $array = $$s{array};                                                     # Array
-    my $arena = $array->bs;                                                     # Arena
+    my $arena = $array->arena;                                                     # Arena
     my $F     = $array->first;                                                  # First block of array
 
     PushR r8, zmm31;
@@ -6428,28 +6417,29 @@ sub Nasm::X86::Array::pop($)                                                    
   $element
  }
 
-sub Nasm::X86::Array::size($;$$)                                                # Return the size of an array as a variable.
- {my ($Array, $bs, $first) = @_;                                                # Array descriptor, optional arena address, optional first block
-  @_ == 1 or @_ == 3 or confess "1 or 3 parameters";
+sub Nasm::X86::Array::size($)                                                   # Return the size of an array as a variable.
+ {my ($array) = @_;                                                             # Array
+  @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $Array = $arena->DescribeArray(first => my $F = $$p{first});             # Array
+    my $array = $$s{array};                                                     # Array
+    my $arena = $array->arena;                                                  # Arena
 
-    PushR (r8, zmm31);
-    my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
-    $Array->bs->getZmmBlock($F, 31);                                            # Get the first block
+    PushR zmm31, my $transfer = r8;
+    $arena->getZmmBlock($array->first, 31);                                     # Get the first block
     $$p{size}->copy(getDFromZmm(31, 0, $transfer));                             # Size of array
 
     SetLabel $success;
     PopR;
-   }  [qw(bs first size)], name => 'Nasm::X86::Array::size';
+   }  structures => {array=>$array},
+      parameters => [qw(size)],
+      name       => 'Nasm::X86::Array::size';
 
-  $s->call(bs    => $Array->address,                                            # Get the size of the array
-           first => $Array->first, my $size = V(size));
+  $s->call(structures => {array => $array},                                     # Get the size of the array
+           parameters => {size  => my $size = V(size => 0)});
 
   $size                                                                         # Return size as a variable
  }
@@ -6471,7 +6461,7 @@ sub Nasm::X86::Array::get($$)                                                   
 
     my $array = $$s{array};                                                     # Array
     my $F     = $array->first;                                                  # First block of array
-    my $arena = $array->bs;                                                     # Arena
+    my $arena = $array->arena;                                                     # Arena
 
     PushR (r8, zmm31);
     my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
@@ -6527,7 +6517,7 @@ sub Nasm::X86::Array::put($$$)                                                  
 
     my $array = $$s{array};                                                     # Array
     my $F     = $array->first;                                                  # First block of array
-    my $arena = $array->bs;                                                     # Arena
+    my $arena = $array->arena;                                                     # Arena
 
     PushR (r8, zmm31);
     my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
@@ -6580,17 +6570,17 @@ sub DescribeTree(%)                                                             
   confess "Splitting key offset must be 28" unless $split  == 28;               # Splitting key offset
 
   genHash(__PACKAGE__."::Tree",                                                 # Tree.
-    bs           => DescribeArena($options{arena}),                             # Arena definition.
-    data         => G(data), # Fails                                                    # Variable containing the last data found
-    first        => ($options{first} // G(first)), # Fails                              # Variable addressing offset to first block of keys.
-    found        => ($options{found} // G(found)),                              # Variable indicating whether the last find was successful or not
+    arena        => ($options{arena} // DescribeArena),                         # Arena definition.
+    data         => V(data=>0),                                                 # Variable containing the last data found
+    first        => ($options{first} // V(first => 0)),                         # Variable addressing offset to first block of keys.
+    found        => ($options{found} // V(found => 0)),                         # Variable indicating whether the last find was successful or not
     leftLength   => $length / 2,                                                # Left split length
     lengthOffset => $b - $o * 2,                                                # Offset of length in keys block.  The length field is a word - see: "MultiWayTree.svg"
     loop         => $b - $o,                                                    # Offset of keys, data, node loop.
     maxKeys      => $length,                                                    # Maximum number of keys.
     splittingKey => $split,                                                     # POint at which to split a full block
     rightLength  => $length - 1 - $length / 2,                                  # Right split length
-    subTree      => G(subTree),  # Fails                                                # Variable indicating whether the last find found a sub tree
+    subTree      => V(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
     treeBits     => $b - $o * 2 + 2,                                            # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
     treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
     up           => $b - $o * 2,                                                # Offset of up in data block.
@@ -6602,55 +6592,60 @@ sub Nasm::X86::Arena::DescribeTree($%)                                          
  {my ($arena, %options) = @_;                                                   # Arena descriptor, options for tree
   @_ >= 1 or confess;
 
-  DescribeTree(arena=>$arena->bs, %options)
+  DescribeTree(arena=>$arena, %options)
  }
 
 sub Nasm::X86::Arena::CreateTree($)                                             # Create a tree in an arena.
  {my ($arena) = @_;                                                             # Arena description
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
-   {my ($p) = @_;
-    Comment "Create a block multiway Tree start";
+  my $tree = $arena->DescribeTree;                                              # Return a descriptor for a tree at the specified offset in the specified arena
 
-    PushR my @save = (r8, r9, zmm31);
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    PushR r8, r9, zmm31;
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $t     = $arena->DescribeTree;                                           # Return a descriptor for a tree at the specified offset in the specified arena
-    my $keys = $t->allocBlock;                                                  # Allocate first keys block
-    $$p{first}->copy($keys);                                                    # Save address of first block used to contain the root of the tree
+    my $arena = $$s{arena};                                                     # Arena
+    my $tree  = $$s{tree};                                                      # Tree
+    my $keys  = $tree->allocBlock;                                              # Allocate first keys block
+    $tree->first->copy($keys);                                                  # Save address of first block used to contain the root of the tree
 
     ClearRegisters zmm31;                                                       # Format keys block
-    $t->putLoop($t->allocBlock, 31, r8);                                        # Keys loops to data - later: for the first 7 keys we should store the corresponding data further up in the block rather than creating a new block.
+    $tree->putLoop($tree->allocBlock, 31, r8);                                  # Keys loops to data - later: for the first 7 keys we should store the corresponding data further up in the block rather than creating a new block.
 
     $arena->putZmmBlock($keys, 31, r8, r9);                                     # Write first keys and data block into arena
-    PopR @save;
-   } [qw(bs first)], name => 'Nasm::X86::Arena::CreateTree';
+    PopR;
+   } structures=>{arena => $arena, tree => $tree},
+     name => 'Nasm::X86::Arena::CreateTree';
 
-  my $t = $arena->DescribeTree;                                                 # Return a descriptor for a tree at the specified offset in the specified arena
-  $s->call(bs => $arena->bs, first => $t->first);
+  $s->call(structures=>{arena => $arena, tree => $tree});
 
-  $t                                                                            # Description of array
+  $tree                                                                         # Description of array
  }
 
-sub Nasm::X86::Tree::reload($%)                                                 # Reload the specified tree description.
+sub Nasm::X86::Tree::describeTree($%)                                           # Create a a description of a tree
  {my ($tree, %options) = @_;                                                    # Tree descriptor, {first=>first node of tree if not the existing first node; arena=>arena used by tree if not the existing arena}
   @_ >= 1 or confess "At least one parameter";
 
-  my $t = $tree->bs->DescribeTree;                                              # Return a descriptor for a tree
-  $t->bs = $options{arena} if $options{arena};                                  # Set the arena if requested
-  $t->first->copy($options{first}//$tree->first);                               # Set the first block
-  $t
+  $tree->arena->DescribeTree(%options);                                         # Return a descriptor for a tree
+ }
+
+sub Nasm::X86::Tree::copyDescription($)                                         # Make a copy of a tree descriptor
+ {my ($tree) = @_;                                                              # Tree descriptor
+  my $t = $tree->describeTree;
+  ($t->first = V first => 0)->copy($tree->first);                               # Make a copy of the first block offset so we can change it without affecting the original tree.
+  $t                                                                            # Return new descriptor
  }
 
 sub Nasm::X86::Tree::allocKeysDataNode($$$$)                                    #P Allocate a keys/data/node block and place it in the numbered zmm registers.
- {my ($t, $K, $D, $N) = @_;                                                     # Tree descriptor, numbered zmm for keys, numbered zmm for data, numbered zmm for children
+ {my ($tree, $K, $D, $N) = @_;                                                  # Tree descriptor, numbered zmm for keys, numbered zmm for data, numbered zmm for children
   @_ == 4 or confess "4 parameters";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
+    my $t = $$s{tree};                                                          # Tree
+    my $arena = $t->arena;                                                      # Arena
     my $k = $arena->allocZmmBlock;                                              # Keys
     my $d = $arena->allocZmmBlock;                                              # Data
     my $n = $arena->allocZmmBlock;                                              # Children
@@ -6660,31 +6655,29 @@ sub Nasm::X86::Tree::allocKeysDataNode($$$$)                                    
     $t->putLoop($n, $D, r8);                                                    # Set the link from data to node
     $t->putLoop($k, $N, r8);                                                    # Set the link from node  to key
     PopR r8;
-   } [qw(bs)], name => qq(Nasm::X86::Tree::allocKeysDataNode::${K}::${D}::${N});# Create a subroutine for each combination of registers encountered
+   } structures => {tree=>$tree},
+     name       => qq(Nasm::X86::Tree::allocKeysDataNode::${K}::${D}::${N});    # Create a subroutine for each combination of registers encountered
 
-  $s->call(bs => $t->bs->bs);
+  $s->call(structures => {tree => $tree});
  } # allocKeysDataNode
 
 sub Nasm::X86::Tree::splitNode($$$)                                             #P Split a non root node given its offset in an arena retaining the key being inserted in the node being split while putting the remainder to the left or right.
- {my ($t, $node, $key) = @_;                                                    # Tree descriptor,  offset of node, key
+ {my ($tree, $node, $key) = @_;                                                 # Tree descriptor,  offset of node, key
   @_ == 3 or confess 'Three parameters';
 
   my $K = 31; my $D = 30; my $N = 29;                                           # Key, data, node blocks
 
-  my $s = Subroutine
-   {my ($parameters) = @_;                                                      # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $k = $$parameters{key};                                                  # Key we are looking for
-    my $n = $$parameters{node};                                                 # Node to split
+    my $k = $$p{key};                                                           # Key we are looking for
+    my $n = $$p{node};                                                          # Node to split
 
-    my $arena = DescribeArena($$parameters{bs});                                # Describe arena
-    my $t     = $arena->DescribeTree;                                           # Describe tree
+    my $t     = $$s{tree};                                                      # Tree
+    my $arena = $t->arena;                                                      # Arena
 
-    PushR (r8, r9); PushZmm 22...31;
-
-    my $transfer = r8;                                                          # Use this register to transfer data between zmm blocks and variables
-    my $work     = r9;                                                          # Work register
+    PushR ((my $transfer = r8), (my $work = r9)); PushZmm 22...31;
 
     $t->getKeysDataNode($n, $K, $D, $N, $transfer, $work);                      # Load node
 
@@ -6693,8 +6686,8 @@ sub Nasm::X86::Tree::splitNode($$$)                                             
      {Jmp $success;
      };
 
-    my $p = $t->getUpFromData($D, $transfer);                                   # Parent
-    If $p > 0,
+    my $P = $t->getUpFromData($D, $transfer);                                   # Parent
+    If $P > 0,
     Then                                                                        # Not the root
      {my $s = getDFromZmm $K, $t->splittingKey, $transfer;                      # Splitting key
       If $k < $s,
@@ -6704,12 +6697,12 @@ sub Nasm::X86::Tree::splitNode($$$)                                             
         Vmovdqu64 zmm26, zmm29;
         $t->allocKeysDataNode(25, 24, 23);                                      # Create new right node
 
-        $t->getKeysDataNode($p, $K, $D, $N, $transfer, $work);                  # Load parent
+        $t->getKeysDataNode($P, $K, $D, $N, $transfer, $work);                  # Load parent
         $t->splitFullLeftNode;
-        $t->putKeysDataNode($p, $K, $D, $N, $transfer, $work);                  # Save parent
+        $t->putKeysDataNode($P, $K, $D, $N, $transfer, $work);                  # Save parent
         $t->putKeysDataNode($n, 28, 27, 26, $transfer, $work);                  # Save left
         my $r = $t->getLoop    (23, $transfer);                                 # Offset of right keys
-        $t->putUpIntoData  ($p, 24, $transfer);                                 # Reparent new block
+        $t->putUpIntoData  ($P, 24, $transfer);                                 # Reparent new block
         $t->putKeysDataNode($r, 25, 24, 23, $transfer, $work)                   # Save right back into node we just split
        },
       Else                                                                      # Split right node pushing remainder left  so that we keep the key we are looking for in the right node
@@ -6718,11 +6711,11 @@ sub Nasm::X86::Tree::splitNode($$$)                                             
         Vmovdqu64 zmm23, zmm29;
         $t->allocKeysDataNode(28, 27, 26);                                      # Create new left node
 
-        $t->getKeysDataNode($p, $K, $D, $N, $transfer, $work);                  # Load parent
+        $t->getKeysDataNode($P, $K, $D, $N, $transfer, $work);                  # Load parent
         $t->splitFullRightNode;
-        $t->putKeysDataNode($p, $K, $D, $N, $transfer, $work);                  # Save parent
+        $t->putKeysDataNode($P, $K, $D, $N, $transfer, $work);                  # Save parent
         my $l = $t->getLoop    (26, $transfer);                                 # Offset of left keys
-        $t->putUpIntoData  ($p, 27, $transfer);                                 # Reparent new block
+        $t->putUpIntoData  ($P, 27, $transfer);                                 # Reparent new block
         $t->putKeysDataNode($l, 28, 27, 26, $transfer, $work);                  # Save left
         $t->putKeysDataNode($n, 25, 24, 23, $transfer, $work);                  # Save right back into node we just split
        };
@@ -6739,25 +6732,27 @@ sub Nasm::X86::Tree::splitNode($$$)                                             
     SetLabel $success;                                                          # Insert completed successfully
     PopZmm;
     PopR;
-   }  [qw(bs node key)], name => 'Nasm::X86::Tree::splitNode';
+   }  structures =>{tree=>$tree},
+      parameters =>[qw(node key)],
+      name       => 'Nasm::X86::Tree::splitNode';
 
-  $s->call(bs=>$t->bs->bs, node=>$node, key=>$key);
+  $s->call(structures=>{tree=>$tree}, parameters=>{node=>$node, key=>$key});
 
  } # splitNode
 
 sub Nasm::X86::Tree::reParent($$$$)                                             #P Reparent the children of a node held in registers. The children are in the backing arena not registers.
- {my ($t, $PK, $PD, $PN) = @_;                                                  # Tree descriptor, numbered zmm key node, numbered zmm data node, numbered zmm child node
+ {my ($tree, $PK, $PD, $PN) = @_;                                               # Tree descriptor, numbered zmm key node, numbered zmm data node, numbered zmm child node
   @_ >= 4 or confess "Four parameters";
 
-  my $s = Subroutine
-   {my ($parameters) = @_;                                                      # Parameters
-    PushR (r8);
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    PushR r8;
 
-    my $arena = DescribeArena($$parameters{bs});                                # Arena
-    my $t     = $arena->DescribeTree;                                           # Tree
+    my $t     = $$s{tree};                                                      # Tree
+    my $arena = $t->arena;                                                      # Arena
 
     my $L = $t->getLengthInKeys($PK) + 1;                                       # Number of children
-    my $p = $t->getUpFromDataNM($PD, r8);                                       # Parent node offset in compressed format as a variable
+    my $P = $t->getUpFromDataNM($PD, r8);                                       # Parent node offset in compressed format as a variable
 
     If $t->getLoop($PD, r8) > 0, sub                                            # Not a leaf
      {PushR (rax, rdi);
@@ -6769,16 +6764,17 @@ sub Nasm::X86::Tree::reParent($$$$)                                             
        {my ($index, $start, $next, $end) = @_;
         &PopEax;                                                                # The nodes are double words but we cannot pop a double word from the stack in 64 bit long mode using pop
         $s->getReg(rax);
-        $t->bs->putChain($s, $p, $l, $u);
+        $t->arena->putChain($s, $P, $l, $u);
        });
 
       Mov rsp, rdi;                                                             # Level stack
       PopR;
      };
     PopR;
-   } [qw(bs)], name => 'Nasm::X86::Tree::reParent';
+   } structures => {tree=>$tree},
+     name       => 'Nasm::X86::Tree::reParent';
 
-  $s->call(bs => $t->bs->bs);
+  $s->call(structures=>{tree => $tree});
  } # reParent
 
 sub Nasm::X86::Tree::transferTreeBitsFromParent($$$$)                           #P Transfer tree bits when splitting a full node.
@@ -6840,27 +6836,25 @@ sub Nasm::X86::Tree::transferTreeBitsFromRight($$$$$)                           
  }
 
 sub Nasm::X86::Tree::splitFullRoot($)                                           #P Split a full root block held in 31..29 and place the left block in 28..26 and the right block in 25..23. The left and right blocks should have their loop offsets set so they can be inserted into the root.
- {my ($t) = @_;                                                                 # Tree descriptor
+ {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
-  my $length = $t->maxKeys;                                                     # Length of block to split
-  my $ll = $t->leftLength;                                                      # Left split point
-  my $rl = $t->rightLength;                                                     # Right split point
+  my $length = $tree->maxKeys;                                                  # Length of block to split
+  my $ll = $tree->leftLength;                                                   # Left split point
+  my $rl = $tree->rightLength;                                                  # Right split point
 
   my $TK = 31; my $TD = 30; my $TN = 29;                                        # Root key, data, node
   my $LK = 28; my $LD = 27; my $LN = 26;                                        # Key, data, node blocks in left child
   my $RK = 25; my $RD = 24; my $RN = 23;                                        # Key, data, node blocks in right child
   my $Test = 22;                                                                # Zmm used to hold test values via broadcast
 
-  my $s = Subroutine
-   {my ($parameters) = @_;                                                      # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
-    my $arena = DescribeArena($$parameters{bs});                                # Describe arena
-    my $t     = $arena->DescribeTree;                                           # Describe tree in arena
+    my $t     = $$s{tree};                                                      # Tree
+    my $arena = $t->arena;                                                      # Arena
 
-    PushR (k6, k7, r8, zmm22);
-    my $transfer = r8;                                                          # Use this register to transfer data between zmm blocks and variables
-    my $work     = r9;                                                          # Work register
+    PushR k6, k7, (my $transfer = r8), (my $work = r9), zmm22;
 
     If $t->getLengthInKeys($TK) != $t->maxKeys, sub {Jmp $success};             # Only split full blocks
 
@@ -6943,9 +6937,10 @@ sub Nasm::X86::Tree::splitFullRoot($)                                           
 
     SetLabel $success;                                                          # Insert completed successfully
     PopR;
-   } [qw(bs)], name => 'Nasm::X86::Tree::splitFullRoot';
+   } structures => {tree=>$tree},
+     name       => 'Nasm::X86::Tree::splitFullRoot';
 
-  $s->call(bs => $t->bs->bs);
+  $s->call(structures=>{tree=>$tree});
  } # splitFullRoot
 
 sub Nasm::X86::Tree::splitFullLeftOrRightNode($$)                               #P Split a full a full left node (held in 28..26) or a full right node (held in 25..23) whose parent is in 31..29.
@@ -7086,19 +7081,20 @@ sub Nasm::X86::Tree::splitFullRightNode($)                                      
  }
 
 sub Nasm::X86::Tree::findAndSplit($$$$$$)                                       #P Find a key in a tree which is known to contain at least one key splitting full nodes along the path to the key.
- {my ($t, $first, $key, $compare, $offset, $index) = @_;                        # Tree descriptor, start node, key to find, last comparison result variable, offset of last node found, index within last node found
+ {my ($tree, $first, $key, $compare, $offset, $index) = @_;                     # Tree descriptor, start node, key to find, last comparison result variable, offset of last node found, index within last node found
   @_ == 6 or confess "Six parameters";
-  my $W = $t->width;                                                            # Width of keys and data
+  my $W = $tree->width;                                                         # Width of keys and data
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $F = $$p{first};                                                         # First keys block
     my $K = $$p{key};                                                           # Key to find
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $t     = $arena->DescribeTree(first => $F);                              # Tree
+    my $t        = $$s{tree};                                                   # Tree
+       $t->first->copy($F);                                                     # First block of tree to search
+    my $arena    = $t->arena;                                                   # Arena
 
     my $tree = $F->clone('tree');                                               # Start at the first key block
     PushR k6, k7, r8, r9, r14, r15; PushZmm 28..31;
@@ -7165,24 +7161,27 @@ sub Nasm::X86::Tree::findAndSplit($$$$$$)                                       
 
     SetLabel $success;                                                          # Insert completed successfully
     PopZmm; PopR;
-   }  [qw(bs first key compare offset index)],
-  name => 'Nasm::X86::Tree::findAndSplit';
+   } structures => {tree=>$tree},
+     parameters => [qw(first key compare offset index)],
+     name       => 'Nasm::X86::Tree::findAndSplit';
 
-  $s->call(bs => $t->bs->bs, first => $first, key => $key, compare => $compare,
-    offset => $offset, index => $index);
+  $s->call(structures => {tree=>$tree},
+           parameters => {first => $first, key => $key, compare => $compare,
+                          offset => $offset, index => $index});
  } # findAndSplit
 
-sub Nasm::X86::Tree::find($$;$$)                                                # Find a key in a tree and test whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor.
- {my ($t, $key, $bs, $first) = @_;                                              # Tree descriptor, key field to search for, optional arena address, optional start node
-  @_ == 2 or @_ == 4 or confess "2 or 4 parameters";
-  my $W = $t->width;                                                            # Width of keys and data
+sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and test whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor.
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for
+  @_ == 2 or confess "Two parameters";
+  my $W = $tree->width;                                                         # Width of keys and data
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $B = $$p{bs};                                                            # First keys block
-    my $F = $$p{first};                                                         # First keys block
+    my $t = $$s{tree};                                                          # Tree to search
+    my $a = $t->arena;                                                          # First keys block
+    my $F = $t->first;                                                          # First keys block
     my $K = $$p{key};                                                           # Key to find
 
     PushR k6, k7, r8, r9, r14, r15; PushZmm 28..31;
@@ -7191,9 +7190,9 @@ sub Nasm::X86::Tree::find($$;$$)                                                
     my $transfer = r8;                                                          # Use this register to transfer data between zmm blocks and variables
     my $work     = r9;                                                          # Work register
 
-    $$p{found}  ->copy(0, $transfer);                                           # Key not found
-    $$p{data}   ->copy(0, $transfer);                                           # Data not yet found
-    $$p{subTree}->copy(0, $transfer);                                           # Not yet a sub tree
+    $t->found  ->copy(0, $transfer);                                            # Key not found
+    $t->data   ->copy(0, $transfer);                                            # Data not yet found
+    $t->subTree->copy(0, $transfer);                                            # Not yet a sub tree
 
     my $tree = $F->clone('tree', $transfer);                                    # Start at the first key block
 
@@ -7218,10 +7217,10 @@ sub Nasm::X86::Tree::find($$;$$)                                                
       Then
        {Kmovq r15, $testMask;
         Tzcnt r14, r15;                                                         # Trailing zeros
-        $$p{found}->copy(1, $transfer);                                         # Key found
-        $$p{data} ->copy(getDFromZmm $zmmData, "r14*$W", $transfer);            # Data associated with the key
+        $t->found->copy(1, $transfer);                                          # Key found
+        $t->data ->copy(getDFromZmm $zmmData, "r14*$W", $transfer);             # Data associated with the key
         $t->isTree(r15, $zmmKeys);                                              # Check whether the data so found is a sub tree
-        $$p{subTree}->copyZFInverted;                                           # Copy zero flag which opposes the notion that this element is a sub tree
+        $t->subTree->copyZFInverted;                                            # Copy zero flag which opposes the notion that this element is a sub tree
         Jmp $success;                                                           # Return
        };
 
@@ -7248,19 +7247,19 @@ sub Nasm::X86::Tree::find($$;$$)                                                
 
     SetLabel $success;                                                          # Insert completed successfully
     PopZmm; PopR;
-   } [qw(bs first key data found subTree)], name => 'Nasm::X86::Tree::find';
+   } parameters=>[qw(key)],
+     structures=>{tree=>$tree},
+     name => 'Nasm::X86::Tree::find';
 
-  $s->call(bs => ($bs // $t->address), first => ($first // $t->first),
-    key   => $key,      data    => $t->data,
-    found => $t->found, subTree => $t->subTree);
+  $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # find
 
 sub Nasm::X86::Tree::findAndReload($$)                                          # Find a key in the specified tree and clone it is it is a sub tree.
  {my ($t, $key) = @_;                                                           # Tree descriptor, key as a dword
   @_ == 2 or confess "Two parameters";
-  Comment "Nasm::X86::Tree::findAndReload";
-  $t->find($key);
-  If $t->found > 0,
+
+  $t->find($key);                                                               # Find the key
+  If $t->found > 0,                                                             # Make the found data the new  tree
   Then
    {$t->first->copy($t->data);                                                  # Copy the data variable to the first variable without checking whether it is valid
    };
@@ -7269,15 +7268,15 @@ sub Nasm::X86::Tree::findAndReload($$)                                          
 sub Nasm::X86::Tree::findShortString($$)                                        # Find the data at the end of a key chain held in a short string.  Return a tree descriptor referencing the data located or marked as failed to find.
  {my ($tree, $string) = @_;                                                     # Tree descriptor, short string
   @_ == 2 or confess "2 parameters";
-  my $t = $tree->reload;                                                        # Reload the input tree so we can walk down the chain
+  my $t = $tree->copyDescription;                                               # Reload the input tree so we can walk down the chain
   my $w = $tree->width;                                                         # Size of a key on the tree
   my $z = $string->z;                                                           # The zmm containing the short string
 
-  my $s = Subroutine
-   {my ($p) = @_;
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $L = $string->len;                                                       # Length of the short string
-    $t->first->copy($$p{first});                                                # Reload the input tree so we can walk down the chain
-    $$p{found}->copy(0);                                                        # Not yet found
+    my $t = $$s{tree};                                                          # Tree
+    $t->found->copy(0);                                                         # Not yet found
 
     PushR rax, r14, r15;
     ClearRegisters r15;
@@ -7302,56 +7301,56 @@ sub Nasm::X86::Tree::findShortString($$)                                        
        };
       Mov r14d, "[rax]";                                                        # Load possibly partial dword from string which might have some trailing zeroes in it from the register block above
       $t->find(V(key, r14));                                                    # Find remaining key and data
-      $$p{data} ->copy($t->data);
-      $$p{found}->copy($t->found);
      };
     PopR; PopR;
-   } [qw(bs first data found)], name => "Nasm::X86::Tree::findShortString_$z";
+   } structures => {tree => $tree},
+     name       => "Nasm::X86::Tree::findShortString_$z";
 
-  $s->call($tree->address, first => $tree->first, $tree->data, $tree->found);   # Find the data at the end of the short string key
+  $s->call(structures=>{tree=>$tree});                                          # Find the data at the end of the short string key
 
   $t                                                                            # Return the cloned tree descriptor as it shows the data and the find status
  } # findShortString
 
 sub Nasm::X86::Tree::size($)                                                    # Return a variable containing the number of keys in the specified tree.
- {my ($t) = @_;                                                                 # Tree descriptor
+ {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    PushR r8, r9;
-    my $transfer =  r8;                                                         # Use this register to transfer data between zmm blocks and variables
-    my $work     =  r9;                                                         # Work register
+    PushR ((my $transfer = r8), (my $work = r9));
 
-    my $arena  = DescribeArena($$p{bs});                                        # Arena
-    my $t      = $arena->DescribeTree;                                          # Tree
+    my $t      = $$s{tree};                                                     # Tree
+    my $arena  = $t->arena;                                                     # Arena
 
-    $t->getKeysData($$p{first}, 31, 30, $transfer, $work);                      # Get the first block so we can update the key count
+    $t->getKeysData($t->first, 31, 30, $transfer, $work);                       # Get the first block so we can update the key count
     my $size = $t->getCountFromData(30, $transfer);                             # Get key count
     $$p{size}->copy($size);                                                     # Set result
     PopR;
-   } [qw(bs first size)], name => "Nasm::X86::Tree::size";
+   } structures =>{tree=>$tree},
+     parameters => [qw(size)],
+     name => "Nasm::X86::Tree::size";
 
-  $s->call(bs => $t->address, first => $t->first, my $size = V(size));
+  $s->call(structures => {tree => $tree},
+           parameters => {size => my $size = V size => 0});
 
   $size;
  } # size
 
 sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     # Insert either a key, data pair into the tree or create a sub tree at the specified key (if it does not already exist) and return the offset of the first block of the sub tree in the data variable.
- {my ($t, $tnd, $key, $data) = @_;                                              # Tree descriptor, 0 - data or 1 - tree, key as a dword, data as a dword
+ {my ($tree, $tnd, $key, $data) = @_;                                           # Tree descriptor, 0 - data or 1 - tree, key as a dword, data as a dword
   @_ >= 2 or confess;
   my $W = RegisterSize zmm0;                                                    # The size of a block
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $F = $$p{first};                                                         # First keys block
+    my $t = $$s{tree};                                                          # Tree
+    my $F = $t->first;                                                          # First keys block
     my $K = $$p{key};                                                           # Key  to be inserted
     my $D = $$p{data};                                                          # Data to be inserted
-    my $arena = DescribeArena($$p{bs});                                         # Describe arena for tree
-    my $t     = $arena->DescribeTree(first => $F);                              # Describe tree
+    my $arena = $t->arena;                                                      # Describe arena for tree
 
     PushMask 4..7; PushR r8, r9, r13, r14, r15; PushZmm 22..31;
     my $transfer =  r8;                                                         # Use this register to transfer data between zmm blocks and variables
@@ -7400,7 +7399,7 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
             Else                                                                # The existing element is not a tree so we mark it as such using the single bit in r15/k6
              {$t->setTree(r15, 31);
              };
-            $D->copy($t->bs->CreateTree->first) if $tnd == 1;                   # Create tree and copy offset of first  block
+            $D->copy($t->arena->CreateTree->first) if $tnd == 1;                   # Create tree and copy offset of first  block
            }
           $D->setReg(r14);                                                      # Key to search for
           Vpbroadcastd "zmm30{k6}", r14d;                                       # Load data
@@ -7427,7 +7426,7 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
         Vpbroadcastd "zmm31{k6}", r15d;                                         # Load key
 
         if ($tnd)                                                               # Insert new sub tree
-         {$D->copy($t->bs->CreateTree->first) if $tnd == 1;                     # Create tree and copy offset of first block
+         {$D->copy($t->arena->CreateTree->first) if $tnd == 1;                     # Create tree and copy offset of first block
          }
         if (1)                                                                  # Expand tree bits to match
          {Kmovq $point, k6;                                                     # Position of key just found
@@ -7441,7 +7440,7 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
 
         If $l + 1 == $t->maxKeys,
         Then                                                                    # Root is now full: allocate the node block for it and chain it in
-         {my $n = $t->bs->allocZmmBlock;                                        # Children
+         {my $n = $t->arena->allocZmmBlock;                                        # Children
           $t->putLoop($n, 30, $transfer);                                       # Set the link from data to node
           $t->putLoop($F, 29, $transfer);                                       # Set the link from node to key
          };
@@ -7488,7 +7487,7 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
 
       $t->expandTreeBitsWithZeroOrOne($tnd, 31, $point);                        # Mark inserted key as referring to a tree or not
 
-      $D->copy($t->bs->CreateTree->first) if $tnd == 1;                         # Create tree and place its offset into data field
+      $D->copy($t->arena->CreateTree->first) if $tnd == 1;                         # Create tree and place its offset into data field
 
       ClearRegisters k7;
       $index->setMaskBit(k7);                                                   # Set bit at insertion point
@@ -7509,10 +7508,12 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
     PopZmm;
     PopR;
     PopMask;
-   } [qw(bs first key data)], name => "Nasm::X86::Tree::insertDataOrTree_$tnd"; # Data either supplies the data or returns the offset of the sub tree
+   } structures=>{tree => $tree},
+     parameters=>[qw(key data)],
+     name => "Nasm::X86::Tree::insertDataOrTree_$tnd";                          # Data either supplies the data or returns the offset of the sub tree
 
-  $s->call(bs => $t->address, first => $t->first, key => $key,
-    data => $tnd == 1 ? $t->data : $data);
+  $s->call(structures=>{tree=>$tree},
+           parameters=>{key => $key, data => $tnd == 1 ? $tree->data : $data});
  } # insert
 
 sub Nasm::X86::Tree::insert($$$)                                                # Insert a dword into into the specified tree at the specified key.
@@ -7553,8 +7554,8 @@ sub Nasm::X86::Tree::insertShortString($$$)                                     
   my $w = $tree->width;                                                         # Size of a key on the tree
   my $z = $string->z;                                                           # The zmm containing the short string
 
-  my $s = Subroutine
-   {my ($p) = @_;
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $L = $string->len;                                                       # Length of the short string
 
     PushR rax, r14, r15;
@@ -7564,7 +7565,7 @@ sub Nasm::X86::Tree::insertShortString($$$)                                     
     Lea rax, "[rsp+$W]";                                                        # Address first data byte of short string
     $L->setReg(r15);                                                            # Length of key remaining to write into key chain
 
-    my $t = $tree->reload(first=>$$p{first});                                   # Reload the input tree so we can walk down the chain from it.
+    my $t = $$s{tree};                                                          # Reload the input tree so we can walk down the chain from it.
 
     AndBlock
      {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
@@ -7581,42 +7582,45 @@ sub Nasm::X86::Tree::insertShortString($$$)                                     
       $t->insert(V(key, r14), $$p{data});                                       # Insert remaining key and data
      };
     PopR; PopR;
-   } [qw(bs first data)],
-  name => "Nasm::X86::Tree::insertinsertShortString_$z";
+   } structures => {tree => $tree},
+     parameters => [qw(data)],
+     name       => "Nasm::X86::Tree::insertinsertShortString_$z";
 
-  $s->call($tree->address, first => $tree->first, data => $data);               # Insert the data at the end of the short string key
+  my $t = $tree->arena->DescribeTree();                                         # Use a copy of the tree descriptor so that we can modify its first field
+     $t->first->copy($tree->first);
+  $s->call(structures => {tree => $t}, parameters => {data => $data});          # Insert the data at the end of the short string key
  } # insertShortString
 
 sub Nasm::X86::Tree::getKeysData($$$$;$$)                                       #P Load the keys and data blocks for a node.
  {my ($t, $offset, $zmmKeys, $zmmData, $work1, $work2) = @_;                    # Tree descriptor, offset as a variable, numbered zmm for keys, numbered data for keys, optional first work register, optional second work register
   @_ == 4 or @_ == 6 or confess "Four or six parameters";
-  $t->bs->getZmmBlock($offset, $zmmKeys, $work1, $work2);                       # Get the keys block
+  $t->arena->getZmmBlock($offset, $zmmKeys, $work1, $work2);                       # Get the keys block
   my $data = $t->getLoop($zmmKeys, $work1);                                     # Get the offset of the corresponding data block
-  $t->bs->getZmmBlock($data,   $zmmData, $work1, $work2);                       # Get the data block
+  $t->arena->getZmmBlock($data,   $zmmData, $work1, $work2);                       # Get the data block
  }
 
 sub Nasm::X86::Tree::putKeysData($$$$;$$)                                       #P Save the key and data blocks for a node.
  {my ($t, $offset, $zmmKeys, $zmmData, $work1, $work2) = @_;                    # Tree descriptor, offset as a variable, numbered zmm for keys, numbered data for keys, optional first work register, optional second work register
   @_ == 4 or @_ == 6 or confess "Four or six parameters";
-  $t->bs->putZmmBlock($offset, $zmmKeys, $work1, $work2);                       # Put the keys block
+  $t->arena->putZmmBlock($offset, $zmmKeys, $work1, $work2);                    # Put the keys block
   my $data = $t->getLoop($zmmKeys, $work1);                                     # Get the offset of the corresponding data block
-  $t->bs->putZmmBlock($data,   $zmmData, $work1, $work2);                       # Put the data block
+  $t->arena->putZmmBlock($data,   $zmmData, $work1, $work2);                    # Put the data block
  }
 
 sub Nasm::X86::Tree::getKeysDataNode($$$$$;$$)                                  #P Load the keys, data and child nodes for a node.
  {my ($t, $offset, $zmmKeys, $zmmData, $zmmNode, $work1, $work2) = @_;          # Tree descriptor, offset as a variable, numbered zmm for keys, numbered data for keys, numbered numbered for keys, optional first work register, optional second work register
   @_ == 5 or @_ == 7 or confess "Five or seven parameters";
 
-  my $B = $t->bs;                                                               # Underlying arena
+  my $a = $t->arena;                                                            # Underlying arena
 
-  $B->getZmmBlock($offset,  $zmmKeys, $work1, $work2);                          # Get the keys block
+  $a->getZmmBlock($offset,  $zmmKeys, $work1, $work2);                          # Get the keys block
   my $data = $t->getLoop($zmmKeys, $work1, $work2);                             # Get the offset of the corresponding data block
-  $B->getZmmBlock($data,    $zmmData, $work1, $work2);                          # Get the data block
+  $a->getZmmBlock($data,    $zmmData, $work1, $work2);                          # Get the data block
 
   my $node = $t->getLoop($zmmData, $work1, $work2);                             # Get the offset of the corresponding node block
   If $node > 0,
   Then                                                                          # Check for optional node block
-   {$B->getZmmBlock($node,  $zmmNode, $work1, $work2);                          # Get the node block
+   {$a->getZmmBlock($node,  $zmmNode, $work1, $work2);                          # Get the node block
    },
   Else                                                                          # No children
    {ClearRegisters zmm $zmmNode;                                                # Clear the child block to signal that there was not one - if there were it would have child nodes in it which would be none zero
@@ -7630,7 +7634,7 @@ sub Nasm::X86::Tree::putKeysDataNode($$$$$;$$)                                  
   my $node = $t->getLoop($zmmData, $work1);                                     # Get the offset of the corresponding node block
   If $node > 0,
   Then                                                                          # Check for optional node block
-   {$t->bs->putZmmBlock($node, $zmmNode, $work1, $work2);                       # Put the node block
+   {$t->arena->putZmmBlock($node, $zmmNode, $work1, $work2);                       # Put the node block
    };
  }
 
@@ -7795,15 +7799,16 @@ sub Nasm::X86::Tree::putLoop($$$;$)                                             
  }
 
 sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      # Return the offset of the left most or right most node.
- {my ($t, $dir, $node, $offset) = @_;                                           # Tree descriptor, direction: left = 0 or right = 1, start node,  offset of located node
+ {my ($tree, $dir, $node, $offset) = @_;                                        # Tree descriptor, direction: left = 0 or right = 1, start node,  offset of located node
   @_ == 4 or confess "Four parameters";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $t = $arena->DescribeTree(first => my $F = $$p{node});                   # First block
+    my $t        = $$s{tree};                                                   # Tree
+       $t->first->copy(my $F = $$p{node});                                      # First block
+    my $arena = $t->arena;                                                      # Arena
     PushR rax, r8, r9; PushZmm 29..31;
 
     K(loopLimit, 9)->for(sub                                                    # Loop a reasonable number of times
@@ -7830,10 +7835,13 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
 
     SetLabel $success;                                                          # Insert completed successfully
     PushZmm; PopR;
-   } [qw(bs node offset )],
-   name => $dir==0 ? "Nasm::X86::Tree::leftMost" : "Nasm::X86::Tree::rightMost";
+   } structures => {tree => $tree},
+     parameters => [qw(node offset)],
+     name       => $dir==0 ? "Nasm::X86::Tree::leftMost" :
+                             "Nasm::X86::Tree::rightMost";
 
-  $s->call(bs => $t->bs->bs, node => $node, offset=>$offset);
+  $s->call(structures => {tree=>$tree},
+           parameters => {node => $node, offset=>$offset});
  }
 
 sub Nasm::X86::Tree::leftMost($$$)                                              # Return the offset of the left most node from the specified node.
@@ -7853,31 +7861,31 @@ sub Nasm::X86::Tree::nodeFromData($$$)                                          
 confess "Not needed";
   @_ == 3 or confess "Three parameters";
   my $loop = $t->getLoop($data);                                                # Get loop offset from data
-  $t->getZmmBlock($t->address, $loop, $node);                                   # Node
+  $t->getZmmBlock($t->arena, $loop, $node);                                   # Node
  }
 
-sub Nasm::X86::Tree::address($)                                                 #P Address of the arena containing a tree.
- {my ($t) = @_;                                                                 # Tree descriptor
-  @_ == 1 or confess "4 parameters";
-  $t->bs->bs;
- }
+#sub Nasm::X86::Tree::address($)                                                 #P Address of the arena containing a tree.
+# {my ($t) = @_;                                                                 # Tree descriptor
+#  @_ == 1 or confess "4 parameters";
+#  $t->arena;
+# }
 
 sub Nasm::X86::Tree::allocBlock($)                                              #P Allocate a block to hold a zmm register in the specified arena and return the offset of the block in a variable.
  {my ($t) = @_;                                                                 # Tree descriptor
   @_ == 1 or confess "One parameter";
-  $t->bs->allocZmmBlock;                                                        # Allocate a block and return its offset as a variable
+  $t->arena->allocZmmBlock;                                                     # Allocate a block and return its offset as a variable
  }
 
-sub Nasm::X86::Tree::depth($$$$)                                                # Return the depth of a node within a tree.
- {my ($t, $bs, $node, $depth) = @_;                                             # Tree descriptor, arena address, node, return depth
-  @_ == 4 or confess "4 parameters required";
+sub Nasm::X86::Tree::depth($$$)                                                 # Return the depth of a node within a tree.
+ {my ($tree, $node, $depth) = @_;                                               # Tree descriptor, node, return depth
+  @_ == 3 or confess "Three parameters required";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $t = $arena->DescribeTree;                                               # Tree
+    my $t = $$s{tree};                                                          # Tree
+    my $arena = $tree->arena;                                                   # Arena
     my $N = $$p{node};                                                          # Starting node
 
     PushR r8, r9, r14, r15, zmm30, zmm31;
@@ -7892,16 +7900,20 @@ sub Nasm::X86::Tree::depth($$$$)                                                
        {$$p{depth}->copy($index+1);                                             # Key not found
         Jmp $success;                                                           # Return
        };
-      $tree->copy($P);                                                          # Up to next level
+#     $t->copy($P);                                                             # Up to next level
+      Jmp $end;
      });
     PrintErrStringNL "Stuck in depth";                                          # We seem to be looping endlessly
     Exit(1);
 
     SetLabel $success;                                                          # Insert completed successfully
     PopR;
-   }  [qw(bs node depth)], name => 'Nasm::X86::Tree::allocBlock';
+   }  structures => {tree => $tree},
+      parameters => [qw(node depth)],
+      name       => 'Nasm::X86::Tree::depth';
 
-  $s->call($t->address, node => $node, depth => $depth);
+  $s->call(structures => {tree => $tree},
+           parameters => {node => $node, depth => $depth});
  } # depth
 
 #D2 Sub trees                                                                   # Construct trees of trees.
@@ -8005,50 +8017,54 @@ sub Nasm::X86::Tree::expandTreeBitsWithOne($$$)                                 
 #D2 Print                                                                       # Print a tree
 
 sub Nasm::X86::Tree::print($)                                                   # Print a tree.
- {my ($t) = @_;                                                                 # Tree
+ {my ($tree) = @_;                                                              # Tree
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine                                                            # Print a tree
-   {my ($p, $s) = @_;                                                           # Parameters, sub definition
+  my $s = Subroutine2                                                           # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    PrintOutString "Tree at: "; $$p{first}->outNL(' ');
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $t     = $arena->DescribeTree(first => $$p{first});                      # Tree
+    my $t = $$s{tree};                                                          # Tree
+    my $F = $t->first;                                                          # First block of tree
+    PrintOutString "Tree at: "; $F->outNL(' ');
+    my $arena = $t->arena;                                                      # Arena
 
     $t->by(sub                                                                  # Iterate through the tree
      {my ($iter, $end) = @_;
-      $iter->tree->depth($$p{bs}, $iter->node, my $D = V(depth));
+      $iter->tree->depth($iter->node, my $D = V(depth));
       $iter->key ->out('key: ');
       $iter->data->out(' data: ');
       $D   ->outNL    (' depth: ');
       $t->find($iter->key);                                                     # Slow way to find out if this is a subtree
       If $t->subTree > 0,
       Then
-       {$s->call(bs => $$p{bs}, first => $t->data);
+       {my $T = $t->describeTree(first => $t->data);
+         $sub->call(structures => {tree => $T});
        };
-     }, $$p{bs}, $$p{first}+0);
-   } [qw(bs first)], name => "Nasm::X86::Tree::print";
+     });
+   } structures=>{tree=>$tree},
+     name => "Nasm::X86::Tree::print";
 
-  $s->call($t->address, $t->first);
+  $s->call(structures=>{tree=>$tree});
  }
 
-sub Nasm::X86::Tree::dump($;$$)                                                 # Dump a tree and all its sub trees.
- {my ($t, $first, $bs) = @_;                                                    # Tree, optional offset to first node, optional arena address
-  @_ >= 1 && @_ <= 3 or confess;
+sub Nasm::X86::Tree::dump($)                                                    # Dump a tree and all its sub trees.
+ {my ($tree) = @_;                                                              # Tree
+  @_ == 1 or confess "One parameter";
 
   PushR my ($depthR) = (r12);
 
-  my $b = Subroutine                                                            # Print the spacing blanks to offset sub trees
+  my $b = Subroutine2                                                           # Print the spacing blanks to offset sub trees
    {V(loop, $depthR)->for(sub
      {PrintOutString "  ";
      });
-   } [], name => "Nasm::X86::Tree::dump::spaces";
+   } name => "Nasm::X86::Tree::dump::spaces";
 
-  my $s = Subroutine                                                            # Print a tree
-   {my ($p, $s) = @_;                                                           # Parameters, sub definition
+  my $s = Subroutine2                                                           # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
-    my $t = $arena->DescribeTree(first => my $F = $$p{first});                  # Tree
+    my $t = $$s{tree};                                                          # Tree
+    my $F = $t->first;                                                          # First block in tree
+    my $arena = $t->arena;                                                      # Arena
 
     PushZmm 29..31; PushR r8, r9, r10;
     my ($treeBitsR, $treeBitsIndexR, $transfer) = (r8, r9, r10);
@@ -8058,13 +8074,13 @@ sub Nasm::X86::Tree::dump($;$$)                                                 
     my $l = $t->getLengthInKeys(31);                                            # Number of nodes
 
     $b->call;
-    PrintOutString "Tree at: "; $$p{first}->out(' '); $l->outNL('  length: ');  # Position and length
+    PrintOutString "Tree at: "; $F->out(' '); $l->outNL('  length: ');          # Position and length
 
     Inc $depthR;                                                                # Indent sub tree
 
-    $b->call; PrintOutString "Keys: "; PrintOneRegisterInHex $stdout, zmm31; PrintOutNL;
-    $b->call; PrintOutString "Data: "; PrintOneRegisterInHex $stdout, zmm30; PrintOutNL;
-    $b->call; PrintOutString "Node: "; PrintOneRegisterInHex $stdout, zmm29; PrintOutNL;
+    $b->call; PrintOutString "Keys: "; PrintOutOneRegisterInHexNL zmm31;
+    $b->call; PrintOutString "Data: "; PrintOutOneRegisterInHexNL zmm30;
+    $b->call; PrintOutString "Node: "; PrintOutOneRegisterInHexNL zmm29;
 
     Mov $treeBitsIndexR, 1;                                                     # Check each tree bit position
     $l->for(sub                                                                 # Print keys and data
@@ -8098,7 +8114,8 @@ sub Nasm::X86::Tree::dump($;$$)                                                 
         Then                                                                    # This key indexes a sub tree
          {my $i = $index * $t->width;                                           # Key/data offset
           my $d = getDFromZmm(30, $i, $transfer);                               # Data
-          $s->call(bs => $arena->bs, first => $d);                              # Print sub tree referenced by data field
+          my $T = $arena->DescribeTree(first => $d);
+          $sub->call(structures => {tree => $T});                               # Print sub tree referenced by data field
          };
         Shl $treeBitsIndexR, 1;                                                 # Next tree bit position
        });
@@ -8110,8 +8127,8 @@ sub Nasm::X86::Tree::dump($;$$)                                                 
       my $d = getDFromZmm(29, $i, $transfer);                                   # Data
       If $d > 0,                                                                # Print any sub nodes
       Then
-       {
-         $s->call(bs => $arena->bs, first => $d);
+       {my $T = $arena->DescribeTree(first => $d);
+        $sub->call(structures => {tree => $T});
        };
      });
 
@@ -8119,99 +8136,95 @@ sub Nasm::X86::Tree::dump($;$$)                                                 
 
     $b->call; PrintOutStringNL "end";                                           # Separate sub tree dumps
     PopR; PopZmm;
-   } [qw(bs first)], name => "Nasm::X86::Tree::dump";
+   } structures => {tree => $tree},
+     name       => "Nasm::X86::Tree::dump";
 
   ClearRegisters $depthR;                                                       # Depth starts at zero
 
-  $s->call(bs => ($bs//$t->address), first => ($first//$t->first));
+  $s->call(structures => {tree => $tree});
 
   PopR $depthR;
  }
 
 #D2 Iteration                                                                   # Iterate through a tree non recursively
 
-sub Nasm::X86::Tree::iterator($;$$)                                             # Iterate through a multi way tree starting either at the specified node or the first node of the specified tree.
- {my ($t, $bs, $first) = @_;                                                    # Tree, optional arena else the arena associated with the tree, optionally the node to start at else the first node of the supplied tree will be used
+sub Nasm::X86::Tree::iterator($)                                                # Iterate through a multi way tree starting either at the specified node or the first node of the specified tree.
+ {my ($t) = @_;                                                                 # Tree, optional arena else the arena associated with the tree, optionally the node to start at else the first node of the supplied tree will be used
   @_ == 1 or @_ == 3 or confess "1 or 3 parameters";
   Comment "Nasm::X86::Tree::iterator";
 
   my $i = genHash(__PACKAGE__.'::Tree::Iterator',                               # Iterator
     tree  => $t,                                                                # Tree we are iterating over
-    bs    => V(bs),                                                             # Arena containing tree
-    node  => V(node),                                                           # Current node within tree
-    pos   => V('pos'),                                                          # Current position within node
-    key   => V(key),                                                            # Key at this position
-    data  => V(data),                                                           # Data at this position
-    count => V(count),                                                          # Counter - number of node
-    more  => V(more),                                                           # Iteration not yet finished
+    node  => V(node  =>  0),                                                    # Current node within tree
+    pos   => V(pos   => -1),                                                    # Current position within node
+    key   => V(key   =>  0),                                                    # Key at this position
+    data  => V(data  =>  0),                                                    # Data at this position
+    count => V(count =>  0),                                                    # Counter - number of node
+    more  => V(more  =>  1),                                                    # Iteration not yet finished
    );
 
-  $i->bs   ->copy($bs // $t->address);                                          # Arena containing nodes of tree
-  $i->node ->copy($first // $t->first);                                         # Start at the specified node or else the first node in the tree
-  $i->pos  ->copy(-1);                                                          # Initialize iterator
-  $i->count->copy( 0);
-  $i->more ->copy(+1);
-
+  $i->node   ->copy($t->first);                                                 # Start at the first node in the tree
   $i->next;                                                                     # First element if any
  }
 
 sub Nasm::X86::Tree::Iterator::next($)                                          # Next element in the tree.
- {my ($iter) = @_;                                                              # Iterator
+ {my ($iterator) = @_;                                                          # Iterator
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $arena = DescribeArena($$p{bs});                                         # Arena
+    my $iter  = $$s{iterator};                                                  # Iterator
+    my $tree  = $iter->tree;                                                    # Tree
+    my $arena = $tree->arena;                                                   # Arena
 
-    my $C = $$p{node};                                                          # Current node required
-    $$p{count} = $$p{count} + 1;                                                # Count the calls to the iterator
+    my $C = $iter->node;                                                        # Current node required
+    $iter->count->copy($iter->count + 1);                                       # Count the calls to the iterator
 
     my $new  = sub                                                              # Load iterator with latest position
      {my ($node, $pos) = @_;                                                    # Parameters
       PushR r8, r9; PushZmm 29..31;
-      $$p{node}->copy($node);                                                   # Set current node
-      $$p{pos} ->copy($pos);                                                    # Set current position in node
+      $iter->node->copy($node);                                                 # Set current node
+      $iter->pos ->copy($pos);                                                  # Set current position in node
       $iter->tree->getKeysData($node, 31, 30, r8, r9);                          # Load keys and data
 
       my $offset = $pos * $iter->tree->width;                                   # Load key and data
-      $$p{key} ->copy(getDFromZmm 31, $offset, r8);
-      $$p{data}->copy(getDFromZmm 30, $offset, r8);
+      $iter->key ->copy(getDFromZmm 31, $offset, r8);
+      $iter->data->copy(getDFromZmm 30, $offset, r8);
       PopZmm; PopR;
      };
 
     my $done = sub                                                              # The tree has been completely traversed
      {PushR rax;
       Mov rax, 0;
-      $$p{more}->getReg(rax);
+      $iter->more->getReg(rax);
       PopR rax;
       };
 
-    If $$p{pos} == -1,
+    If $iter->pos == -1,
     Then                                                                        # Initial descent
-     {my $t = $iter->tree;
-      my $end = Label;
+     {my $end = Label;
 
       PushR r8, r9; PushZmm 29..31;
-      $t->getKeysDataNode($C, 31, 30, 29, r8, r9);                              # Load keys and data
+      $tree->getKeysDataNode($C, 31, 30, 29, r8, r9);                           # Load keys and data
 
-      my $l = $t->getLengthInKeys(31);                                          # Length of the block
+      my $l = $tree->getLengthInKeys(31);                                       # Length of the block
       If $l == 0,                                                               # Check for  empty tree.
       Then                                                                      # Empty tree
        {&$done;
         Jmp $end;
        };
 
-      my $nodes = $t->getLoop(30, r8);                                          # Nodes
+      my $nodes = $tree->getLoop(30, r8);                                       # Nodes
 
       If $nodes > 0,
       Then                                                                      # Go left if there are child nodes
-       {$t->leftMost($C, my $l = V(offset));
+       {$tree->leftMost($C, my $l = V(offset));
         &$new($l, K(zero, 0));
        },
       Else
-       {my $l = $t->getLengthInKeys(31);                                        # Number of keys
+       {my $l = $tree->getLengthInKeys(31);                                     # Number of keys
         If $l > 0,
         Then                                                                    # Start with the current node as it is a leaf
          {&$new($C, K(zero, 0));
@@ -8262,7 +8275,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
       PopR;
      };
 
-    $$p{pos}->copy(my $i = $$p{pos} + 1);                                       # Next position in block being scanned
+    $iter->pos->copy(my $i = $iter->pos + 1);                                   # Next position in block being scanned
     PushR r8, r9; PushZmm 29..31;
     my $t = $iter->tree;
     $t->getKeysDataNode($C, 31, 30, 29, r8, r9);                                # Load keys and data
@@ -8286,20 +8299,19 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
 
     PopZmm; PopR;
     SetLabel $success;
-   }  [qw(bs node pos key data count more)],
-  name => 'Nasm::X86::Tree::Iterator::next ';
+   } structures => {iterator => $iterator},
+     name       => 'Nasm::X86::Tree::Iterator::next ';
 
-  $s->call($iter->bs,
-           $iter->node, $iter->pos,   $iter->key,                               # Call with iterator variables
-           $iter->data, $iter->count, $iter->more);
-  $iter                                                                         # Return the iterator
+  $s->call(structures => {iterator=>$iterator});
+
+  $iterator                                                                     # Return the iterator
  }
 
-sub Nasm::X86::Tree::by($&;$$)                                                  # Call the specified block with each (key, data) from the specified tree in order.
- {my ($t, $block, $bs, $first) = @_;                                            # Tree descriptor, block to execute, arena address if not the one associated with the tree descriptor, first node offset if not the root of the tree provided
-  @_ == 2 or  @_ == 4 or confess "2 or 4 parameters";
+sub Nasm::X86::Tree::by($&)                                                     # Call the specified block with each (key, data) from the specified tree in order.
+ {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
+  @_ == 2 or confess "Two parameters required";
 
-  my $iter  = $t->iterator($bs, $first);                                        # Create an iterator
+  my $iter  = $tree->iterator;                                                     # Create an iterator
   my $start = SetLabel Label; my $end = Label;                                  # Start and end of loop
   If $iter->more == 0, sub {Jmp $end};                                          # Jump to end if there are no more elements to process
   &$block($iter, $end);                                                         # Perform the block parameterized by the iterator and the end label
@@ -8314,15 +8326,15 @@ sub DescribeQuarks(%)                                                           
  {my (%options) = @_;                                                           # Options
 
   genHash(__PACKAGE__."::Quarks",                                               # Quarks
-    arena            => DescribeArena($options{arena}),                         # The arena containing the quarks
-    stringsToNumbers => undef,                                                  # A tree mapping strings to numbers
-    numbersToStrings => undef,                                                  # Array mapping numbers to strings
+    arena            => ($options{arena} // DescribeArena),                     # The arena containing the quarks
+    stringsToNumbers => ($options{stringsToNumbers} // DescribeTree),           # A tree mapping strings to numbers
+    numbersToStrings => ($options{numbersToStrings} // DescribeArray),          # Array mapping numbers to strings
    );
  }
 
 sub Nasm::X86::Arena::DescribeQuarks($)                                         # Return a descriptor for a tree in the specified arena.
  {my ($arena) = @_;                                                             # Arena descriptor
-  DescribeQuarks(arena=>$arena->bs)
+  DescribeQuarks(arena=>$arena)
  }
 
 sub Nasm::X86::Arena::CreateQuarks($)                                           # Create quarks in a specified arena.  A quark maps a  string to a number and provides a way to recover the string given the number. The string is stored in the arena if it is not already present and its offset is stored as the value of the numbers array associated with the quarks. The string tree is separated first by the string length, then the string contents in 4 byte blocks until the string is exhausted.  The index of the element in the numbers array i stored in the last sub tree reached by the string. The quark number is used to index the numbers array to get the value of the offset of the string in the arena.
@@ -8367,7 +8379,7 @@ sub Nasm::X86::Quarks::quarkFromShortString($$)                                 
   AndBlock
    {my ($fail, $end, $start) = @_;                                              # Fail block, end of fail block, start of test block
 
-    my $t = $q->stringsToNumbers->reload;                                       # Reload strings to numbers
+    my $t = $q->stringsToNumbers->copyDescription;                              # Reload strings to numbers
     $t->findAndReload($l);                                                      # Separate by length
     If $t->found == 0, Then {Jmp $fail};                                        # Length not found
     $t->findShortString($string);                                               # Find the specified short string
@@ -8378,7 +8390,7 @@ sub Nasm::X86::Quarks::quarkFromShortString($$)                                 
    {my $N = $q->numbersToStrings->size;                                         # Get the number of quarks
     my $S = $q->arena->CreateString;                                            # Create a string in the arena to hold the quark name
        $S->appendShortString($string);                                          # Append the short string to the string
-    my $T = $q->stringsToNumbers->reload;                                       # Reload strings to numbers tree descriptor
+    my $T = $q->stringsToNumbers->copyDescription;                              # Reload strings to numbers tree descriptor
     $T->insertTreeAndReload($l);                                                # Classify strings by length
     $T->insertShortString($string, $N);                                         # Insert the string with the quark number as data into the tree of quark names
     $q->numbersToStrings->push($S->first);                                      # Append the quark number with a reference to the first block of the string
@@ -8398,7 +8410,7 @@ sub Nasm::X86::Quarks::locateQuarkFromShortString($$)                           
   AndBlock
    {my ($fail, $end, $start) = @_;                                              # Fail block, end of fail block, start of test block
 
-    my $t = $q->stringsToNumbers->reload;                                       # Reload strings to numbers
+    my $t = $q->stringsToNumbers->copyDescription;                              # Reload strings to numbers
     $t->findAndReload($l);                                                      # Separate by length
     If $t->found == 0, Then {Jmp $fail};                                        # Length not found
     $t->findShortString($string);                                               # Find the specified short string
@@ -8424,7 +8436,7 @@ sub Nasm::X86::Quarks::shortStringFromQuark($$$)                                
     If $number >= $N, Then {Jmp $fail};                                         # Quark number too big to be valid
     my $e = $q->numbersToStrings->get($number);                                 # Get long string indexed by quark
 
-    my $S = $q->numbersToStrings->bs->DescribeString(first=>$e);                # Long string descriptor
+    my $S = $q->numbersToStrings->arena->DescribeString(first=>$e);             # Long string descriptor
     $S->saveToShortString($string);                                             # Load long string into short string
     $f->copy(1);                                                                # Show short string is valid
    }
@@ -8553,7 +8565,7 @@ sub Nasm::X86::Quarks::dump($)                                                  
     my $n = $q->numbersToStrings->get($index);
     If $n < $L,                                                                 # Appears to be a string within the arena
     Then
-     {my $p = $q->arena->bs + $n;
+     {my $p = $q->arena->address + $n;
       $p->setReg(r15);
       Vmovdqu64 zmm0, "[r15]";
       PrintOutString " == ";
@@ -18324,7 +18336,7 @@ B<Example:>
       $iter->key ->out('key: ');
       $iter->data->out(' data: ');
       my $D = V(depth);
-      $iter->tree->depth($t->address, $iter->node, $D);
+      $iter->tree->depth($t->arena, $iter->node, $D);
 
       $t->find($iter->key);
       $t->found->out(' found: '); $t->data->out(' data: '); $D->outNL(' depth: ');
@@ -23662,13 +23674,39 @@ if (1) {                                                                        
  }
 
 #latest:;
-if (1) {                                                                        #TCreateArena #TArena::clear #TArena::out #TArena::copy #TArena::nl
+if (1) {                                                                        #TCreateArena #TArena::clear #TArena::outNL #TArena::copy #TArena::nl
   my $a = CreateArena;
   $a->q('aa');
-  $a->out;
-  PrintOutNL;
+  $a->outNL;
   ok Assemble(debug => 0, eq => <<END);
 aa
+END
+ }
+
+#latest:
+if (1) {                                                                        #TArena::dump
+  my $a = CreateArena;
+  my $b = CreateArena;
+  $a->q("aa");
+  $a->dump;
+  $b->q("bb");
+  $b->dump;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END);
+Arena
+  Size: 0000 0000 0000 1000
+  Used: 0000 0000 0000 001A
+Block:  0000 0000 0000 0000  0010 0000 0000 00001A00 0000 0000 00000000 0000 0000 00006161 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+Arena
+  Size: 0000 0000 0000 1000
+  Used: 0000 0000 0000 001A
+Block:  0000 0000 0000 0000  0010 0000 0000 00001A00 0000 0000 00000000 0000 0000 00006262 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
 END
  }
 
@@ -23882,7 +23920,7 @@ offset: 0000 0000 0000 0068
 END
  }
 
-latest:;
+#latest:;
 if (0) {                                                                        #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
   my $A = CreateArena;
   my $t = $A->checkYggdrasilCreated;
@@ -24072,7 +24110,7 @@ if (1) {                                                                        
 
   my $v = V(v, 1);
   my $k = K(k, 2);
-  my $g = G(g, 3);
+  my $g = V(g, 3);
   $s->call($v, $k, $g);
   $v->outNL;
 
@@ -24083,7 +24121,7 @@ END
 
 #latest:
 if (1) {                                                                        #TV #TK #TG #TNasm::X86::Variable::copy
-  my $g = G g, 0;
+  my $g = V g => 0;
   my $s = Subroutine
    {my ($p) = @_;
     $$p{g}->copy(K value, 1);
@@ -24104,18 +24142,19 @@ END
 
 #latest:
 if (1) {                                                                        #TSubroutine
-  my $g = G g, 3;
-  my $s = Subroutine
-   {my ($p, $s) = @_;
+  my $g = V g => 3;
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;
+    my $g = $$p{g};
     $g->copy($g - 1);
     $g->outNL;
     If ($g > 0,
     Then
-     {$s->call;
+     {$sub->call(parameters=>{g => $g});
      });
-   } [], name => 'ref';
+   } parameters=>[qw(g)], name => 'ref';
 
-  $s->call;
+  $s->call(parameters=>{g => $g});
 
   ok Assemble(debug => 0, eq => <<END);
 g: 0000 0000 0000 0002
@@ -24180,7 +24219,7 @@ END
 
 #latest:
 if (1) {                                                                        #TSubroutine
-  my $g = G g, 2;
+  my $g = V g, 2;
   my $u = Subroutine
    {my ($p, $s) = @_;
     PrintOutTraceBack;
@@ -24220,7 +24259,7 @@ END
 
 #latest:
 if (1) {                                                                        #TSubroutine
-  my $r = G r, 2;
+  my $r = V r, 2;
 
   my $u = Subroutine
    {my ($p, $s) = @_;
@@ -24646,8 +24685,8 @@ END
 #latest:;
 if (1) {                                                                        #TCreateString
   my $s = Rb(0..255);
-  my $B =     CreateArena;
-  my $b = $B->CreateString;
+  my $a =     CreateArena;
+  my $b = $a->CreateString;
   $b->append(V(source, $s), V(size,  3)); $b->dump;
   $b->append(V(source, $s), V(size,  4)); $b->dump;
   $b->append(V(source, $s), V(size,  5)); $b->dump;
@@ -26548,7 +26587,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Arena::CreateTree
+if (0) {                                                                        #TNasm::X86::Arena::CreateTree
   my $N = 12;
   my $b = CreateArena;
   my $t = $b->CreateTree;
@@ -26565,7 +26604,7 @@ if (1) {                                                                        
     $iter->key ->out('key: ');
     $iter->data->out(' data: ');
     my $D = V(depth);
-    $iter->tree->depth($t->address, $iter->node, $D);
+    $iter->tree->depth($iter->node, $D);
 
     $t->find($iter->key);
     $t->found->out(' found: '); $t->data->out(' data: '); $D->outNL(' depth: ');
@@ -26610,11 +26649,11 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::insertTreeAndReload #TNasm::X86::Tree::Reload  #TNasm::X86::Tree::findAndReload
+if (0) {                                                                        #TNasm::X86::Tree::insertTreeAndReload #TNasm::X86::Tree::Reload  #TNasm::X86::Tree::findAndReload
   my $L = K(loop, 4);
   my $b = CreateArena;
   my $T = $b->CreateTree;
-  my $t = $T->reload;
+  my $t = $T->describeTreereload;
 
   $L->for(sub
    {my ($i, $start, $next, $end) = @_;
@@ -26748,7 +26787,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::print
+if (0) {                                                                        #TNasm::X86::Tree::print
   my $L = V(loop, 45);
 
   my $b = CreateArena;
@@ -26956,7 +26995,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::dump
+if (0) {                                                                        #TNasm::X86::Tree::dump
   my $L = V(loop, 15);
 
   my $b = CreateArena;
@@ -27449,7 +27488,7 @@ if (1) {                                                                        
 
   my $s = CreateShortString(0);
   my $d = Rb(1..63);
-  $s->load(K(address, $d), K(size, 9));
+  $s->load(K (address=>$d), K size => 9);
 
   $t->insertShortString($s, K(data,42));
 
@@ -28517,31 +28556,26 @@ struct: 34
 END
  }
 
-
-latest:
-#  my $a = CreateArena;
-#  my $b = CreateArena;
-#  $a->q('aa');
-#  $b->q('bb');
-#  $a->out;
-#  PrintOutNL;
-#  $b->out;
-#  PrintOutNL;
-
+#latest:
 if (1) {
-  my $a = CreateArena;
-  my $b = CreateArena;
-  $a->q("aa");
-#$a->dump;
-#$b->dump;
-#  $a->length->outNL;
-  $b->q("bb");
-  $a->outNL;
-  $b->outNL;
+  my $s = Rb(0..255);
+  my $a =     CreateArena;
+  my $b = $a->CreateString;
+  $b->append(V(source => $s), V size => 3); $b->dump;
 
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-size: 0000 0000 0000 0000
-aa
+  ok Assemble(debug => 0, eq => <<END);
+String Dump      Total Length:        3
+Offset: 0000 0000 0000 0018  Length:  3  0000 0018 0000 0018   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0201 0003
+
+END
+ }
+
+#latest:
+if (1) {
+  my $a =     CreateArena;
+  my $t = $a->CreateTree;
+
+  ok Assemble(debug => 0, eq => <<END);
 END
  }
 
