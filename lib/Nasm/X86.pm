@@ -1633,6 +1633,61 @@ sub PrintOutRaxInHexNL()                                                        
   PrintOutNL;
  }
 
+sub PrintRax_InHex($;$)                                                         # Write the content of register rax in hexadecimal in big endian notation to the specified channel replacing zero bytes with __.
+ {my ($channel, $end) = @_;                                                     # Channel, optional end byte
+  @_ == 1 or @_ == 2 or confess "One or two parameters";
+  my $hexTranslateTable = hexTranslateTable;
+  $end //= 7;                                                                   # Default end byte
+
+  Subroutine2
+   {SaveFirstFour rax;                                                          # Rax is a parameter
+    Mov rdx, rax;                                                               # Content to be printed
+    Mov rdi, 2;                                                                 # Length of a byte in hex
+
+    for my $i((7-$end)..7)                                                      # Each byte
+     {my $s = $bitsInByte*$i;
+      Mov rax, rdx;
+      Shl rax, $s;                                                              # Push selected byte high
+      Shr rax, (RegisterSize(rax) - 1) * $bitsInByte;                           # Push select byte low
+      Cmp rax, 0;
+      IfEq                                                                      # Print __ for zero bytes
+      Then
+       {PrintString($channel, "__");
+       },
+      Else                                                                      # Print byte in hexadecimal otherwise
+       {Shl rax, 1;                                                             # Multiply by two because each entry in the translation table is two bytes long
+        Lea rsi, "[$hexTranslateTable]";
+        Add rax, rsi;
+        PrintMemory($channel);                                                  # Print memory addressed by rax for length specified by rdi
+       };
+      PrintString($channel, ' ') if $i % 2 and $i < 7;
+     }
+    RestoreFirstFour;
+   } name => "PrintOutRax_InHexOn-$channel-$end", call=>1;
+ }
+
+sub PrintErrRax_InHex()                                                         # Write the content of register rax in hexadecimal in big endian notation to stderr.
+ {@_ == 0 or confess;
+  PrintRax_InHex($stderr);
+ }
+
+sub PrintErrRax_InHexNL()                                                       # Write the content of register rax in hexadecimal in big endian notation to stderr followed by a new line.
+ {@_ == 0 or confess;
+  PrintRax_InHex($stderr);
+  PrintErrNL;
+ }
+
+sub PrintOutRax_InHex()                                                         # Write the content of register rax in hexadecimal in big endian notation to stout.
+ {@_ == 0 or confess;
+  PrintRax_InHex($stdout);
+ }
+
+sub PrintOutRax_InHexNL()                                                       # Write the content of register rax in hexadecimal in big endian notation to stdout followed by a new line.
+ {@_ == 0 or confess;
+  PrintRax_InHex($stdout);
+  PrintOutNL;
+ }
+
 sub PrintOutRaxInReverseInHex                                                   # Write the content of register rax to stderr in hexadecimal in little endian notation.
  {@_ == 0 or confess;
   Comment "Print Rax In Reverse In Hex";
@@ -1964,23 +2019,23 @@ sub PrintRaxRightInDec($$)                                                      
   $s->call(parameters=>{width => $width});
  }
 
-sub PrintErrRaxRightInDec                                                       # Print rax in decimal right justified in a field of the specified width on stderr.
+sub PrintErrRaxRightInDec($)                                                    # Print rax in decimal right justified in a field of the specified width on stderr.
  {my ($width) = @_;                                                             # Width
   PrintRaxRightInDec($width, $stderr);
  }
 
-sub PrintErrRaxRightInDecNL                                                     # Print rax in decimal right justified in a field of the specified width on stderr followed by a new line.
+sub PrintErrRaxRightInDecNL($)                                                  # Print rax in decimal right justified in a field of the specified width on stderr followed by a new line.
  {my ($width) = @_;                                                             # Width
   PrintRaxRightInDec($width, $stderr);
   PrintErrNL;
  }
 
-sub PrintOutRaxRightInDec                                                       # Print rax in decimal right justified in a field of the specified width on stdout.
+sub PrintOutRaxRightInDec($)                                                    # Print rax in decimal right justified in a field of the specified width on stdout.
  {my ($width) = @_;                                                             # Width
   PrintRaxRightInDec($width, $stdout);
  }
 
-sub PrintOutRaxRightInDecNL                                                     # Print rax in decimal right justified in a field of the specified width on stdout followed by a new line.
+sub PrintOutRaxRightInDecNL($)                                                  # Print rax in decimal right justified in a field of the specified width on stdout followed by a new line.
  {my ($width) = @_;                                                             # Width
   PrintRaxRightInDec($width, $stdout);
   PrintOutNL;
@@ -2133,7 +2188,7 @@ sub Nasm::X86::Variable::dump($$$;$$)                                           
   Mov rax, "[$label]";
   Mov rax, "[rax]" if $left->reference;
   confess  dump($channel) unless $channel =~ m(\A1|2\Z);
-  PrintString  ($channel, $title1//$left->name.": ");
+  PrintString  ($channel, $title1//$left->name.": ") unless defined($title1) && $title1 eq '';
   PrintRaxInHex($channel);
   PrintString  ($channel, $title2) if defined $title2;
   PrintNL      ($channel) if $newLine;
@@ -3655,6 +3710,7 @@ sub PrintMemoryInHex($)                                                         
   my $s = Subroutine2
    {my $size = RegisterSize rax;
     SaveFirstFour;
+
     Test rdi, 0x7;                                                              # Round the number of bytes to be printed
     IfNz
     Then                                                                        # Round up
@@ -3668,6 +3724,13 @@ sub PrintMemoryInHex($)                                                         
      {Mov rax, "[rsi]";
       Bswap rax;
       PrintRaxInHex($channel);
+      Mov rdx, rsi;
+      Add rdx, $size;
+      Cmp rdx, rdi;
+      IfLt
+      Then
+       {PrintString($channel, "  ");
+       }
      } rsi, rdi, $size;
     RestoreFirstFour;
    } name=> "PrintOutMemoryInHexOnChannel$channel";
@@ -3694,6 +3757,64 @@ sub PrintErrMemoryInHexNL                                                       
 sub PrintOutMemoryInHexNL                                                       # Dump memory from the address in rax for the length in rdi and then print a new line.
  {@_ == 0 or confess;
   PrintMemoryInHex($stdout);
+  PrintNL($stdout);
+ }
+
+sub PrintMemory_InHex($)                                                         # Dump memory from the address in rax for the length in rdi on the specified channel. As this method prints in blocks of 8 up to 7 bytes will be missing from the end unless the length is a multiple of 8 .
+ {my ($channel) = @_;                                                           # Channel
+  @_ == 1 or confess "One parameter";
+  Comment "Print out memory in hex on channel: $channel";
+
+  my $s = Subroutine2
+   {my $size = RegisterSize rax;
+    SaveFirstFour;
+
+    Test rdi, 0x7;                                                              # Round the number of bytes to be printed
+    IfNz
+    Then                                                                        # Round up
+     {Add rdi, 8;
+     };
+    And rdi, 0x3f8;                                                             # Limit the number of bytes to be printed to 1024
+
+    Mov rsi, rax;                                                               # Position in memory
+    Lea rdi,"[rax+rdi-$size+1]";                                                # Upper limit of printing with an 8 byte register
+    For                                                                         # Print string in blocks
+     {Mov rax, "[rsi]";
+      Bswap rax;
+      PrintRax_InHex($channel);
+      Mov rdx, rsi;
+      Add rdx, $size;
+      Cmp rdx, rdi;
+      IfLt
+      Then
+       {PrintString($channel, "  ");
+       }
+     } rsi, rdi, $size;
+    RestoreFirstFour;
+   } name=> "PrintOutMemory_InHexOnChannel$channel";
+
+  $s->call;
+ }
+
+sub PrintErrMemory_InHex                                                        # Dump memory from the address in rax for the length in rdi on stderr.
+ {@_ == 0 or confess;
+  PrintMemory_InHex($stderr);
+ }
+
+sub PrintOutMemory_InHex                                                        # Dump memory from the address in rax for the length in rdi on stdout.
+ {@_ == 0 or confess;
+  PrintMemory_InHex($stdout);
+ }
+
+sub PrintErrMemory_InHexNL                                                      # Dump memory from the address in rax for the length in rdi and then print a new line.
+ {@_ == 0 or confess;
+  PrintMemory_InHex($stderr);
+  PrintNL($stderr);
+ }
+
+sub PrintOutMemory_InHexNL                                                      # Dump memory from the address in rax for the length in rdi and then print a new line.
+ {@_ == 0 or confess;
+  PrintMemory_InHex($stdout);
   PrintNL($stdout);
  }
 
@@ -4978,9 +5099,9 @@ sub Nasm::X86::Arena::arenaSize($)                                              
   @_ == 1 or confess "One parameter";
 
   PushR rax;
-  $arena->address->setReg(rax);                                                      # Address arena
+  $arena->address->setReg(rax);                                                 # Address arena
   Mov rax, "[rax+$$arena{size}]";                                               # Get size
-  my $size = V('size', rax);                                                    # Save size in a variable
+  my $size = V size => rax;                                                     # Save size in a variable
   PopR;
   $size                                                                         # Return size
  }
@@ -5000,7 +5121,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
     my $proposed = r11;                                                         # Proposed size
 
     my $arena = $$s{arena};                                                     # Address arena
-    $arena->address->setReg($base);                                                  # Address arena
+    $arena->address->setReg($base);                                             # Address arena
     $$p{size}->setReg($request);                                                # Requested space
 
     Mov $size, "[$base+$$arena{size}]";
@@ -5011,7 +5132,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
     Cmp $newSize,$size;                                                         # New size needed
     IfGt                                                                        # New size is bigger than current size
     Then                                                                        # More space needed
-     {Mov $proposed, 4096;                                                      # Minimum proposed arena size
+     {Mov $proposed, 4096 * 1;                                                  # Minimum proposed arena size
       K(loop, 36)->for(sub                                                      # Maximum number of shifts
        {my ($index, $start, $next, $end) = @_;
         Shl $proposed, 1;                                                       # New proposed size
@@ -5021,11 +5142,11 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
       my $oldSize = V(size, $size);                                             # The old size of the arena
       my $newSize = V(size, $proposed);                                         # The old size of the arena
       my $address = AllocateMemory($newSize);                                   # Create new arena
-      CopyMemory($arena->address, $address, $oldSize);                               # Copy old arena into new arena
-      FreeMemory $arena->address, $oldSize;                                          # Free previous memory previously occupied arena
-      $arena->address->copy($address);                                               # Save new arena address
+      CopyMemory($arena->address, $address, $oldSize);                          # Copy old arena into new arena
+      FreeMemory $arena->address, $oldSize;                                     # Free previous memory previously occupied arena
+      $arena->address->copy($address);                                          # Save new arena address
 
-      $arena->address->setReg($base);                                                # Address arena
+      $arena->address->setReg($base);                                           # Address arena
       Mov "[$base+$$arena{size}]", $proposed;                                   # Save the new size in the arena
      };
 
@@ -5110,8 +5231,10 @@ sub Nasm::X86::Arena::allocZmmBlock($)                                          
     PopR @save;
    },
   Else                                                                          # Cannot reuse a free block so allocate
-   {$offset->copy($arena->allocate(V(size, $arena->zmmBlock)));                 # Copy offset of allocation
+   {$offset->copy($arena->allocate(K size => $arena->zmmBlock));                # Copy offset of allocation
    };
+
+  $arena->clearZmmBlock($offset);                                               # Clear the zmm block - possibly this only needs to be done if we are reusing a block
 
   $offset                                                                       # Return offset of allocated block
  }
@@ -5123,7 +5246,7 @@ sub Nasm::X86::Arena::checkYggdrasilCreated($)                                  
   my $y = "Yggdrasil";
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
   PushR rax;
-  $arena->address->setReg(rax);                                                      #P Address underlying arena
+  $arena->address->setReg(rax);                                                 #P Address underlying arena
   Mov rax, "[rax+$$arena{tree}]";                                               # Address Yggdrasil
   my $v = V('Yggdrasil', rax);                                                  # Offset to Yggdrasil if Yggdrasil exists else zero
   Cmp rax, 0;                                                                   # Does Yggdrasil even exist?
@@ -5172,7 +5295,7 @@ sub Nasm::X86::Arena::firstFreeBlock($)                                         
   IfNe
   Then
    {PushR rax;
-    my $d = $t->find(K('key', $ArenaFreeChain));                                # Locate free chain
+    my $d = $t->find(K key => $ArenaFreeChain);                                 # Locate free chain
     If ($t->found > 0,                                                          # Located offset of free chain
     Then
      {$v->copy($t->data);                                                       # Offset of first free block
@@ -5188,19 +5311,6 @@ sub Nasm::X86::Arena::setFirstFreeBlock($$)                                     
 
   my $t = $arena->establishYggdrasil;
   $t->insert(K('key', $ArenaFreeChain), $offset);                               # Save offset of first block in free chain
- }
-
-sub Nasm::X86::Arena::freeBlock($$)                                             #P Free a block in an arena by placing it on the free chain.
- {my ($arena, $offset) = @_;                                                    # Arena descriptor, offset of 64  byte to be freed
-  @_ == 2 or confess "Two parameters";
-
-  PushR my @save = (r15, zmm31);
-  my $rfc = $arena->firstFreeBlock;                                             # Get first free block
-  ClearRegisters @save;                                                         # Second block
-  $rfc->putDIntoZmm(31, $arena->nextOffset, r15);                               # The position of the next pointer was dictated by strings.
-  $arena->putZmmBlock($offset, 31);                                             # Link the freed block to the rest of the free chain
-  $arena->setFirstFreeBlock($offset);                                           # Set free chain field to point to latest free chain element
-  PopR;
  }
 
 sub Nasm::X86::Arena::dumpFreeChain($)                                          #P Dump the addresses of the blocks currently on the free chain.
@@ -5230,7 +5340,7 @@ sub Nasm::X86::Arena::getZmmBlock($$$;$$)                                       
   my $o = $work2 // r15;
   PushR my @save = ($a, $o) unless $work1 && $work2;
 
-  $arena->address->setReg($a);                                                       # Arena address
+  $arena->address->setReg($a);                                                  # Arena address
   $block->setReg($o);                                                           # Offset of block in arena
 
   Cmp $o, $arena->data;
@@ -5254,7 +5364,7 @@ sub Nasm::X86::Arena::putZmmBlock($$$;$$)                                       
   my $o = $work2 // r15;
   PushR my @save = ($a, $o) unless $work1 && $work2;
 
-  $arena->address->setReg($a);                                                       # Arena address
+  $arena->address->setReg($a);                                                  # Arena address
   $block->setReg($o);                                                           # Offset of block in arena
 
   Cmp $o, $arena->data;
@@ -5268,6 +5378,29 @@ sub Nasm::X86::Arena::putZmmBlock($$$;$$)                                       
 
   Vmovdqu64 "[$a+$o]", "zmm$zmm";                                               # Read from memory
   PopR unless $work1 && $work2;                                                 # Restore registers
+ }
+
+sub Nasm::X86::Arena::clearZmmBlock($$)                                         #P Clear the zmm block at the specified offset in the arena
+ {my ($arena, $offset) = @_;                                                    # Arena descriptor, offset of the block as a variable
+  @_ == 2 or confess "Two parameters";
+
+  PushR r8, r9, zmm31;                                                          # Clear a zmm block
+  ClearRegisters zmm31;
+  $arena->putZmmBlock($offset, 31, r8, r9);
+  PopR;
+ }
+
+sub Nasm::X86::Arena::freeZmmBlock($$)                                          #P Free a block in an arena by placing it on the free chain.
+ {my ($arena, $offset) = @_;                                                    # Arena descriptor, offset of zmm block to be freed
+  @_ == 2 or confess "Two parameters";
+
+  PushR my @save = (r15, zmm31);
+  my $rfc = $arena->firstFreeBlock;                                             # Get first free block
+  ClearRegisters @save;                                                         # Second block
+  $rfc->putDIntoZmm(31, $arena->nextOffset, r15);                               # The position of the next pointer was dictated by strings.
+  $arena->putZmmBlock($offset, 31);                                             # Link the freed block to the rest of the free chain
+  $arena->setFirstFreeBlock($offset);                                           # Set free chain field to point to latest free chain element
+  PopR;
  }
 
 sub Nasm::X86::Arena::m($$$)                                                    # Append the variable addressed content of variable size to the specified arena.
@@ -5351,7 +5484,7 @@ sub Nasm::X86::Arena::append($@)                                                
   RestoreFirstFour;
  }
 
-sub Nasm::X86::Arena::clear($)                                                  # Clear the arena addressed by rax.
+sub Nasm::X86::Arena::clear($)                                                  # Clear an arena
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
@@ -5377,9 +5510,9 @@ sub Nasm::X86::Arena::write($$)                                                 
 
     $$p{file}->setReg(rax);
     OpenWrite;                                                                  # Open file
-    my $file = V('fd', rax);                                                    # File descriptor
+    my $file = V(fd => rax);                                                    # File descriptor
 
-    $$p{address}->setReg(rax);                                                       # Write file
+    $$p{address}->setReg(rax);                                                  # Write file
     Lea rsi, "[rax+$$arena{data}]";
     Mov rdx, "[rax+$$arena{used}]";
     Sub rdx, $arena->data;
@@ -5441,9 +5574,9 @@ sub Nasm::X86::Arena::outNL($)                                                  
   PrintOutNL;
  }
 
-sub Nasm::X86::Arena::dump($;$)                                                 # Dump details of an arena.
- {my ($arena, $depth) = @_;                                                     # Arena descriptor, optional variable number of 64 byte blocks to dump
-  @_ == 1 or @_ == 2 or confess "One or two parameters";
+sub Nasm::X86::Arena::dump($$;$)                                                # Dump details of an arena.
+ {my ($arena, $title, $depth) = @_;                                             # Arena descriptor, title string, optional variable number of 64 byte blocks to dump
+  @_ == 2 or @_ == 3 or confess "Two or three parameters";
   my $blockSize = 64;                                                           # Print in blocks of this size
 
   my $s = Subroutine2
@@ -5451,30 +5584,30 @@ sub Nasm::X86::Arena::dump($;$)                                                 
 
     PushR rax, rdi;
     my $arena = $$s{arena};
-    $arena->address->setReg(rax);                                                    # Get address of arena
-    PrintOutStringNL("Arena");
+    $arena->address->setReg(rax);                                               # Get address of arena
+    PrintOutString("Arena   ");
 
     PushR rax;                                                                  # Print size
     Mov rax, "[rax+$$arena{size}]";
-    PrintOutString("  Size: ");
-    PrintOutRaxInHex;
-    PrintOutNL;
+    PrintOutString "  Size: ";
+    PrintOutRaxRightInDec K width => 8;
+    PrintOutString "  ";
     PopR rax;
 
-    PushR rax;                                                                  # Print used
+    PushR rax;                                                                  # Print size
     Mov rax, "[rax+$$arena{used}]";
     PrintOutString("  Used: ");
-    PrintOutRaxInHex;
+    PrintOutRaxRightInDec  K width => 8;
     PrintOutNL;
     PopR rax;
 
     $$p{depth}->for(sub                                                         # Print the requested number of blocks
      {my ($index, $start, $next, $end) = @_;
       Mov rdi, $blockSize;                                                      # Length of each print
-      $index->out("Block:  ", "  ");
-      my $address = $arena->address + $index * $blockSize;                           # Address of block to print
+      ($index*RegisterSize(zmm31))->out('', ' | ');
+      my $address = $arena->address + $index * $blockSize;                      # Address of block to print
       $address->setReg(rax);
-      PrintOutMemoryInHexNL;
+      PrintOutMemory_InHexNL;
      });
 
     PopR;
@@ -5482,6 +5615,7 @@ sub Nasm::X86::Arena::dump($;$)                                                 
      parameters=>[qw(depth)],
      name => "Nasm::X86::Arena::dump";
 
+  PrintOutStringNL $title;
   $s->call(structures=>{arena=>$arena}, parameters=>{depth => ($depth // V('depth', 4))});
  }
 
@@ -6369,7 +6503,7 @@ sub Nasm::X86::Array::pop($)                                                    
         Vpexpandd "zmm31{k7}{z}", zmm30;                                        # Expand second block into first block
         ($size-1)->putDIntoZmm(31, 0, $transfer);                               # Save new size in first block
         $arena-> putZmmBlock($F, 31);                                           # Save the first block
-        $arena->freeBlock($S);                                                  # Free the now redundant second block
+        $arena->freeZmmBlock($S);                                               # Free the now redundant second block
         PopR;
         Jmp $success;                                                           # Element successfully retrieved from secondary block
        };
@@ -6384,7 +6518,7 @@ sub Nasm::X86::Array::pop($)                                                    
           $E->getDFromZmm(30, 0, $transfer);                                    # Get first element from secondary block
           V(zero, 0)->putDIntoZmm(31, ($size / $N + 1) * $w, $transfer);        # Zero at offset of secondary block in first block
           ($size-1)->putDIntoZmm(31, 0, $transfer);                             # Save new size in first block
-          $arena->freeBlock($S);                                                # Free the secondary block
+          $arena->freeZmmBlock($S);                                             # Free the secondary block
           $arena->putZmmBlock ($F, 31);                                         # Put the first  block back into memory
           PopR;
           Jmp $success;                                                         # Element successfully retrieved from secondary block
@@ -6569,6 +6703,9 @@ sub DescribeTree(%)                                                             
   confess "Maximum keys must be 14"         unless $length == 14;               # Maximum number of keys is expected to be 14
   confess "Splitting key offset must be 28" unless $split  == 28;               # Splitting key offset
 
+$length = 4; # Test with a narrower tree
+$split = 8;
+
   genHash(__PACKAGE__."::Tree",                                                 # Tree.
     arena        => ($options{arena} // DescribeArena),                         # Arena definition.
     data         => V(data=>0),                                                 # Variable containing the last data found
@@ -6585,6 +6722,10 @@ sub DescribeTree(%)                                                             
     treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
     up           => $b - $o * 2,                                                # Offset of up in data block.
     width        => $o,                                                         # Width of a key or data slot.
+    debug        => V(debug   => 0),                                            # Write debug trace if true
+    compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
+    offset       => V(offset  => 0),                                            # Offset of last node found
+    index        => V(index   => 0),                                            # Index of key in last node found
    );
  }
 
@@ -6713,6 +6854,7 @@ sub Nasm::X86::Tree::splitNode($$$)                                             
 
         $t->getKeysDataNode($P, $K, $D, $N, $transfer, $work);                  # Load parent
         $t->splitFullRightNode;
+
         $t->putKeysDataNode($P, $K, $D, $N, $transfer, $work);                  # Save parent
         my $l = $t->getLoop    (26, $transfer);                                 # Offset of left keys
         $t->putUpIntoData  ($P, 27, $transfer);                                 # Reparent new block
@@ -6740,13 +6882,15 @@ sub Nasm::X86::Tree::splitNode($$$)                                             
 
  } # splitNode
 
+# the  length bytre in keys - zmm28 is not being correctly set on the insertion of the last key in the block
+
 sub Nasm::X86::Tree::reParent($$$$)                                             #P Reparent the children of a node held in registers. The children are in the backing arena not registers.
  {my ($tree, $PK, $PD, $PN) = @_;                                               # Tree descriptor, numbered zmm key node, numbered zmm data node, numbered zmm child node
   @_ >= 4 or confess "Four parameters";
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    PushR r8;
+    PushR r8;                                                                   # Work register
 
     my $t     = $$s{tree};                                                      # Tree
     my $arena = $t->arena;                                                      # Arena
@@ -6759,11 +6903,12 @@ sub Nasm::X86::Tree::reParent($$$$)                                             
       Mov rdi, rsp;                                                             # Save stack base
       PushRR "zmm$PN";                                                          # Child nodes on stack
       my $w = $t->width; my $l = $t->loop; my $u = $t->up;                      # Steps we will make along the chain
-      my $s = V(start);
+      my $s = V(start => 0);                                                    # Start point of chain set from node offset
       $L->for(sub                                                               # Each child
        {my ($index, $start, $next, $end) = @_;
         &PopEax;                                                                # The nodes are double words but we cannot pop a double word from the stack in 64 bit long mode using pop
         $s->getReg(rax);
+
         $t->arena->putChain($s, $P, $l, $u);
        });
 
@@ -6856,16 +7001,19 @@ sub Nasm::X86::Tree::splitFullRoot($)                                           
 
     PushR k6, k7, (my $transfer = r8), (my $work = r9), zmm22;
 
-    If $t->getLengthInKeys($TK) != $t->maxKeys, sub {Jmp $success};             # Only split full blocks
+    If $t->getLengthInKeys($TK) != $t->maxKeys, sub {Jmp $success};             # Only split full root nodes
 
     $t->allocKeysDataNode(    28, 27, 26);                                      # Allocate immediate children of the root
     my $l = $t->getLoop(              26, $transfer);
     $t->putKeysDataNode  ($l, 28, 27, 26, $transfer, $work);
+
     $t->allocKeysDataNode(    25, 24, 23);
     my $r = $t->getLoop            (23,   $transfer);
     $t->putKeysDataNode  ($l, 25, 24, 23, $transfer, $work);
-    $t->reParent         (    28, 27, 26);                                      # Reparent grandchildren
-    $t->reParent         (    25, 24, 23);
+
+# I think this needs to be moved to after the splitting has been done because the zmm have not yet been loaded
+##    $t->reParent         (    28, 27, 26);                                      # Reparent grandchildren
+##    $t->reParent         (    25, 24, 23);
 
     my $n  = $t->getLoop($TD, $transfer);                                       # Offset of node block or zero if there is no node block
     my $to = $t->getLoop($TN, $transfer);                                       # Offset of root block
@@ -6944,24 +7092,24 @@ sub Nasm::X86::Tree::splitFullRoot($)                                           
  } # splitFullRoot
 
 sub Nasm::X86::Tree::splitFullLeftOrRightNode($$)                               #P Split a full a full left node (held in 28..26) or a full right node (held in 25..23) whose parent is in 31..29.
- {my ($t, $right) = @_;                                                         # Tree descriptor,  0 left or 1 right
+ {my ($tree, $right) = @_;                                                      # Tree descriptor,  0 left or 1 right
   @_ == 2 or confess "Two parameters";
 
-  my $length = $t->maxKeys;                                                     # Length of block to split
-  my $ll = $t->leftLength;                                                      # Left split point
-  my $rl = $t->rightLength;                                                     # Right split point
+  my $length = $tree->maxKeys;                                                  # Length of block to split
+  my $ll = $tree->leftLength;                                                   # Left split point
+  my $rl = $tree->rightLength;                                                  # Right split point
 
   my $PK = 31; my $PD = 30; my $PN = 29;                                        # Root key, data, node. These registers are saved in L<splitNode>
   my $LK = 28; my $LD = 27; my $LN = 26;                                        # Key, data, node blocks in left child
   my $RK = 25; my $RD = 24; my $RN = 23;                                        # Key, data, node blocks in right child
   my $Test = 22;                                                                # Zmm used to hold test values via broadcast
 
-  my $s = Subroutine
-   {my ($parameters) = @_;                                                      # Parameters
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR (r8);
-    my $transfer = r8;                                                          # Use this register to transfer data between zmm blocks and variables
+    my $t = $$s{tree};                                                          # Tree we are splitting in
+    PushR my $transfer = r8;
 
     If $t->getLengthInKeys($right ? $RK : $LK) != $t->maxKeys,                  # Only split full blocks
     Then {Jmp $success};
@@ -7002,7 +7150,6 @@ sub Nasm::X86::Tree::splitFullLeftOrRightNode($$)                               
     if ($right)
      {LoadBitsIntoMaskRegister(k7, $transfer, '11', -($rl+2), +($ll-1));        # Areas to retain
       LoadBitsIntoMaskRegister(k6, $transfer, '11', -($rl+1),  +$ll);
-
       &Vmovdqu32   (zmm $RK."{k7}{z}",   $RK);                                  # Remove unused keys on right
       &Vmovdqu32   (zmm $RD."{k7}{z}",   $RD);                                  # Remove unused data on right
 
@@ -7032,6 +7179,7 @@ sub Nasm::X86::Tree::splitFullLeftOrRightNode($$)                               
         &Vmovdqu32 (zmm $LN."{k7}{z}",   $LN);
        };
      }
+
     ($right ? $ro : $lo)->zBroadCastD($Test);                                   # Find index in parent of left node - broadcast offset of left node so we can locate it in the parent
     LoadBitsIntoMaskRegister(k7, $transfer, '', +$length);                      # Nodes
     &Vpcmpud("k6{k7}", zmm($PN, $Test), 0);                                     # Check for equal offset - one of them will match to create the single insertion point in k6
@@ -7051,6 +7199,12 @@ sub Nasm::X86::Tree::splitFullLeftOrRightNode($$)                               
     Then                                                                        # Insert new left node offset into parent nodes
      {Kshiftlq k6, k6, 1 unless $right;                                         # Node insertion point
       Kandnq k5, k6, k7;                                                        # Expansion mask
+if ($right)     # We seem to be one bit short at the left hand end as the right most node refernce is not being moved into position so we add the necessary bit here
+ {Mov r8, 1;
+  Kmovq k7, r8;
+  Kshiftlw k7, k7, 14;
+  Korw k5, k5, k7;
+ }
       &Vpexpandd (zmm $PN."{k5}", $PN);                                         # Shift up nodes
       ($right ? $lo : $ro)->zBroadCastD($Test);                                 # Broadcast left node offset
       &Vmovdqu32 (zmm $PN."{k6}", $Test);                                       # Insert right node offset
@@ -7063,9 +7217,9 @@ sub Nasm::X86::Tree::splitFullLeftOrRightNode($$)                               
 
     SetLabel $success;                                                          # Insert completed successfully
     PopR;
-   } [], name => "splitFullLeftOrRightNode_$right";
+   } structures=>{tree=>$tree}, name => "splitFullLeftOrRightNode_$right";
 
-  $s->call;
+  $s->call(structures=>{tree=>$tree});
  } # splitFullLeftOrRightNode
 
 sub Nasm::X86::Tree::splitFullLeftNode($)                                       #P Split a full left node block held in 28..26 whose parent is in 31..29 and place the new right block in 25..23. The parent is assumed to be not full. The loop and length fields are assumed to be authoritative and hence are preserved.
@@ -7080,23 +7234,20 @@ sub Nasm::X86::Tree::splitFullRightNode($)                                      
   $t->splitFullLeftOrRightNode(1);
  }
 
-sub Nasm::X86::Tree::findAndSplit($$$$$$)                                       #P Find a key in a tree which is known to contain at least one key splitting full nodes along the path to the key.
- {my ($tree, $first, $key, $compare, $offset, $index) = @_;                     # Tree descriptor, start node, key to find, last comparison result variable, offset of last node found, index within last node found
-  @_ == 6 or confess "Six parameters";
+sub Nasm::X86::Tree::findAndSplit($$)                                           #P Find a key in a tree splitting full nodes along the path to the key.
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, key to find
+  @_ == 2 or confess "Two parameters";
   my $W = $tree->width;                                                         # Width of keys and data
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $F = $$p{first};                                                         # First keys block
+    my $t = $$s{tree};                                                          # Tree
+    my $F = $t->first;                                                          # First keys block
     my $K = $$p{key};                                                           # Key to find
-
-    my $t        = $$s{tree};                                                   # Tree
-       $t->first->copy($F);                                                     # First block of tree to search
     my $arena    = $t->arena;                                                   # Arena
 
-    my $tree = $F->clone('tree');                                               # Start at the first key block
     PushR k6, k7, r8, r9, r14, r15; PushZmm 28..31;
     my $zmmKeys = 31; my $zmmData = 30; my $zmmNode = 29; my $zmmTest = 28;
     my $lengthMask = k6; my $testMask = k7;
@@ -7106,11 +7257,17 @@ sub Nasm::X86::Tree::findAndSplit($$$$$$)                                       
     $K->setReg(r15);                                                            # Load key into test register
     Vpbroadcastd "zmm$zmmTest", r15d;
 
-    $t->splitNode($F, $K);                                                      # Split the root
+    $t->splitFullRightNode;                                                     # Split the root
+
+    my $node = $F->clone('node');                                               # Start at the first key block
 
     ForEver                                                                     # Step down through tree
      {my ($start, $end) = @_;                                                   # Parameters
-      $t->getKeysDataNode($tree, $zmmKeys, $zmmData, $zmmNode,$transfer, $work);# Get the keys/data/nodes block
+PrintErrStringNL "AAAAAAAA";
+$node->d;
+
+      $t->getKeysDataNode($node, $zmmKeys, $zmmData, $zmmNode,$transfer, $work);# Get the keys/data/nodes block
+PrintErrStringNL "BBBBB";
 
       my $node = getDFromZmm $zmmNode, 0, $transfer;                            # First element of node block, which will be zero if we are on a leaf
 
@@ -7123,9 +7280,9 @@ sub Nasm::X86::Tree::findAndSplit($$$$$$)                                       
       Then
        {Kmovq r15, $testMask;
         Tzcnt r14, r15;                                                         # Trailing zeros gives index
-        $$p{compare}->copy(0);                                                  # Key found
-        $$p{index}  ->getReg(r14);                                              # Index from trailing zeros
-        $$p{offset} ->copy($tree);                                              # Offset of matching block
+        $t->compare->copy(0);                                                   # Key found
+        $t->index  ->getReg(r14);                                               # Index from trailing zeros
+        $t->offset ->copy($node);                                               # Offset of matching block
         Jmp $success;                                                           # Return
        };
 
@@ -7137,37 +7294,35 @@ sub Nasm::X86::Tree::findAndSplit($$$$$$)                                       
         Tzcnt r14, r15;                                                         # Trailing zeros
         If $node == 0,
         Then                                                                    # We are on a leaf
-         {$$p{compare}->copy(-1);                                               # Key less than
-          $$p{index}  ->getReg(r14);                                            # Index from trailing zeros
-          $$p{offset} ->copy($tree);                                            # Offset of matching block
+         {$t->compare->copy(-1);                                                # Key less than
+          $t->index  ->getReg(r14);                                             # Index from trailing zeros
+          $t->offset ->copy($node);                                             # Offset of matching block
           Jmp $success;                                                         # Return
          };
-        $tree->copy(getDFromZmm $zmmNode, "r14*$W", $transfer);                 # Corresponding node
+        $node->copy(getDFromZmm $zmmNode, "r14*$W", $transfer);                 # Corresponding node
         Jmp $start;                                                             # Loop
        };
 
       if (1)                                                                    # Key greater than all keys in block
        {If $node == 0,
         Then                                                                    # We have reached a leaf
-         {$$p{compare}->copy(+1);                                               # Key greater than last key
-          $$p{index}  ->copy($l-1);                                             # Index of last key which we are greater than
-          $$p{offset} ->copy($tree);                                            # Offset of matching block
+         {$t->compare->copy(+1);                                                # Key greater than last key
+          $t->index  ->copy($l-1);                                              # Index of last key which we are greater than
+          $t->offset ->copy($node);                                             # Offset of matching block
           Jmp $success
          };
        };
       my $next = getDFromZmm $zmmNode, $l * $t->width, $transfer;               # Greater than all keys so step through last child node
-      $tree->copy($next);
+      $node->copy($next);
      };
 
     SetLabel $success;                                                          # Insert completed successfully
     PopZmm; PopR;
    } structures => {tree=>$tree},
-     parameters => [qw(first key compare offset index)],
+     parameters => [qw(key)],
      name       => 'Nasm::X86::Tree::findAndSplit';
 
-  $s->call(structures => {tree=>$tree},
-           parameters => {first => $first, key => $key, compare => $compare,
-                          offset => $offset, index => $index});
+  $s->call(structures => {tree=>$tree}, parameters => {key => $key});
  } # findAndSplit
 
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and test whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor.
@@ -7399,7 +7554,7 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
             Else                                                                # The existing element is not a tree so we mark it as such using the single bit in r15/k6
              {$t->setTree(r15, 31);
              };
-            $D->copy($t->arena->CreateTree->first) if $tnd == 1;                   # Create tree and copy offset of first  block
+            $D->copy($t->arena->CreateTree->first) if $tnd == 1;                # Create tree and copy offset of first  block
            }
           $D->setReg(r14);                                                      # Key to search for
           Vpbroadcastd "zmm30{k6}", r14d;                                       # Load data
@@ -7426,7 +7581,7 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
         Vpbroadcastd "zmm31{k6}", r15d;                                         # Load key
 
         if ($tnd)                                                               # Insert new sub tree
-         {$D->copy($t->arena->CreateTree->first) if $tnd == 1;                     # Create tree and copy offset of first block
+         {$D->copy($t->arena->CreateTree->first) if $tnd == 1;                  # Create tree and copy offset of first block
          }
         if (1)                                                                  # Expand tree bits to match
          {Kmovq $point, k6;                                                     # Position of key just found
@@ -7440,7 +7595,7 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
 
         If $l + 1 == $t->maxKeys,
         Then                                                                    # Root is now full: allocate the node block for it and chain it in
-         {my $n = $t->arena->allocZmmBlock;                                        # Children
+         {my $n = $t->arena->allocZmmBlock;                                     # Children
           $t->putLoop($n, 30, $transfer);                                       # Set the link from data to node
           $t->putLoop($F, 29, $transfer);                                       # Set the link from node to key
          };
@@ -7455,7 +7610,7 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
     my $offset  = V(offset);                                                    # Offset of result
     my $index   = V('index');                                                   # Index of result
 
-    $t->findAndSplit($F, $K, $compare, $offset, $index);                        # Find block that should contain key
+    $t->findAndSplit($K);                                                       # Find block that contains the specified key
 
     $t->getKeysDataNode($offset, 31, 30, 29, $transfer, $work);
     Mov $point, 0;
@@ -7487,7 +7642,7 @@ sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     
 
       $t->expandTreeBitsWithZeroOrOne($tnd, 31, $point);                        # Mark inserted key as referring to a tree or not
 
-      $D->copy($t->arena->CreateTree->first) if $tnd == 1;                         # Create tree and place its offset into data field
+      $D->copy($t->arena->CreateTree->first) if $tnd == 1;                      # Create tree and place its offset into data field
 
       ClearRegisters k7;
       $index->setMaskBit(k7);                                                   # Set bit at insertion point
@@ -7876,9 +8031,9 @@ sub Nasm::X86::Tree::allocBlock($)                                              
   $t->arena->allocZmmBlock;                                                     # Allocate a block and return its offset as a variable
  }
 
-sub Nasm::X86::Tree::depth($$$)                                                 # Return the depth of a node within a tree.
- {my ($tree, $node, $depth) = @_;                                               # Tree descriptor, node, return depth
-  @_ == 3 or confess "Three parameters required";
+sub Nasm::X86::Tree::depth($$)                                                  # Return the depth of a node within a tree.
+ {my ($tree, $node) = @_;                                                       # Tree descriptor, node
+  @_ == 2 or confess "Two parameters required";
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -7893,15 +8048,14 @@ sub Nasm::X86::Tree::depth($$$)                                                 
 
     K(loop, 9)->for(sub                                                         # Step up through tree
      {my ($index, $start, $next, $end) = @_;
-      $t->getKeysData($tree, 31, 30, r8, r9);                                   # Get the keys block
+      $t->getKeysData($tree, 31, 30, r8, r9);                                   # Get the first node of the tree
       my $P = $t->getUpFromData(30, r8);                                        # Parent
       If $P == 0,
       Then                                                                      # Empty tree so we have not found the key
        {$$p{depth}->copy($index+1);                                             # Key not found
         Jmp $success;                                                           # Return
        };
-#     $t->copy($P);                                                             # Up to next level
-      Jmp $end;
+      $tree->copy($P);                                                          # Up to next level
      });
     PrintErrStringNL "Stuck in depth";                                          # We seem to be looping endlessly
     Exit(1);
@@ -7912,8 +8066,10 @@ sub Nasm::X86::Tree::depth($$$)                                                 
       parameters => [qw(node depth)],
       name       => 'Nasm::X86::Tree::depth';
 
-  $s->call(structures => {tree => $tree},
-           parameters => {node => $node, depth => $depth});
+  $s->call(structures => {tree => $tree->copyDescription},
+           parameters => {node => $node, depth => my $d = V depth => 0});
+
+  $d
  } # depth
 
 #D2 Sub trees                                                                   # Construct trees of trees.
@@ -8047,9 +8203,9 @@ sub Nasm::X86::Tree::print($)                                                   
   $s->call(structures=>{tree=>$tree});
  }
 
-sub Nasm::X86::Tree::dump($)                                                    # Dump a tree and all its sub trees.
- {my ($tree) = @_;                                                              # Tree
-  @_ == 1 or confess "One parameter";
+sub Nasm::X86::Tree::dump($$)                                                   # Dump a tree and all its sub trees.
+ {my ($tree, $title) = @_;                                                      # Tree, title
+  @_ == 2 or confess "Two parameters";
 
   PushR my ($depthR) = (r12);
 
@@ -8140,6 +8296,8 @@ sub Nasm::X86::Tree::dump($)                                                    
      name       => "Nasm::X86::Tree::dump";
 
   ClearRegisters $depthR;                                                       # Depth starts at zero
+
+  PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
 
   $s->call(structures => {tree => $tree});
 
@@ -23613,13 +23771,13 @@ if (1) {                                                                        
 
   Mov rax, rsp;
   Mov rdi, 8*9;
-  PrintOutMemoryInHexNL;
+  PrintOutMemory_InHexNL;
   ClearMemory(V(address, rax), K(size, 8*9));
-  PrintOutMemoryInHexNL;
+  PrintOutMemory_InHexNL;
 
   ok Assemble(debug => 0, eq => <<END);
-0800 0000 0000 00000700 0000 0000 00000600 0000 0000 00000500 0000 0000 00000400 0000 0000 00000300 0000 0000 00000200 0000 0000 00000100 0000 0000 00000000 0000 0000 0000
-0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+08__ ____ ____ ____  07__ ____ ____ ____  06__ ____ ____ ____  05__ ____ ____ ____  04__ ____ ____ ____  03__ ____ ____ ____  02__ ____ ____ ____  01__ ____ ____ ____  ____ ____ ____ ____
+____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
@@ -23633,12 +23791,12 @@ if (1) {                                                                        
 
   $A->setReg(rax);
   Mov rdi, 128;
-  PrintOutMemoryInHexNL;
+  PrintOutMemory_InHexNL;
 
   FreeMemory $A, $N;
 
-  ok Assemble(debug => 1, eq => <<END);
-0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+  ok Assemble(debug => 0, eq => <<END);
+____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
@@ -23663,7 +23821,7 @@ if (1) {
 
 #latest:;
 if (1) {                                                                        #TReadFile #TPrintMemory
-  my $file = V(file, Rs($0));
+  my $file = V(file => Rs $0);
   my ($address, $size) = ReadFile $file;                                        # Read file into memory
   $address->setReg(rax);                                                        # Address of file in memory
   $size   ->setReg(rdi);                                                        # Length  of file in memory
@@ -23687,26 +23845,24 @@ END
 if (1) {                                                                        #TArena::dump
   my $a = CreateArena;
   my $b = CreateArena;
-  $a->q("aa");
-  $a->dump;
-  $b->q("bb");
-  $b->dump;
+  $a->q("aaaa");
+  $a->dump("aaaaa");
+  $b->q("bbbb");
+  $b->dump("bbbb");
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 001A
-Block:  0000 0000 0000 0000  0010 0000 0000 00001A00 0000 0000 00000000 0000 0000 00006161 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 001A
-Block:  0000 0000 0000 0000  0010 0000 0000 00001A00 0000 0000 00000000 0000 0000 00006262 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+aaaaa
+Arena     Size:     4096    Used:       28
+0000 0000 0000 0000 | __10 ____ ____ ____  1C__ ____ ____ ____  ____ ____ ____ ____  6161 6161 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+bbbb
+Arena     Size:     4096    Used:       28
+0000 0000 0000 0000 | __10 ____ ____ ____  1C__ ____ ____ ____  ____ ____ ____ ____  6262 6262 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
@@ -23769,8 +23925,8 @@ if (1) {                                                                        
   $b->append($a);
 
 
-  $a->out;   PrintOutNL;                                                        # Print arena
-  $b->out;   PrintOutNL;                                                        # Print arena
+  $a->out;   PrintOutNL;
+  $b->out;   PrintOutNL;
   my $sa = $a->length; $sa->outNL;
   my $sb = $b->length; $sb->outNL;
   $a->clear;
@@ -23784,6 +23940,72 @@ size: 0000 0000 0000 0010
 size: 0000 0000 0000 004A
 size: 0000 0000 0000 0000
 size: 0000 0000 0000 004A
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Arena::allocZmmBlock #TNasm::X86::Arena::freeZmmBlock #TNasm::X86::Arena::getZmmBlock #TNasm::X86::Arena::putZmmBlock #TNasm::X86::Arena::clearBlock
+  my $a = CreateArena;
+  LoadZmm(31, 0..63);
+  LoadZmm(30,    64..127);
+  my $b = $a->allocZmmBlock;
+  my $c = $a->allocZmmBlock;
+  my $d = $a->allocZmmBlock;
+  $a->putZmmBlock($b, 31);
+  $a->putZmmBlock($c, 30);
+  $a->putZmmBlock($d, 31);
+  $a->dump("Put Block");
+
+  $a->clearZmmBlock($c);
+  $a->dump("Clear Block");
+
+  $a->getZmmBlock($b, 29);
+  PrintOutRegisterInHex zmm29;
+
+  $a->freeZmmBlock($b);
+  $a->dump("Free Block");
+  $a->freeZmmBlock($c);
+  $a->dump("Free Block");
+
+  $a->getZmmBlock($d, 28);
+  PrintOutRegisterInHex zmm28;
+
+  $a->freeZmmBlock($d);
+  $a->dump("Free Block");
+
+  ok Assemble(debug => 0, eq => <<END);
+Put Block
+Arena     Size:     4096    Used:      216
+0000 0000 0000 0000 | __10 ____ ____ ____  D8__ ____ ____ ____  ____ ____ ____ ____  __01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627
+0000 0000 0000 0040 | 2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667
+0000 0000 0000 0080 | 6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  __01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627
+0000 0000 0000 00C0 | 2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+Clear Block
+Arena     Size:     4096    Used:      216
+0000 0000 0000 0000 | __10 ____ ____ ____  D8__ ____ ____ ____  ____ ____ ____ ____  __01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627
+0000 0000 0000 0040 | 2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627
+0000 0000 0000 00C0 | 2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+ zmm29: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130   2F2E 2D2C 2B2A 2928   2726 2524 2322 2120   1F1E 1D1C 1B1A 1918   1716 1514 1312 1110   0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
+Free Block
+Arena     Size:     4096    Used:      344
+0000 0000 0000 0000 | __10 ____ ____ ____  5801 ____ ____ ____  D8__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627
+0000 0000 0000 00C0 | 2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+Free Block
+Arena     Size:     4096    Used:      344
+0000 0000 0000 0000 | __10 ____ ____ ____  5801 ____ ____ ____  D8__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 18__ ____  __01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627
+0000 0000 0000 00C0 | 2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+ zmm28: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130   2F2E 2D2C 2B2A 2928   2726 2524 2322 2120   1F1E 1D1C 1B1A 1918   1716 1514 1312 1110   0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
+Free Block
+Arena     Size:     4096    Used:      344
+0000 0000 0000 0000 | __10 ____ ____ ____  5801 ____ ____ ____  D8__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 18__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 58__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
@@ -23921,7 +24143,7 @@ END
  }
 
 #latest:;
-if (0) {                                                                        #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
+if (1) {                                                                        #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
   my $A = CreateArena;
   my $t = $A->checkYggdrasilCreated;
      $t->found->outNL;
@@ -24055,6 +24277,7 @@ END
   ok 8 == RegisterSize rax;
  }
 
+#latest:
 if (1) {                                                                        #TRb #TRd #TRq #TRw #TDb #TDd #TDq #TDw #TCopyMemory
   my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
   my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
@@ -24069,18 +24292,19 @@ if (1) {                                                                        
   Mov rdi, 16;
   Mov rsi, $s;
   CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
-  PrintOutMemoryInHex;
+  PrintOutMemory_InHexNL;
 
-  my $r = Assemble;
-  ok $r =~ m(xmm0: 0000 0000 0000 0004   0000 0003 0002 0100);
-  ok $r =~ m(xmm1: 0000 0000 0000 0004   0000 0003 0002 0100);
-  ok $r =~ m(0001 0200 0300 00000400 0000 0000 0000);
+  ok Assemble(debug => 0, eq => <<END);
+  xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+  xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+__01 02__ 03__ ____  04__ ____ ____ ____
+END
  }
 
 #latest:
 if (1) {
-  my $a = V(a,1);
-  my $b = V(b,2);
+  my $a = V(a => 1);
+  my $b = V(b => 2);
   my $c = $a + $b;
   Mov r15, 22;
   $a->getReg(r15);
@@ -24312,10 +24536,10 @@ if (1) {                                                                        
 
   $b->setReg(rax);
   Mov rdi, $N;
-  PrintOutMemoryInHexNL;
+  PrintOutMemory_InHexNL;
 
   ok Assemble(debug=>0, eq => <<END);
-0001 0203 0405 06070809 0A0B 0C0D 0E0F1011 1213 1415 16171819 1A1B 1C1D 1E1F2021 2223 2425 26272829 2A2B 2C2D 2E2F3031 3233 3435 36373839 3A3B 3C3D 3E3F4041 4243 4445 46474849 4A4B 4C4D 4E4F5051 5253 5455 56575859 5A5B 5C5D 5E5F6061 6263 6465 66676869 6A6B 6C6D 6E6F7071 7273 7475 76777879 7A7B 7C7D 7E7F8081 8283 8485 86878889 8A8B 8C8D 8E8F9091 9293 9495 96979899 9A9B 9C9D 9E9FA0A1 A2A3 A4A5 A6A7A8A9 AAAB ACAD AEAFB0B1 B2B3 B4B5 B6B7B8B9 BABB BCBD BEBFC0C1 C2C3 C4C5 C6C7C8C9 CACB CCCD CECFD0D1 D2D3 D4D5 D6D7D8D9 DADB DCDD DEDFE0E1 E2E3 E4E5 E6E7E8E9 EAEB ECED EEEFF0F1 F2F3 F4F5 F6F7F8F9 FAFB FCFD FEFF
+__01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
 END
  }
 
@@ -24797,17 +25021,17 @@ if (1) {                                                                        
 
   V(loop => 5)->for(sub
    {my $s = $a->CreateString;
-    $s->append(V(source => $t), K size => 256);
+    $s->append(K(source => $t), K size => 256);
     $s->free;
     $a->length->outNL;
    });
 
   ok Assemble(debug => 0, eq => <<END);
 size: 0000 0000 0000 01C0
-size: 0000 0000 0000 0200
-size: 0000 0000 0000 0200
-size: 0000 0000 0000 0200
-size: 0000 0000 0000 0200
+size: 0000 0000 0000 01C0
+size: 0000 0000 0000 01C0
+size: 0000 0000 0000 01C0
+size: 0000 0000 0000 01C0
 END
  }
 
@@ -25211,26 +25435,24 @@ if (1) {                                                                        
   $a->push(V(element, $_)), $b->push(K element, $_ + 0x11) for 0xee;
   $a->push(V(element, $_)), $b->push(K element, $_ + 0x11) for 33..36;
 
-  $A->dump;
-  $B->dump;
+  $A->dump("AAAA");
+  $B->dump("BBBB");
 
   $_->size()->outInDecNL for $a, $b;
 
   ok Assemble(debug => 0, eq => <<END);
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00000000 0000 0000 00002400 0000 5800 00009800 0000 D800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000100 0000 0200 00000300 0000 0400 00000500 0000 0600 00000700 0000 0800 00000900 0000 0A00 0000
-Block:  0000 0000 0000 0002  0B00 0000 0C00 00000D00 0000 0E00 00000F00 0000 FF00 00001100 0000 1200 00001300 0000 1400 00001500 0000 1600 00001700 0000 1800 00001900 0000 1A00 0000
-Block:  0000 0000 0000 0003  1B00 0000 1C00 00001D00 0000 1E00 00001F00 0000 EE00 00002100 0000 2200 00002300 0000 2400 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00000000 0000 0000 00002400 0000 5800 00009800 0000 D800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00001200 0000 1300 00001400 0000 1500 00001600 0000 1700 00001800 0000 1900 00001A00 0000 1B00 0000
-Block:  0000 0000 0000 0002  1C00 0000 1D00 00001E00 0000 1F00 00002000 0000 1001 00002200 0000 2300 00002400 0000 2500 00002600 0000 2700 00002800 0000 2900 00002A00 0000 2B00 0000
-Block:  0000 0000 0000 0003  2C00 0000 2D00 00002E00 0000 2F00 00003000 0000 FF00 00003200 0000 3300 00003400 0000 3500 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+AAAA
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  ____ ____ ____ ____  24__ ____ 58__ ____  98__ ____ D8__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____
+0000 0000 0000 0080 | 0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ FF__ ____  11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____
+0000 0000 0000 00C0 | 1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ EE__ ____  21__ ____ 22__ ____  23__ ____ 24__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+BBBB
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  ____ ____ ____ ____  24__ ____ 58__ ____  98__ ____ D8__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  12__ ____ 13__ ____  14__ ____ 15__ ____  16__ ____ 17__ ____  18__ ____ 19__ ____  1A__ ____ 1B__ ____
+0000 0000 0000 0080 | 1C__ ____ 1D__ ____  1E__ ____ 1F__ ____  20__ ____ 1001 ____  22__ ____ 23__ ____  24__ ____ 25__ ____  26__ ____ 27__ ____  28__ ____ 29__ ____  2A__ ____ 2B__ ____
+0000 0000 0000 00C0 | 2C__ ____ 2D__ ____  2E__ ____ 2F__ ____  30__ ____ FF__ ____  32__ ____ 33__ ____  34__ ____ 35__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 size: 36
 size: 36
 END
@@ -25425,133 +25647,110 @@ END
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Arena::allocBlock #TNasm::X86::Arena::freeBlock
-  my $a = CreateArena; $a->dump;
+  my $a = CreateArena;
   for (1..4)
-   {my $b1 = $a->allocZmmBlock; $a->dump;
-    my $b2 = $a->allocZmmBlock; $a->dump;
-    $a->freeBlock($b2);         $a->dump;
-    $a->freeBlock($b1);         $a->dump;
+   {my $b1 = $a->allocZmmBlock; $a->dump("AAAA");
+    my $b2 = $a->allocZmmBlock; $a->dump("BBBB");
+    $a->freeZmmBlock($b2);      $a->dump("CCCC");
+    $a->freeZmmBlock($b1);      $a->dump("DDDD");
    }
   ok Assemble(debug => 0, eq => <<END);
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0018
-Block:  0000 0000 0000 0000  0010 0000 0000 00001800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0058
-Block:  0000 0000 0000 0000  0010 0000 0000 00005800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0098
-Block:  0000 0000 0000 0000  0010 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00005800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00001800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00005800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00005800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00001800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00005800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00005800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00001800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00005800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00005800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0118
-Block:  0000 0000 0000 0000  0010 0000 0000 00001801 0000 0000 00009800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000000 0000 5800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000100 0000 D800 00001800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+AAAA
+Arena     Size:     4096    Used:       88
+0000 0000 0000 0000 | __10 ____ ____ ____  58__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+BBBB
+Arena     Size:     4096    Used:      152
+0000 0000 0000 0000 | __10 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+CCCC
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  58__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+DDDD
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 58__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  18__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+AAAA
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  58__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+BBBB
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+CCCC
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  58__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+DDDD
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 58__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  18__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+AAAA
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  58__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+BBBB
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+CCCC
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  58__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+DDDD
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 58__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  18__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+AAAA
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  58__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+BBBB
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+CCCC
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  58__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+DDDD
+Arena     Size:     4096    Used:      280
+0000 0000 0000 0000 | __10 ____ ____ ____  1801 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 58__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ D8__ ____  18__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
@@ -25657,7 +25856,7 @@ if (1) {                                                                        
 
   $b->putChain(V(start, 0x18), V(end, 0xff), 4, 4, 4);                          # Put at the end of a long chain
 
-  $b->dump;
+  $b->dump("AAAA");
 
   my $sub = Subroutine
    {my ($p) = @_;                                                               # Parameters
@@ -25693,13 +25892,12 @@ chain1: 0000 0000 0000 001C
 chain2: 0000 0000 0000 0020
 chain3: 0000 0000 0000 0024
 chain4: 0000 0000 0000 0024
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0058
-Block:  0000 0000 0000 0000  0010 0000 0000 00005800 0000 0000 00000000 0000 0000 00001800 0000 1C00 00002000 0000 FF00 00002800 0000 2C00 00003000 0000 3400 00003800 0000 3C00 0000
-Block:  0000 0000 0000 0001  4000 0000 4400 00004800 0000 4C00 00005000 0000 5400 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+AAAA
+Arena     Size:     4096    Used:       88
+0000 0000 0000 0000 | __10 ____ ____ ____  58__ ____ ____ ____  ____ ____ ____ ____  18__ ____ 1C__ ____  20__ ____ FF__ ____  28__ ____ 2C__ ____  30__ ____ 34__ ____  38__ ____ 3C__ ____
+0000 0000 0000 0040 | 40__ ____ 44__ ____  48__ ____ 4C__ ____  50__ ____ 54__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 C is minus one
 D is minus one
 c: FFFF FFFF FFFF FFFF
@@ -25814,7 +26012,7 @@ outB : 0000 0000 0000 000A size : 0000 0000 0000 0001
 outC : 0000 0000 0000 0020 size : 0000 0000 0000 0001
 outD : 0000 0000 0000 0020 size : 0000 0000 0000 0001
 outE : 0000 0000 0000 0010 size : 0000 0000 0000 0002
-F09D 96BA 0A20 F09D918E F09D 91A0 F09D91A0 F09D 9196 F09D9194 F09D 919B 20E38090 E380 90F0 9D96BB20 F09D 90A9 F09D90A5 F09D 90AE F09D90AC 20F0 9D96 BCE38091 E380 910A 41414141 4141 4141 0000
+F09D 96BA 0A20 F09D  918E F09D 91A0 F09D  91A0 F09D 9196 F09D  9194 F09D 919B 20E3  8090 E380 90F0 9D96  BB20 F09D 90A9 F09D  90A5 F09D 90AE F09D  90AC 20F0 9D96 BCE3  8091 E380 910A 4141  4141 4141 4141 0000
 END
  }
 
@@ -26054,17 +26252,17 @@ if (1) {                                                                        
   my $t = $A->CreateTree;
 
   $t->insert(K('key', 0x99), K('data', 0xcc));
-  $A->dump;
-  $t->dump;
+  $A->dump("AAAA");
+  $t->dump("TTTT");
 
   ok Assemble(debug => 0, eq => <<END);
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0098
-Block:  0000 0000 0000 0000  0010 0000 0000 00009800 0000 0000 00000000 0000 0000 00009900 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000100 0000 5800 0000CC00 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00000200 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+AAAA
+Arena     Size:     4096    Used:      152
+0000 0000 0000 0000 | __10 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  99__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 58__ ____  CC__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+TTTT
 Tree at:  0000 0000 0000 0018  length: 0000 0000 0000 0001
   Keys: 0000 0058 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0099
   Data: 0000 0000 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 00CC
@@ -26103,7 +26301,7 @@ if (1) {                                                                        
    {$t->insertTree(V(key,  $i));  $t->data->outNL;                              # Retrieve the sub tree rather than creating a new new sub tree
    }
 
-  $b->dump;
+  $b->dump("AAAA");
   ok Assemble(debug => 0, eq => <<END);                                         # Tree bits at 0x50
 data: 0000 0000 0000 0098
 data: 0000 0000 0000 0118
@@ -26116,13 +26314,12 @@ data: 0000 0000 0000 0418
 data: 0000 0000 0000 0498
 data: 0000 0000 0000 0518
 data: 0000 0000 0000 0598
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 0618
-Block:  0000 0000 0000 0000  0010 0000 0000 00001806 0000 0000 00000000 0000 0000 00000100 0000 0200 00000300 0000 0400 00000500 0000 0600 00000700 0000 0800 00000900 0000 0A00 0000
-Block:  0000 0000 0000 0001  0B00 0000 0000 00000000 0000 0000 00000B00 FF07 5800 00009800 0000 1801 00009801 0000 1802 00009802 0000 1803 00009803 0000 1804 00009804 0000 1805 0000
-Block:  0000 0000 0000 0002  9805 0000 0000 00000000 0000 0000 00001600 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 D800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+AAAA
+Arena     Size:     4096    Used:     1560
+0000 0000 0000 0000 | __10 ____ ____ ____  1806 ____ ____ ____  ____ ____ ____ ____  01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____
+0000 0000 0000 0040 | 0B__ ____ ____ ____  ____ ____ ____ ____  0B__ FF07 58__ ____  98__ ____ 1801 ____  9801 ____ 1802 ____  9802 ____ 1803 ____  9803 ____ 1804 ____  9804 ____ 1805 ____
+0000 0000 0000 0080 | 9805 ____ ____ ____  ____ ____ ____ ____  16__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ D8__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
@@ -26319,8 +26516,8 @@ if (1) {                                                                        
     $t->insertTree(V(key,  $i)), $t->data->outNL unless $i % 2;
    }
 
-  $b->dump(K blocks=>20);
-  ok Assemble(debug => 0, eq => <<END);
+  $b->dump(K blocks => 20);
+  ok Assemble(debug =>  0, eq => <<END);
 data: 0000 0000 0000 0002
 data: 0000 0000 0000 0098
 data: 0000 0000 0000 0006
@@ -26336,29 +26533,12 @@ data: 0000 0000 0000 0318
 data: 0000 0000 0000 001A
 data: 0000 0000 0000 0398
 data: 0000 0000 0000 001E
-Arena
-  Size: 0000 0000 0000 1000
-  Used: 0000 0000 0000 05D8
-Block:  0000 0000 0000 0000  0010 0000 0000 0000D805 0000 0000 00000000 0000 0000 00000800 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0001  0000 0000 0000 00000000 0000 0000 00000100 0100 5800 00001802 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0002  0000 0000 0000 00000000 0000 0000 00001E00 0000 1804 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0003  0000 0000 0000 00000000 0000 0000 00000000 0000 D800 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0004  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0005  0000 0000 0000 00000000 0000 0000 00000000 0000 5801 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0006  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0007  0000 0000 0000 00000000 0000 0000 00000000 0000 D801 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0008  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0009  0000 0000 0000 00000000 0000 0000 00000000 0000 5802 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 000A  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 000B  0000 0000 0000 00000000 0000 0000 00000000 0000 D802 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 000C  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 000D  0000 0000 0000 00000000 0000 0000 00000000 0000 5803 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 000E  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 000F  0000 0000 0000 00000000 0000 0000 00000000 0000 D803 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0010  0000 0000 0000 00000000 0000 0000 00000000 0000 0000 00005804 0000 1805 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0011  0000 0000 0000 00000000 0000 0000 00000000 0000 1800 00000100 0000 0200 00000300 0000 0400 00000500 0000 0600 00000700 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0012  0000 0000 0000 00000000 0000 0000 00000700 2A00 9804 00000200 0000 9800 00000600 0000 1801 00000A00 0000 9801 00000E00 0000 0000 00000000 0000 0000 0000
-Block:  0000 0000 0000 0013  0000 0000 0000 00000000 0000 0000 00000100 0000 D804 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 00000000 0000 0000 0000
+blocks
+Arena     Size:     4096    Used:     1496
+0000 0000 0000 0000 | __10 ____ ____ ____  D805 ____ ____ ____  ____ ____ ____ ____  08__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  01__ 01__ 58__ ____  1802 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  1E__ ____ 1804 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ D8__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
@@ -26587,7 +26767,7 @@ END
  }
 
 #latest:
-if (0) {                                                                        #TNasm::X86::Arena::CreateTree
+if (1) {                                                                        #TNasm::X86::Arena::CreateTree
   my $N = 12;
   my $b = CreateArena;
   my $t = $b->CreateTree;
@@ -26603,15 +26783,14 @@ if (0) {                                                                        
    {my ($iter, $end) = @_;
     $iter->key ->out('key: ');
     $iter->data->out(' data: ');
-    my $D = V(depth);
-    $iter->tree->depth($iter->node, $D);
+    my $D = $iter->tree->depth($iter->node);
 
     $t->find($iter->key);
     $t->found->out(' found: '); $t->data->out(' data: '); $D->outNL(' depth: ');
    });
 
-  $t->find(K(key, 0xffff));  $t->found->outNL('Found: ');                       # Find some entries
-  $t->find(K(key, 0xd));     $t->found->outNL('Found: ');
+  $t->find(K key => 0xd);     $t->found->outNL('Found: ');
+  $t->find(K key => 0xffff);  $t->found->outNL('Found: ');                      # Find some entries
   If ($t->found > 0,
   Then
    {$t->data->outNL("Data : ");
@@ -26642,14 +26821,14 @@ key: 0000 0000 0000 0015 data: 0000 0000 0000 0209 found: 0000 0000 0000 0001 da
 key: 0000 0000 0000 0016 data: 0000 0000 0000 020A found: 0000 0000 0000 0001 data: 0000 0000 0000 020A depth: 0000 0000 0000 0002
 key: 0000 0000 0000 0017 data: 0000 0000 0000 020B found: 0000 0000 0000 0001 data: 0000 0000 0000 020B depth: 0000 0000 0000 0002
 key: 0000 0000 0000 0018 data: 0000 0000 0000 020C found: 0000 0000 0000 0001 data: 0000 0000 0000 020C depth: 0000 0000 0000 0002
-Found: 0000 0000 0000 0000
 Found: 0000 0000 0000 0001
+Found: 0000 0000 0000 0000
 Data : 0000 0000 0000 0201
 END
  }
 
 #latest:
-if (0) {                                                                        #TNasm::X86::Tree::insertTreeAndReload #TNasm::X86::Tree::Reload  #TNasm::X86::Tree::findAndReload
+if (00) {                                                                        #TNasm::X86::Tree::insertTreeAndReload #TNasm::X86::Tree::Reload  #TNasm::X86::Tree::findAndReload
   my $L = K(loop, 4);
   my $b = CreateArena;
   my $T = $b->CreateTree;
@@ -26706,7 +26885,7 @@ END
  }
 
 #latest:
-if (0) {        ### print/iter                                                                #TNasm::X86::Tree::insertTree
+if (00) {        ### print/iter                                                                #TNasm::X86::Tree::insertTree
   my $b = CreateArena;
   my $t = $b->CreateTree;
   my $T = $b->CreateTree;
@@ -26787,7 +26966,7 @@ END
  }
 
 #latest:
-if (0) {                                                                        #TNasm::X86::Tree::print
+if (00) {                                                                        #TNasm::X86::Tree::print
   my $L = V(loop, 45);
 
   my $b = CreateArena;
@@ -26995,7 +27174,7 @@ END
  }
 
 #latest:
-if (0) {                                                                        #TNasm::X86::Tree::dump
+if (00) {                                                                        #TNasm::X86::Tree::dump
   my $L = V(loop, 15);
 
   my $b = CreateArena;
@@ -28572,10 +28751,70 @@ END
 
 #latest:
 if (1) {
-  my $a =     CreateArena;
+  my $N = 1;
+  my $a = CreateArena;
   my $t = $a->CreateTree;
 
-  ok Assemble(debug => 0, eq => <<END);
+  $t->insert(K( key => 1), K data => 2);
+  $t->dump("AAAA after");
+
+  ok Assemble(debug => 0, trace => 1, eq => <<END);
+END
+exit;
+ }
+
+#latest:
+if (1) {
+  my $N = 119;
+  my $b = CreateArena;
+  my $t = $b->CreateTree;
+
+  K(count => $N)->for(sub                                                       # Add some entries to the tree
+   {my ($index, $start, $next, $end) = @_;
+$index->errNL("IIII");
+If $index == 0x76,
+Then
+ {$t->dump("AAAA before");
+ };
+    $t->insert($index, K data => 0);
+If $index == 0x76,
+Then
+ {$t->dump("AAAA after");
+ };
+   });
+
+  ok Assemble(debug => 0, trace => 1, eq => <<END);
+END
+ }
+
+latest:
+if (1) {
+  my $N = 42;
+
+  PushR rax, r14, r15, xmm0;
+  Mov rax, $N;
+  ClearRegisters r14, r15, xmm0;
+
+  K(loop => 16)->for(sub
+   {Mov r15, rax;
+    And r15, 0xf;
+    Cmp r15, 9;
+    IfGt
+    Then
+     {Add r15, ord('A') - 10;
+     },
+    Else
+     {Add r15, ord('0');
+     };
+    Psrldq xmm0, 1;
+    Pinsrb xmm0, r15b, 0xf;
+PrintErrRegisterInHex r15, xmm0;
+    Shr rax, 4;
+   });
+
+  PrintErrRegisterInHex xmm0;
+
+  ok Assemble(debug => 0, trace => 1, eq => <<END);
 END
  }
 
