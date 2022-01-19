@@ -650,32 +650,37 @@ sub LoadConstantIntoMaskRegister($$$)                                           
   CheckMaskRegister $mask;
   CheckGeneralPurposeRegister $transfer;
   Mov $transfer, $value;                                                        # Load mask into a general purpose register
-  Kmovq "k$mask", $transfer;                                                       # Load mask register from general purpose register
+  Kmovq "k$mask", $transfer;                                                    # Load mask register from general purpose register
  }
 
-sub LoadBitsIntoMaskRegister($$$@)                                              # Load a bit string specification into a mask register.
+sub LoadBitsIntoMaskRegister($$$@)                                              # Load a bit string specification into a mask register in two clocks.
  {my ($mask, $transfer, $prefix, @values) = @_;                                 # Number of mask register to load, transfer register, prefix bits, +n 1 bits -n 0 bits
-  @_ > 3 or confess "Four or more paramters required";                          # Must have some values
+  @_ > 3 or confess "Four or more parameters required";                         # Must have some values
+
   $prefix =~ m(\A[01]*\Z) or confess "Prefix must be binary";                   # Prefix must be binary
   grep {$_ == 0} @values and confess "Values must not be zero";                 # No value may be zero
+
   if ($prefix)                                                                  # Check that the prefix sign alternates with the first value sign
    {my $l = substr($prefix, -1);
     my $v = $values[0];
     $l eq "0" and $v < 0 and confess "First value should be positive after 0";
     $l eq "1" and $v > 0 and confess "First value should be negative after 1";
    }
+
   for my $i(0..$#values-1)                                                      # Check values alternate
    {($values[$i] > 0 && $values[$i+1] > 0  or
      $values[$i] < 0 && $values[$i+1] < 0) and confess "Signs must alternate";
    }
+
   CheckMaskRegister $mask;
   CheckGeneralPurposeRegister $transfer;
+
   my $b = "0b$prefix";
   for my $v(@values)                                                            # String representation of bit string
    {$b .= '1' x +$v if $v > 0;
     $b .= '0' x -$v if $v < 0;
-    #$v or confess "Count must be positive or negative but not zero";
    }
+
   LoadConstantIntoMaskRegister($mask, $transfer, eval $b)
  }
 
@@ -29503,157 +29508,146 @@ if (1) {                                                                        
 
 # The dwords at 56, 60 in keys and data, plus the dword at 60 in nodes must be preserved.  The middle key/data on the left must be inserted into the parent at the appropriate point in the parent.
 
-  my $newKey   = 0x8118;                                                        # New key to insert
-  my $newData  = 0x7117;                                                        # New data to insert
-  my $newRight = 0x9119;                                                        # Offset of new right block
-  my $insertAfter = K insertAfter => 0x08;                                      # Position in parent to insert at
+  my $newKey       = 0x8118;                                                    # New key to insert
+  my $newData      = 0x7117;                                                    # New data to insert
+  my $newRight     = K newRight => 0x9119;                                      # Offset of new right block
   my $lengthOffset = 56;                                                        # Position of the length byte in the parent keys block
   my ($Test, $RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 22..31;             # Zmm names
   my $ll = 1; my $rl = 1; my $lm = $ll + $rl + 1; my $zw = 16; my $w = 4;       # Positions in zmm
   my $transfer = r8;
 
-  K(parentKeys => Rd(map {($_<<28) +0x9999999} 1..15, 0))->loadZmm($PK);
-  K(parentData => Rd(map {($_<<28) +0x7777777} 1..15, 0))->loadZmm($PD);
-  K(parentData => Rd(map {($_<<28) +0x8888888} 1..15, 0))->loadZmm($PN);
+  for my $test(0..13)
+   {K(parentKeys => Rd(map {($_<<28) +0x9999999} 1..15, 0))->loadZmm($PK);
+    K(parentData => Rd(map {($_<<28) +0x7777777} 1..15, 0))->loadZmm($PD);
+    K(parentData => Rd(map {($_<<28) +0x8888888} 1..15, 0))->loadZmm($PN);
 
-  K(parentData => Rd(map {($_<<28) +0x6666666} 0..15))->loadZmm($LK);
-  K(parentData => Rd(map {($_<<28) +0x4444444} 0..15))->loadZmm($LD);
-  K(parentData => Rd(map {($_<<28) +0x5555555} 0..15))->loadZmm($LN);
+    K(parentData => Rd(map {($_<<28) +0x6666666} $test..15, 0..($test-1)))->loadZmm($LK);
+    K(parentData => Rd(map {($_<<28) +0x4444444} $test..15, 0..($test-1)))->loadZmm($LD);
+    K(parentData => Rd(map {($_<<28) +0x5555555} 0..15))->loadZmm($LN);
 
-  K(parentData => Rd(map {($_<<28) +0x3333333} 0..15))->loadZmm($RK);
-  K(parentData => Rd(map {($_<<28) +0x1111111} 0..15))->loadZmm($RD);
-  K(parentData => Rd(map {($_<<28) +0x2222222} 0..15))->loadZmm($RN);
+    K(parentData => Rd(map {($_<<28) +0x3333333} 0..15))->loadZmm($RK);
+    K(parentData => Rd(map {($_<<28) +0x1111111} 0..15))->loadZmm($RD);
+    K(parentData => Rd(map {($_<<28) +0x2222222} 0..15))->loadZmm($RN);
 
-  PrintErrStringNL "AAAA";
-  $insertAfter->d;
-  PrintErrStringNL "AAAA parent";
-  PrintErrRegisterInHex zmm reverse 29..31;
+    PrintErrStringNL "Test $test";
+    LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-2);                        # Area to clear in keys and data preserving last qword
+    Vmovdqu32 zmm $RK."{k7}", $LK;
+    Vmovdqu32 zmm $RD."{k7}", $LD;
 
-  PrintErrStringNL "AAAA Left";
-  PrintErrRegisterInHex zmm reverse 26..28;
+    my $SK = getDFromZmm($LK, $ll*RegisterSize(eax), $transfer);
+    my $SD = getDFromZmm($LD, $ll*RegisterSize(eax), $transfer);
+    LoadBitsIntoMaskRegister(7, $transfer,  "0", $zw-1);                        # Area to clear in nodes preserving last dword
+    Vmovdqu32 zmm $RN."{k7}", $LN;
 
-  PrintErrStringNL "AAAA Right";
-  PrintErrRegisterInHex zmm reverse 23..25;
+    LoadBitsIntoMaskRegister(7, $transfer, "", $lm-$zw, $rl, -$ll-1);           # Compress right data/keys
+    Vpcompressd zmm $RK."{k7}", $RK;
+    Vpcompressd zmm $RD."{k7}", $RD;
 
-  LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-2);                          # Area to clear in keys and data preserving last qword
-  Vmovdqu32 zmm $RK."{k7}", $LK;
-  Vmovdqu32 zmm $RD."{k7}", $LD;
+    LoadBitsIntoMaskRegister(7, $transfer,  "0", 2+$lm-$zw, $rl+1, -$rl-1);     # Compress right nodes
+    Vpcompressd zmm $RN."{k7}", $RN;
 
-  my $SK = getDFromZmm($LK, $ll*RegisterSize(eax), $transfer);
-  my $SD = getDFromZmm($LD, $ll*RegisterSize(eax), $transfer);
-  LoadBitsIntoMaskRegister(7, $transfer,  "0", $zw-1);                          # Area to clear in nodes preserving last dword
-  Vmovdqu32 zmm $RN."{k7}", $LN;
+    LoadBitsIntoMaskRegister(7, $transfer, "11", 2+$ll-$zw, $ll);               # Clear left keys and data
+    Vmovdqu32 zmm $LK."{k7}{z}", $LK;
+    Vmovdqu32 zmm $LD."{k7}{z}", $LD;
 
-  LoadBitsIntoMaskRegister(7, $transfer, "", $lm-$zw, $rl, -$ll-1);             # Compress right data/keys
-  Vpcompressd zmm $RK."{k7}", $RK;
-  Vpcompressd zmm $RD."{k7}", $RD;
+    LoadBitsIntoMaskRegister(7, $transfer, "1", 2+$ll-$zw, $ll+1);              # Clear left nodes
+    Vmovdqu32 zmm $LN."{k7}{z}", $LN;
 
-  LoadBitsIntoMaskRegister(7, $transfer,  "0", 2+$lm-$zw, $rl+1, -$rl-1);       # Compress right nodes
-  Vpcompressd zmm $RN."{k7}", $RN;
+    LoadBitsIntoMaskRegister(7, $transfer, "11", $lm-$zw, $rl);                 # Clear right keys and data
+    Vmovdqu32 zmm $RK."{k7}{z}", $RK;
+    Vmovdqu32 zmm $RD."{k7}{z}", $RD;
 
-  LoadBitsIntoMaskRegister(7, $transfer, "11", 2+$ll-$zw, $ll);                 # Clear left keys and data
-  Vmovdqu32 zmm $LK."{k7}{z}", $LK;
-  Vmovdqu32 zmm $LD."{k7}{z}", $LD;
-
-  LoadBitsIntoMaskRegister(7, $transfer, "1", 2+$ll-$zw, $ll+1);                # Clear left nodes
-  Vmovdqu32 zmm $LN."{k7}{z}", $LN;
-
-  LoadBitsIntoMaskRegister(7, $transfer, "11", $lm-$zw, $rl);                   # Clear right keys and data
-  Vmovdqu32 zmm $RK."{k7}{z}", $RK;
-  Vmovdqu32 zmm $RD."{k7}{z}", $RD;
-
-  LoadBitsIntoMaskRegister(7, $transfer, "1", 2+$rl-$zw, $rl+1);                # Clear right nodes
-  Vmovdqu32 zmm $RN."{k7}{z}", $RN;
+    LoadBitsIntoMaskRegister(7, $transfer, "1", 2+$rl-$zw, $rl+1);              # Clear right nodes
+    Vmovdqu32 zmm $RN."{k7}{z}", $RN;
 
 
-  LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-2);                          # Key/data slots
-  Vpbroadcastd zmm($Test), $transfer."d";                                       # Splitting key in every position
-  Vpcmpud "k6\{k7}", zmm($PK), zmm($Test), 2;                                   # Test against every key to find which parent keys are less than the insertion key so that we can insert beyond it.
-  Kmovq $transfer, k6;                                                          # Ones where keys are less than the key to be inserted after
+    LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-2);                        # Key/data slots
+    $SK->setReg($transfer);
+    Vpbroadcastd zmm($Test), $transfer."d";                                     # Splitting key in every position
+    Vpcmpud "k6\{k7}", zmm($PK), zmm($Test), 2;                                 # Test against every key to find which parent keys are less than the insertion key so that we can insert beyond it.
+    Kmovq $transfer, k6;                                                        # Ones where keys are less than the key to be inserted after
+    Cmp $transfer, 0;                                                           # Check the number of keys in the parent smaller than the splitting key
+    IfNe
+    Then                                                                        # There is at least one key in the parent that is smaller than the splitting key
+     {Not $transfer;
+      Tzcnt $transfer, $transfer;                                               # Number of trailing zeros indicates insertion point
+      my $insertIndex = V insertIndex => $transfer;
 
-  Cmp $transfer, 0;                                                             # Check the number of keys in the parent smaller than the splitting key
-  IfNe
-  Then                                                                          # There is at least one key in the parent that is smaller than the splitting key
-   {Not $transfer;
-    Tzcnt $transfer, $transfer;                                                 # Number of trailing zeros indicates insertion point
-    my $insertIndex = V insertIndex => $transfer;
-
-    If $insertIndex < $zw - 2,
-    Then                                                                        # Insert key/data into parent at correct position
-     {LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-2);                      # Key/data slots
-PrintErrStringNL "BBBBB";
-      Kshiftlq k5, k6, 1;                                                       # Create a mask that shows the allowable key positions set to one with a zero at the insertion point
-      Kandnq k5, k5, k7;                                                        # Confine to key slots
-      Korq   k5, k5, k6;                                                        # Shows key slots with a zero at the insertion point
-      Vpexpandd zmmM($PK, 5), zmm($PK);                                         # Make room in keys
-      Vpexpandd zmmM($PD, 5), zmm($PD);                                         # Make room in data
-      Knotq k5, k5;                                                             # Invert to put a single one at the insertion location
-      Kandq k5, k5, k7;                                                         # Restrict to keys
-
-      $SK->setReg($transfer);
-      Vpbroadcastd zmm($Test), $transfer."d";                                   # Broadcast the key to be inserted
-      Vmovdqu32 zmmM($PK, 5), zmm($Test);                                       # Insert key
-
-      $SD->setReg($transfer);
-      Vpbroadcastd zmm($Test), $transfer."d";                                   # Broadcast the data to be inserted
-      Vmovdqu32 zmmM($PD, 5), zmm($Test);                                       # Insert data
-
-      Block                                                                     # Insert node into parent
-       {LoadBitsIntoMaskRegister(7, $transfer, "0", $zw-1);                     # Node slots
-        Kmovq $transfer, k6;
-        Cmp $transfer, 0;                                                       # We are inserting before the first node so k6 is zero and shifting it will not have the desired effect
-        IfEq
-        Then                                                                    # Place a one at position zero to indicate the insertion point
-         {Mov $transfer, 1;
-          Kmovq k5, $transfer;
-         },
-        Else                                                                    # K6 is not zero so it can be shifted to correctly indicate the insertion point
-         {Kshiftlq k5, k6, 2;
-         };
-        Kandnq k5, k5, k7;                                                      # Confine to node slots
-        Korq   k5, k5, k6;                                                      # Shows nodes slots with a zero at the insertion point
-        Vpexpandd zmmM($PN, 5), zmm($PN);                                       # Make room in nodes
+      If $insertIndex < $zw - 2,
+      Then                                                                      # Insert key/data into parent at correct position
+       {LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-2);                    # Key/data slots
+        Kshiftlq k5, k6, 1;                                                     # Create a mask that shows the allowable key positions set to one with a zero at the insertion point
+        Kandnq k5, k5, k7;                                                      # Confine to key slots
+        Korq   k5, k5, k6;                                                      # Shows key slots with a zero at the insertion point
+        Vpexpandd zmmM($PK, 5), zmm($PK);                                       # Make room in keys
+        Vpexpandd zmmM($PD, 5), zmm($PD);                                       # Make room in data
         Knotq k5, k5;                                                           # Invert to put a single one at the insertion location
-        Kandq k5, k5, k7;                                                       # Restrict to nodes
-Mov $transfer, $newRight;                                                       # Address of new right hand block
-        Vpbroadcastd zmm($Test), $transfer."d";                                 # Broadcast the offset of the block to be inserted into the nodes
-        Vmovdqu32 zmmM($PN, 5), zmm($Test);                                     # Insert offset
+        Kandq k5, k5, k7;                                                       # Restrict to keys
+
+        $SK->setReg($transfer);
+        Vpbroadcastd zmm($Test), $transfer."d";                                 # Broadcast the key to be inserted
+        Vmovdqu32 zmmM($PK, 5), zmm($Test);                                     # Insert key
+
+        $SD->setReg($transfer);
+        Vpbroadcastd zmm($Test), $transfer."d";                                 # Broadcast the data to be inserted
+        Vmovdqu32 zmmM($PD, 5), zmm($Test);                                     # Insert data
+
+        Block                                                                   # Insert node into parent
+         {LoadBitsIntoMaskRegister(7, $transfer, "0", $zw-1);                   # Node slots
+          Kmovq $transfer, k6;
+          Cmp $transfer, 0;                                                     # We are inserting before the first node so k6 is zero and shifting it will not have the desired effect
+          IfEq
+          Then                                                                  # Place a one at position zero to indicate the insertion point
+           {Mov $transfer, 1;
+            Kmovq k5, $transfer;
+           },
+          Else                                                                  # K6 is not zero so it can be shifted to correctly indicate the insertion point
+           {Kshiftlq k5, k6, 2;
+           };
+          Kandnq k5, k5, k7;                                                    # Confine to node slots
+          Korq   k5, k5, k6;                                                    # Shows nodes slots with a zero at the insertion point
+          Vpexpandd zmmM($PN, 5), zmm($PN);                                     # Make room in nodes
+          Knotq k5, k5;                                                         # Invert to put a single one at the insertion location
+          Kandq k5, k5, k7;                                                     # Restrict to nodes
+          $newRight->setReg($transfer);                                         # Address of new right hand block
+          Vpbroadcastd zmm($Test), $transfer."d";                               # Broadcast the offset of the block to be inserted into the nodes
+          Vmovdqu32 zmmM($PN, 5), zmm($Test);                                   # Insert offset
+         };
+       },
+      Else
+       {PrintOutStringNL "Attempt to insert a key beyond the key block";
+        PrintOutTraceBack;
+        Exit(0);
        };
      },
-    Else
-     {PrintErrStringNL "Attempt to insert a key beyond the key block";
-      PrintErrTraceBack;
-      Exit(0);
+
+    Else                                                                        # All the keys in the parent are greater then the splitting node
+     {LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-3, -1);                  # Key/data slots to expand to with a hole for the  splitting key in position zero
+      Vpexpandd zmmM($PK, 7), zmm($PK);                                         # Make room in keys
+      Vpexpandd zmmM($PD, 7), zmm($PD);                                         # Make room in data
+      $SK->putDIntoZmm($PK, 0);                                                 # Load splitting key into parent
+      $SD->putDIntoZmm($PD, 0);                                                 # Load splitting key data into parent
+
+      LoadBitsIntoMaskRegister(7, $transfer, "0", $zw-3, -1, +1);               # Nodes slots to expand to with a hole for the new node key at position one as this is a right expansion
+      Vpexpandd zmmM($PN, 7), zmm($PN);                                         # Make room in nodes
+      $newRight->putDIntoZmm($PN, $w);                                          # Insert the new node in second position because we are splitting right so the left node must continue to occupy the first position
      };
-   },
 
-  Else                                                                          # All the keys in the parent are greater then the splitting node
-   {LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-3, -1);                    # Key/data slots to expand to with a hole for the  splitting key in position zero
-    Vpexpandd zmmM($PK, 7), zmm($PK);                                           # Make room in keys
-    Vpexpandd zmmM($PD, 7), zmm($PD);                                           # Make room in data
-PrintErrStringNL "CCCCC";
-    $SK->putDIntoZmm($PK, 0);                                                   # Load splitting key into parent
-    $SD->putDIntoZmm($PD, 0);                                                   # Load splitting key data into parent
+    my $length = getBFromZmm($PK, $lengthOffset);                               # Increment length of parent field
+    ($length +1)->putBIntoZmm($PK, $lengthOffset);
 
-    LoadBitsIntoMaskRegister(7, $transfer, "0", $zw-3, -1, +1);                 # Nodes slots to expand to with a hole for the new node key at position one as this is a right expansion
-    Vpexpandd zmmM($PN, 7), zmm($PN);                                           # Make room in nodes
-V(node => $newRight)->putDIntoZmm($PN, $w);                                     # Insert the new node in second position because we are splitting right so the left node must continue to occupy the first position
-   };
+    PrintOutStringNL "Parent";
+    PrintOutRegisterInHex zmm reverse 29..31;
 
-  my $length = getBFromZmm($PK, $lengthOffset);                                 # Increment length of parent field
-  ($length +1)->putBIntoZmm($PK, $lengthOffset);
+    PrintOutStringNL "Left";
+    PrintOutRegisterInHex zmm reverse 26..28;
 
-  PrintErrStringNL "BBBB parent";
-  PrintErrRegisterInHex zmm reverse 29..31;
+    PrintOutStringNL "Right";
+    PrintOutRegisterInHex zmm reverse 23..25;
 
-  PrintErrStringNL "BBBB Left";
-  PrintErrRegisterInHex zmm reverse 26..28;
-
-  PrintErrStringNL "BBBB Right";
-  PrintErrRegisterInHex zmm reverse 23..25;
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-END
+    my $r = Assemble;
+    say STDERR $r;
+   }
  }
 
 #latest:
