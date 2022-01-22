@@ -50,7 +50,7 @@ our $stderr = 2;                                                                
 my %Registers;                                                                  # The names of all the registers
 my %RegisterContaining;                                                         # The largest register containing a register
 my @GeneralPurposeRegisters = (qw(rax rbx rcx rdx rsi rdi), map {"r$_"} 8..15); # General purpose registers
-my @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});              # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
+#my @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});              # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
 my $bitsInByte;                                                                 # The number of bits in a byte
 my $debugLine = '';                                                             # The last set debug line which connects a location in assembler matches a location in perl
 
@@ -463,16 +463,16 @@ sub ChooseRegisters($@)                                                         
   sort keys %r
  }
 
-sub RegistersAvailable(@)                                                       # Add a new set of registers that are available.
- {my (@reg) = @_;                                                               # Registers known to be available at the moment
-  my %r = map {$_=>1} @reg;
-  push @RegistersAvailable, \%r;
- }
-
-sub RegistersFree                                                               # Remove the current set of registers known to be free.
- {@RegistersAvailable or confess "No registers to free";
-  pop @RegistersAvailable;
- }
+#sub RegistersAvailable(@)                                                       # Add a new set of registers that are available.
+# {my (@reg) = @_;                                                               # Registers known to be available at the moment
+#  my %r = map {$_=>1} @reg;
+#  push @RegistersAvailable, \%r;
+# }
+#
+#sub RegistersFree                                                               # Remove the current set of registers known to be free.
+# {@RegistersAvailable or confess "No registers to free";
+#  pop @RegistersAvailable;
+# }
 
 sub CheckGeneralPurposeRegister($)                                              # Check that a register is in fact a general purpose register.
  {my ($reg) = @_;                                                               # Mask register to check
@@ -499,16 +499,14 @@ sub CheckNumberedGeneralPurposeRegister($)                                      
 sub InsertZeroIntoRegisterAtPoint($$)                                           # Insert a zero into the specified register at the point indicated by another register.
  {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
 
-  PushR my @s = my ($mask, $low, $high) = ChooseRegisters(3, $in, $point);      # Choose three work registers and push them
+  PushR my ($mask, $low, $high) = ChooseRegisters(3, $in, $point);              # Choose three work registers and push them
   Mov  $mask, $point;
-  Sub  $mask, 1;
-  Andn $high, $mask, $in;
-  Shl  $high, 1;
-  Mov  $low,  $in;
-  And  $low,  $mask;
-  Or   $low,  $high;
-  Mov  $in,   $low;
-  PopR @s;                                                                      # Restore stack
+  Dec  $mask;                                                                   # Fill mask to the right of point with ones
+  Andn $high, $mask, $in;                                                       # Part of in be shifted
+  Shl  $high, 1;                                                                # Shift high part
+  And  $in,  $mask;                                                             # Clear high part of target
+  Or   $in,  $high;                                                             # Or in new shifted high part
+  PopR;                                                                         # Restore stack
  }
 
 sub InsertOneIntoRegisterAtPoint($$)                                            # Insert a one into the specified register at the point indicated by another register.
@@ -660,13 +658,6 @@ sub LoadBitsIntoMaskRegister($$$@)                                              
   $prefix =~ m(\A[01]*\Z) or confess "Prefix must be binary";                   # Prefix must be binary
   grep {$_ == 0} @values and confess "Values must not be zero";                 # No value may be zero
 
-  if ($prefix)                                                                  # Check that the prefix sign alternates with the first value sign
-   {my $l = substr($prefix, -1);
-    my $v = $values[0];
-    $l eq "0" and $v < 0 and confess "First value should be positive after 0";
-    $l eq "1" and $v > 0 and confess "First value should be negative after 1";
-   }
-
   for my $i(0..$#values-1)                                                      # Check values alternate
    {($values[$i] > 0 && $values[$i+1] > 0  or
      $values[$i] < 0 && $values[$i+1] < 0) and confess "Signs must alternate";
@@ -681,8 +672,11 @@ sub LoadBitsIntoMaskRegister($$$@)                                              
     $b .= '0' x -$v if $v < 0;
    }
 
-  LoadConstantIntoMaskRegister($mask, $transfer, eval $b)
+  my $B = eval $b;
+  LoadConstantIntoMaskRegister($mask, $transfer, $B)
  }
+
+#D1 Comparison codes                                                            # The codes used to specify what sort of comparison to perform
 
 my $Vpcmp = genHash("NasmX86::CompareCodes",                                    # Compare codes for "Vpcmp"
   eq=>0,                                                                        # Equal
@@ -7287,25 +7281,25 @@ sub Nasm::X86::Tree::splitFullRoot($)                                           
     my $lo = $t->getLoop($LN, $transfer);                                       # Offset of left block
     my $ro = $t->getLoop($RN, $transfer);                                       # Offset of right block
 
-    LoadBitsIntoMaskRegister(7, $transfer, "11", 2-$wz);                       # Area to clear in keys and data preserving loop and up/length
+    LoadBitsIntoMaskRegister(7, $transfer, "11", 2-$wz);                        # Area to clear in keys and data preserving loop and up/length
     &Vmovdqu32   (zmm $LK."{k7}{z}",   $LK);                                    # Clear left
     &Vmovdqu32   (zmm $LD."{k7}{z}",   $LD);
     &Vmovdqu32   (zmm $RK."{k7}{z}",   $RK);                                    # Clear right
     &Vmovdqu32   (zmm $RD."{k7}{z}",   $RD);
 
-    LoadBitsIntoMaskRegister(7, $transfer, "1", 1-$wz);                        # Area to clear in nodes preserving loop
+    LoadBitsIntoMaskRegister(7, $transfer, "1", 1-$wz);                         # Area to clear in nodes preserving loop
     &Vmovdqu32   (zmm $LN."{k7}{z}",   $LN);                                    # Clear left
     &Vmovdqu32   (zmm $RN."{k7}{z}",   $RN);                                    # Clear right
-    LoadBitsIntoMaskRegister(7, $transfer, "",  +$ll);                         # Constant mask up to the split point
+    LoadBitsIntoMaskRegister(7, $transfer, "",  +$ll);                          # Constant mask up to the split point
     &Vmovdqu32   (zmm $LK."{k7}",      $TK);                                    # Split keys left
     &Vmovdqu32   (zmm $LD."{k7}",      $TD);                                    # Split data left
     If $n > 0,                                                                  # Split nodes left
     Then
-     {LoadBitsIntoMaskRegister(7, $transfer, "",  +$ll+1);                     # Constant mask up to the split point
+     {LoadBitsIntoMaskRegister(7, $transfer, "",  +$ll+1);                      # Constant mask up to the split point
       &Vmovdqu32 (zmm $LN."{k7}", $TN);
      };
 
-    LoadBitsIntoMaskRegister(6, $transfer, '',  +$rl+1, -($ll+1));             # Constant mask from one beyond split point to end of keys
+    LoadBitsIntoMaskRegister(6, $transfer, '',  +$rl+1, -($ll+1));              # Constant mask from one beyond split point to end of keys
     Kshiftrq k7, k6, $ll+1;                                                     # Constant mask for compressed right keys
 
     &Vmovdqu32   (zmm $Test."{k6}{z}", $TK);                                    # Split right keys
@@ -7326,19 +7320,19 @@ sub Nasm::X86::Tree::splitFullRoot($)                                           
     my $k = getDFromZmm $TK, $ll * (my $w = $t->width), $transfer;              # Splitting key
     my $d = getDFromZmm $TD, $ll * $w,                  $transfer;              # Splitting data
 
-    LoadConstantIntoMaskRegister(7, $transfer, 1);                             # Position of key, data in root node
+    LoadConstantIntoMaskRegister(7, $transfer, 1);                              # Position of key, data in root node
     $k->zBroadCastD($Test);                                                     # Broadcast keys
     &Vmovdqu32 (zmm $TK."{k7}",  $Test);                                        # Insert key in root
     $d->zBroadCastD($Test);                                                     # Broadcast keys
     &Vmovdqu32 (zmm $TD."{k7}",  $Test);                                        # Insert data in root
-    LoadBitsIntoMaskRegister(7, $transfer, "11", 3-$wz, 1);                    # Unused fields
+    LoadBitsIntoMaskRegister(7, $transfer, "11", 3-$wz, 1);                     # Unused fields
 
     &Vmovdqu32 (zmm $TK."{k7}{z}",  $TK);                                       # Clear unused keys in root
     &Vmovdqu32 (zmm $TD."{k7}{z}",  $TD);                                       # Clear unused data in root
 
     If $n > 0,
     Then
-     {LoadBitsIntoMaskRegister(7, $transfer, "1", 2-$wz, 1);                   # Unused fields
+     {LoadBitsIntoMaskRegister(7, $transfer, "1", 2-$wz, 1);                    # Unused fields
       &Vmovdqu32 (zmm $TN."{k7}{z}",  $TN);                                     # Clear unused node in root
      };
 
@@ -7401,17 +7395,17 @@ sub Nasm::X86::Tree::splitFullLeftOrRightNode($$)                               
     my $ro = $t->getLoop($RN, $transfer);                                       # Offset of right block
 
     if ($right)
-     {LoadBitsIntoMaskRegister(7, $transfer, "00", $wz-2);                     # Left mask for keys and data
+     {LoadBitsIntoMaskRegister(7, $transfer, "00", $wz-2);                      # Left mask for keys and data
       &Vmovdqu32(zmm $LK."{k7}", $RK);                                          # Copy right keys  to left node
       &Vmovdqu32(zmm $LD."{k7}", $RD);                                          # Copy right data  to left node
-      LoadBitsIntoMaskRegister(7, $transfer, "01", $wz-2);                     # Left mask for child nodes
+      LoadBitsIntoMaskRegister(7, $transfer, "01", $wz-2);                      # Left mask for child nodes
       &Vmovdqu32(zmm $LN."{k7}", $RN);                                          # Copy right nodes to left node
      }
 
     my $w = $t->width;
     my $k = getDFromZmm $LK, $ll * $w, $transfer;                               # Splitting key
     my $d = getDFromZmm $LD, $ll * $w, $transfer;                               # Splitting data
-    LoadBitsIntoMaskRegister(6, $transfer, '', +$rl, -($ll+1));                # Constant mask from one beyond split point to end of keys
+    LoadBitsIntoMaskRegister(6, $transfer, '', +$rl, -($ll+1));                 # Constant mask from one beyond split point to end of keys
     Kshiftrq k7, k6, $ll+1;                                                     # Constant mask for compressed right keys
 
     &Vmovdqu32   (zmm $Test."{k6}{z}", $LK);                                    # Split out right keys
@@ -7427,20 +7421,20 @@ PrintErrRegisterInHex zmm  $LN, $RN;
     If $n > 0,
     Then                                                                        # Split right hand nodes from left hand nodes
      {
-      LoadBitsIntoMaskRegister(6, $transfer, '0', +$wz-1);                     # Transfer all but loop
+      LoadBitsIntoMaskRegister(6, $transfer, '0', +$wz-1);                      # Transfer all but loop
       &Vmovdqu32   (zmm $RN."{k6}", $LN);                                       # Copy left into right
 PrintErrRegisterInHex k6, zmm $RN;
-      LoadBitsIntoMaskRegister(6, $transfer, '', +$rl+1, -($ll+1));            # Constant mask from one beyond split point to end of keys
+      LoadBitsIntoMaskRegister(6, $transfer, '', +$rl+1, -($ll+1));             # Constant mask from one beyond split point to end of keys
       &Vpcompressd (zmm $RN."{k6}",      $RN);                                  # Compress right nodes left
 PrintErrRegisterInHex k6, zmm $RN;
-      LoadBitsIntoMaskRegister(7, $transfer, '1', -$rl+2-$wz, +$rl+1);         # Constant mask to clear unused areas
+      LoadBitsIntoMaskRegister(7, $transfer, '1', -$rl+2-$wz, +$rl+1);          # Constant mask to clear unused areas
       &Vmovdqu32   (zmm $RN."{k6}{z}",   $RN);                                  # Clear unused areas
 PrintErrRegisterInHex k6, zmm $RN;
      };
 PrintErrStringNL "CCCC22222";
 
     if ($right)
-     {LoadBitsIntoMaskRegister(7, $transfer, '11', 2+$rl-$wz, +$rl);           # Areas to retain
+     {LoadBitsIntoMaskRegister(7, $transfer, '11', 2+$rl-$wz, +$rl);            # Areas to retain
       &Vmovdqu32   (zmm $RK."{k7}{z}",   $RK);                                  # Remove unused keys on right
       &Vmovdqu32   (zmm $RD."{k7}{z}",   $RD);                                  # Remove unused data on right
 
@@ -7450,7 +7444,7 @@ PrintErrStringNL "CCCC22222";
         &Vmovdqu32 (zmm $RN."{k7}{z}",   $RN);
        };
 
-      LoadBitsIntoMaskRegister(7, $transfer, '11', 2+$ll-$wz, +$ll);           # Areas to retain
+      LoadBitsIntoMaskRegister(7, $transfer, '11', 2+$ll-$wz, +$ll);            # Areas to retain
       &Vmovdqu32   (zmm $LK."{k7}{z}",   $LK);                                  # Remove unused keys on left
       &Vmovdqu32   (zmm $LD."{k7}{z}",   $LD);                                  # Remove unused data on left
 
@@ -7473,7 +7467,7 @@ PrintErrStringNL "CCCC22222";
      }
 
     ($right ? $ro : $lo)->zBroadCastD($Test);                                   # Find index in parent of left node - broadcast offset of left node so we can locate it in the parent
-    LoadBitsIntoMaskRegister(7, $transfer, '00', +$wz-2);                      # Valid nodes mask
+    LoadBitsIntoMaskRegister(7, $transfer, '00', +$wz-2);                       # Valid nodes mask
     &Vpcmpud("k6{k7}", zmm($PN, $Test), 0);                                     # Check for equal offset - one of them will match to create the single insertion point in k6
 
     Kandnq k5, k6, k7;                                                          # Expansion mask
@@ -9273,7 +9267,7 @@ sub Link(@)                                                                     
 sub Start()                                                                     # Initialize the assembler.
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
   @PushR = @PushZmm = @PushMask = @extern = @link = @VariableStack = ();
-  @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});               # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
+# @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});               # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
   SubroutineStartStack;                                                         # Number of variables at each lexical level
   $Labels = 0;
  }
@@ -29503,99 +29497,93 @@ if (1) {
 END
  }
 
-latest:
-if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
+sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$$)                             # Split a left node pushing its excess right and up.
+ {my ($lm, $newRight, $lengthOffset, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;  # Width of node to split, variable offset in arena of right node block, position of length byte in keys, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
+  @_ == 12 or confess "Twelve parameters required";
 
-# The dwords at 56, 60 in keys and data, plus the dword at 60 in nodes must be preserved.  The middle key/data on the left must be inserted into the parent at the appropriate point in the parent.
+  my $w            = RegisterSize(eax);                                         # Size of keys, data, nodes
+  my $zw           = RegisterSize(zmm0) / $w;                                   # Number of dwords in a zmm
+  my $zwn          = $zw - 1;                                                   # Number of dwords used for nodes in a zmm
+  my $zwk          = $zwn - 1;                                                  # Number of dwords used for keys/data in a zmm
+  my $transfer     = r8;                                                        # Work register
+  my $transferD    = r8d;                                                       # Work register as a dword
+  my $ll           = int( $lm      / 2);                                        # Minimum node width on left
+  my $rl           = int(($lm - 1) / 2);                                        # Minimum node on right
 
-  my $newKey       = 0x8118;                                                    # New key to insert
-  my $newData      = 0x7117;                                                    # New data to insert
-  my $newRight     = K newRight => 0x9119;                                      # Offset of new right block
-  my $lengthOffset = 56;                                                        # Position of the length byte in the parent keys block
-  my ($Test, $RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 22..31;             # Zmm names
-  my $ll = 1; my $rl = 1; my $lm = $ll + $rl + 1; my $zw = 16; my $w = 4;       # Positions in zmm
-  my $transfer = r8;
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    PushR $transfer;                                                            # Work register
 
-  for my $test(0..13)
-   {K(parentKeys => Rd(map {($_<<28) +0x9999999} 1..15, 0))->loadZmm($PK);
-    K(parentData => Rd(map {($_<<28) +0x7777777} 1..15, 0))->loadZmm($PD);
-    K(parentData => Rd(map {($_<<28) +0x8888888} 1..15, 0))->loadZmm($PN);
+    my $SK = getDFromZmm($LK, $ll * $w, $transfer);                             # Splitting key
+    my $SD = getDFromZmm($LD, $ll * $w, $transfer);                             # Data corresponding to splitting key
 
-    K(parentData => Rd(map {($_<<28) +0x6666666} $test..15, 0..($test-1)))->loadZmm($LK);
-    K(parentData => Rd(map {($_<<28) +0x4444444} $test..15, 0..($test-1)))->loadZmm($LD);
-    K(parentData => Rd(map {($_<<28) +0x5555555} 0..15))->loadZmm($LN);
+    my $mask = sub                                                              # Set k7 to a specified bit mask
+     {my ($prefix, @onesAndZeroes) = @_;                                        # Prefix bits, alternating zeroes and ones
+      LoadBitsIntoMaskRegister(7, $transfer,  $prefix, @onesAndZeroes);         # Load k7 with mask
+     };
 
-    K(parentData => Rd(map {($_<<28) +0x3333333} 0..15))->loadZmm($RK);
-    K(parentData => Rd(map {($_<<28) +0x1111111} 0..15))->loadZmm($RD);
-    K(parentData => Rd(map {($_<<28) +0x2222222} 0..15))->loadZmm($RN);
+    &$mask("00", $zwk);                                                         # Area to clear in keys and data preserving last qword
+    Vmovdqu32    zmmM($RK, 7),  zmm($LK);
+    Vmovdqu32    zmmM($RD, 7),  zmm($LD);
 
-    PrintErrStringNL "Test $test";
-    LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-2);                        # Area to clear in keys and data preserving last qword
-    Vmovdqu32 zmm $RK."{k7}", $LK;
-    Vmovdqu32 zmm $RD."{k7}", $LD;
+    &$mask("0",  $zwn);                                                         # Area to clear in nodes preserving last dword
+    Vmovdqu32    zmmM($RN, 7),  zmm($LN);
 
-    my $SK = getDFromZmm($LK, $ll*RegisterSize(eax), $transfer);
-    my $SD = getDFromZmm($LD, $ll*RegisterSize(eax), $transfer);
-    LoadBitsIntoMaskRegister(7, $transfer,  "0", $zw-1);                        # Area to clear in nodes preserving last dword
-    Vmovdqu32 zmm $RN."{k7}", $LN;
+    &$mask("00", $lm-$zwk,  $rl, -$ll-1);                                       # Compress right data/keys
+    Vpcompressd  zmmM($RK, 7),  zmm($RK);
+    Vpcompressd  zmmM($RD, 7),  zmm($RD);
 
-    LoadBitsIntoMaskRegister(7, $transfer, "", $lm-$zw, $rl, -$ll-1);           # Compress right data/keys
-    Vpcompressd zmm $RK."{k7}", $RK;
-    Vpcompressd zmm $RD."{k7}", $RD;
+    &$mask("0",  $lm-$zwk, $rl+1, -$rl-1);                                      # Compress right nodes
+    Vpcompressd  zmmM($RN, 7),  zmm($RN);
 
-    LoadBitsIntoMaskRegister(7, $transfer,  "0", 2+$lm-$zw, $rl+1, -$rl-1);     # Compress right nodes
-    Vpcompressd zmm $RN."{k7}", $RN;
+    &$mask("11", $ll-$zwk, $ll);                                                # Clear left keys and data
+    Vmovdqu32    zmmMZ($LK, 7), zmm($LK);
+    Vmovdqu32    zmmMZ($LD, 7), zmm($LD);
 
-    LoadBitsIntoMaskRegister(7, $transfer, "11", 2+$ll-$zw, $ll);               # Clear left keys and data
-    Vmovdqu32 zmm $LK."{k7}{z}", $LK;
-    Vmovdqu32 zmm $LD."{k7}{z}", $LD;
+    &$mask("1",  $ll-$zwk, $ll+1);                                              # Clear left nodes
+    Vmovdqu32    zmmMZ($LN, 7), zmm($LN);
 
-    LoadBitsIntoMaskRegister(7, $transfer, "1", 2+$ll-$zw, $ll+1);              # Clear left nodes
-    Vmovdqu32 zmm $LN."{k7}{z}", $LN;
+    &$mask("11", $lm-$zw,  $rl);                                                # Clear right keys and data
+    Vmovdqu32    zmmMZ($RK, 7), zmm($RK);
+    Vmovdqu32    zmmMZ($RD, 7), zmm($RD);
 
-    LoadBitsIntoMaskRegister(7, $transfer, "11", $lm-$zw, $rl);                 # Clear right keys and data
-    Vmovdqu32 zmm $RK."{k7}{z}", $RK;
-    Vmovdqu32 zmm $RD."{k7}{z}", $RD;
+    &$mask("1",  $rl-$zwk, $rl+1);                                              # Clear right nodes
+    Vmovdqu32    zmmMZ($RN, 7), zmm($RN);
 
-    LoadBitsIntoMaskRegister(7, $transfer, "1", 2+$rl-$zw, $rl+1);              # Clear right nodes
-    Vmovdqu32 zmm $RN."{k7}{z}", $RN;
-
-
-    LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-2);                        # Key/data slots
+    &$mask("00", $zwk);                                                         # Key/data slots
     $SK->setReg($transfer);
+
+    PushR zmm(my $Test = $PD);                                                  # Known not to contain the parent keys
     Vpbroadcastd zmm($Test), $transfer."d";                                     # Splitting key in every position
-    Vpcmpud "k6\{k7}", zmm($PK), zmm($Test), 2;                                 # Test against every key to find which parent keys are less than the insertion key so that we can insert beyond it.
+    Vpcmpud "k6\{k7}", zmm($PK), zmm($Test), $Vpcmp->lt;                        # Test against every key to find which parent keys are less than the insertion key so that we can insert beyond it.
+    PopR;
+
     Kmovq $transfer, k6;                                                        # Ones where keys are less than the key to be inserted after
     Cmp $transfer, 0;                                                           # Check the number of keys in the parent smaller than the splitting key
+
     IfNe
     Then                                                                        # There is at least one key in the parent that is smaller than the splitting key
      {Not $transfer;
       Tzcnt $transfer, $transfer;                                               # Number of trailing zeros indicates insertion point
-      my $insertIndex = V insertIndex => $transfer;
 
-      If $insertIndex < $zw - 2,
+      Cmp $transfer, $zwk;
+      IfLt
       Then                                                                      # Insert key/data into parent at correct position
-       {LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-2);                    # Key/data slots
-        Kshiftlq k5, k6, 1;                                                     # Create a mask that shows the allowable key positions set to one with a zero at the insertion point
-        Kandnq k5, k5, k7;                                                      # Confine to key slots
-        Korq   k5, k5, k6;                                                      # Shows key slots with a zero at the insertion point
+       {Kshiftlq  k5, k6, 1;                                                    # Create a mask that shows the allowable key positions set to one with a zero at the insertion point
+        Kandnq    k5, k5, k7;                                                   # Confine to key slots
+        Korq      k5, k5, k6;                                                   # Shows key slots with a zero at the insertion point
         Vpexpandd zmmM($PK, 5), zmm($PK);                                       # Make room in keys
         Vpexpandd zmmM($PD, 5), zmm($PD);                                       # Make room in data
-        Knotq k5, k5;                                                           # Invert to put a single one at the insertion location
-        Kandq k5, k5, k7;                                                       # Restrict to keys
+        Knotq     k5, k5;                                                       # Invert to put a single one at the insertion location
+        Kandq     k5, k5, k7;                                                   # Restrict to keys
 
-        $SK->setReg($transfer);
-        Vpbroadcastd zmm($Test), $transfer."d";                                 # Broadcast the key to be inserted
-        Vmovdqu32 zmmM($PK, 5), zmm($Test);                                     # Insert key
-
-        $SD->setReg($transfer);
-        Vpbroadcastd zmm($Test), $transfer."d";                                 # Broadcast the data to be inserted
-        Vmovdqu32 zmmM($PD, 5), zmm($Test);                                     # Insert data
+        $SK->setReg($transfer); Vpbroadcastd zmmM($PK, 5), $transferD;          # Broadcast the key to be inserted
+        $SD->setReg($transfer); Vpbroadcastd zmmM($PD, 5), $transferD;          # Broadcast the data to be inserted
 
         Block                                                                   # Insert node into parent
-         {LoadBitsIntoMaskRegister(7, $transfer, "0", $zw-1);                   # Node slots
+         {&$mask("0",      $zwn);                                               # Node slots
           Kmovq $transfer, k6;
-          Cmp $transfer, 0;                                                     # We are inserting before the first node so k6 is zero and shifting it will not have the desired effect
+          Cmp $transfer,   0;                                                   # We are inserting before the first node so k6 is zero and shifting it will not have the desired effect
           IfEq
           Then                                                                  # Place a one at position zero to indicate the insertion point
            {Mov $transfer, 1;
@@ -29607,11 +29595,10 @@ if (1) {                                                                        
           Kandnq k5, k5, k7;                                                    # Confine to node slots
           Korq   k5, k5, k6;                                                    # Shows nodes slots with a zero at the insertion point
           Vpexpandd zmmM($PN, 5), zmm($PN);                                     # Make room in nodes
-          Knotq k5, k5;                                                         # Invert to put a single one at the insertion location
-          Kandq k5, k5, k7;                                                     # Restrict to nodes
-          $newRight->setReg($transfer);                                         # Address of new right hand block
-          Vpbroadcastd zmm($Test), $transfer."d";                               # Broadcast the offset of the block to be inserted into the nodes
-          Vmovdqu32 zmmM($PN, 5), zmm($Test);                                   # Insert offset
+          Knotq  k5, k5;                                                        # Invert to put a single one at the insertion location
+          Kandq  k5, k5, k7;                                                    # Restrict to nodes
+          $$p{newRight}->setReg($transfer);                                     # Address of new right hand block
+          Vpbroadcastd zmmM($PN, 5), $transferD;                                # Broadcast the offset of the block to be inserted into the nodes
          };
        },
       Else
@@ -29622,19 +29609,49 @@ if (1) {                                                                        
      },
 
     Else                                                                        # All the keys in the parent are greater then the splitting node
-     {LoadBitsIntoMaskRegister(7, $transfer, "00", $zw-3, -1);                  # Key/data slots to expand to with a hole for the  splitting key in position zero
-      Vpexpandd zmmM($PK, 7), zmm($PK);                                         # Make room in keys
-      Vpexpandd zmmM($PD, 7), zmm($PD);                                         # Make room in data
-      $SK->putDIntoZmm($PK, 0);                                                 # Load splitting key into parent
-      $SD->putDIntoZmm($PD, 0);                                                 # Load splitting key data into parent
+     {&$mask("00", $zwk-1, -1);                                                 # Key/data slots to expand to with a hole for the  splitting key in position zero
+      Vpexpandd zmmM($PK, 7), zmm($PK); $SK      ->putDIntoZmm($PK, 0);         # Make room in parent keys and place the splitting key
+      Vpexpandd zmmM($PD, 7), zmm($PD); $SD      ->putDIntoZmm($PD, 0);         # Make room in parent data and palce the data associated with the splitting key
 
-      LoadBitsIntoMaskRegister(7, $transfer, "0", $zw-3, -1, +1);               # Nodes slots to expand to with a hole for the new node key at position one as this is a right expansion
-      Vpexpandd zmmM($PN, 7), zmm($PN);                                         # Make room in nodes
-      $newRight->putDIntoZmm($PN, $w);                                          # Insert the new node in second position because we are splitting right so the left node must continue to occupy the first position
+      &$mask("0", $zwn-2, -1, +1);                                              # Nodes slots to expand to with a hole for the new node key at position one as this is a right expansion
+      Vpexpandd zmmM($PN, 7), zmm($PN); $newRight->putDIntoZmm($PN, $w);        # Make room in parent nodes and place the new node in second position because we are splitting right so the left node must continue to occupy the first position
      };
 
-    my $length = getBFromZmm($PK, $lengthOffset);                               # Increment length of parent field
-    ($length +1)->putBIntoZmm($PK, $lengthOffset);
+    if (1)
+     {my $length  = getBFromZmm($PK, $lengthOffset);
+      (getBFromZmm($PK, $lengthOffset) + 1)->putBIntoZmm($PK, $lengthOffset);   # Increment length of parent field
+     }
+    PopR;
+   }
+  parameters => [qw(newRight)],
+  name       => "Nasm::X86::Tree::splitLeftToRight".
+          "($lm, $lengthOffset, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
+
+  $s->call(parameters => {newRight => $newRight});
+ }
+
+latest:
+if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
+  my $newRight     = K newRight => 0x9119;                                      # Offset of new right block
+
+  my ($RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 23..31;                    # Zmm names
+
+  for my $test(0..13)                                                           # Test each key position
+   {PrintOutStringNL "Test $test";
+
+    K(PK => Rd(map {($_<<28) +0x9999999} 1..15, 0))->loadZmm($PK);
+    K(PD => Rd(map {($_<<28) +0x7777777} 1..15, 0))->loadZmm($PD);
+    K(PN => Rd(map {($_<<28) +0x8888888} 1..15, 0))->loadZmm($PN);
+
+    K(LK => Rd(map {($_<<28) +0x6666666} $test..15, 0..($test-1)))->loadZmm($LK);
+    K(LD => Rd(map {($_<<28) +0x4444444} $test..15, 0..($test-1)))->loadZmm($LD);
+    K(LN => Rd(map {($_<<28) +0x5555555} 0..15))->loadZmm($LN);
+
+    K(RK => Rd(map {($_<<28) +0x3333333} 0..15))->loadZmm($RK);
+    K(RD => Rd(map {($_<<28) +0x1111111} 0..15))->loadZmm($RD);
+    K(RN => Rd(map {($_<<28) +0x2222222} 0..15))->loadZmm($RN);
+
+    &Nasm::X86::Tree::splitLeftToRight(3, $newRight, 56, reverse 23..31);
 
     PrintOutStringNL "Parent";
     PrintOutRegisterInHex zmm reverse 29..31;
@@ -29644,10 +29661,237 @@ if (1) {                                                                        
 
     PrintOutStringNL "Right";
     PrintOutRegisterInHex zmm reverse 23..25;
-
-    my $r = Assemble;
-    say STDERR $r;
    }
+
+  ok Assemble eq => <<END;
+Test 0
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   5999 9999 4999 9999   3999 9999 2999 9999   1999 9999 1666 6666
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   5777 7777 4777 7777   3777 7777 2777 7777   1777 7777 1444 4444
+ zmm29: 0888 8888 E888 8888   D888 8888 C888 8888   B888 8888 A888 8888   9888 8888 8888 8888   7888 8888 6888 8888   5888 8888 4888 8888   3888 8888 2888 8888   0000 9119 1888 8888
+Left
+ zmm28: F666 6666 E666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0666 6666
+ zmm27: F444 4444 E444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 2666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 2444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 1
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   5999 9999 4999 9999   3999 9999 2999 9999   2666 6666 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   5777 7777 4777 7777   3777 7777 2777 7777   2444 4444 1777 7777
+ zmm29: 0888 8888 E888 8888   D888 8888 C888 8888   B888 8888 A888 8888   9888 8888 8888 8888   7888 8888 6888 8888   5888 8888 4888 8888   3888 8888 0000 9119   2888 8888 1888 8888
+Left
+ zmm28: 0666 6666 F666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 1666 6666
+ zmm27: 0444 4444 F444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 1444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 3666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 3444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 2
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   5999 9999 4999 9999   3999 9999 3666 6666   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   5777 7777 4777 7777   3777 7777 3444 4444   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 B888 8888   A888 8888 9888 8888   8888 8888 7888 8888   6888 8888 5888 8888   4888 8888 3888 8888   0000 9119 0000 9119   2888 8888 1888 8888
+Left
+ zmm28: 1666 6666 0666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 2666 6666
+ zmm27: 1444 4444 0444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 2444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 4666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 4444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 3
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   5999 9999 4999 9999   4666 6666 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   5777 7777 4777 7777   4444 4444 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 B888 8888   A888 8888 9888 8888   8888 8888 7888 8888   6888 8888 5888 8888   4888 8888 0000 9119   0000 9119 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: 2666 6666 1666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 3666 6666
+ zmm27: 2444 4444 1444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 3444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 5666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 5444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 4
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   5999 9999 5666 6666   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   5777 7777 5444 4444   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 B888 8888   A888 8888 9888 8888   8888 8888 7888 8888   6888 8888 5888 8888   0000 9119 0000 9119   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: 3666 6666 2666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 4666 6666
+ zmm27: 3444 4444 2444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 4444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 6666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 6444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 5
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   6666 6666 5999 9999   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   6444 4444 5777 7777   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 B888 8888   A888 8888 9888 8888   8888 8888 7888 8888   6888 8888 0000 9119   0000 9119 5888 8888   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: 4666 6666 3666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 5666 6666
+ zmm27: 4444 4444 3444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 5444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 7666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 7444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 6
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 7666 6666   6999 9999 5999 9999   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 7444 4444   6777 7777 5777 7777   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 B888 8888   A888 8888 9888 8888   8888 8888 7888 8888   0000 9119 0000 9119   6888 8888 5888 8888   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: 5666 6666 4666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 6666 6666
+ zmm27: 5444 4444 4444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 6444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 8666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 8444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 7
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   8666 6666 7999 9999   6999 9999 5999 9999   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   8444 4444 7777 7777   6777 7777 5777 7777   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 B888 8888   A888 8888 9888 8888   8888 8888 0000 9119   0000 9119 7888 8888   6888 8888 5888 8888   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: 6666 6666 5666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 7666 6666
+ zmm27: 6444 4444 5444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 7444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 9666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 9444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 8
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 9666 6666   8999 9999 7999 9999   6999 9999 5999 9999   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 9444 4444   8777 7777 7777 7777   6777 7777 5777 7777   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 B888 8888   A888 8888 9888 8888   0000 9119 0000 9119   8888 8888 7888 8888   6888 8888 5888 8888   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: 7666 6666 6666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 8666 6666
+ zmm27: 7444 4444 6444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 8444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 A666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 A444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 9
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 A999 9999   A666 6666 9999 9999   8999 9999 7999 9999   6999 9999 5999 9999   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 A777 7777   A444 4444 9777 7777   8777 7777 7777 7777   6777 7777 5777 7777   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 B888 8888   A888 8888 0000 9119   0000 9119 9888 8888   8888 8888 7888 8888   6888 8888 5888 8888   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: 8666 6666 7666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 9666 6666
+ zmm27: 8444 4444 7444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 9444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 B666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 B444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 10
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   B999 9999 B666 6666   A999 9999 9999 9999   8999 9999 7999 9999   6999 9999 5999 9999   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   B777 7777 B444 4444   A777 7777 9777 7777   8777 7777 7777 7777   6777 7777 5777 7777   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 B888 8888   0000 9119 0000 9119   A888 8888 9888 8888   8888 8888 7888 8888   6888 8888 5888 8888   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: 9666 6666 8666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 A666 6666
+ zmm27: 9444 4444 8444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 A444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 C666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 C444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 11
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 C999 9999   C666 6666 B999 9999   A999 9999 9999 9999   8999 9999 7999 9999   6999 9999 5999 9999   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 C777 7777   C444 4444 B777 7777   A777 7777 9777 7777   8777 7777 7777 7777   6777 7777 5777 7777   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   C888 8888 0000 9119   0000 9119 B888 8888   A888 8888 9888 8888   8888 8888 7888 8888   6888 8888 5888 8888   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: A666 6666 9666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 B666 6666
+ zmm27: A444 4444 9444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 B444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 D666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 D444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 12
+Parent
+ zmm31: 0999 9999 F999 999A   D999 9999 D666 6666   C999 9999 B999 9999   A999 9999 9999 9999   8999 9999 7999 9999   6999 9999 5999 9999   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   D777 7777 D444 4444   C777 7777 B777 7777   A777 7777 9777 7777   8777 7777 7777 7777   6777 7777 5777 7777   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 D888 8888   0000 9119 0000 9119   C888 8888 B888 8888   A888 8888 9888 8888   8888 8888 7888 8888   6888 8888 5888 8888   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: B666 6666 A666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 C666 6666
+ zmm27: B444 4444 A444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 C444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 E666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 E444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+Test 13
+Parent
+ zmm31: 0999 9999 F999 999A   E666 6666 D999 9999   C999 9999 B999 9999   A999 9999 9999 9999   8999 9999 7999 9999   6999 9999 5999 9999   4999 9999 3999 9999   2999 9999 1999 9999
+ zmm30: 0777 7777 F777 7777   E444 4444 D777 7777   C777 7777 B777 7777   A777 7777 9777 7777   8777 7777 7777 7777   6777 7777 5777 7777   4777 7777 3777 7777   2777 7777 1777 7777
+ zmm29: 0888 8888 0000 9119   0000 9119 D888 8888   C888 8888 B888 8888   A888 8888 9888 8888   8888 8888 7888 8888   6888 8888 5888 8888   4888 8888 3888 8888   2888 8888 1888 8888
+Left
+ zmm28: C666 6666 B666 6666   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 D666 6666
+ zmm27: C444 4444 B444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 D444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Right
+ zmm25: F333 3333 E333 3333   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 F666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 F444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
+END
+ }
+
+#latest:
+if (0) {                                                                        # Split a 'left' register at the constant indicated position putting the splitting bit into the specified variable position in the 'parent' register and the remainder of the split into the 'right' register. We indicate the position in the 'parent' register for the splitting bit with a single one in the 'right' register.
+  my $left = rax; my $right = rdx; my $parent = rdi;                            # Left, right and parent registers
+  my $ll = 1; my $rl = 1; my $lm = $ll + $rl + 1;                               # Positions in zmm
+  my $insertPoint = 0x100;                                                      # The insertion poin.
+
+  Mov $left,  0b111;
+  Mov $parent, 0x9999;
+  Mov $right, $insertPoint;
+
+  PushR (my $point = r12, my $bit = r13, my $low = r14, my $high = r15);
+PrintErrStringNL "AAAA";
+PrintErrRegisterInHex $left, $right, $parent;
+
+  Mov $low,  $left;
+  Shl $low,  64-$ll;
+  Shr $low,  64-$ll;
+
+  Mov $high, $left;
+  Shl $high, 64-$lm;
+  Shr $high, 64-$rl;
+
+  Mov $bit, $left;
+  Shl $bit, 64-$ll-1;
+  Shr $bit, 63;
+
+  Cmp $bit, 0;
+  IfNe
+  Then                                                                          # The value of the splitting bit is one (as it is not zero what with being a bit and all that).
+   {InsertOneIntoRegisterAtPoint($right, $parent);                              # Insert a one into the specified register at the point indicated by another register.
+   },
+  Else
+   {InsertZeroIntoRegisterAtPoint($right, $parent);                             # Insert a zero into the specified register at the point indicated by another register.
+   };
+
+  Mov $left, $low;
+  Mov $right, $high;
+PrintErrStringNL "BBBB";
+PrintErrRegisterInHex $left, $right, $parent;
+
+  PopR;
+  ok Assemble eq => <<END;
+END
  }
 
 #latest:
