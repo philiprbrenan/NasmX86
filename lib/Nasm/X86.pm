@@ -3656,7 +3656,7 @@ sub Nasm::X86::Variable::for($&)                                                
 sub PushRR(@)                                                                   #P Push registers onto the stack without tracking.
  {my (@r) = @_;                                                                 # Register
   my $w = RegisterSize rax;
-  for my $r(@r)
+  for my $r(map {registerNameFromNumber $_} @r)
    {my $size = RegisterSize $r;
     $size or confess "No such register: $r";
     if    ($size > $w)                                                          # Wide registers
