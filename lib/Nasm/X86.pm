@@ -3280,10 +3280,11 @@ sub Nasm::X86::Variable::loadZmm($$;$)                                          
   PopR unless defined $Transfer;
  }
 
-sub loadFromZmm($*$$)                                                           # Load the specified register from the offset located in the numbered zmm.
- {my ($register, $size, $zmm, $offset) = @_;                                    # Register to load, "b|w|d|q" for size, numbered zmm register to load from, constant offset in bytes
-  @_ == 4 or confess;
-  $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
+sub wRegFromZmm($$$)                                                            # Load the specified register from the word at the specified offset located in the numbered zmm.
+ {my ($register, $zmm, $offset) = @_;                                           # Register to load, numbered zmm register to load from, constant offset in bytes
+  @_ == 3 or confess "Three parameters";
+  $offset >= 0 && $offset <= RegisterSize zmm0 or
+    confess "Offset $offset Out of range";
 
   $register =~ m(\Ar\d+) or confess "Choose r8..r15 not $register";
 
@@ -3291,24 +3292,18 @@ sub loadFromZmm($*$$)                                                           
 
   ClearRegisters $register;
 
-  Mov $register."b", "[rsp+$offset]" if $size =~ m(b);                          # Load byte register from offset
-  Mov $register."w", "[rsp+$offset]" if $size =~ m(w);                          # Load word register from offset
-  Mov $register."d", "[rsp+$offset]" if $size =~ m(d);                          # Load double word register from offset
-  Mov $register,     "[rsp+$offset]" if $size =~ m(q);                          # Load register from offset
+  Mov $register."w", "[rsp+$offset]";                                           # Load word register from offset
   Add rsp, RegisterSize "zmm$zmm";                                              # Pop source register
  }
 
-sub putIntoZmm($*$$)                                                            # Put the specified register into the numbered zmm at the specified offset in the zmm.
- {my ($register, $size, $zmm, $offset) = @_;                                    # Register to load, bwdq for size, numbered zmm register to load from, constant offset in bytes
-  @_ == 4 or confess;
+sub wRegIntoZmm($$$)                                                            # Put the specified register into the word in the numbered zmm at the specified offset in the zmm.
+ {my ($register,  $zmm, $offset) = @_;                                          # Register to load, numbered zmm register to load from, constant offset in bytes
+  @_ == 3 or confess "Three parameters";
   $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
 
   PushR "zmm$zmm";                                                              # Push source register
 
-  Mov "[rsp+$offset]", $register."b" if $size =~ m(b);                          # Load byte register from offset
-  Mov "[rsp+$offset]", $register."w" if $size =~ m(w);                          # Load word register from offset
-  Mov "[rsp+$offset]", $register."d" if $size =~ m(d);                          # Load double word register from offset
-  Mov "[rsp+$offset]", $register,    if $size =~ m(q);                          # Load register from offset
+  Mov "[rsp+$offset]", $register."w";                                           # Load word register from offset
   PopR "zmm$zmm";                                                               # Reload zmm
  }
 
@@ -7595,19 +7590,10 @@ sub Nasm::X86::Tree::findAndSplit($$)                                           
         $t->offset ->copy($P);                                                  # Offset of matching block
         Jmp $success
        };
-PrintErrStringNL "AAAA";
-$P->d;
-$l->d;
-PrintErrRegisterInHex zmm 31, 29;
 
       If $l >= $t->maxKeys,                                                     # Split the node if possible.
       Then
        {$t->splitNode($P, $K);                                                  # Split if the leaf has got too big
-PrintErrStringNL "BBBBB Split";
-$P->d;
-$t->dump("After internal node split");
-Exit(0);
-
        };
       $P->copy(getDFromZmm $zmmNode, ($l)* $t->width, $transfer);               # Greater than all keys so step through last child node
       $t->getKeysDataNode($P, $zmmKeys, $zmmData, $zmmNode, $transfer, $work);  # Get the keys/data/nodes block
@@ -8434,14 +8420,14 @@ sub Nasm::X86::Tree::clearTree($$$)                                             
 sub Nasm::X86::Tree::getTreeBits($$$)                                           #P Load the tree bits from the numbered zmm into the specified register.
  {my ($t, $zmm, $register) = @_;                                                # Tree descriptor, numbered zmm, target register
   @_ == 3 or confess "3 parameters";
-  loadFromZmm $register, w, $zmm, $t->treeBits;
+  wRegFromZmm $register, $zmm, $t->treeBits;
   And $register, $t->treeBitsMask;
  }
 
 sub Nasm::X86::Tree::putTreeBits($$$)                                           #P Put the tree bits in the specified register into the numbered zmm.
  {my ($t, $zmm, $register) = @_;                                                # Tree descriptor, numbered zmm, target register
   @_ == 3 or confess "3 parameters";
-  putIntoZmm $register, w, $zmm, $t->treeBits;
+  wRegIntoZmm $register, $zmm, $t->treeBits;
   And $register, $t->treeBitsMask;
  }
 
@@ -15080,7 +15066,7 @@ Load bytes from the memory addressed by the specified source variable into the n
   2  $zmm       Number of zmm to get
   3  $Transfer  Optional transfer register
 
-=head3 loadFromZmm($register, $size, $zmm, $offset)
+=head3 getWFromZmm($register, $size, $zmm, $offset)
 
 Load the specified register from the offset located in the numbered zmm.
 
@@ -22041,7 +22027,7 @@ B<Example:>
 
     my $B = Rb(0..63);
     Vmovdqu8 zmm0, "[$B]";
-    loadFromZmm r15, w, zmm, 14;
+    getWFromZmm r15, w, zmm, 14;
 
     my $b = CreateArena;
     my $t = $b->CreateTree;
@@ -22857,7 +22843,7 @@ Total size in bytes of all files assembled during testing.
 
 90 L<LoadConstantIntoMaskRegister|/LoadConstantIntoMaskRegister> - Set a mask register equal to a constant.
 
-91 L<loadFromZmm|/loadFromZmm> - Load the specified register from the offset located in the numbered zmm.
+91 L<getWFromZmm|/getWFromZmm> - Load the specified register from the offset located in the numbered zmm.
 
 92 L<LoadRegFromMm|/LoadRegFromMm> - Load the specified register from the numbered zmm at the quad offset specified as a constant number.
 
@@ -26768,7 +26754,7 @@ END
 if (1) {                                                                        #TNasm::X86::Tree::transferTreeBitsFromParent
   my $B = Rb(0..63);
   Vmovdqu8 zmm0, "[$B]";
-  loadFromZmm r15, w, zmm, 14;
+  wRegFromZmm r15, zmm0, 14;
 
   my $b = CreateArena;
   my $t = $b->CreateTree;
@@ -29128,7 +29114,7 @@ if (1) {
     $$p{M}->copy($M);
     $M->setReg(rax);
     Mov "qword[rax]", -1;
-    FreeMemory $M, K size => $N;                                            # Free memory
+    FreeMemory $M, K size => $N;                                                # Free memory
     RestoreFirstFour;
    } structures => {struct => $t}, parameters => [qw(i o O M)], name => 'test';
 
@@ -29498,7 +29484,7 @@ END
  }
 
 sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$$)                             # Split a left node pushing its excess right and up.
- {my ($lm, $newRight, $lengthOffset, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;  # Width of node to split, variable offset in arena of right node block, position of length byte in keys, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
+ {my ($lw, $newRight, $lengthOffset, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;  # Width of node to split, variable offset in arena of right node block, position of length byte in keys, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 12 or confess "Twelve parameters required";
 
   my $w            = RegisterSize(eax);                                         # Size of keys, data, nodes
@@ -29507,8 +29493,8 @@ sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$$)                             
   my $zwk          = $zwn - 1;                                                  # Number of dwords used for keys/data in a zmm
   my $transfer     = r8;                                                        # Work register
   my $transferD    = r8d;                                                       # Work register as a dword
-  my $ll           = int( $lm      / 2);                                        # Minimum node width on left
-  my $rl           = int(($lm - 1) / 2);                                        # Minimum node on right
+  my $ll           = int( $lw      / 2);                                        # Minimum node width on left
+  my $lr           = int(($lw - 1) / 2);                                        # Minimum node on right
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
@@ -29529,11 +29515,11 @@ sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$$)                             
     &$mask("0",  $zwn);                                                         # Area to clear in nodes preserving last dword
     Vmovdqu32    zmmM($RN, 7),  zmm($LN);
 
-    &$mask("00", $lm-$zwk,  $rl, -$ll-1);                                       # Compress right data/keys
+    &$mask("00", $lw-$zwk,  $lr, -$ll-1);                                       # Compress right data/keys
     Vpcompressd  zmmM($RK, 7),  zmm($RK);
     Vpcompressd  zmmM($RD, 7),  zmm($RD);
 
-    &$mask("0",  $lm-$zwk, $rl+1, -$rl-1);                                      # Compress right nodes
+    &$mask("0",  $lw-$zwk, $lr+1, -$lr-1);                                      # Compress right nodes
     Vpcompressd  zmmM($RN, 7),  zmm($RN);
 
     &$mask("11", $ll-$zwk, $ll);                                                # Clear left keys and data
@@ -29543,11 +29529,11 @@ sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$$)                             
     &$mask("1",  $ll-$zwk, $ll+1);                                              # Clear left nodes
     Vmovdqu32    zmmMZ($LN, 7), zmm($LN);
 
-    &$mask("11", $lm-$zw,  $rl);                                                # Clear right keys and data
+    &$mask("11", $lw-$zw,  $lr);                                                # Clear right keys and data
     Vmovdqu32    zmmMZ($RK, 7), zmm($RK);
     Vmovdqu32    zmmMZ($RD, 7), zmm($RD);
 
-    &$mask("1",  $rl-$zwk, $rl+1);                                              # Clear right nodes
+    &$mask("1",  $lr-$zwk, $lr+1);                                              # Clear right nodes
     Vmovdqu32    zmmMZ($RN, 7), zmm($RN);
 
     &$mask("00", $zwk);                                                         # Key/data slots
@@ -29625,14 +29611,14 @@ sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$$)                             
    }
   parameters => [qw(newRight)],
   name       => "Nasm::X86::Tree::splitLeftToRight".
-          "($lm, $lengthOffset, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
+          "($lw, $lengthOffset, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
 
   $s->call(parameters => {newRight => $newRight});
  }
 
-latest:
+#latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
-  my $newRight     = K newRight => 0x9119;                                      # Offset of new right block
+  my $newRight = K newRight => 0x9119;                                          # Offset of new right block
 
   my ($RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 23..31;                    # Zmm names
 
@@ -29849,54 +29835,173 @@ Right
 END
  }
 
-#latest:
-if (0) {                                                                        # Split a 'left' register at the constant indicated position putting the splitting bit into the specified variable position in the 'parent' register and the remainder of the split into the 'right' register. We indicate the position in the 'parent' register for the splitting bit with a single one in the 'right' register.
-  my $left = rax; my $right = rdx; my $parent = rdi;                            # Left, right and parent registers
-  my $ll = 1; my $rl = 1; my $lm = $ll + $rl + 1;                               # Positions in zmm
-  my $insertPoint = 0x100;                                                      # The insertion poin.
+latest:
+if (1) {                                                                        # Split a root node held in zmm28..zmm26 into a parent in zmm31..zmm29 and a right node held in zmm25..zmm23
+  my $newLeft   = K newLeft  => 0x9119;                                         # Offset of new left  block
+  my $newRight  = K newRight => 0x9229;                                         # Offset of new right block
 
-  Mov $left,  0b111;
-  Mov $parent, 0x9999;
-  Mov $right, $insertPoint;
+  my $w         = RegisterSize(eax);                                            # Size of keys, data, nodes
+  my $zw        = RegisterSize(zmm0) / $w;                                      # Number of dwords in a zmm
+  my $zwn       = $zw  - 1;                                                     # Number of dwords used for nodes in a zmm
+  my $zwk       = $zwn - 1;                                                     # Number of dwords used for keys/data in a zmm
+  my $ll        = 3;                                                            # Minimum node width on left
+  my $lm        = $ll + 1;                                                      # Middle bit
+  my $lr        = $ll;                                                          # Minimum node on right
+  my $tb        = 56;                                                           # Position of tree bits word
+  my $lb        = 58;                                                           # Position of length word
 
-  PushR (my $point = r12, my $bit = r13, my $low = r14, my $high = r15);
-PrintErrStringNL "AAAA";
-PrintErrRegisterInHex $left, $right, $parent;
+  my $transfer  = r8;                                                           # Transfer register
+  my $transferD = r8d;                                                          # Transfer register as a dword
+  my $work      = r9;                                                           # Work register as a dword
+  my ($RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 23..31;                    # Zmm names
 
-  Mov $low,  $left;
-  Shl $low,  64-$ll;
-  Shr $low,  64-$ll;
+  K(PK => Rd(map {($_<<28) +0x9999999} 0..15))->loadZmm($PK);
+  K(PD => Rd(map {($_<<28) +0x7777777} 0..15))->loadZmm($PD);
+  K(PN => Rd(map {($_<<28) +0x8888888} 0..15))->loadZmm($PN);
 
-  Mov $high, $left;
-  Shl $high, 64-$lm;
-  Shr $high, 64-$rl;
+  K(LK => Rd(map {($_<<28) +0x6666666} 0..15))->loadZmm($LK);
+  K(LD => Rd(map {($_<<28) +0x4444444} 0..15))->loadZmm($LD);
+  K(LN => Rd(map {($_<<28) +0x5555555} 0..15))->loadZmm($LN);
 
-  Mov $bit, $left;
-  Shl $bit, 64-$ll-1;
-  Shr $bit, 63;
+  K(RK => Rd(map {($_<<28) +0x3333333} 0..15))->loadZmm($RK);
+  K(RD => Rd(map {($_<<28) +0x1111111} 0..15))->loadZmm($RD);
+  K(RN => Rd(map {($_<<28) +0x2222222} 0..15))->loadZmm($RN);
 
-  Cmp $bit, 0;
-  IfNe
-  Then                                                                          # The value of the splitting bit is one (as it is not zero what with being a bit and all that).
-   {InsertOneIntoRegisterAtPoint($right, $parent);                              # Insert a one into the specified register at the point indicated by another register.
-   },
-  Else
-   {InsertZeroIntoRegisterAtPoint($right, $parent);                             # Insert a zero into the specified register at the point indicated by another register.
+  Mov $transfer, 0b11011101;                                                    # Test set of tree bits
+  wRegIntoZmm $transfer, $LK, $tb;
+
+  PrintOutStringNL "Initial Parent";
+  PrintOutRegisterInHex zmm reverse 29..31;
+
+  PrintOutStringNL "Initial Left";
+  PrintOutRegisterInHex zmm reverse 26..28;
+
+  PrintOutStringNL "Initial Right";
+  PrintOutRegisterInHex zmm reverse 23..25;
+
+  my $mask = sub                                                                # Set k7 to a specified bit mask
+   {my ($prefix, @onesAndZeroes) = @_;                                          # Prefix bits, alternating zeroes and ones
+    LoadBitsIntoMaskRegister(7, $transfer,  $prefix, @onesAndZeroes);           # Load k7 with mask
    };
 
-  Mov $left, $low;
-  Mov $right, $high;
-PrintErrStringNL "BBBB";
-PrintErrRegisterInHex $left, $right, $parent;
+  PushR $transfer, $work;
+
+  &$mask("0", +7);                                                              # Set parent keys to highest possible value to force key insertion at the front
+  Mov $transfer, -1;
+  Vpbroadcastq zmmM($PK, 7), $transfer;
+
+  &$mask("0", +7);                                                              # Area to clear in keys and data preserving last qword
+  Mov $transfer, 0;
+  Vpbroadcastq zmmM($PD, 7), $transfer;
+  Vpbroadcastq zmmM($RK, 7), $transfer;
+  Vpbroadcastq zmmM($RD, 7), $transfer;
+
+  &$mask("0", +15);                                                             # Area to clear in nodes
+  Mov $transfer, 0;
+  Vpbroadcastd zmmM($PN, 7), $transferD;
+  Vpbroadcastd zmmM($RN, 7), $transferD;
+
+  &Nasm::X86::Tree::splitLeftToRight(3, $newRight, 56, reverse 23..31);
+
+  &$mask("00", +13, -1);                                                        # Reset parent keys/data outside of single key/data
+  Mov $transfer, 0;
+  Vpbroadcastd zmmM($PK, 7), $transferD;
+  Vpbroadcastd zmmM($PD, 7), $transferD;
+
+  &$mask("00", +12, -2);                                                        # Reset parent block outside of initial pair
+  Mov $transfer, 0;
+  Vpbroadcastd zmmM($PK, 7), $transferD;
+  Vpbroadcastd zmmM($PD, 7), $transferD;
+
+  &$mask("0", -14, +1);                                                         # Place new left
+  $newLeft->setReg($transfer);
+  Vpbroadcastd zmmM($PN, 7), $transferD;
+
+  wRegFromZmm $transfer, $LK, $tb;                                              # Tree bits
+  Mov $work, $transfer;
+  And $work, (1 << $ll) - 1;
+  wRegIntoZmm $work, $LK, $tb;                                                  # Left after split
+
+  Mov $work, $transfer;
+  Shr $work, $ll;
+  And  $work, 1;
+  wRegIntoZmm $work, $PK, $tb;                                                  # Parent after split
+
+  Mov $work, $transfer;
+  Shr $work, $lm;
+  And $work, (1 << $lr) - 1;
+  wRegIntoZmm $work, $RK, $tb;                                                  # Right after split
+
+  Mov $work, $ll;                                                               # Lengths
+  wRegIntoZmm $work, $LK, $lb;                                                  # Left after split
+  Mov $work, 1;                                                                 # Lengths
+  wRegIntoZmm $work, $PK, $lb;                                                  # Left after split
+  Mov $work, $lr;                                                               # Lengths
+  wRegIntoZmm $work, $RK, $lb;                                                  # Left after split
 
   PopR;
+
+  PrintOutStringNL "Final Parent";
+  PrintOutRegisterInHex zmm reverse 29..31;
+
+  PrintOutStringNL "Final Left";
+  PrintOutRegisterInHex zmm reverse 26..28;
+
+  PrintOutStringNL "Final Right";
+  PrintOutRegisterInHex zmm reverse 23..25;
+
   ok Assemble eq => <<END;
+Initial Parent
+ zmm31: F999 9999 E999 9999   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   5999 9999 4999 9999   3999 9999 2999 9999   1999 9999 0999 9999
+ zmm30: F777 7777 E777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   5777 7777 4777 7777   3777 7777 2777 7777   1777 7777 0777 7777
+ zmm29: F888 8888 E888 8888   D888 8888 C888 8888   B888 8888 A888 8888   9888 8888 8888 8888   7888 8888 6888 8888   5888 8888 4888 8888   3888 8888 2888 8888   1888 8888 0888 8888
+Initial Left
+ zmm28: F666 6666 E666 00DD   D666 6666 C666 6666   B666 6666 A666 6666   9666 6666 8666 6666   7666 6666 6666 6666   5666 6666 4666 6666   3666 6666 2666 6666   1666 6666 0666 6666
+ zmm27: F444 4444 E444 4444   D444 4444 C444 4444   B444 4444 A444 4444   9444 4444 8444 4444   7444 4444 6444 4444   5444 4444 4444 4444   3444 4444 2444 4444   1444 4444 0444 4444
+ zmm26: F555 5555 E555 5555   D555 5555 C555 5555   B555 5555 A555 5555   9555 5555 8555 5555   7555 5555 6555 5555   5555 5555 4555 5555   3555 5555 2555 5555   1555 5555 0555 5555
+Initial Right
+ zmm25: F333 3333 E333 3333   D333 3333 C333 3333   B333 3333 A333 3333   9333 3333 8333 3333   7333 3333 6333 3333   5333 3333 4333 3333   3333 3333 2333 3333   1333 3333 0333 3333
+ zmm24: F111 1111 E111 1111   D111 1111 C111 1111   B111 1111 A111 1111   9111 1111 8111 1111   7111 1111 6111 1111   5111 1111 4111 1111   3111 1111 2111 1111   1111 1111 0111 1111
+ zmm23: F222 2222 E222 2222   D222 2222 C222 2222   B222 2222 A222 2222   9222 2222 8222 2222   7222 2222 6222 2222   5222 2222 4222 2222   3222 2222 2222 2222   1222 2222 0222 2222
+Final Parent
+ zmm31: F999 9999 0001 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 1666 6666
+ zmm30: F777 7777 E777 7777   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 1444 4444
+ zmm29: F888 8888 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 9229 0000 9119
+Final Left
+ zmm28: F666 6666 0003 0005   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0666 6666
+ zmm27: F444 4444 E444 4444   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0444 4444
+ zmm26: F555 5555 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   1555 5555 0555 5555
+Final Right
+ zmm25: F333 3333 0003 0005   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 2666 6666
+ zmm24: F111 1111 E111 1111   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 2444 4444
+ zmm23: F222 2222 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   3555 5555 2555 5555
 END
  }
 
-#latest:
-if (0) {
+latest:
+if (1) {                                                                        # Split tree bits 3 : 3
+  my $ll = 3; my $lr = 3; my $lm = $ll + 1; my $lw = $lm + $lr;
+  Mov rax, 0b11011101;
+  PrintOutRegisterInHex rax;
+  Mov r15, rax;
+  And r15, (1 << $ll) - 1;
+  PrintOutRegisterInHex r15;
+
+  Mov r15, rax;
+  Shr r15, $ll;
+  And  r15, 1;
+  PrintOutRegisterInHex r15;
+
+  Mov r15, rax;
+  Shr r15, $lm;
+  And r15, (1 << $lr) - 1;
+  PrintOutRegisterInHex r15;
+
   ok Assemble eq => <<END;
+   rax: 0000 0000 0000 00DD
+   r15: 0000 0000 0000 0005
+   r15: 0000 0000 0000 0001
+   r15: 0000 0000 0000 0005
 END
  }
 
