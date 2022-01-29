@@ -29675,6 +29675,71 @@ sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$)                              
   $s->call(parameters => {newRight => $newRight});
  }
 
+sub Nasm::X86::Tree::splitParentInLeft($$$$$$$$$$$$)                            # Split a parent node into left and right nodes with the splitting key/data left in the parent nmode
+ {my ($lw, $newLeft, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)=@_;# Width of node to split, variable offset in arena of new left node block, variable offset in arena of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
+  @_ == 12 or confess "Twelve parameters required";
+
+  my $w            = RegisterSize(eax);                                         # Size of keys, data, nodes
+  my $zw           = RegisterSize(zmm0) / $w;                                   # Number of dwords in a zmm
+  my $zwn          = $zw - 1;                                                   # Number of dwords used for nodes in a zmm
+  my $zwk          = $zwn - 1;                                                  # Number of dwords used for keys/data in a zmm
+  my $transfer     = r8;                                                        # Transfer register
+  my $transferD    = r8d;                                                       # Transfer register as a dword
+  my $transferW    = r8w;                                                       # Transfer register as a  word
+  my $work         = r9;                                                        # Work register as a dword
+  my $ll           = int($lw / 2);                                              # Minimum node width on left
+  my $lm           = $ll + 1;                                                   # Position of middle
+  my $lr           = $lw - $ll - 1;                                             # Minimum node on right
+  my $lb           = DescribeTree->lengthOffset;                                # Position of length byte
+  my $tb           = DescribeTree->treeBits;                                    # Position of tree bits
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+
+    my $mask = sub                                                                # Set k7 to a specified bit mask
+     {my ($prefix, @onesAndZeroes) = @_;                                          # Prefix bits, alternating zeroes and ones
+      LoadBitsIntoMaskRegister(7, $transfer,  $prefix, @onesAndZeroes);           # Load k7 with mask
+     };
+
+    PushR $transfer, $work;
+
+    &$mask("0", +7);                                                              # Set parent keys to highest possible value to force key insertion at the front
+    Mov $transfer, -1;
+    Vpbroadcastq zmmM($PK, 7), $transfer;
+
+    &$mask("0", +7);                                                              # Area to clear in keys and data preserving last qword
+    Mov $transfer, 0;
+    Vpbroadcastq zmmM($PD, 7), $transfer;
+    Vpbroadcastq zmmM($RK, 7), $transfer;
+    Vpbroadcastq zmmM($RD, 7), $transfer;
+
+    &$mask("0", +15);                                                             # Area to clear in nodes
+    Mov $transfer, 0;
+    Vpbroadcastd zmmM($PN, 7), $transferD;
+    Vpbroadcastd zmmM($RN, 7), $transferD;
+
+    &Nasm::X86::Tree::splitLeftToRight($lw, $newRight, reverse 23..31);
+
+    &$mask("00", +13, -1);                                                        # Reset parent keys/data outside of single key/data
+    Mov $transfer, 0;
+    Vpbroadcastd zmmM($PK, 7), $transferD;
+
+    Mov $work, 1;                                                                 # Lengths
+    wRegIntoZmm $work, $PK, $lb;                                                  # Left after split
+
+    wRegFromZmm $work, $PK, $tb;                                                  # Parent tree bits
+    And $work, 1;
+    wRegIntoZmm $work, $PK, $tb;
+
+    PopR;
+   }
+  parameters => [qw(newLeft newRight)],
+  name       => "Nasm::X86::Tree::splitParentInLeft".
+          "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
+
+  $s->call(parameters => {newLeft => $newLeft, newRight => $newRight});
+ }
+
 latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
   my $newRight = K newRight => 0x9119;                                          # Offset of new right block
@@ -29953,42 +30018,7 @@ if (1) {                                                                        
   PrintOutStringNL "Initial Right";
   PrintOutRegisterInHex zmm reverse 23..25;
 
-  my $mask = sub                                                                # Set k7 to a specified bit mask
-   {my ($prefix, @onesAndZeroes) = @_;                                          # Prefix bits, alternating zeroes and ones
-    LoadBitsIntoMaskRegister(7, $transfer,  $prefix, @onesAndZeroes);           # Load k7 with mask
-   };
-
-  PushR $transfer, $work;
-
-  &$mask("0", +7);                                                              # Set parent keys to highest possible value to force key insertion at the front
-  Mov $transfer, -1;
-  Vpbroadcastq zmmM($PK, 7), $transfer;
-
-  &$mask("0", +7);                                                              # Area to clear in keys and data preserving last qword
-  Mov $transfer, 0;
-  Vpbroadcastq zmmM($PD, 7), $transfer;
-  Vpbroadcastq zmmM($RK, 7), $transfer;
-  Vpbroadcastq zmmM($RD, 7), $transfer;
-
-  &$mask("0", +15);                                                             # Area to clear in nodes
-  Mov $transfer, 0;
-  Vpbroadcastd zmmM($PN, 7), $transferD;
-  Vpbroadcastd zmmM($RN, 7), $transferD;
-
-  &Nasm::X86::Tree::splitLeftToRight($lw, $newRight, reverse 23..31);
-
-  &$mask("00", +13, -1);                                                        # Reset parent keys/data outside of single key/data
-  Mov $transfer, 0;
-  Vpbroadcastd zmmM($PK, 7), $transferD;
-
-  Mov $work, 1;                                                                 # Lengths
-  wRegIntoZmm $work, $PK, $lb;                                                  # Left after split
-
-  wRegFromZmm $work, $PK, $tb;                                                  # Parent tree bits
-  And $work, 1;
-  wRegIntoZmm $work, $PK, $tb;
-
-  PopR;
+  &Nasm::X86::Tree::splitParentInLeft($lw, $newLeft, $newRight, reverse 23..31);
 
   PrintOutStringNL "Final Parent";
   PrintOutRegisterInHex zmm reverse 29..31;
