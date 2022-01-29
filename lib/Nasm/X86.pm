@@ -6964,40 +6964,39 @@ sub Nasm::X86::Array::put($$$)                                                  
 sub DescribeTree(%)                                                             # Return a descriptor for a tree with the specified options.
  {my (%options) = @_;                                                           # Tree description options
 
+  confess "Maximum keys must be less than 15"
+    if $options{length} and $options{length} > 14;                              # Maximum number of keys is 14
+
   my $b = RegisterSize zmm0;                                                    # Size of a block == size of a zmm register
   my $o = RegisterSize eax;                                                     # Size of a double word
 
-  my $length = $b / $o - 2;                                                     # Length of block to split
-  my $split  = $length / 2  * $o;                                               # Offset of splitting key
+  my $keyAreaWidth = $b - $o * 2 ;                                              # Key / data area width  in bytes
+  my $length = $options{length} // $keyAreaWidth;                               # Length of block to split
 
-  confess "Maximum keys must be 14"         unless $length == 14;               # Maximum number of keys is expected to be 14
-  confess "Splitting key offset must be 28" unless $split  == 28;               # Splitting key offset
-
-$length = 3; # Test with a narrower tree
-$split = 8;
-
-  my $l2 = int($length / 2);
+  my $l2 = int($length/2);                                                      # Minimum length of length after splitting
 
   genHash(__PACKAGE__."::Tree",                                                 # Tree.
     arena        => ($options{arena} // DescribeArena),                         # Arena definition.
-    data         => V(data=>0),                                                 # Variable containing the last data found
+    compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
+    data         => V(data    => 0),                                            # Variable containing the last data found
+    debug        => V(debug   => 0),                                            # Write debug trace if true
     first        => ($options{first} // V(first => 0)),                         # Variable addressing offset to first block of keys.
     found        => ($options{found} // V(found => 0)),                         # Variable indicating whether the last find was successful or not
-    leftLength   => $l2,                                                        # Left split length
-    lengthOffset => $b - $o * 2,                                                # Offset of length in keys block.  The length field is a word - see: "MultiWayTree.svg"
+    index        => V(index   => 0),                                            # Index of key in last node found
+    lengthLeft   => $l2,                                                        # Left minimal number of keys
+    length       => $length,                                                    # Number of keys in a maximal block
+    lengthMiddle => $l2 + 1,                                                    # Number of splitting key counting from 1
+    lengthOffset => $keyAreaWidth,                                              # Offset of length in keys block.  The length field is a word - see: "MultiWayTree.svg"
+    lengthRight  => $length - 1 - $l2,                                          # Right minimal number of keys
     loop         => $b - $o,                                                    # Offset of keys, data, node loop.
     maxKeys      => $length,                                                    # Maximum number of keys.
-    splittingKey => $split,                                                     # Point at which to split a full block
-    rightLength  => $length - 1 - $l2,                                          # Right split length
-    subTree      => V(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
-    treeBits     => $b - $o * 2 + 2,                                            # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
-    treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
-    up           => $b - $o * 2,                                                # Offset of up in data block.
-    width        => $o,                                                         # Width of a key or data slot.
-    debug        => V(debug   => 0),                                            # Write debug trace if true
-    compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
     offset       => V(offset  => 0),                                            # Offset of last node found
-    index        => V(index   => 0),                                            # Index of key in last node found
+    splittingKey => ($l2 + 1) * $o,                                             # Offset at which to split a full block
+    subTree      => V(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
+    treeBits     => $keyAreaWidth + 2,                                          # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
+    treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
+    up           => $keyAreaWidth,                                              # Offset of up in data block.
+    width        => $o,                                                         # Width of a key or data slot.
    );
  }
 
@@ -29505,22 +29504,23 @@ END
  }
 
 sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$)                              # Split a left node pushing its excess right and up.
- {my ($lw, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;        # Width of node to split, variable offset in arena of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
+ {my ($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;      # Tree definition, variable offset in arena of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 11 or confess "Eleven parameters required";
 
-  my $w            = RegisterSize(eax);                                         # Size of keys, data, nodes
-  my $zw           = RegisterSize(zmm0) / $w;                                   # Number of dwords in a zmm
-  my $zwn          = $zw - 1;                                                   # Number of dwords used for nodes in a zmm
-  my $zwk          = $zwn - 1;                                                  # Number of dwords used for keys/data in a zmm
-  my $transfer     = r8;                                                        # Transfer register
-  my $transferD    = r8d;                                                       # Transfer register as a dword
-  my $transferW    = r8w;                                                       # Transfer register as a  word
-  my $work         = r9;                                                        # Work register as a dword
-  my $ll           = int($lw / 2);                                              # Minimum node width on left
-  my $lm           = $ll + 1;                                                   # Position of middle
-  my $lr           = $lw - $ll - 1;                                             # Minimum node on right
-  my $lb           = DescribeTree->lengthOffset;                                # Position of length byte
-  my $tb           = DescribeTree->treeBits;                                    # Position of tree bits
+  my $w         = RegisterSize(eax);                                            # Size of keys, data, nodes
+  my $zw        = RegisterSize(zmm0) / $w;                                      # Number of dwords in a zmm
+  my $zwn       = $zw - 1;                                                      # Number of dwords used for nodes in a zmm
+  my $zwk       = $zwn - 1;                                                     # Number of dwords used for keys/data in a zmm
+  my $transfer  = r8;                                                           # Transfer register
+  my $transferD = r8d;                                                          # Transfer register as a dword
+  my $transferW = r8w;                                                          # Transfer register as a  word
+  my $work      = r9;                                                           # Work register as a dword
+  my $lw        = $tree->maxKeys;                                               # Maximum number of keys in a node
+  my $ll        = $tree->lengthLeft;                                            # Minimum node width on left
+  my $lm        = $tree->lengthMiddle;                                          # Position of splitting key
+  my $lr        = $tree->lengthRight;                                           # Minimum node on right
+  my $lb        = $tree->lengthOffset;                                          # Position of length byte
+  my $tb        = $tree->treeBits;                                              # Position of tree bits
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
@@ -29626,7 +29626,7 @@ sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$)                              
       Vpexpandd zmmM($PD, 7), zmm($PD); $SD      ->putDIntoZmm($PD, 0);         # Make room in parent data and palce the data associated with the splitting key
 
       &$mask("0", $zwn-2, -1, +1);                                              # Nodes slots to expand to with a hole for the new node key at position one as this is a right expansion
-      Vpexpandd zmmM($PN, 7), zmm($PN); $newRight->putDIntoZmm($PN, $w);        # Make room in parent nodes and place the new node in second position because we are splitting right so the left node must continue to occupy the first position
+      Vpexpandd zmmM($PN, 7), zmm($PN); $$p{newRight}->putDIntoZmm($PN, $w);    # Make room in parent nodes and place the new node in second position because we are splitting right so the left node must continue to occupy the first position
 
       Mov $work, 1;                                                             # The new key will be in position 0 so we indicate its position in k5
       Kmovq k5, $work;
@@ -29676,58 +29676,59 @@ sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$)                              
  }
 
 sub Nasm::X86::Tree::splitParentInLeft($$$$$$$$$$$$)                            # Split a parent node into left and right nodes with the splitting key/data left in the parent nmode
- {my ($lw, $newLeft, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)=@_;# Width of node to split, variable offset in arena of new left node block, variable offset in arena of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
+ {my ($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;# Tree definition, variable offset in arena of new left node block, variable offset in arena of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 12 or confess "Twelve parameters required";
 
-  my $w            = RegisterSize(eax);                                         # Size of keys, data, nodes
-  my $zw           = RegisterSize(zmm0) / $w;                                   # Number of dwords in a zmm
-  my $zwn          = $zw - 1;                                                   # Number of dwords used for nodes in a zmm
-  my $zwk          = $zwn - 1;                                                  # Number of dwords used for keys/data in a zmm
-  my $transfer     = r8;                                                        # Transfer register
-  my $transferD    = r8d;                                                       # Transfer register as a dword
-  my $transferW    = r8w;                                                       # Transfer register as a  word
-  my $work         = r9;                                                        # Work register as a dword
-  my $ll           = int($lw / 2);                                              # Minimum node width on left
-  my $lm           = $ll + 1;                                                   # Position of middle
-  my $lr           = $lw - $ll - 1;                                             # Minimum node on right
-  my $lb           = DescribeTree->lengthOffset;                                # Position of length byte
-  my $tb           = DescribeTree->treeBits;                                    # Position of tree bits
+  my $w         = RegisterSize(eax);                                            # Size of keys, data, nodes
+  my $zw        = RegisterSize(zmm0) / $w;                                      # Number of dwords in a zmm
+  my $zwn       = $zw - 1;                                                      # Number of dwords used for nodes in a zmm
+  my $zwk       = $zwn - 1;                                                     # Number of dwords used for keys/data in a zmm
+  my $transfer  = r8;                                                           # Transfer register
+  my $transferD = r8d;                                                          # Transfer register as a dword
+  my $transferW = r8w;                                                          # Transfer register as a  word
+  my $work      = r9;                                                           # Work register as a dword
+  my $lw        = $tree->maxKeys;                                               # Maximum number of keys in a node
+  my $ll        = $tree->lengthLeft;                                            # Minimum node width on left
+  my $lm        = $tree->lengthMiddle;                                          # Position of splitting key
+  my $lr        = $tree->lengthRight;                                           # Minimum node on right
+  my $lb        = $tree->lengthOffset;                                          # Position of length byte
+  my $tb        = $tree->treeBits;                                              # Position of tree bits
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
 
-    my $mask = sub                                                                # Set k7 to a specified bit mask
-     {my ($prefix, @onesAndZeroes) = @_;                                          # Prefix bits, alternating zeroes and ones
-      LoadBitsIntoMaskRegister(7, $transfer,  $prefix, @onesAndZeroes);           # Load k7 with mask
+    my $mask = sub                                                              # Set k7 to a specified bit mask
+     {my ($prefix, @onesAndZeroes) = @_;                                        # Prefix bits, alternating zeroes and ones
+      LoadBitsIntoMaskRegister(7, $transfer,  $prefix, @onesAndZeroes);         # Load k7 with mask
      };
 
     PushR $transfer, $work;
 
-    &$mask("0", +7);                                                              # Set parent keys to highest possible value to force key insertion at the front
+    &$mask("0", +7);                                                            # Set parent keys to highest possible value to force key insertion at the front
     Mov $transfer, -1;
     Vpbroadcastq zmmM($PK, 7), $transfer;
 
-    &$mask("0", +7);                                                              # Area to clear in keys and data preserving last qword
+    &$mask("0", +7);                                                            # Area to clear in keys and data preserving last qword
     Mov $transfer, 0;
     Vpbroadcastq zmmM($PD, 7), $transfer;
     Vpbroadcastq zmmM($RK, 7), $transfer;
     Vpbroadcastq zmmM($RD, 7), $transfer;
 
-    &$mask("0", +15);                                                             # Area to clear in nodes
+    &$mask("0", +15);                                                           # Area to clear in nodes
     Mov $transfer, 0;
     Vpbroadcastd zmmM($PN, 7), $transferD;
     Vpbroadcastd zmmM($RN, 7), $transferD;
 
-    &Nasm::X86::Tree::splitLeftToRight($lw, $newRight, reverse 23..31);
+    $tree->splitLeftToRight($$p{newRight}, reverse 23..31);
 
-    &$mask("00", +13, -1);                                                        # Reset parent keys/data outside of single key/data
+    &$mask("00", +13, -1);                                                      # Reset parent keys/data outside of single key/data
     Mov $transfer, 0;
     Vpbroadcastd zmmM($PK, 7), $transferD;
 
-    Mov $work, 1;                                                                 # Lengths
-    wRegIntoZmm $work, $PK, $lb;                                                  # Left after split
+    Mov $work, 1;                                                               # Lengths
+    wRegIntoZmm $work, $PK, $lb;                                                # Left after split
 
-    wRegFromZmm $work, $PK, $tb;                                                  # Parent tree bits
+    wRegFromZmm $work, $PK, $tb;                                                # Parent tree bits
     And $work, 1;
     wRegIntoZmm $work, $PK, $tb;
 
@@ -29737,7 +29738,7 @@ sub Nasm::X86::Tree::splitParentInLeft($$$$$$$$$$$$)                            
   name       => "Nasm::X86::Tree::splitParentInLeft".
           "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
 
-  $s->call(parameters => {newLeft => $newLeft, newRight => $newRight});
+  $s->call(parameters => {newLeft => $nLeft, newRight => $nRight});
  }
 
 latest:
@@ -29773,7 +29774,7 @@ if (1) {                                                                        
     Mov $transfer, 0b11011101;                                                  # Test set of tree bits in node being split
     wRegIntoZmm $transfer, $LK, $tb;
 
-    &Nasm::X86::Tree::splitLeftToRight(3, $newRight, reverse 23..31);
+    DescribeTree(length=>3)->splitLeftToRight($newRight, reverse 23..31);
 
     PrintOutStringNL "Parent";
     PrintOutRegisterInHex zmm reverse 29..31;
@@ -29975,21 +29976,9 @@ latest:
 if (1) {                                                                        # Split a root node held in zmm28..zmm26 into a parent in zmm31..zmm29 and a right node held in zmm25..zmm23
   my $newLeft   = K newLeft  => 0x9119;                                         # Offset of new left  block
   my $newRight  = K newRight => 0x9229;                                         # Offset of new right block
-
-  my $w         = RegisterSize(eax);                                            # Size of keys, data, nodes
-  my $zw        = RegisterSize(zmm0) / $w;                                      # Number of dwords in a zmm
-  my $zwn       = $zw  - 1;                                                     # Number of dwords used for nodes in a zmm
-  my $zwk       = $zwn - 1;                                                     # Number of dwords used for keys/data in a zmm
-  my $ll        = 3;                                                            # Minimum width on left
-  my $lm        = $ll + 1;                                                      # Middle
-  my $lr        = $ll;                                                          # Minimum width on right
-  my $lw        = $lm + $lr;                                                    # Full width
-  my $lb        = DescribeTree->lengthOffset;                                   # Position of length byte
-  my $tb        = DescribeTree->treeBits;                                       # Position of tree bits
+  my $tree      = DescribeTree(length => 7);                                    # Tree definition
 
   my $transfer  = r8;                                                           # Transfer register
-  my $transferD = r8d;                                                          # Transfer register as a dword
-  my $work      = r9;                                                           # Work register as a dword
   my ($RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 23..31;                    # Zmm names
 
   K(PK => Rd(map {($_<<28) +0x9999999} 0..15))->loadZmm($PK);
@@ -30005,10 +29994,10 @@ if (1) {                                                                        
   K(RN => Rd(map {($_<<28) +0x2222222} 0..15))->loadZmm($RN);
 
   Mov $transfer, 0b11011101;                                                    # Test set of tree bits
-  wRegIntoZmm $transfer, $LK, $tb;
+  wRegIntoZmm $transfer, $LK, $tree->treeBits;
 
   Mov $transfer, 7;                                                             # Test set of length in left keys
-  wRegIntoZmm $transfer, $LK, $lb;
+  wRegIntoZmm $transfer, $LK, $tree->lengthOffset;
   PrintOutStringNL "Initial Parent";
   PrintOutRegisterInHex zmm reverse 29..31;
 
@@ -30018,7 +30007,7 @@ if (1) {                                                                        
   PrintOutStringNL "Initial Right";
   PrintOutRegisterInHex zmm reverse 23..25;
 
-  &Nasm::X86::Tree::splitParentInLeft($lw, $newLeft, $newRight, reverse 23..31);
+  $tree->splitParentInLeft($newLeft, $newRight, reverse 23..31);
 
   PrintOutStringNL "Final Parent";
   PrintOutRegisterInHex zmm reverse 29..31;
