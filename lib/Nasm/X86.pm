@@ -455,6 +455,14 @@ sub zmmMZ($$)                                                                   
   "zmm$z\{k$m}\{z}"
  }
 
+sub registerNameFromNumber($)                                                   # Register name from number where possible
+ {my ($r) = @_;                                                                 # Register number
+  return "zmm$r" if $r =~ m(\A(16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z);
+  return   "r$r" if $r =~ m(\A(8|9|10|11|12|13|14|15)\Z);
+  return   "k$r" if $r =~ m(\A(0|1|2|3|4|5|6|7)\Z);
+  $r
+ }
+
 sub ChooseRegisters($@)                                                         # Choose the specified numbers of registers excluding those on the specified list.
  {my ($number, @registers) = @_;                                                # Number of registers needed, Registers not to choose
   my %r = (map {$_=>1} map {"r$_"} 8..15);
@@ -6964,8 +6972,8 @@ sub Nasm::X86::Array::put($$$)                                                  
 sub DescribeTree(%)                                                             # Return a descriptor for a tree with the specified options.
  {my (%options) = @_;                                                           # Tree description options
 
-  confess "Maximum keys must be less than 15"
-    if $options{length} and $options{length} > 14;                              # Maximum number of keys is 14
+  confess "Maximum keys must be less than or equal to 14"
+    unless $options{length} and $options{length} <= 14;                         # Maximum number of keys is 14
 
   my $b = RegisterSize zmm0;                                                    # Size of a block == size of a zmm register
   my $o = RegisterSize eax;                                                     # Size of a double word
@@ -29744,11 +29752,9 @@ sub Nasm::X86::Tree::splitParentInLeft($$$$$$$$$$$$)                            
 latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
   my $newRight = K newRight => 0x9119;                                          # Offset of new right block
-
+  my $tree = DescribeTree(length => 3);                                         # Test with a narrow tree
   my ($RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 23..31;                    # Zmm names
   my $transfer = r8;
-  my $lb       = DescribeTree->lengthOffset;
-  my $tb       = DescribeTree->treeBits;
 
   for my $test(0..13)                                                           # Test each key position
    {PrintOutStringNL "Test $test";
@@ -29766,15 +29772,15 @@ if (1) {                                                                        
     K(RN => Rd(map {($_<<28) +0x2222222} 0..15))->loadZmm($RN);
 
     Mov $transfer, 0;                                                           # Test set of tree bits
-    wRegIntoZmm $transfer, $PK, $tb;
+    wRegIntoZmm $transfer, $PK, $tree->treeBits;
 
     Mov $transfer, 1;                                                           # Test set of parent length
-    wRegIntoZmm $transfer, $PK, $lb;
+    wRegIntoZmm $transfer, $PK, $tree->lengthOffset;
 
     Mov $transfer, 0b11011101;                                                  # Test set of tree bits in node being split
-    wRegIntoZmm $transfer, $LK, $tb;
+    wRegIntoZmm $transfer, $LK, $tree->treeBits;
 
-    DescribeTree(length=>3)->splitLeftToRight($newRight, reverse 23..31);
+    $tree->splitLeftToRight($newRight, reverse 23..31);
 
     PrintOutStringNL "Parent";
     PrintOutRegisterInHex zmm reverse 29..31;
