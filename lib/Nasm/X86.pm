@@ -30051,6 +30051,29 @@ Final Right
 END
  }
 
+sub Nasm::X86::Tree::copyNonLoopArea($$$$$$$)                                   # Copy the non loop area of one tree block into another
+ {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN) = @_;                                # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+  @_ == 7 or confess "Seven parameters required";
+
+  my $transfer  = r8;                                                           # Transfer register
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+
+    my $transfer  = r8;                                                           # Transfer register
+
+    PushR $transfer, 7;
+    LoadBitsIntoMaskRegister(7, $transfer,  '0', $tree->maxNodes);                # Move non loop area
+    Vmovdqu32 zmmM($LK, 7),  zmm($PK);
+    Vmovdqu32 zmmM($LD, 7),  zmm($PD);
+    Vmovdqu32 zmmM($LN, 7),  zmm($PN);
+    PopR;
+   }
+  name => "Nasm::X86::Tree::copyNonLoopArea($PK, $PD, $PN, $LK, $LD, $LN)";
+
+  $s->call;
+ }
+
 latest:
 if (1) {                                                                        # Move non loop bytes from one tree block to another
   my $tree = DescribeTree(length=>3);
@@ -30070,14 +30093,7 @@ if (1) {                                                                        
   PrintOutStringNL "Initial Left";
   PrintOutRegisterInHex zmm reverse 26..28;
 
-  my $transfer  = r8;                                                           # Transfer register
-
-  PushR $transfer, 7;
-  LoadBitsIntoMaskRegister(7, $transfer,  '0', $tree->maxNodes);                # Move non loop area
-  Vmovdqu32 zmmM($LK, 7),  zmm($PK);
-  Vmovdqu32 zmmM($LD, 7),  zmm($PD);
-  Vmovdqu32 zmmM($LN, 7),  zmm($PN);
-  PopR;
+  $tree->copyNonLoopArea($PK, $PD, $PN, $LK, $LD, $LN);
 
   PrintOutStringNL "Final Parent";
   PrintOutRegisterInHex zmm reverse 29..31;
