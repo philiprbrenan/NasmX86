@@ -7226,7 +7226,7 @@ sub Nasm::X86::Tree::putBlock($$$$$$$$)                                         
   $a->putZmmBlock($node,   $N, $W1, $W2);                                       # Put the node block
  }
 
-sub Nasm::X86::Tree::splitNode($$)                                              #P Split a node if it it is full returning a variable that indiocates whether a split occurred or not.
+sub Nasm::X86::Tree::splitNode($$)                                              #P Split a node if it it is full returning a variable that indicates whether a split occurred or not.
  {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in arena of tree
   @_ == 2 or confess 'Two parameters';
 
@@ -7304,6 +7304,64 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
   $p                                                                            # Return a variable containing one if the node was split else zero.
  } # splitNode
+
+sub Nasm::X86::Tree::indexEq($$$)                                               # Return the one based position as a variable of the key in a zmm equal to the specified key else return zero if there is no such key.
+ {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
+  @_ == 3 or confess "Three parameters";
+
+  PushR my ($result, $eq, $keys) = (r15, k7, k6);                               # Result, mask registers
+
+  my $l = $tree->lengthFromKeys($K);                                            # Length of the block
+  Vpcmpud $eq, zmm($K), $key->address."{1to16}", $Vpcmp->eq;                    # Check for equal keys from the broadcasted memory
+
+  LoadBitsIntoMaskRegister($keys, $result, '00', $tree->zWidthD - 2);           # Key area to mask register
+  Kandq $eq, $eq, $keys;                                                        # Mask key area
+
+  Ktestw $eq, $eq;
+  IfNz                                                                          # Result mask is non zero so we must have found the key
+  Then
+   {Kmovq $result, $eq;
+    Tzcnt $result, $result;                                                     # Trailing zeros gives index
+    Inc   $result;                                                              # One based result
+   },
+  Else
+   {Mov $result, 0;                                                             # Key not found
+   };
+
+  my $r = V index => $result;                                                   # Save result as a variable
+  PopR;
+
+  $r                                                                            # One based position of key if found else zero as a variable
+ }
+
+sub Nasm::X86::Tree::indexNode($$$)                                             # Return the zero based position as a variable of the node to be taken when traversing a tree searching for the specified variable key in the specified zmm.
+ {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
+  @_ == 3 or confess "Three parameters";
+
+  my $zw = $tree->zWidthD;                                                      # Number of dwords in a zmm
+  my $lw = $tree->maxKeys;                                                      # Maximum number of keys in a node
+
+  PushR my ($result, $gt, $keys) = (r15, k7, k6);                               # Result, mask registers
+
+  Vpcmpud $gt, zmm($K), $key->address."{1to16}", $Vpcmp->lt;                    # Check for keys that are greater than or equal
+
+  LoadBitsIntoMaskRegister($keys, $result, '00', 2+$lw-$zw, $lw);               # Key area to mask register
+  Kandq $gt, $gt, $keys;                                                        # Mask key area
+  ClearRegisters $result;
+
+  Ktestw $gt, $gt;
+  IfNz                                                                          # Result mask is non zero so we must have found keys that are less than the specified key
+  Then
+   {Kmovq $result, $gt;
+    Not   $result;
+    Tzcnt $result, $result;                                                     # Trailing zeros gives index
+   };
+
+  my $r = V index => $result;                                                   # Save result as a variable
+  PopR;
+
+  $r                                                                            # 1 based position of key if found else zero as a variable
+ }
 
 # the  length byte in keys - zmm28 is not being correctly set on the insertion of the last key in the block
 
@@ -30335,64 +30393,6 @@ Arena     Size:     4096    Used:      320
 29 Leaf
 28 Branch
 END
- }
-
-sub Nasm::X86::Tree::indexEq($$$)                                               # Return the one based position as a variable of the key in a zmm equal to the specified key else return zero if there is no such key.
- {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
-  @_ == 3 or confess "Three parameters";
-
-  PushR my ($result, $eq, $keys) = (r15, k7, k6);                               # Result, mask registers
-
-  my $l = $tree->lengthFromKeys($K);                                            # Length of the block
-  Vpcmpud $eq, zmm($K), $key->address."{1to16}", $Vpcmp->eq;                    # Check for equal keys from the broadcasted memory
-
-  LoadBitsIntoMaskRegister($keys, $result, '00', $tree->zWidthD - 2);           # Key area to mask register
-  Kandq $eq, $eq, $keys;                                                        # Mask key area
-
-  Ktestw $eq, $eq;
-  IfNz                                                                          # Result mask is non zero so we must have found the key
-  Then
-   {Kmovq $result, $eq;
-    Tzcnt $result, $result;                                                     # Trailing zeros gives index
-    Inc   $result;                                                              # One based result
-   },
-  Else
-   {Mov $result, 0;                                                             # Key not found
-   };
-
-  my $r = V index => $result;                                                   # Save result as a variable
-  PopR;
-
-  $r                                                                            # One based position of key if found else zero as a variable
- }
-
-sub Nasm::X86::Tree::indexNode($$$)                                             # Return the zero based position as a variable of the node to be taken when traversing a tree searching for the specified variable key in the specified zmm.
- {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
-  @_ == 3 or confess "Three parameters";
-
-  my $zw = $tree->zWidthD;                                                      # Number of dwords in a zmm
-  my $lw = $tree->maxKeys;                                                      # Maximum number of keys in a node
-
-  PushR my ($result, $gt, $keys) = (r15, k7, k6);                               # Result, mask registers
-
-  Vpcmpud $gt, zmm($K), $key->address."{1to16}", $Vpcmp->lt;                    # Check for keys that are greater than or equal
-
-  LoadBitsIntoMaskRegister($keys, $result, '00', 2+$lw-$zw, $lw);               # Key area to mask register
-  Kandq $gt, $gt, $keys;                                                        # Mask key area
-  ClearRegisters $result;
-
-  Ktestw $gt, $gt;
-  IfNz                                                                          # Result mask is non zero so we must have found keys that are less than the specified key
-  Then
-   {Kmovq $result, $gt;
-    Not   $result;
-    Tzcnt $result, $result;                                                     # Trailing zeros gives index
-   };
-
-  my $r = V index => $result;                                                   # Save result as a variable
-  PopR;
-
-  $r                                                                            # 1 based position of key if found else zero as a variable
  }
 
 latest:
