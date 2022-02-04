@@ -13,7 +13,8 @@
 # Call - validate that all parameter keys have a definition
 # Have K and possibly V accept a flat hash of variable names and expressions
 # Document that V > 0 is required to create a boolean test
-# putDintoZmm to dIntoZmm
+# Optimize putBwdqIntoMm with vpbroadcast
+# Use VPSCATTERDD to reparent children of split node
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -24,6 +25,8 @@ use Data::Table::Text qw(:all);
 use Time::HiRes qw(time);
 use feature qw(say current_sub);
 use utf8;
+
+makeDieConfess;
 
 my %rodata;                                                                     # Read only data already written
 my %rodatas;                                                                    # Read only string already written
@@ -521,13 +524,13 @@ sub InsertOneIntoRegisterAtPoint($$)                                            
  {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
   InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
   if (&CheckMaskRegister($point))                                               # Mask register showing point
-   {my ($r) = ChooseRegisters(1, $in);                                            # Choose a general purpose register to place the mask in
+   {my ($r) = ChooseRegisters(1, $in);                                          # Choose a general purpose register to place the mask in
     PushR $r;
     Kmovq $r, $point;
     Or   $in, $r;                                                               # Make the zero a one
     PopR;
    }
-  else
+  else                                                                          # General purpose register showing point
    {Or $in, $point;                                                             # Make the zero a one
    }
  }
@@ -642,7 +645,7 @@ sub CheckMaskRegister($)                                                        
 sub CheckMaskRegisterNumber($)                                                  # Check that a register is in fact a mask register.
  {my ($mask) = @_;                                                              # Mask register to check
   @_ == 1 or confess "One parameter";
-  $mask =~ m(\A[0-7]\Z) or confess "Not the number of a mask register: $mask";
+  $mask =~ m(\Ak?[0-7]\Z) or confess "Not the number of a mask register: $mask";
  }
 
 sub SetMaskRegister($$$)                                                        # Set the mask register to ones starting at the specified position for the specified length and zeroes elsewhere.
@@ -670,15 +673,16 @@ sub LoadConstantIntoMaskRegister($$$)                                           
  {my ($mask, $transfer, $value) = @_;                                           # Number of mask register to load, transfer register, constant to load
   @_ == 3 or confess "Three parameters";
   CheckMaskRegisterNumber $mask;
+  $mask     = registerNameFromNumber $mask;
   $transfer = registerNameFromNumber $transfer;
   CheckGeneralPurposeRegister $transfer;
   Mov $transfer, $value;                                                        # Load mask into a general purpose register
-  Kmovq "k$mask", $transfer;                                                    # Load mask register from general purpose register
+  Kmovq $mask, $transfer;                                                       # Load mask register from general purpose register
  }
 
-sub LoadBitsIntoMaskRegister($$$@)                                              # Load a bit string specification into a mask register in two clocks.
- {my ($mask, $transfer, $prefix, @values) = @_;                                 # Number of mask register to load, transfer register, prefix bits, +n 1 bits -n 0 bits
-  @_ > 3 or confess "Four or more parameters required";                         # Must have some values
+sub createBitNumberFromAlternatingPattern($@)                                   # Create a number from a bit pattern.
+ {my ($prefix, @values) = @_;                                                   # Prefix bits, +n 1 bits -n 0 bits
+  @_ > 1 or confess "Four or more parameters required";                         # Must have some values
 
   $prefix =~ m(\A[01]*\Z) or confess "Prefix must be binary";                   # Prefix must be binary
   grep {$_ == 0} @values and confess "Values must not be zero";                 # No value may be zero
@@ -688,17 +692,23 @@ sub LoadBitsIntoMaskRegister($$$@)                                              
      $values[$i] < 0 && $values[$i+1] < 0) and confess "Signs must alternate";
    }
 
-  CheckMaskRegisterNumber $mask;
-  CheckGeneralPurposeRegister $transfer;
-
   my $b = "0b$prefix";
   for my $v(@values)                                                            # String representation of bit string
    {$b .= '1' x +$v if $v > 0;
     $b .= '0' x -$v if $v < 0;
    }
 
-  my $B = eval $b;
-  LoadConstantIntoMaskRegister($mask, $transfer, $B)
+  my $n = eval $b;
+  confess $@ if $@;
+  $n
+ }
+
+sub LoadBitsIntoMaskRegister($$$@)                                              # Load a bit string specification into a mask register in two clocks.
+ {my ($mask, $transfer, $prefix, @values) = @_;                                 # Number of mask register to load, transfer register, prefix bits, +n 1 bits -n 0 bits
+  @_ > 3 or confess "Four or more parameters required";                         # Must have some values
+
+  LoadConstantIntoMaskRegister                                                  # Load the specified binary constant into a mask register
+    ($mask, $transfer, createBitNumberFromAlternatingPattern $prefix, @values)
  }
 
 #D1 Comparison codes                                                            # The codes used to specify what sort of comparison to perform
@@ -3396,63 +3406,63 @@ sub getBwdqFromMm($$$;$$)                                                       
    }
  }
 
-sub bFromX($$)                                                             # Get the byte from the numbered xmm register and return it in a variable.
+sub bFromX($$)                                                                  # Get the byte from the numbered xmm register and return it in a variable.
  {my ($xmm, $offset) = @_;                                                      # Numbered xmm, offset in bytes
   getBwdqFromMm('b', "xmm$xmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
  }
 
-sub wFromX($$)                                                             # Get the word from the numbered xmm register and return it in a variable.
+sub wFromX($$)                                                                  # Get the word from the numbered xmm register and return it in a variable.
  {my ($xmm, $offset) = @_;                                                      # Numbered xmm, offset in bytes
   getBwdqFromMm('w', "xmm$xmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
  }
 
-sub dFromX($$)                                                             # Get the double word from the numbered xmm register and return it in a variable.
+sub dFromX($$)                                                                  # Get the double word from the numbered xmm register and return it in a variable.
  {my ($xmm, $offset) = @_;                                                      # Numbered xmm, offset in bytes
   getBwdqFromMm('d', "xmm$xmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
  }
 
-sub qFromX($$)                                                             # Get the quad word from the numbered xmm register and return it in a variable.
+sub qFromX($$)                                                                  # Get the quad word from the numbered xmm register and return it in a variable.
  {my ($xmm, $offset) = @_;                                                      # Numbered xmm, offset in bytes
   getBwdqFromMm('q', "xmm$xmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
  }
 
-sub bFromZ($$)                                                             # Get the byte from the numbered zmm register and return it in a variable.
+sub bFromZ($$)                                                                  # Get the byte from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
   getBwdqFromMm('b', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
-sub wFromZ($$)                                                             # Get the word from the numbered zmm register and return it in a variable.
+sub wFromZ($$)                                                                  # Get the word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
   getBwdqFromMm('w', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
-sub dFromZ($$$)                                                            # Get the double word from the numbered zmm register and return it in a variable.
+sub dFromZ($$$)                                                                 # Get the double word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, $transfer) = @_;                                           # Numbered zmm, offset in bytes, optional transfer register
   getBwdqFromMm('d', "zmm$zmm", $offset, $transfer)                             # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
-sub qFromZ($$)                                                             # Get the quad word from the numbered zmm register and return it in a variable.
+sub qFromZ($$)                                                                  # Get the quad word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
   getBwdqFromMm('q', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
-sub Nasm::X86::Variable::bFromZ($$$)                                       # Get the byte from the numbered zmm register and put it in a variable.
+sub Nasm::X86::Variable::bFromZ($$$)                                            # Get the byte from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
   $variable->copy(getBwdqFromMm('b', "zmm$zmm", $offset))                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
-sub Nasm::X86::Variable::wFromZ($$$)                                       # Get the word from the numbered zmm register and put it in a variable.
+sub Nasm::X86::Variable::wFromZ($$$)                                            # Get the word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
   $variable->copy(getBwdqFromMm('w', "zmm$zmm", $offset))                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
-sub Nasm::X86::Variable::dFromZ($$$;$)                                     # Get the double word from the numbered zmm register and put it in a variable.
+sub Nasm::X86::Variable::dFromZ($$$;$)                                          # Get the double word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset, $transfer) = @_;                                # Variable, numbered zmm, offset in bytes, transfer register
   getBwdqFromMm 'd', "zmm$zmm", $offset, $transfer, $variable;                  # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
   $variable                                                                     # Return input variable so we can assign or chain
  }
 
-sub Nasm::X86::Variable::qFromZ($$$)                                       # Get the quad word from the numbered zmm register and put it in a variable.
+sub Nasm::X86::Variable::qFromZ($$$)                                            # Get the quad word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
   $variable->copy(getBwdqFromMm('q', "zmm$zmm", $offset))                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
@@ -3492,27 +3502,27 @@ sub Nasm::X86::Variable::putBwdqIntoMm($$$$;$)                                  
   PopR $o if ref($offset);                                                      # The offset is being passed in a variable
  }
 
-sub Nasm::X86::Variable::bIntoX($$$)                                       # Place the value of the content variable at the byte in the numbered xmm register.
+sub Nasm::X86::Variable::bIntoX($$$)                                            # Place the value of the content variable at the byte in the numbered xmm register.
  {my ($content, $xmm, $offset) = @_;                                            # Variable with content, numbered xmm, offset in bytes
   $content->putBwdqIntoMm('b', "xmm$xmm", $offset)                              # Place the value of the content variable at the word in the numbered xmm register
  }
 
-sub Nasm::X86::Variable::wIntoX($$$)                                       # Place the value of the content variable at the word in the numbered xmm register.
+sub Nasm::X86::Variable::wIntoX($$$)                                            # Place the value of the content variable at the word in the numbered xmm register.
  {my ($content, $xmm, $offset) = @_;                                            # Variable with content, numbered xmm, offset in bytes
   $content->putBwdqIntoMm('w', "xmm$xmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered xmm register
  }
 
-sub Nasm::X86::Variable::dIntoX($$$)                                       # Place the value of the content variable at the double word in the numbered xmm register.
+sub Nasm::X86::Variable::dIntoX($$$)                                            # Place the value of the content variable at the double word in the numbered xmm register.
  {my ($content, $xmm, $offset) = @_;                                            # Variable with content, numbered xmm, offset in bytes
   $content->putBwdqIntoMm('d', "xmm$xmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered xmm register
  }
 
-sub Nasm::X86::Variable::qIntoX($$$)                                       # Place the value of the content variable at the quad word in the numbered xmm register.
+sub Nasm::X86::Variable::qIntoX($$$)                                            # Place the value of the content variable at the quad word in the numbered xmm register.
  {my ($content, $xmm, $offset) = @_;                                            # Variable with content, numbered xmm, offset in bytes
   $content->putBwdqIntoMm('q', "xmm$xmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered xmm register
  }
 
-sub Nasm::X86::Variable::bIntoZ($$$)                                       # Place the value of the content variable at the byte in the numbered zmm register.
+sub Nasm::X86::Variable::bIntoZ($$$)                                            # Place the value of the content variable at the byte in the numbered zmm register.
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
   $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
   $content->putBwdqIntoMm('b', "zmm$zmm", $offset)                              # Place the value of the content variable at the word in the numbered zmm register
@@ -3524,13 +3534,13 @@ sub Nasm::X86::Variable::putWIntoZmm($$$)                                       
   $content->putBwdqIntoMm('w', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
-sub Nasm::X86::Variable::dIntoZ($$$;$)                                     # Place the value of the content variable at the double word in the numbered zmm register.
+sub Nasm::X86::Variable::dIntoZ($$$;$)                                          # Place the value of the content variable at the double word in the numbered zmm register.
  {my ($content, $zmm, $offset, $transfer) = @_;                                 # Variable with content, numbered zmm, offset in bytes, optional transfer register
   $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
   $content->putBwdqIntoMm('d', "zmm$zmm", $offset, $transfer)                   # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
-sub Nasm::X86::Variable::qIntoZ($$$;$)                                     # Place the value of the content variable at the quad word in the numbered zmm register.
+sub Nasm::X86::Variable::qIntoZ($$$;$)                                          # Place the value of the content variable at the quad word in the numbered zmm register.
  {my ($content, $zmm, $offset, $transfer) = @_;                                 # Variable with content, numbered zmm, offset in bytes, optional transfer register
   $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
   $content->putBwdqIntoMm('q', "zmm$zmm", $offset, $transfer)                   # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
@@ -3538,12 +3548,19 @@ sub Nasm::X86::Variable::qIntoZ($$$;$)                                     # Pla
 
 #D2 Broadcast                                                                   # Broadcast from a variable into a zmm
 
-sub Nasm::X86::Variable::zBroadCastD($$)                                        # Broadcast a double word in a variable into the numbered zmm.
- {my ($variable, $zmm) = @_;                                                    # Variable containing value to broadcast, numbered zmm to broadcast to
-  PushR (r15);
-  $variable->setReg(r15);                                                       # Value of variable
-  Vpbroadcastd "zmm".$zmm, r15d;                                                # Broadcast
-  PopR;
+sub Nasm::X86::Variable::zBroadCastD($$;$)                                      # Broadcast a double word in a variable into the numbered zmm.
+ {my ($variable, $z, $transfer) = @_;                                           # Variable containing value to broadcast, numbered zmm to broadcast to, optional transfer register
+  @_ == 2 or @_ == 3 or confess "Two or three parameters";
+  if (defined $transfer)                                                        # Transfer register available
+   {$variable->setReg($transfer);                                               # Value of variable
+    Vpbroadcastd zmm($z), $transfer."d";                                        # Broadcast
+   }
+  else                                                                          # Use our own transfer register
+   {PushR (r15);
+    $variable->setReg(r15);                                                     # Value of variable
+    Vpbroadcastd zmm($z), r15d;                                                 # Broadcast
+    PopR;
+   }
  }
 
 #D2 Stack                                                                       # Push and pop variables to and from the stack
@@ -3623,8 +3640,8 @@ sub Nasm::X86::Variable::allocateMemory(@)                                      
 
 #D2 Structured Programming with variables                                       # Structured programming operations driven off variables.
 
-sub Nasm::X86::Variable::for($&)                                                # Iterate the block limit times.
- {my ($limit, $block) = @_;                                                     # Limit, Block
+sub Nasm::X86::Variable::for($&)                                                # Iterate a block a variable number of times.
+ {my ($limit, $block) = @_;                                                     # Number of times, Block
   @_ == 2 or confess "Two parameters";
   Comment "Variable::For $limit";
   my $index = V(q(index), 0);                                                   # The index that will be incremented
@@ -3828,7 +3845,7 @@ sub All8Structure($)                                                            
 
 #D3 Stack Frame                                                                 # Declare local variables in a frame on the stack
 
-sub LocalData22()                                                                 # Map local data.
+sub LocalData22()                                                               # Map local data.
  {@_ == 0 or confess;
   my $local = genHash(__PACKAGE__."::LocalData",
     size      => 0,
@@ -3836,7 +3853,7 @@ sub LocalData22()                                                               
    );
  }
 
-sub Nasm::X86::LocalData::start22($)                                              # Start a local data area on the stack.
+sub Nasm::X86::LocalData::start22($)                                            # Start a local data area on the stack.
  {my ($local) = @_;                                                             # Local data descriptor
   @_ == 1 or confess "One parameter";
   my $size = $local->size;                                                      # Size of local data
@@ -3845,14 +3862,14 @@ sub Nasm::X86::LocalData::start22($)                                            
   Sub rsp, $size;
  }
 
-sub Nasm::X86::LocalData::free22($)                                               # Free a local data area on the stack.
+sub Nasm::X86::LocalData::free22($)                                             # Free a local data area on the stack.
  {my ($local) = @_;                                                             # Local data descriptor
   @_ == 1 or confess "One parameter";
   Mov rsp, rbp;
   Pop rbp;
  }
 
-sub Nasm::X86::LocalData::variable22($$;$)                                        # Add a local variable.
+sub Nasm::X86::LocalData::variable22($$;$)                                      # Add a local variable.
  {my ($local, $length, $comment) = @_;                                          # Local data descriptor, length of data, optional comment
   @_ >= 2 or confess;
   my $variable = genHash(__PACKAGE__."::LocalVariable",
@@ -3864,7 +3881,7 @@ sub Nasm::X86::LocalData::variable22($$;$)                                      
   $variable
  }
 
-sub Nasm::X86::LocalVariable::stack22($)                                          # Address a local variable on the stack.
+sub Nasm::X86::LocalVariable::stack22($)                                        # Address a local variable on the stack.
  {my ($variable) = @_;                                                          # Variable
   @_ == 1 or confess "One parameter";
   my $l = $variable->loc;                                                       # Location of variable on stack
@@ -3882,9 +3899,9 @@ sub Nasm::X86::LocalData::allocate8($@)                                         
   wantarray ? @v : $v[-1];                                                      # Avoid returning the number of elements accidently
  }
 
-sub AllocateAll8OnStack22($)                                                      # Create a local data descriptor consisting of the specified number of 8 byte local variables and return an array: (local data descriptor,  variable definitions...).
+sub AllocateAll8OnStack22($)                                                    # Create a local data descriptor consisting of the specified number of 8 byte local variables and return an array: (local data descriptor,  variable definitions...).
  {my ($N) = @_;                                                                 # Number of variables required
-  my $local = LocalData22;                                                        # Create local data descriptor
+  my $local = LocalData22;                                                      # Create local data descriptor
   my @v;
   for(1..$N)                                                                    # Create the variables
    {my $v = $local->variable(RegisterSize(rax));
@@ -4053,7 +4070,7 @@ sub PrintOutMemoryInHexNL                                                       
   PrintNL($stdout);
  }
 
-sub PrintMemory_InHex($)                                                         # Dump memory from the address in rax for the length in rdi on the specified channel. As this method prints in blocks of 8 up to 7 bytes will be missing from the end unless the length is a multiple of 8 .
+sub PrintMemory_InHex($)                                                        # Dump memory from the address in rax for the length in rdi on the specified channel. As this method prints in blocks of 8 up to 7 bytes will be missing from the end unless the length is a multiple of 8 .
  {my ($channel) = @_;                                                           # Channel
   @_ == 1 or confess "One parameter";
   Comment "Print out memory in hex on channel: $channel";
@@ -5497,7 +5514,7 @@ sub Nasm::X86::Arena::allocZmmBlock($)                                          
 ##  Then                                                                          # Free block available
 ##   {PushR my @save = (r8, r9, zmm31);
 ##    $arena->getZmmBlock($ffb, 31, r8, r9);                                      # Load the first block on the free chain
-##    my $second = dFromZ(31, $arena->nextOffset, r8);                       # The location of the next pointer is forced upon us by string which got there first.
+##    my $second = dFromZ(31, $arena->nextOffset, r8);                            # The location of the next pointer is forced upon us by string which got there first.
 ##    $arena->setFirstFreeBlock($second);                                         # Set the first free block field to point to the second block
 ##    $offset->copy($ffb);                                                        # Get the block at the start of the chain
 ##    PopR @save;
@@ -5542,7 +5559,7 @@ sub Nasm::X86::Arena::establishYggdrasil($)                                     
   my $y = "Yggdrasil";
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
   PushR my @save = (rax, rdi);
-  $arena->address->setReg(rax);                                                      #P Address underlying arena
+  $arena->address->setReg(rax);                                                 #P Address underlying arena
   Mov rdi, "[rax+$$arena{tree}]";                                               # Address Yggdrasil
   Cmp rdi, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
@@ -5597,7 +5614,7 @@ sub Nasm::X86::Arena::dumpFreeChain($)                                          
     If $ffb == 0, Then {Jmp $end};                                              # No more free blocks
     $ffb->outNL;
     $arena->getZmmBlock($ffb, 31, r8, r9);                                      # Load the first block on the free chain
-    my $n = dFromZ(31, $arena->nextOffset, r8);                            # The location of the next pointer is forced upon us by string which got there first.
+    my $n = dFromZ(31, $arena->nextOffset, r8);                                 # The location of the next pointer is forced upon us by string which got there first.
     $ffb->copy($n);
    });
   PrintOutStringNL "Free chain end";
@@ -5669,7 +5686,7 @@ sub Nasm::X86::Arena::freeZmmBlock($$)                                          
   PushR my @save = (r15, zmm31);
   my $rfc = $arena->firstFreeBlock;                                             # Get first free block
   ClearRegisters @save;                                                         # Second block
-  $rfc->dIntoZ(31, $arena->nextOffset, r15);                               # The position of the next pointer was dictated by strings.
+  $rfc->dIntoZ(31, $arena->nextOffset, r15);                                    # The position of the next pointer was dictated by strings.
   $arena->putZmmBlock($offset, 31);                                             # Link the freed block to the rest of the free chain
   $arena->setFirstFreeBlock($offset);                                           # Set free chain field to point to latest free chain element
   PopR;
@@ -5694,7 +5711,7 @@ sub Nasm::X86::Arena::m($$$)                                                    
 
     my $newUsed = $oldUsed + $$p{size};
 
-    $arena->address->setReg(rax);                                                    # Update used field
+    $arena->address->setReg(rax);                                               # Update used field
     $newUsed->setReg(rdi);
     Mov $used, rdi;
 
@@ -5937,8 +5954,8 @@ sub Nasm::X86::Arena::CreateString($)                                           
   $s                                                                            # Description of string
  }
 
-#sub Nasm::X86::String::address($)                                               #P Address of a string.
-# {my ($String) = @_;                                                            # String descriptor
+#sub Nasm::X86::String::address($)                                              #P Address of a string.
+# {my ($String) = @_;                                                           # String descriptor
 #  @_ == 1 or confess "One parameter";
 #  $String->arena->address;
 # }
@@ -5952,7 +5969,7 @@ sub Nasm::X86::String::allocBlock($)                                            
 sub Nasm::X86::String::getBlockLength($$)                                       #P Get the block length of the numbered zmm and return it in a variable.
  {my ($String, $zmm) = @_;                                                      # String descriptor, number of zmm register
   @_ == 2 or confess "Two parameters";
-  bFromZ $zmm, 0;                                                          # Block length
+  bFromZ $zmm, 0;                                                               # Block length
  }
 
 sub Nasm::X86::String::setBlockLengthInZmm($$$)                                 #P Set the block length of the numbered zmm to the specified length.
@@ -5960,7 +5977,7 @@ sub Nasm::X86::String::setBlockLengthInZmm($$$)                                 
   @_ == 3 or confess "Three parameters";
   PushR (r15);                                                                  # Save work register
   $length->setReg(r15);                                                         # New length
-  $length->bIntoZ($zmm, 0);                                                # Insert block length
+  $length->bIntoZ($zmm, 0);                                                     # Insert block length
   PopR;                                                                         # Length of block is a byte
  }
 
@@ -5981,7 +5998,7 @@ sub Nasm::X86::String::getNextAndPrevBlockOffsetFromZmm($$)                     
   @_ == 2 or confess "Two parameters";
   my $l = $String->links;                                                       # Location of links
   PushR my @regs = (r14, r15);                                                  # Work registers
-  my $L = qFromZ($zmm, $String->links);                                    # Links in one register
+  my $L = qFromZ($zmm, $String->links);                                         # Links in one register
   $L->setReg(r15);                                                              # Links
   Mov r14d, r15d;                                                               # Next
   Shr r15, RegisterSize(r14d) * 8;                                              # Prev
@@ -6000,21 +6017,21 @@ sub Nasm::X86::String::putNextandPrevBlockOffsetIntoZmm($$$$)                   
     Shl r14, RegisterSize(r14d) * 8;                                            # Prev high
     Or r15, r14;                                                                # Links in one register
     my $l = V("Links", r15);                                                    # Links as variable
-    $l->qIntoZ($zmm, $String->links);                                      # Load links into zmm
+    $l->qIntoZ($zmm, $String->links);                                           # Load links into zmm
     PopR @regs;                                                                 # Free work registers
    }
   elsif ($next)                                                                 # Set just next
    {PushR my @regs = (r8, r15);                                                 # Work registers
     $next->setReg(r15);                                                         # Next offset
     my $l = V("Links", r15);                                                    # Links as variable
-    $l->dIntoZ($zmm, $String->next, r8);                                   # Load links into zmm
+    $l->dIntoZ($zmm, $String->next, r8);                                        # Load links into zmm
     PopR @regs;                                                                 # Free work registers
    }
   elsif ($prev)                                                                 # Set just prev
    {PushR my @regs = (r8, r15);                                                 # Work registers
     $prev->setReg(r15);                                                         # Next offset
     my $l = V("Links", r15);                                                    # Links as variable
-    $l->dIntoZ($zmm, $String->prev, r8);                                   # Load links into zmm
+    $l->dIntoZ($zmm, $String->prev, r8);                                        # Load links into zmm
     PopR @regs;                                                                 # Free work registers
    }
  }
@@ -6992,7 +7009,10 @@ sub DescribeTree(%)                                                             
     treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
     up           => $keyAreaWidth,                                              # Offset of up in data block.
     width        => $o,                                                         # Width of a key or data slot.
-    maxNodes     => $b / $o - 1,                                                # The maximum possible number of nodes
+    zWidth       => $b,                                                         # Width of a zmm register
+    zWidthD      => $b / $o,                                                    # Width of a zmm in double words being the element size
+    maxKeysZ     => $b / $o - 2,                                                # The maximum possible number of keys in a zmm register
+    maxNodesZ    => $b / $o - 1,                                                # The maximum possible number of nodes in a zmm register
 
     rootOffset   => $o * 0,                                                     # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
     upOffset     => $o * 1,                                                     # Offset of the up field which points to any containing tree
@@ -7072,31 +7092,38 @@ sub Nasm::X86::Tree::firstIntoMemory($$$$)                                      
   Vmovdqu64  "[$base+$offset]", zmm($zmm);
  }
 
-sub Nasm::X86::Tree::rootIntoFirst($$$$)                                        # Put the contents of a variable into the root field of the first block of a tree
- {my ($tree, $value, $zmm, $transfer) = @_;                                     # Tree descriptor, variable containing value to put, number of zmm containing first block, transfer register
+sub Nasm::X86::Tree::rootIntoFirst($$$$)                                        # Put the contents of a variable into the root field of the first block of a tree when held in a zmm register.
+ {my ($tree, $zmm, $value, $transfer) = @_;                                     # Tree descriptor, number of zmm containing first block, variable containing value to put, transfer register
   @_ == 4 or confess "Four parameters";
   $value->dIntoZ($zmm, $tree->rootOffset, $transfer);
  }
 
-sub Nasm::X86::Tree::rootFromFirst($$$$)                                        # Put the contents of a variable into the root field of the first block of a tree
- {my ($tree, $zmm, $transfer) = @_;                                     # Tree descriptor, variable containing value to put, number of zmm containing first block, transfer register
-  @_ == 4 or confess "Four parameters";
+sub Nasm::X86::Tree::rootFromFirst($$$)                                         # Put the contents of a variable into the root field of the first block of a tree when held in a zmm register.
+ {my ($tree, $zmm, $transfer) = @_;                                             # Tree descriptor, variable containing value to put, number of zmm containing first block, transfer register
+  @_ == 3 or confess "Three parameters";
   dFromZ($zmm, $tree->rootOffset, $transfer);
  }
 
-sub Nasm::X86::Tree::sizeFromFirst($$$)                                         # Return a variable containing the number of keys in the specified tree.
+sub Nasm::X86::Tree::root($$$$)                                                 # Check whether the specified offset refers to the root of a tree when the first block is held in a zmm register. The result is returned by setting the zero flag to one if the offset is the root, else to zero.
+ {my ($t, $F, $offset, $transfer) = @_;                                         # Tree descriptor, zmm register holding first block, offset of block as a variable, transfer variable
+  @_ == 4 or confess "Four parameters";
+  my $root = $t->rootFromFirst($F, $transfer);                                  # Get the offset of the corresponding data block
+  $root == $offset                                                              # Check whether the offset is in fact the root
+ }
+
+sub Nasm::X86::Tree::sizeFromFirst($$$)                                         # Return a variable containing the number of keys in the specified tree when the first block is held in a zmm register..
  {my ($tree, $zmm, $transfer) = @_;                                             # Tree descriptor, number of zmm containing first block, transfer register
   @_ == 3 or confess "Three parameters";
   dFromZ $zmm, $tree->sizeOffset, $transfer;
  }
 
-sub Nasm::X86::Tree::sizeIntoFirst($$$$)                                        # Put the contents of a variable into the size field of the first block of a tree
+sub Nasm::X86::Tree::sizeIntoFirst($$$$)                                        # Put the contents of a variable into the size field of the first block of a tree  when the first block is held in a zmm register.
  {my ($tree, $value, $zmm, $transfer) = @_;                                     # Tree descriptor, variable containing value to put, number of zmm containing first block, transfer register
   @_ == 4 or confess "Four parameters";
   $value->dIntoZ($zmm, $tree->sizeOffset, $transfer);
  }
 
-sub Nasm::X86::Tree::incSizeInFirst($$$)                                        # Increment the size field in the first block of a tree
+sub Nasm::X86::Tree::incSizeInFirst($$$)                                        # Increment the size field in the first block of a tree when the first block is held in a zmm register.
  {my ($tree, $zmm, $transfer) = @_;                                             # Tree descriptor, number of zmm containing first block, transfer register
   @_ == 3 or confess "Three parameters";
   my $s = dFromZ $zmm, $tree->sizeOffset, $transfer;
@@ -7149,26 +7176,32 @@ sub Nasm::X86::Tree::lengthFromKeys($$)                                         
  {my ($t, $zmm) = @_;                                                           # Tree descriptor, zmm number
   @_ == 2 or confess "2 parameters";
 
-  bFromZ($zmm, $t->lengthOffset);                                          # The length field as a variable
+  bFromZ($zmm, $t->lengthOffset);                                               # The length field as a variable
  }
 
 sub Nasm::X86::Tree::lengthIntoKeys($$$)                                        #P Get the length of the block in the numbered zmm from the specified variable.
  {my ($t, $zmm, $length) = @_;                                                  # Tree, zmm number, length variable
   @_ == 3 or confess "3 parameters";
   ref($length) or confess dump($length);
-  $length->bIntoZ($zmm, $t->lengthOffset)                                  # Set the length field
+  $length->bIntoZ($zmm, $t->lengthOffset)                                       # Set the length field
+ }
+
+sub Nasm::X86::Tree::leafFromNodes($$$)                                         #P Set the zero flag to one if a block is a leaf of the containing tree.
+ {my ($tree, $zmm, $transfer) = @_;                                             # Tree descriptor, number of zmm containing node block, transfer register
+  @_ == 3 or confess "Three parameters";
+  dFromZ($zmm, 0, $transfer) == 0;                                              # Get first node which will be zero if this is a leaf
  }
 
 sub Nasm::X86::Tree::getLoop($$$)                                               #P Return the value of the loop field as a variable.
  {my ($t, $zmm, $transfer) = @_;                                                # Tree descriptor, numbered zmm, transfer register
   @_ == 3 or confess "Three parameters";
-  dFromZ($zmm, $t->loop, $transfer);                                       # Get loop field as a variable
+  dFromZ($zmm, $t->loop, $transfer);                                            # Get loop field as a variable
  }
 
 sub Nasm::X86::Tree::putLoop($$$$)                                              #P Set the value of the loop field from a variable.
  {my ($t, $value, $zmm, $transfer) = @_;                                        # Tree descriptor, variable containing offset of next loop entry, numbered zmm, transfer register
   @_ == 4 or confess "Four parameters";
-  $value->dIntoZ($zmm, $t->loop, $transfer);                               # Put loop field as a variable
+  $value->dIntoZ($zmm, $t->loop, $transfer);                                    # Put loop field as a variable
  }
 
 sub Nasm::X86::Tree::getBlock($$$$$$$)                                          #P Get the keys, data and child nodes for a tree node from the specified offset in the arena for the tree.
@@ -7193,86 +7226,83 @@ sub Nasm::X86::Tree::putBlock($$$$$$$$)                                         
   $a->putZmmBlock($node,   $N, $W1, $W2);                                       # Put the node block
  }
 
-sub Nasm::X86::Tree::splitNode($$$)                                             #P Split a non root node given its offset in an arena retaining the key being inserted in the node being split while putting the remainder to the left or right.
- {my ($tree, $node, $key) = @_;                                                 # Tree descriptor,  offset of node, key
-  @_ == 3 or confess 'Three parameters';
+sub Nasm::X86::Tree::splitNode($$)                                              #P Split a node if it it is full returning a variable that indiocates whether a split occurred or not.
+ {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in arena of tree
+  @_ == 2 or confess 'Two parameters';
 
-  my $K = 31; my $D = 30; my $N = 29;                                           # Key, data, node blocks
-
+  my $PK = 31; my $PD = 30; my $PN = 29;                                        # Key, data, node blocks
+  my $LK = 28; my $LD = 27; my $LN = 26;
+  my $RK = 25; my $RD = 24; my $RN = 23;
+  my $F  = 22;
+                                                                                # First block of this tree
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $k = $$p{key};                                                           # Key we are looking for
-    my $n = $$p{node};                                                          # Node to split
-
     my $t     = $$s{tree};                                                      # Tree
     my $arena = $t->arena;                                                      # Arena
 
-    PushR ((my $transfer = r8), (my $work = r9)); PushZmm 22...31;
+    PushR ((my $W1 = r8), (my $W2 = r9)); PushZmm 22...31;
 
-    $t->getBlock($n, $K, $D, $N, $transfer, $work);                             # Load node
+    $t->getBlock($$p{offset}, $LK, $LD, $LN, $W1, $W2);                         # Load node as left
 
-    If $t->lengthFromKeys($K) < $t->maxKeys,
+    If $t->lengthFromKeys($LK) < $t->maxKeys,
     Then                                                                        # Only split full blocks
-     {Jmp $success;
+     {$$p{split}->copy(K split => 1);
+      Jmp $success;
      };
 
-    my $P = $t->getUpFromData($D, $transfer);                                   # Parent
-    If $P > 0,
-    Then                                                                        # Not the root
-     {my $s = dFromZ $K, $t->splittingKey, $transfer;                      # Splitting key
-      If $k < $s,
-      Then                                                                      # Split left node pushing remainder right so that we keep the key we are looking for in the left node
-       {Vmovdqu64 zmm28, zmm31;                                                 # Load left node
-        Vmovdqu64 zmm27, zmm30;
-        Vmovdqu64 zmm26, zmm29;
-        $t->allocBlock(25, 24, 23);                                             # Create new right node
-        $t->getBlock($P, $K, $D, $N, $transfer, $work);                  # Load parent
-        $t->splitFullLeftNode;
-        $t->putKeysDataNode($P, $K, $D, $N, $transfer, $work);                  # Save parent
-        $t->putKeysDataNode($n, 28, 27, 26, $transfer, $work);                  # Save left
+    my $parent = $t->upFromData($LD, $W1);                                      # Parent of this block
+    If $parent > 0,
+    Then                                                                        # Not the root node because it has a parent
+     {my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
+      $t->upIntoData      ($parent, $RD, $W1);                                  # Address existing parent from new right
+      $t->getBlock        ($parent, $PK, $PD, $PN);                             # Load extant parent
+      $t->splitLeftToRight($r,      $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+      $t->putBlock        ($parent, $PK, $PD, $PN, $W1, $W2);
+      $t->putBlock        ($offset, $LK, $LD, $LN, $W1, $W2);
 
-        my $r = $t->getLoop    (23, $transfer);                                 # Offset of right keys
-        $t->putUpIntoData  ($P, 24, $transfer);                                 # Reparent new block
-        $t->putKeysDataNode($r, 25, 24, 23, $transfer, $work)                   # Save right back into node we just split
-       },
-      Else                                                                      # Split right node pushing remainder left  so that we keep the key we are looking for in the right node
-       {Vmovdqu64 zmm25, zmm31;                                                 # Load right node
-        Vmovdqu64 zmm24, zmm30;
-        Vmovdqu64 zmm23, zmm29;
-        $t->allocBlock(28, 27, 26);                                      # Create new left node
-        $t->getBlock($P, $K, $D, $N, $transfer, $work);                  # Load parent
-        $t->splitFullRightNode;
-
-        $t->putKeysDataNode($P, $K, $D, $N, $transfer, $work);                  # Save parent
-        my $l = $t->getLoop    (26, $transfer);                                 # Offset of left keys
-        $t->putUpIntoData  ($P, 27, $transfer);                                 # Reparent new block
-
-        $t->putKeysDataNode($l, 28, 27, 26, $transfer, $work);                  # Save left
-        $t->putKeysDataNode($n, 25, 24, 23, $transfer, $work);                  # Save right back into node we just split
+      $t->leafFromNodes($RN);                                                   # Whether the right block is a leaf
+      IfNe                                                                      # If the zero Flag is zero then this is not a leaf
+      Then
+       {(K(nodes => $t->lr) + 1)->for(sub                                       # Reparent the children of the right hand side now known not to be a leaf
+         {my ($index, $start, $next, $end) = @_;
+          my $n = dFromZ $RN, $index * $t->width, $W1;                          # Offset of node
+          $t->getBlock  ($n, $LK, $LD, $LN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+          $t->upIntoData($r,      $LD, $W1);                                    # Parent for child of right hand side
+          $t->putBlock  ($n, $LK, $LD, $LN);                                    # Save block into memory now that its parent pointer has been updated
+         });
        };
+
+      $t->putBlock        ($r,      $RK, $RD, $RN, $W1, $W2);
      },
-    Else
-     {$t->splitFullRoot;                                                        # Root
+    Else                                                                        # Split the root node
+     {my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
+      my $p = $t->allocBlock       ($PK, $PD, $PN);                             # Create a new parent block
+      $t->splitLeftToRootAndRight
+                      ($offset, $r, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+      $t->upIntoData      ($p,      $LD, $W1);                                  # Left  points up to new parent
+      $t->upIntoData      ($p,      $RD, $W1);                                  # Right points up to new parent
+      $t->putBlock        ($parent, $PK, $PD, $PN, $W1, $W2);
+      $t->putBlock        ($offset, $LK, $LD, $LN, $W1, $W2);
+      $t->putBlock        ($r,      $RK, $RD, $RN, $W1, $W2);
 
-      my $l = dFromZ $N, 0,          $transfer;                            # Left is node 0 of root
-      my $r = dFromZ $N, $t->width,  $transfer;                            # Right is node 1 of parent
-
-      $t->putKeysDataNode($n, $K, $D, $N, $transfer, $work);                    # Save root
-      $t->putKeysDataNode($l, 28, 27, 26, $transfer, $work);                    # Save left
-      $t->putKeysDataNode($r, 25, 24, 23, $transfer, $work);                    # Save right
+      $t->firstFromMemory ($F,                     $W1, $W2);                   # Update new root of tree
+      $t->rootIntoFirst   ($F, $p,                 $W1);
+      $t->firstIntoMemory ($F,                     $W1, $W2);
      };
 
     SetLabel $success;                                                          # Insert completed successfully
     PopZmm;
     PopR;
    }  structures =>{tree=>$tree},
-      parameters =>[qw(node key)],
+      parameters =>[qw(offset split)],
       name       => 'Nasm::X86::Tree::splitNode';
 
-  $s->call(structures=>{tree=>$tree}, parameters=>{node=>$node, key=>$key});
+  $s->call(structures => {tree   => $tree},
+           parameters => {offset => $offset, split => my $p = V split => 0});
 
+  $p                                                                            # Return a variable containing one if the node was split else zero.
  } # splitNode
 
 # the  length byte in keys - zmm28 is not being correctly set on the insertion of the last key in the block
@@ -7452,8 +7482,8 @@ sub Nasm::X86::Tree::splitFullRoot($)                                           
       &Vmovdqu32   (zmm $RN.  "{k7}",    $Test);                                # Save right node
      };
 
-    my $k = dFromZ $TK, $ll * (my $w = $t->width), $transfer;              # Splitting key
-    my $d = dFromZ $TD, $ll * $w,                  $transfer;              # Splitting data
+    my $k = dFromZ $TK, $ll * (my $w = $t->width), $transfer;                   # Splitting key
+    my $d = dFromZ $TD, $ll * $w,                  $transfer;                   # Splitting data
 
     LoadConstantIntoMaskRegister(7, $transfer, 1);                              # Position of key, data in root node
     $k->zBroadCastD($Test);                                                     # Broadcast keys
@@ -7471,15 +7501,15 @@ sub Nasm::X86::Tree::splitFullRoot($)                                           
       &Vmovdqu32 (zmm $TN."{k7}{z}",  $TN);                                     # Clear unused node in root
      };
 
-    $t->lengthIntoKeys($TK, K(one,  1));                                       # Set length of root keys
-    $t->lengthIntoKeys($LK, K(leftLength,  $ll));                              # Length of left node
-    $t->lengthIntoKeys($RK, K(rightLength, $rl));                              # Length of right node
+    $t->lengthIntoKeys($TK, K(one,  1));                                        # Set length of root keys
+    $t->lengthIntoKeys($LK, K(leftLength,  $ll));                               # Length of left node
+    $t->lengthIntoKeys($RK, K(rightLength, $rl));                               # Length of right node
 
     $t->putUpIntoData($to, $LD, $transfer);                                     # Set parent of left node
     $t->putUpIntoData($to, $RD, $transfer);                                     # Set parent of right node
 
-    $lo->dIntoZ($TN, 0,  $transfer);                                       # Insert offset of left node in root nodes
-    $ro->dIntoZ($TN, $w, $transfer);                                       # Insert offset of right node in root nodes
+    $lo->dIntoZ($TN, 0,  $transfer);                                            # Insert offset of left node in root nodes
+    $ro->dIntoZ($TN, $w, $transfer);                                            # Insert offset of right node in root nodes
 
     $t->transferTreeBitsFromParent($TK, $LK, $RK);                              # Transfer any tree bits present
 
@@ -7685,13 +7715,13 @@ sub Nasm::X86::Tree::findAndSplit($$)                                           
     Vpbroadcastd "zmm$zmmTest", r15d;
 
     my $P = $F->clone('node');                                                  # Start at the first key block
-    $t->getBlock($P, $zmmKeys, $zmmData, $zmmNode, $transfer, $work);    # Get the keys/data/nodes block
+    $t->getBlock($P, $zmmKeys, $zmmData, $zmmNode, $transfer, $work);           # Get the keys/data/nodes block
 
     K(depth => 99)->for(sub                                                     # Step down through tree
      {my ($index, $start, $next, $end) = @_;
-      my $notLeaf = dFromZ $zmmNode, 0, $transfer;                         # First element of node block, which will be zero if we are on a leaf
+      my $notLeaf = dFromZ $zmmNode, 0, $transfer;                              # First element of node block, which will be zero if we are on a leaf
 
-      my $l = $t->lengthFromKeys($zmmKeys);                                    # Length of the block
+      my $l = $t->lengthFromKeys($zmmKeys);                                     # Length of the block
       $l->setMaskFirst($lengthMask);                                            # Set the length mask
       Vpcmpud "$testMask\{$lengthMask}", "zmm$zmmKeys", "zmm$zmmTest", 0;       # Check for equal elements
 
@@ -7719,7 +7749,7 @@ sub Nasm::X86::Tree::findAndSplit($$)                                           
           $t->offset ->copy($P);                                                # Offset of matching block
           Jmp $success;                                                         # Return
          };
-        $P->copy(dFromZ $zmmNode, "r14*$W", $transfer);                    # Corresponding node
+        $P->copy(dFromZ $zmmNode, "r14*$W", $transfer);                         # Corresponding node
         Jmp $start;                                                             # Loop
        };
 
@@ -26480,7 +26510,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex 31;
   $tree->sizeFromFirst(31, r8)->outNL;
 
-  $tree->rootIntoFirst(K(size => 0x99), 31, r8);
+  $tree->rootIntoFirst(31, K(size => 0x99), r8);
   PrintOutRegisterInHex 31;
   $tree->rootFromFirst(31, r8)->outNL;
 
@@ -29576,27 +29606,27 @@ sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$)                              
  {my ($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;      # Tree definition, variable offset in arena of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 11 or confess "Eleven parameters required";
 
-  my $w         = RegisterSize(eax);                                            # Size of keys, data, nodes
-  my $zw        = RegisterSize(zmm0) / $w;                                      # Number of dwords in a zmm
-  my $zwn       = $zw - 1;                                                      # Number of dwords used for nodes in a zmm
-  my $zwk       = $zwn - 1;                                                     # Number of dwords used for keys/data in a zmm
-  my $transfer  = r8;                                                           # Transfer register
-  my $transferD = r8d;                                                          # Transfer register as a dword
-  my $transferW = r8w;                                                          # Transfer register as a  word
-  my $work      = r9;                                                           # Work register as a dword
+  my $w         = $tree->width;                                                 # Size of keys, data, nodes
+  my $zw        = $tree->zWidthD;                                               # Number of dwords in a zmm
+  my $zwn       = $tree->maxNodesZ;                                             # Maximum number of dwords that could be used for nodes in a zmm register.
+  my $zwk       = $tree->maxKeysZ;                                              # Maxiumum number of dwords used for keys/data in a zmm
   my $lw        = $tree->maxKeys;                                               # Maximum number of keys in a node
   my $ll        = $tree->lengthLeft;                                            # Minimum node width on left
   my $lm        = $tree->lengthMiddle;                                          # Position of splitting key
   my $lr        = $tree->lengthRight;                                           # Minimum node on right
   my $lb        = $tree->lengthOffset;                                          # Position of length byte
   my $tb        = $tree->treeBits;                                              # Position of tree bits
+  my $transfer  = r8;                                                           # Transfer register
+  my $transferD = r8d;                                                          # Transfer register as a dword
+  my $transferW = r8w;                                                          # Transfer register as a  word
+  my $work      = r9;                                                           # Work register as a dword
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     PushR $transfer, $work, 5..7;
 
-    my $SK = dFromZ($LK, $ll * $w, $transfer);                             # Splitting key
-    my $SD = dFromZ($LD, $ll * $w, $transfer);                             # Data corresponding to splitting key
+    my $SK = dFromZ($LK, $ll * $w, $transfer);                                  # Splitting key
+    my $SD = dFromZ($LD, $ll * $w, $transfer);                                  # Data corresponding to splitting key
 
     my $mask = sub                                                              # Set k7 to a specified bit mask
      {my ($prefix, @onesAndZeroes) = @_;                                        # Prefix bits, alternating zeroes and ones
@@ -29744,24 +29774,24 @@ sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$)                              
   $s->call(parameters => {newRight => $newRight});
  }
 
-sub Nasm::X86::Tree::splitParentInLeft($$$$$$$$$$$$)                            # Split a parent node into left and right nodes with the splitting key/data left in the parent nmode
+sub Nasm::X86::Tree::splitLeftIntoRootandRight($$$$$$$$$$$$)                    # Split a parent node into left and right nodes with the splitting key/data left in the parent node
  {my ($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;# Tree definition, variable offset in arena of new left node block, variable offset in arena of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 12 or confess "Twelve parameters required";
 
-  my $w         = RegisterSize(eax);                                            # Size of keys, data, nodes
-  my $zw        = RegisterSize(zmm0) / $w;                                      # Number of dwords in a zmm
-  my $zwn       = $zw - 1;                                                      # Number of dwords used for nodes in a zmm
-  my $zwk       = $zwn - 1;                                                     # Number of dwords used for keys/data in a zmm
-  my $transfer  = r8;                                                           # Transfer register
-  my $transferD = r8d;                                                          # Transfer register as a dword
-  my $transferW = r8w;                                                          # Transfer register as a  word
-  my $work      = r9;                                                           # Work register as a dword
+  my $w         = $tree->width;                                                 # Size of keys, data, nodes
+  my $zw        = $tree->zWidthD;                                               # Number of dwords in a zmm
+  my $zwn       = $tree->maxNodesZ;                                             # Maximum number of dwords that could be used for nodes in a zmm register.
+  my $zwk       = $tree->maxKeysZ;                                              # Maxiumum number of dwords used for keys/data in a zmm
   my $lw        = $tree->maxKeys;                                               # Maximum number of keys in a node
   my $ll        = $tree->lengthLeft;                                            # Minimum node width on left
   my $lm        = $tree->lengthMiddle;                                          # Position of splitting key
   my $lr        = $tree->lengthRight;                                           # Minimum node on right
   my $lb        = $tree->lengthOffset;                                          # Position of length byte
   my $tb        = $tree->treeBits;                                              # Position of tree bits
+  my $transfer  = r8;                                                           # Transfer register
+  my $transferD = r8d;                                                          # Transfer register as a dword
+  my $transferW = r8w;                                                          # Transfer register as a  word
+  my $work      = r9;                                                           # Work register as a dword
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
@@ -29804,7 +29834,7 @@ sub Nasm::X86::Tree::splitParentInLeft($$$$$$$$$$$$)                            
     PopR;
    }
   parameters => [qw(newLeft newRight)],
-  name       => "Nasm::X86::Tree::splitParentInLeft".
+  name       => "Nasm::X86::Tree::splitLeftIntoRootandRight".
           "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
 
   $s->call(parameters => {newLeft => $nLeft, newRight => $nRight});
@@ -30074,7 +30104,7 @@ if (1) {                                                                        
   PrintOutStringNL "Initial Right";
   PrintOutRegisterInHex zmm reverse 23..25;
 
-  $tree->splitParentInLeft($newLeft, $newRight, reverse 23..31);
+  $tree->splitLeftIntoRootandRight($newLeft, $newRight, reverse 23..31);
 
   PrintOutStringNL "Final Parent";
   PrintOutRegisterInHex zmm reverse 29..31;
@@ -30125,7 +30155,7 @@ sub Nasm::X86::Tree::copyNonLoopArea($$$$$$$)                                   
     my $transfer  = r8;                                                         # Transfer register
 
     PushR $transfer, 7;
-    LoadBitsIntoMaskRegister(7, $transfer,  '0', $tree->maxNodes);              # Move non loop area
+    LoadBitsIntoMaskRegister(7, $transfer,  '0', $tree->maxNodesZ);             # Move non loop area
     Vmovdqu32 zmmM($LK, 7),  zmm($PK);
     Vmovdqu32 zmmM($LD, 7),  zmm($PD);
     Vmovdqu32 zmmM($LN, 7),  zmm($PN);
@@ -30253,8 +30283,8 @@ ZF=1
 END
  }
 
-latest:
-if (1) {                                                                        #TNasm::X86::Tree::allocBlock #TNasm::X86::Tree::putBlock #TNasm::X86::Tree::getBlock
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::allocBlock #TNasm::X86::Tree::putBlock #TNasm::X86::Tree::getBlock #TNasm::X86::Tree::root
   my $a = CreateArena;
   my $t = $a->CreateTree;
   my $b = $t->allocBlock(31, 30, 29);
@@ -30265,35 +30295,150 @@ if (1) {                                                                        
   PrintOutRegisterInHex 25;
   $t->lengthFromKeys(25)->outNL;
 
+
   $t->firstFromMemory(28, r8, r9);
   $t->incSizeInFirst (28, r8);
+  $t->rootIntoFirst  (28, K(value => 0x2222), r8);
+  $t->root           (28, K(value => 0x2222), r8);  PrintOutZF;
+  $t->root           (28, K(value => 0x2221), r8);  PrintOutZF;
+  $t->root           (28, K(value => 0x2222), r8);  PrintOutZF;
   $t->firstIntoMemory(28, r8, r9);
 
   $t->first->outNL;
   $b->outNL;
   $a->dump("1111");
   PrintOutRegisterInHex 31, 30, 29, 28;
+
+
+  $t->leafFromNodes(29, r8); IfEq Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
+  $t->leafFromNodes(28, r8); IfEq Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
+
+
   ok Assemble eq => <<END;
  zmm25: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
 b at offset 56 in zmm25: 0000 0000 0000 0009
+ZF=1
+ZF=0
+ZF=1
 first: 0000 0000 0000 0040
 address: 0000 0000 0000 0080
 1111
 Arena     Size:     4096    Used:      320
 0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 0040 | ____ ____ ____ ____  01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | 2222 ____ ____ ____  01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 0000 0000 0000 0080 | ____ ____ 33__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  09__ ____ C0__ ____
 0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
  zmm31: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
  zmm30: 0000 0100 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
  zmm29: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
- zmm28: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001   0000 0000 0000 0000
+ zmm28: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001   0000 0000 0000 2222
+29 Leaf
+28 Branch
+END
+ }
+
+sub Nasm::X86::Tree::indexEq($$$)                                               # Return the one based position as a variable of the key in a zmm equal to the specified key else return zero if there is no such key.
+ {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
+  @_ == 3 or confess "Three parameters";
+
+  PushR my ($result, $eq, $keys) = (r15, k7, k6);                               # Result, mask registers
+
+  my $l = $tree->lengthFromKeys($K);                                            # Length of the block
+  Vpcmpud $eq, zmm($K), $key->address."{1to16}", $Vpcmp->eq;                    # Check for equal keys from the broadcasted memory
+
+  LoadBitsIntoMaskRegister($keys, $result, '00', $tree->zWidthD - 2);           # Key area to mask register
+  Kandq $eq, $eq, $keys;                                                        # Mask key area
+
+  Ktestw $eq, $eq;
+  IfNz                                                                          # Result mask is non zero so we must have found the key
+  Then
+   {Kmovq $result, $eq;
+    Tzcnt $result, $result;                                                     # Trailing zeros gives index
+    Inc   $result;                                                              # One based result
+   },
+  Else
+   {Mov $result, 0;                                                             # Key not found
+   };
+
+  my $r = V index => $result;                                                   # Save result as a variable
+  PopR;
+
+  $r                                                                            # One based position of key if found else zero as a variable
+ }
+
+sub Nasm::X86::Tree::indexNode($$$)                                             # Return the zero based position as a variable of the node to be taken when traversing a tree searching for the specified variable key in the specified zmm.
+ {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
+  @_ == 3 or confess "Three parameters";
+
+  my $zw = $tree->zWidthD;                                                      # Number of dwords in a zmm
+  my $lw = $tree->maxKeys;                                                      # Maximum number of keys in a node
+
+  PushR my ($result, $gt, $keys) = (r15, k7, k6);                               # Result, mask registers
+
+  Vpcmpud $gt, zmm($K), $key->address."{1to16}", $Vpcmp->lt;                    # Check for keys that are greater than or equal
+
+  LoadBitsIntoMaskRegister($keys, $result, '00', 2+$lw-$zw, $lw);               # Key area to mask register
+  Kandq $gt, $gt, $keys;                                                        # Mask key area
+  ClearRegisters $result;
+
+  Ktestw $gt, $gt;
+  IfNz                                                                          # Result mask is non zero so we must have found keys that are less than the specified key
+  Then
+   {Kmovq $result, $gt;
+    Not   $result;
+    Tzcnt $result, $result;                                                     # Trailing zeros gives index
+   };
+
+  my $r = V index => $result;                                                   # Save result as a variable
+  PopR;
+
+  $r                                                                            # 1 based position of key if found else zero as a variable
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::indexEq
+  my $tree = DescribeTree(length => 7);
+
+  my $K = 31;
+
+  K(K => Rd(0..15))->loadZmm($K);
+  $tree->lengthIntoKeys($K, K length => 13);
+
+  K(loop => 16)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $f = $tree->indexEq($index, $K);
+    $f->outRightInDec(K width => 3);
+   });
+
+  PrintOutNL;
+  ok Assemble eq => <<END;
+  1  2  3  4  5  6  7  8  9 10 11 12 13 14  0  0
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::indexGe
+  my $tree = DescribeTree(length => 7);
+
+  my $K = 31;
+
+  K(K => Rd(map {2 * $_} 1..16))->loadZmm($K);
+  $tree->lengthIntoKeys($K, K length => 6);
+
+  K(loop => 16)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $f = $tree->indexNode($index * 2 + 1, $K);
+    $f->outRightInDec(K width => 3);
+   });
+
+  PrintOutNL;
+  ok Assemble eq => <<END;
+  0  1  2  3  4  5  6  7  7  7  7  7  7  7  7  7
 END
  }
 
 #latest:
 if (0) {                                                                        # Split tree bits 3 : 3
-
   ok Assemble eq => <<END;
 END
  }
