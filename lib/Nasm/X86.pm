@@ -7259,6 +7259,56 @@ sub Nasm::X86::Tree::putBlock($$$$$$$$)                                         
   $a->putZmmBlock($node,   $N, $W1, $W2);                                       # Put the node block
  }
 
+sub Nasm::X86::Tree::insertTriple($$$$$$$)                                      # Insert a new key/data/node triple into a set of zmm registers if there is room, increment the length and set the tree bit as indicated.
+ {my ($tree, $point, $K, $D, $N, $IK, $ID, $IN, $subTree) = @_;                 # Point at which to insert formatted as a one in a sea of zeros, key, data, node, insert key, insert data, insert node, sub tree if tree.
+
+  @_ == 9 or confess "Nine parameters";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $success = Label;                                                        # End label
+
+    my $W1 = r8;                                                                # Work register
+    PushR 1..7, $W1;
+
+    $$p{point}->setReg($W1);                                                    # Load mask register showing point of insertion.
+    Kmovq k7, $W1;                                                              # A sea of zeros with a one at the point of insertion
+
+    $tree->maskForFullKeyArea(6);                                               # Mask for key area
+    $tree->maskForFullNodesArea(5);                                             # Mask for nodes area
+
+    Kandnq  k4, k7, k6;                                                         # Mask for key area with a hole at the insertion point
+    Kandnq  k3, k7, k5;                                                         # Mask for nodes area with a hole at the insertion point
+
+    Vpexpandd zmmM($K, 4), zmm($K);                                             # Expand to make room for the value to be inserted
+    Vpexpandd zmmM($D, 4), zmm($D);
+    Vpexpandd zmmM($N, 3), zmm($N);
+
+    $$p{key}  ->setReg($W1); Vpbroadcastd zmmM($K, 7), $W1."d";                 # Insert value at expansion point
+    $$p{data} ->setReg($W1); Vpbroadcastd zmmM($D, 7), $W1."d";
+    $$p{node} ->setReg($W1); Vpbroadcastd zmmM($N, 7), $W1."d";
+
+    $tree->incLengthInKeys($K, $W1);                                            # Increment the length to include the inserted value
+
+    If $$p{subTree} > 0,                                                        # Set the inserted tree bit
+    Then
+     {$tree->expandTreeBitsWithOne ($K, 7);
+     },
+    Else
+     {$tree->expandTreeBitsWithZero($K, 7);
+     };
+
+    PopR;
+   } name => "Nasm::X86::Tree::insertTriple($K, $D, $N)",
+     structures => {tree=>$tree},
+     parameters => [qw(point key data node subTree)];
+
+  $s->call(structures => {tree  => $tree},
+           parameters => {key   => $IK, data => $ID, node => $IN,
+                          point => $point, subTree => $subTree});
+ }
+
 sub Nasm::X86::Tree::splitNode($$)                                              #P Split a node if it it is full returning a variable that indicates whether a split occurred or not.
  {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in arena of tree
   @_ == 2 or confess 'Two parameters';
@@ -30445,57 +30495,6 @@ if (1) {                                                                        
 END
  }
 
-sub Nasm::X86::Tree::insertTriple($$$$$$$)                                      # Insert a new key/data/node triple into a set of zmm registers if there is room, increment the length and set the tree bit as indicated.
- {my ($tree, $point, $K, $D, $N, $IK, $ID, $IN, $subTree) = @_;                        # Point at which to insert formatted as a one in a sea of zeros, key, data, node, insert key, insert data, insert node, sub tree if tree.
-
-  @_ == 9 or confess "Nine parameters";
-
-  my $s = Subroutine2
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-
-    my $success = Label;                                                        # End label
-
-    my $W1 = r8;                                                                # Work register
-    PushR 1..7, $W1;
-
-    $$p{point}->setReg($W1);                                                    # Load mask register showing point of insertion.
-    Kmovq k7, $W1;                                                              # A sea of zeros with a one at the point of insertion
-
-    $tree->maskForFullKeyArea(6);                                               # Mask for key area
-    $tree->maskForFullNodesArea(5);                                             # Mask for nodes area
-
-    Kandnq  k4, k7, k6;                                                         # Mask for key area with a hole at the insertion point
-    Kandnq  k3, k7, k5;                                                         # Mask for nodes area with a hole at the insertion point
-    PrintOutRegisterInHex k3, k4, k5, k6, k7;
-
-    Vpexpandd zmmM($K, 4), zmm($K);                                             # Expand to make room for the value to be inserted
-    Vpexpandd zmmM($D, 4), zmm($D);
-    Vpexpandd zmmM($N, 3), zmm($N);
-
-    $$p{key}  ->setReg($W1); Vpbroadcastd zmmM($K, 7), $W1."d";                 # Insert value at expansion point
-    $$p{data} ->setReg($W1); Vpbroadcastd zmmM($D, 7), $W1."d";
-    $$p{node} ->setReg($W1); Vpbroadcastd zmmM($N, 7), $W1."d";
-
-    $tree->incLengthInKeys($K, $W1);                                            # Increment the length to include the inserted value
-
-    If $$p{subTree} > 0,                                                        # Set the inserted tree bit
-    Then
-     {$tree->expandTreeBitsWithOne ($K, 7);
-     },
-    Else
-     {$tree->expandTreeBitsWithZero($K, 7);
-     };
-
-    PopR;
-   } name => "Nasm::X86::Tree::insertTriple($K, $D, $N)",
-     structures => {tree=>$tree},
-     parameters => [qw(point key data node subTree)];
-
-  $s->call(structures => {tree  => $tree},
-           parameters => {key   => $IK, data => $ID, node => $IN,
-                          point => $point, subTree => $subTree});
- }
-
 latest:
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
@@ -30523,19 +30522,10 @@ if (1) {                                                                        
   PrintOutRegisterInHex $K, $D, $N;
 
   ok Assemble eq => <<END;                                                      # Once we know the insertion point we can add the key/data/node triple, increase the length and update the tree bits
-    k3: 0000 0000 0000 7FF7
-    k4: 0000 0000 0000 3FF7
-    k5: 0000 0000 0000 7FFF
-    k6: 0000 0000 0000 3FFF
-    k7: 0000 0000 0000 0008
-Initially
+Start
  zmm31: 0000 000F 3FF0 0005   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
  zmm30: 0000 000F 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
  zmm29: 0000 000F 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
-Expanded
- zmm31: 0000 000F 3FF0 0005   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0003 0000 0002   0000 0001 0000 0000
- zmm30: 0000 000F 0000 000E   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0003 0000 0002   0000 0001 0000 0000
- zmm29: 0000 000F 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0003 0000 0002   0000 0001 0000 0000
 Inserted
  zmm31: 0000 000F 7FE8 0006   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0044 0000 0002   0000 0001 0000 0000
  zmm30: 0000 000F 0000 000E   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0055 0000 0002   0000 0001 0000 0000
