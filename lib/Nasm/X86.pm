@@ -7038,7 +7038,7 @@ sub Nasm::X86::Arena::DescribeTree($%)                                          
 
 sub Nasm::X86::Arena::CreateTree($%)                                            # Create a tree in an arena.
  {my ($arena, %options) = @_;                                                   # Arena description, tree options
-  @_ % 2 == 1 or confess "Odd number of paramters required";
+  @_ % 2 == 1 or confess "Odd number of parameters required";
 
   my $tree = $arena->DescribeTree(%options);                                    # Return a descriptor for a tree in the specified arena
 
@@ -30445,15 +30445,66 @@ if (1) {                                                                        
 END
  }
 
+sub Nasm::X86::Tree::insertTriple($$$$$$$)                                      # Insert a new key/data/node triple into a set of zmm registers if there is room, increment the length and set the tree bit as indicated.
+ {my ($tree, $point, $K, $D, $N, $IK, $ID, $IN, $subTree) = @_;                        # Point at which to insert formatted as a one in a sea of zeros, key, data, node, insert key, insert data, insert node, sub tree if tree.
+
+  @_ == 9 or confess "Nine parameters";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $success = Label;                                                        # End label
+
+    my $W1 = r8;                                                                # Work register
+    PushR 1..7, $W1;
+
+    $$p{point}->setReg($W1);                                                    # Load mask register showing point of insertion.
+    Kmovq k7, $W1;                                                              # A sea of zeros with a one at the point of insertion
+
+    $tree->maskForFullKeyArea(6);                                               # Mask for key area
+    $tree->maskForFullNodesArea(5);                                             # Mask for nodes area
+
+    Kandnq  k4, k7, k6;                                                         # Mask for key area with a hole at the insertion point
+    Kandnq  k3, k7, k5;                                                         # Mask for nodes area with a hole at the insertion point
+    PrintOutRegisterInHex k3, k4, k5, k6, k7;
+
+    Vpexpandd zmmM($K, 4), zmm($K);                                             # Expand to make room for the value to be inserted
+    Vpexpandd zmmM($D, 4), zmm($D);
+    Vpexpandd zmmM($N, 3), zmm($N);
+
+    $$p{key}  ->setReg($W1); Vpbroadcastd zmmM($K, 7), $W1."d";                 # Insert value at expansion point
+    $$p{data} ->setReg($W1); Vpbroadcastd zmmM($D, 7), $W1."d";
+    $$p{node} ->setReg($W1); Vpbroadcastd zmmM($N, 7), $W1."d";
+
+    $tree->incLengthInKeys($K, $W1);                                            # Increment the length to include the inserted value
+
+    If $$p{subTree} > 0,                                                        # Set the inserted tree bit
+    Then
+     {$tree->expandTreeBitsWithOne ($K, 7);
+     },
+    Else
+     {$tree->expandTreeBitsWithZero($K, 7);
+     };
+
+    PopR;
+   } name => "Nasm::X86::Tree::insertTriple($K, $D, $N)",
+     structures => {tree=>$tree},
+     parameters => [qw(point key data node subTree)];
+
+  $s->call(structures => {tree  => $tree},
+           parameters => {key   => $IK, data => $ID, node => $IN,
+                          point => $point, subTree => $subTree});
+ }
+
 latest:
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
 
   my $W1 = r8;
-  my $K = 31; my $D = 30; my $N = 29;                                           # Zmm containing keys
-  my $IK = K insert => 0x44;
-  my $ID = K insert => 0x55;
-  my $IN = K insert => 0x66;
+  my $K  = 31; my $D = 30; my $N = 29;                                           # Zmm containing keys
+  my $IK = K insert  => 0x44;
+  my $ID = K insert  => 0x55;
+  my $IN = K insert  => 0x66;
   my $tb = K treebit => 1;                                                      # Value to insert, tree bit to insert
 
   K(K => Rd(0..15))->loadZmm($_) for $K, $D, $N;                                # Keys block
@@ -30461,39 +30512,12 @@ if (1) {                                                                        
   Mov $W1, 0x3FF0;                                                              # Initial tree bits
   $tree->setTreeBits(31, $W1);                                                  # Save tree bits
 
-  Mov $W1, 1<<3;                                                                # Show insertion point
-  Kmovq k7, $W1;                                                                # A sea of zeros with a one at the point of insertion
+  my $point = K point => 1<<3;                                                  # Show insertion point
 
-  $tree->maskForFullKeyArea(6);                                                 # Mask for key area
-  $tree->maskForFullNodesArea(5);                                               # Mask for nodes area
-
-  Kandnq  k4, k7, k6;                                                           # Mask for key area with a hole at the insertion point
-  Kandnq  k3, k7, k5;                                                           # Mask for nodes area with a hole at the insertion point
-  PrintOutRegisterInHex k3, k4, k5, k6, k7;
-
-  PrintOutStringNL "Initially";
+  PrintOutStringNL "Start";
   PrintOutRegisterInHex $K, $D, $N;
 
-  Vpexpandd zmmM($K, 4), zmm($K);                                               # Expand to make room for the value to be inserted
-  Vpexpandd zmmM($D, 4), zmm($D);
-  Vpexpandd zmmM($N, 3), zmm($N);
-
-  PrintOutStringNL "Expanded";
-  PrintOutRegisterInHex $K, $D, $N;
-
-  $IK->setReg($W1); Vpbroadcastd zmmM($K, 7), $W1."d";                          # Insert value at expansion point
-  $ID->setReg($W1); Vpbroadcastd zmmM($D, 7), $W1."d";
-  $IN->setReg($W1); Vpbroadcastd zmmM($N, 7), $W1."d";
-
-  $tree->incLengthInKeys($K, $W1);                                              # Increment the length to include the inserted value
-
-  If $tb > 0,                                                                   # Set the inserted tree bit
-  Then
-   {$tree->expandTreeBitsWithOne ($K, 7);
-   },
-  Else
-   {$tree->expandTreeBitsWithZero($K, 7);
-   };
+  $tree->insertTriple($point, $K, $D, $N, $IK, $ID, $IN, K subTree => 1);
 
   PrintOutStringNL "Inserted";
   PrintOutRegisterInHex $K, $D, $N;
@@ -30519,9 +30543,9 @@ Inserted
 END
  }
 
-sub Nasm::X86::Tree::put($$$)                                                   # Put a variable key and data into a tree.
- {my ($tree, $key, $data) = @_;                                                 # Tree definition, key as a variable, data as a variable
-  @_ == 3 or confess "Three parameters";
+sub Nasm::X86::Tree::put($$$$)                                                  # Put a variable key and data into a tree.
+ {my ($tree, $key, $data, $subTree) = @_;                                       # Tree definition, key as a variable, data as a variable, the data represents the offset of a sub tree if true.
+  @_ == 4 or confess "Four parameters";
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -30546,9 +30570,9 @@ sub Nasm::X86::Tree::put($$$)                                                   
       Jmp $success;
      };
 
-    my $descend = SetLabel;                                                     # Start the descent through the tree
-
     my $Q = $t->rootFromFirst($F, $W1);                                         # Start the descent at the root node
+
+    my $descend = SetLabel;                                                     # Start the descent through the tree
 
     $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                     # Get the current block from memory
 
@@ -30559,13 +30583,16 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
     If $t->leafFromNodes($N) > 0,                                               # If it is a leaf we can do the insert
     Then
-     {my $mask = $t->indexLt($key, $K);                                         # Mask of keys less than the key
-      $mask->setReg(r15);
-      Inc r15;                                                                  # Point to insertion point
-      Mov r14, r15;
-      Not r14;                                                                  # Zero in sea of ones at insertion point
-      $t->lengthFromKeys($K)->setReg(r15);
+     {my $eq = $t->indexEq($key, $K);                                           # Check for an equal key
+      If $eq > 0,                                                               # Equal key found
+      Then
+       {$t->insmask->setReg(r15);
+        Inc r15;                                                                  # Point to insertion point
+        Mov r14, r15;
+        Not r14;                                                                  # Zero in sea of ones at insertion point
+        $t->lengthFromKeys($K)->setReg(r15);
       #Shl r15, $l
+       };
      };
 
     SetLabel $success;
@@ -30647,6 +30674,15 @@ END
  }
 
 done_testing;
+
+=pod
+
+Status:
+
+Need to make a subroutine out of the insert into key/data/node block
+
+=cut
+
 
 #unlink $_ for qw(hash print2 sde-log.txt sde-ptr-check.out.txt z.txt);         # Remove incidental files
 #unlink $_ for qw(hash print2 pin-log.txt pin-tool-log.txt sde-footprint.txt sde-log.txt clear hash signal z.o);
