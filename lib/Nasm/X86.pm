@@ -3065,30 +3065,32 @@ sub Nasm::X86::Variable::isRef($)                                               
 sub Nasm::X86::Variable::setReg($$)                                             # Set the named registers from the content of the variable.
  {my ($variable, $register) = @_;                                               # Variable, register to load
 
+  my $r = registerNameFromNumber $register;
   if ($variable->isRef)
-   {Mov $register, $variable->address;
-    Mov $register, "[$register]";
+   {Mov $r, $variable->address;
+    Mov $r, "[$r]";
    }
   else
-   {Mov $register, $variable->address;
+   {Mov $r, $variable->address;
    }
 
   $register
  }
 
-sub Nasm::X86::Variable::getReg($$@)                                            # Load the variable from a register expression.
- {my ($variable, $register, @registers) = @_;                                   # Variable, register to load, optional further registers to load from
+sub Nasm::X86::Variable::getReg($$)                                             # Load the variable from a register expression.
+ {my ($variable, $register) = @_;                                               # Variable, register expression to load
+  @_ == 2 or confess "Two parameters";
+  my $r = registerNameFromNumber $register;
   if ($variable->isRef)                                                         # Move to the location referred to by this variable
-   {$Registers{$register} or confess "No such register: $register";             # Check we have been given a register
-    Comment "Get variable value from register $register";
-    my $r = $register eq r15 ? r14 : r15;
-    PushR $r;
-    Mov $r, $variable->address;
-    Mov "[$r]", $register;
-    PopR $r;
+   {Comment "Get variable value from register $r";
+    my $p = $r eq r15 ? r14 : r15;
+    PushR $p;
+    Mov $p, $variable->address;
+    Mov "[$p]", $r;
+    PopR $p;
    }
   else                                                                          # Move to this variable
-   {Mov $variable->address, $register;
+   {Mov $variable->address, $r;
    }
   $variable                                                                     # Chain
  }
@@ -3474,6 +3476,19 @@ sub Nasm::X86::Variable::dFromZ($$$;$)                                          
  {my ($variable, $zmm, $offset, $transfer) = @_;                                # Variable, numbered zmm, offset in bytes, transfer register
   getBwdqFromMm 'd', "zmm$zmm", $offset, $transfer, $variable;                  # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
   $variable                                                                     # Return input variable so we can assign or chain
+ }
+
+sub Nasm::X86::Variable::dFromPointInZ($$$)                                     # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
+ {my ($point, $zmm) = @_;                                                       # Point, numbered zmm
+  PushR 7, 14, 15, $zmm;
+  $point->setReg(r15);
+  Kmovq k7, r15;
+  my ($z) = zmm $zmm;
+  Vpcompressd "$z\{k7}", $z;
+  Vpextrd r15, xmm($zmm), 0;                                                     # Extract d from corresponding xmm
+  my $r = V d => r15;
+  PopR;
+  $r;
  }
 
 sub Nasm::X86::Variable::qFromZ($$$)                                            # Get the quad word from the numbered zmm register and put it in a variable.
@@ -7464,11 +7479,12 @@ sub Nasm::X86::Tree::indexEq($$$)                                               
   $tree->indexXX($key, $K, $Vpcmp->eq);                                         # Check for equal keys from the broadcasted memory
  }
 
-sub Nasm::X86::Tree::indexLt($$$)                                               # Return the position at which a key should be inserted into a zmm as a point in a variable.
+sub Nasm::X86::Tree::insertionPoint($$$)                                        # Return the position at which a key should be inserted into a zmm as a point in a variable.
  {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
   @_ == 3 or confess "Three parameters";
 
-  $tree->indexXX($key, $K, $Vpcmp->lt);                                         # Check for equal keys from the broadcasted memory
+  my $le = $tree->indexXX($key, $K, $Vpcmp->lt);                                # Check for less than or equal equal keys
+  $le + 1                                                                       # Show the insertion point
  }
 
 # the  length byte in keys - zmm28 is not being correctly set on the insertion of the last key in the block
@@ -30491,8 +30507,8 @@ if (1) {                                                                        
 END
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::indexNode
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::insertionPoint
   my $tree = DescribeTree(length => 7);
 
   my $K = 31;
@@ -30502,29 +30518,60 @@ if (1) {                                                                        
 
   K(loop => 16)->for(sub
    {my ($index, $start, $next, $end) = @_;
-    my $f = $tree->indexLt ($index, $K);
+    my $f = $tree->insertionPoint($index, $K);
     $index->outRightInDec(K width =>  2);
     $f    ->outRightInBin(K width => 14);
     PrintOutStringNL " |"
    });
 
   ok Assemble eq => <<END;
- 0               |
- 1             1 |
- 2            11 |
- 3           111 |
- 4          1111 |
- 5         11111 |
- 6        111111 |
- 7       1111111 |
- 8      11111111 |
- 9     111111111 |
-10    1111111111 |
-11   11111111111 |
-12  111111111111 |
-13 1111111111111 |
-14 1111111111111 |
-15 1111111111111 |
+ 0             1 |
+ 1            10 |
+ 2           100 |
+ 3          1000 |
+ 4         10000 |
+ 5        100000 |
+ 6       1000000 |
+ 7      10000000 |
+ 8     100000000 |
+ 9    1000000000 |
+10   10000000000 |
+11  100000000000 |
+12 1000000000000 |
+1310000000000000 |
+1410000000000000 |
+1510000000000000 |
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Variable::dFromPointInZ
+  my $tree = DescribeTree(length => 7);
+
+  my $K = 31;
+
+  K(K => Rd(0..15))->loadZmm($K);
+
+  PrintErrRegisterInHex zmm $K;
+  K( offset => 1 << 5)->dFromPointInZ($K)->outNL;
+
+  ok Assemble eq => <<END;
+ 0             1 |
+ 1            10 |
+ 2           100 |
+ 3          1000 |
+ 4         10000 |
+ 5        100000 |
+ 6       1000000 |
+ 7      10000000 |
+ 8     100000000 |
+ 9    1000000000 |
+10   10000000000 |
+11  100000000000 |
+12 1000000000000 |
+1310000000000000 |
+1410000000000000 |
+1510000000000000 |
 END
  }
 
@@ -30598,9 +30645,14 @@ sub Nasm::X86::Tree::put($$$$)                                                  
 
     my $t = $$s{tree};
     my $a = $t->arena;
+
+    my $descend = SetLabel;                                                     # Start the descent through the tree
+
     $t->firstFromMemory($F, $W1, $W2);
 
-    If $t->sizeFromFirst($F, $W1) == 0,                                         # First entry
+    my $Q = $t->rootFromFirst($F, $W1);                                         # Start the descent at the root node
+
+    If $Q == 0,                                                                 # First entry as there is no root node.
     Then
      {my $block = $t->allocBlock($K, $D, $N);
       $key ->dIntoZ             ($K, 0,      $W1);
@@ -30608,36 +30660,29 @@ sub Nasm::X86::Tree::put($$$$)                                                  
       $t->putBlock($block,       $K, $D, $N, $W1, $W2);
       $t->rootIntoFirst         ($F, $block, $W1);
       $t->incSizeInFirst        ($F,         $W1);
+      $t->firstIntoMemory       ($F,         $W1, $W2);                         # First back into memory
       Jmp $success;
      };
 
-    my $Q = $t->rootFromFirst($F, $W1);                                         # Start the descent at the root node
-
-    my $descend = SetLabel;                                                     # Start the descent through the tree
-
     $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                     # Get the current block from memory
+
+    my $eq = $t->indexEq($key, $K);                                             # Check for an equal key
+    If $eq > 0,                                                                 # Equal key found
+    Then                                                                        # Overwrite the existing key/data
+     {$tree->overWriteKeyDataTreeInLeaf($eq, $K, $D, $key, $data, $$p{subTree});
+      Jmp $success;
+     };
 
     If $t->splitNode($Q) > 0,                                                   # Split blocks that are full
     Then
      {Jmp $descend;                                                             # Restart the descent now tha this block has been split
      };
 
-    If $t->leafFromNodes($N, $W1) > 0,                                          # If it is a leaf we can do the insert
-    Then
-     {my $eq = $t->indexEq($key, $K);                                           # Check for an equal key
-      If $eq > 0,                                                               # Equal key found
-      Then                                                                      # Overwrite the existing key/data
-       {$tree->overWriteKeyDataTreeInLeaf($eq, $K, $D, $key, $data, $$p{subTree});
-       },
-      Else                                                                      # Insert a new key/data sub tree.
-       {my $eq = $t->indexEq($key, $K);                                         # Check for an equal key
-        $tree->insertKeyDataTreeIntoLeaf($eq, $K, $D, $key, $data, $$p{subTree});
-       };
-     };
-    $t->putBlock($Q, $K, $D, $N, $W1, $W2);                                     # Put the block back in memory
+    my $lt = $t->indexInsertionPoint($key, $K);                                 # Find inserttion point Check for an equal key
+
+    $tree->insertKeyDataTreeIntoLeaf($eq, $K, $D, $key, $data, $$p{subTree});
 
     SetLabel $success;
-#    $t->firstIntoMemory     ($F, $W1, $W2);                                     # First back into memory
 
     PopZmm;
     PopR;
@@ -30657,12 +30702,12 @@ if (1) {                                                                        
   $a->dump("0000", K depth => 6);
   $t->put(K(key=>1), K(data=>0x11), K(false=>0));
   $a->dump("1111", K depth => 6);
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-  $a->dump("2222", K depth => 6);
-  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
-  $a->dump("3333", K depth => 6);
-  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
-  $a->dump("4444", K depth => 6);
+#  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
+#  $a->dump("2222", K depth => 6);
+#  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
+#  $a->dump("3333", K depth => 6);
+#  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
+#  $a->dump("4444", K depth => 6);
 
   ok Assemble eq => <<END;
 END
