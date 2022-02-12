@@ -267,7 +267,8 @@ END
    }
  }
 
-sub CheckMaskRegisterNumber($);                                                 # Check that we have a mask register
+sub CheckIfMaskRegisterNumber($);                                               # Check that we have a mask register
+sub CheckMaskRegisterNumber($);                                                 # Check that we have a mask register and confess if we do not
 sub ClearRegisters(@);                                                          # Clear registers by setting them to zero.
 sub Comment(@);                                                                 # Insert a comment into the assembly code.
 sub DComment(@);                                                                # Insert a comment into the data section.
@@ -524,7 +525,7 @@ sub InsertZeroIntoRegisterAtPoint($$)                                           
 sub InsertOneIntoRegisterAtPoint($$)                                            # Insert a one into the specified register at the point indicated by another register.
  {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
   InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
-  if (CheckMaskRegisterNumber $point)                                           # Mask register showing point
+  if (CheckIfMaskRegisterNumber $point)                                         # Mask register showing point
    {my ($r) = ChooseRegisters(1, $in);                                          # Choose a general purpose register to place the mask in
     PushR $r;
     Kmovq $r, $point;
@@ -643,7 +644,13 @@ sub CheckMaskRegister($)                                                        
   $Registers{$reg} && $reg =~ m(\Ak[0-7]\Z)
  }
 
-sub CheckMaskRegisterNumber($)                                                  # Check that a register is in fact a mask register.
+sub CheckIfMaskRegisterNumber($)                                                # Check that a register is in fact a mask register.
+ {my ($mask) = @_;                                                              # Mask register to check
+  @_ == 1 or confess "One parameter";
+  $mask =~ m(\Ak?[0-7]\Z)
+ }
+
+sub CheckMaskRegisterNumber($)                                                  # Check that a register is in fact a mask register and confess if it is not.
  {my ($mask) = @_;                                                              # Mask register to check
   @_ == 1 or confess "One parameter";
   $mask =~ m(\Ak?[0-7]\Z) or confess "Not the number of a mask register: $mask";
@@ -7259,10 +7266,48 @@ sub Nasm::X86::Tree::putBlock($$$$$$$$)                                         
   $a->putZmmBlock($node,   $N, $W1, $W2);                                       # Put the node block
  }
 
-sub Nasm::X86::Tree::insertTriple($$$$$$$)                                      # Insert a new key/data/node triple into a set of zmm registers if there is room, increment the length and set the tree bit as indicated.
- {my ($tree, $point, $K, $D, $N, $IK, $ID, $IN, $subTree) = @_;                 # Point at which to insert formatted as a one in a sea of zeros, key, data, node, insert key, insert data, insert node, sub tree if tree.
+sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        # Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
+ {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Point at which to overwrite formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
 
-  @_ == 9 or confess "Nine parameters";
+  @_ == 7 or confess "Seven parameters";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $success = Label;                                                        # End label
+
+    my $W1 = r8;                                                                # Work register
+    PushR 1..7, $W1;
+
+    $$p{point}->setReg($W1);                                                    # Load mask register showing point of insertion.
+    Kmovq k7, $W1;                                                              # A sea of zeros with a one at the point of insertion
+
+    $$p{key}  ->setReg($W1); Vpbroadcastd zmmM($K, 7), $W1."d";                 # Insert value at expansion point
+    $$p{data} ->setReg($W1); Vpbroadcastd zmmM($D, 7), $W1."d";
+
+    Kmovq $W1, k7;
+    If $$p{subTree} > 0,                                                        # Set the inserted tree bit
+    Then
+     { $tree->setTree ($W1, $K);
+     },
+    Else
+     {$tree->clearTree($W1, $K);
+     };
+
+    PopR;
+   } name => "Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($K, $D)",             # Different variants for different blocks of registers.
+     structures => {tree=>$tree},
+     parameters => [qw(point key data subTree)];
+
+  $s->call(structures => {tree  => $tree},
+           parameters => {key   => $IK, data => $ID,
+                          point => $point, subTree => $subTree});
+ }
+
+sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$)                         # Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length and set the tree bit as indicated.
+ {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Point at which to insert formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
+
+  @_ == 7 or confess "Seven parameters";
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -7276,36 +7321,37 @@ sub Nasm::X86::Tree::insertTriple($$$$$$$)                                      
     Kmovq k7, $W1;                                                              # A sea of zeros with a one at the point of insertion
 
     $tree->maskForFullKeyArea(6);                                               # Mask for key area
-    $tree->maskForFullNodesArea(5);                                             # Mask for nodes area
+#   $tree->maskForFullNodesArea(5);                                             # Mask for nodes area
 
     Kandnq  k4, k7, k6;                                                         # Mask for key area with a hole at the insertion point
-    Kandnq  k3, k7, k5;                                                         # Mask for nodes area with a hole at the insertion point
+#   Kandnq  k3, k7, k5;                                                         # Mask for nodes area with a hole at the insertion point
 
     Vpexpandd zmmM($K, 4), zmm($K);                                             # Expand to make room for the value to be inserted
     Vpexpandd zmmM($D, 4), zmm($D);
-    Vpexpandd zmmM($N, 3), zmm($N);
+#   Vpexpandd zmmM($N, 3), zmm($N);
 
     $$p{key}  ->setReg($W1); Vpbroadcastd zmmM($K, 7), $W1."d";                 # Insert value at expansion point
     $$p{data} ->setReg($W1); Vpbroadcastd zmmM($D, 7), $W1."d";
-    $$p{node} ->setReg($W1); Vpbroadcastd zmmM($N, 7), $W1."d";
+#   $$p{node} ->setReg($W1); Vpbroadcastd zmmM($N, 7), $W1."d";
 
     $tree->incLengthInKeys($K, $W1);                                            # Increment the length to include the inserted value
 
+    Kmovq $W1, k7;
     If $$p{subTree} > 0,                                                        # Set the inserted tree bit
     Then
-     {$tree->expandTreeBitsWithOne ($K, 7);
+     {$tree->expandTreeBitsWithOne ($K, $W1);
      },
     Else
-     {$tree->expandTreeBitsWithZero($K, 7);
+     {$tree->expandTreeBitsWithZero($K, $W1);
      };
 
     PopR;
-   } name => "Nasm::X86::Tree::insertTriple($K, $D, $N)",
+   } name => "Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($K, $D)",              # Different variants for different blocks of registers.
      structures => {tree=>$tree},
-     parameters => [qw(point key data node subTree)];
+     parameters => [qw(point key data subTree)];
 
   $s->call(structures => {tree  => $tree},
-           parameters => {key   => $IK, data => $ID, node => $IN,
+           parameters => {key   => $IK, data => $ID,
                           point => $point, subTree => $subTree});
  }
 
@@ -7340,20 +7386,21 @@ sub Nasm::X86::Tree::splitNode($$)                                              
     Then                                                                        # Not the root node because it has a parent
      {my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
       $t->upIntoData      ($parent, $RD, $W1);                                  # Address existing parent from new right
-      $t->getBlock        ($parent, $PK, $PD, $PN);                             # Load extant parent
-      $t->splitLeftToRight($r,      $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+      $t->getBlock        ($parent, $PK, $PD, $PN, $W1, $W2);                   # Load extant parent
+      $t->splitLeftToRootAndRight
+                          ($r,      $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
       $t->putBlock        ($parent, $PK, $PD, $PN, $W1, $W2);
       $t->putBlock        ($offset, $LK, $LD, $LN, $W1, $W2);
 
-      $t->leafFromNodes($RN);                                                   # Whether the right block is a leaf
+      $t->leafFromNodes($RN, $W1);                                              # Whether the right block is a leaf
       IfNe                                                                      # If the zero Flag is zero then this is not a leaf
       Then
-       {(K(nodes => $t->lr) + 1)->for(sub                                       # Reparent the children of the right hand side now known not to be a leaf
+       {(K(nodes => $t->lengthRight) + 1)->for(sub                              # Reparent the children of the right hand side now known not to be a leaf
          {my ($index, $start, $next, $end) = @_;
           my $n = dFromZ $RN, $index * $t->width, $W1;                          # Offset of node
-          $t->getBlock  ($n, $LK, $LD, $LN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+          $t->getBlock  ($n, $LK, $LD, $LN, $W1, $W2);                          # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
           $t->upIntoData($r,      $LD, $W1);                                    # Parent for child of right hand side
-          $t->putBlock  ($n, $LK, $LD, $LN);                                    # Save block into memory now that its parent pointer has been updated
+          $t->putBlock  ($n, $LK, $LD, $LN, $W1, $W2);                          # Save block into memory now that its parent pointer has been updated
          });
        };
 
@@ -7363,7 +7410,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
      {my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
       my $p = $t->allocBlock       ($PK, $PD, $PN);                             # Create a new parent block
       $t->splitLeftToRootAndRight
-                      ($offset, $r, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+                          ($offset, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
       $t->upIntoData      ($p,      $LD, $W1);                                  # Left  points up to new parent
       $t->upIntoData      ($p,      $RD, $W1);                                  # Right points up to new parent
       $t->putBlock        ($parent, $PK, $PD, $PN, $W1, $W2);
@@ -8565,66 +8612,65 @@ sub Nasm::X86::Tree::depth($$)                                                  
 # } # isTree
 
 sub Nasm::X86::Tree::isTree($$$)                                                #P Set the Zero Flag to oppose the tree bit in the numbered zmm register holding the keys of a node to indicate whether the data element indicated by the specified register is an offset to a sub tree in the containing arena or not.
-{my ($t, $register, $zmm) = @_;                                                 # Tree descriptor, word register holding a bit shifted into the position to test, numbered zmm register holding the keys for a node in the tree
-  @_ == 3 or confess "3 parameters";
+{my ($t, $point, $zmm) = @_;                                                    # Tree descriptor, register showing point to test, numbered zmm register holding the keys for a node in the tree
+ @_ == 3 or confess "Three parameters";
 
-  my $z = "zmm$zmm";                                                            # Full name of zmm register
-  my $o = $$t{treeBits};                                                        # Bytes from tree bits to end of zmm
-  my $w = RegisterSize  $z;                                                     # Size of zmm register
-  Vmovdqu64 "[rsp-$w]", $z;                                                     # Write beyond stack
-  Test $register, "[rsp-$w+$o]";                                                # Test the tree bits
+  my $z = registerNameFromNumber $zmm;                                          # Full name of zmm register
+  my $o = $t->treeBits;                                                         # Bytes from tree bits to end of zmm
+  my $w = $t->zWidth;                                                           # Size of zmm register
+  Vmovdqu64    "[rsp-$w]", $z;                                                  # Write beyond stack
+  Test $point, "[rsp-$w+$o]";                                                   # Test the tree bit under point
  } # isTree
 
 sub Nasm::X86::Tree::setOrClearTree($$$$)                                       #P Set or clear the tree bit in the numbered zmm register holding the keys of a node to indicate that the data element indicated by the specified register is an offset to a sub tree in the containing arena.
- {my ($t, $set, $register, $zmm) = @_;                                          # Tree descriptor, set if true else clear, register holding a single one in the lowest 14 bits at the insertion point, numbered zmm register holding the keys for a node in the tree
-  @_ == 4 or confess "4 parameters";
-  $register =~ m(\Ar) or                                                        # Check register type
-    confess "General purpose register required, not $register";
-
-  my $z = "zmm$zmm";                                                            # Full name of zmm register
-  my $o = $$t{treeBits};                                                        # Tree bits to end of zmm
-  PushR ($register, $z);
+ {my ($t, $set, $point, $zmm) = @_;                                             # Tree descriptor, set if true else clear, register holding point to set, numbered zmm register holding the keys for a node in the tree
+  @_ == 4 or confess "Four parameters";
+  CheckGeneralPurposeRegister($point);
+  my $z = registerNameFromNumber $zmm;                                          # Full name of zmm register
+  my $o = $t->treeBits;                                                         # Tree bits to end of zmm
+  my $r = registerNameFromNumber $point;
+  PushR $z;                                                                     # Push onto stack so we can modify it
   if ($set)                                                                     # Set the indexed bit
-   {And $register, $t->treeBitsMask;                                            # Mask tree bits to prevent operations outside the permitted area
-    Or "[rsp+$o]", $register;                                                   # Set tree bit in zmm
+   {And $point, $t->treeBitsMask;                                               # Mask tree bits to prevent operations outside the permitted area
+    Or "[rsp+$o]", $point;                                                      # Set tree bit in zmm
    }
   else                                                                          # Clear the indexed bit
-   {And $register, $t->treeBitsMask;                                            # Mask tree bits to prevent operations outside the permitted area
-    Not $register;
-    And "[rsp+$o]", $register;
+   {And $point, $t->treeBitsMask;                                               # Mask tree bits to prevent operations outside the permitted area
+    Not $point;
+    And "[rsp+$o]", $point;
    }
-  PopR;
+  PopR;                                                                         # Retrieve zmm
  } # setOrClearTree
 
 sub Nasm::X86::Tree::setTree($$$)                                               #P Set the tree bit in the numbered zmm register holding the keys of a node to indicate that the data element indexed by the specified register is an offset to a sub tree in the containing arena.
  {my ($t, $register, $zmm) = @_;                                                # Tree descriptor, register holding data element index 0..13, numbered zmm register holding the keys for a node in the tree
-  @_ == 3 or confess "3 parameters";
+  @_ == 3 or confess "Three parameters";
   $t->setOrClearTree(1, $register, $zmm);
  } # setTree
 
 sub Nasm::X86::Tree::clearTree($$$)                                             #P Clear the tree bit in the numbered zmm register holding the keys of a node to indicate that the data element indexed by the specified register is an offset to a sub tree in the containing arena.
 {my ($t, $register, $zmm) = @_;                                                 # Tree descriptor, register holding data element index 0..13, numbered zmm register holding the keys for a node in the tree
-  @_ == 3 or confess "3 parameters";
+  @_ == 3 or confess "Three parameters";
   $t->setOrClearTree(0, $register, $zmm);
  } # clearTree
 
 sub Nasm::X86::Tree::getTreeBits($$$)                                           #P Load the tree bits from the numbered zmm into the specified register.
  {my ($t, $zmm, $register) = @_;                                                # Tree descriptor, numbered zmm, target register
-  @_ == 3 or confess "3 parameters";
+  @_ == 3 or confess "Three parameters";
   wRegFromZmm $register, $zmm, $t->treeBits;
   And $register, $t->treeBitsMask;
  }
 
 sub Nasm::X86::Tree::setTreeBits($$$)                                           #P Put the tree bits in the specified register into the numbered zmm.
  {my ($t, $zmm, $register) = @_;                                                # Tree descriptor, numbered zmm, target register
-  @_ == 3 or confess "3 parameters";
+  @_ == 3 or confess "Three parameters";
   wRegIntoZmm $register, $zmm, $t->treeBits;
   And $register, $t->treeBitsMask;
  }
 
 sub Nasm::X86::Tree::expandTreeBitsWithZeroOrOne($$$$)                          #P Insert a zero or one into the tree bits field in the numbered zmm at the specified point.
  {my ($t, $onz, $zmm, $point) = @_;                                             # Tree descriptor, 0 - zero or 1 - one, numbered zmm, register indicating point
-  @_ == 4 or confess "4 parameters";
+  @_ == 4 or confess "Four parameters";
   my $z = registerNameFromNumber $zmm;
   my $p = registerNameFromNumber $point;
   PushR my @save = my ($bits) = ChooseRegisters(1, $point);                     # Tree bits register
@@ -29675,7 +29721,7 @@ if (1) {
 END
  }
 
-sub Nasm::X86::Tree::splitLeftToRight($$$$$$$$$$$)                              # Split a left node pushing its excess right and up.
+sub Nasm::X86::Tree::splitLeftToRootAndRight($$$$$$$$$$$)                       # Split a left node pushing its excess right and up.
  {my ($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;      # Tree definition, variable offset in arena of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 11 or confess "Eleven parameters required";
 
@@ -30495,18 +30541,17 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
 
   my $W1 = r8;
-  my $K  = 31; my $D = 30; my $N = 29;                                           # Zmm containing keys
+  my $K  = 31; my $D = 30;
   my $IK = K insert  => 0x44;
   my $ID = K insert  => 0x55;
-  my $IN = K insert  => 0x66;
   my $tb = K treebit => 1;                                                      # Value to insert, tree bit to insert
 
-  K(K => Rd(0..15))->loadZmm($_) for $K, $D, $N;                                # Keys block
+  K(K => Rd(0..15))->loadZmm($_) for $K, $D;                                    # Keys block
   $tree->lengthIntoKeys($K, K length => 5);                                     # Set a length
   Mov $W1, 0x3FF0;                                                              # Initial tree bits
   $tree->setTreeBits(31, $W1);                                                  # Save tree bits
@@ -30514,22 +30559,28 @@ if (1) {                                                                        
   my $point = K point => 1<<3;                                                  # Show insertion point
 
   PrintOutStringNL "Start";
-  PrintOutRegisterInHex $K, $D, $N;
+  PrintOutRegisterInHex $K, $D;
 
-  $tree->insertTriple($point, $K, $D, $N, $IK, $ID, $IN, K subTree => 1);
+  $tree->insertKeyDataTreeIntoLeaf($point, $K, $D, $IK, $ID, K subTree => 1);
 
   PrintOutStringNL "Inserted";
-  PrintOutRegisterInHex $K, $D, $N;
+  PrintOutRegisterInHex $K, $D;
 
-  ok Assemble eq => <<END;                                                      # Once we know the insertion point we can add the key/data/node triple, increase the length and update the tree bits
+  $tree->overWriteKeyDataTreeInLeaf($point, $K, $D, $ID, $IK, K subTree => 0);
+
+  PrintOutStringNL "Overwritten";
+  PrintOutRegisterInHex $K, $D;
+
+  ok Assemble eq => <<END;                                                      # Once we know the insertion point we can add the key/data/subTree triple, increase the length and update the tree bits
 Start
  zmm31: 0000 000F 3FF0 0005   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
  zmm30: 0000 000F 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
- zmm29: 0000 000F 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
 Inserted
  zmm31: 0000 000F 7FE8 0006   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0044 0000 0002   0000 0001 0000 0000
  zmm30: 0000 000F 0000 000E   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0055 0000 0002   0000 0001 0000 0000
- zmm29: 0000 000F 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0066 0000 0002   0000 0001 0000 0000
+Overwritten
+ zmm31: 0000 000F 7FE0 0006   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0055 0000 0002   0000 0001 0000 0000
+ zmm30: 0000 000F 0000 000E   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0044 0000 0002   0000 0001 0000 0000
 END
  }
 
@@ -30571,86 +30622,47 @@ sub Nasm::X86::Tree::put($$$$)                                                  
      {Jmp $descend;                                                             # Restart the descent now tha this block has been split
      };
 
-    If $t->leafFromNodes($N) > 0,                                               # If it is a leaf we can do the insert
+    If $t->leafFromNodes($N, $W1) > 0,                                          # If it is a leaf we can do the insert
     Then
      {my $eq = $t->indexEq($key, $K);                                           # Check for an equal key
       If $eq > 0,                                                               # Equal key found
-      Then
-       {$t->insmask->setReg(r15);
-        Inc r15;                                                                  # Point to insertion point
-        Mov r14, r15;
-        Not r14;                                                                  # Zero in sea of ones at insertion point
-        $t->lengthFromKeys($K)->setReg(r15);
-      #Shl r15, $l
+      Then                                                                      # Overwrite the existing key/data
+       {$tree->overWriteKeyDataTreeInLeaf($eq, $K, $D, $key, $data, $$p{subTree});
+       },
+      Else                                                                      # Insert a new key/data sub tree.
+       {my $eq = $t->indexEq($key, $K);                                         # Check for an equal key
+        $tree->insertKeyDataTreeIntoLeaf($eq, $K, $D, $key, $data, $$p{subTree});
        };
      };
+    $t->putBlock($Q, $K, $D, $N, $W1, $W2);                                     # Put the block back in memory
 
     SetLabel $success;
+#    $t->firstIntoMemory     ($F, $W1, $W2);                                     # First back into memory
 
     PopZmm;
     PopR;
    } name => "Nasm::X86::Tree::put",
      structures => {tree=>$tree},
-     parameters => [qw(key data)];
+     parameters => [qw(key data subTree)];
 
   $s->call(structures => {tree => $tree},
-           parameters => {key  => $key, data=>$data});
- }
-
-=pod
-latest:
-if (1) {                                                                        #TNasm::X86::Tree::putKeyData
-  my $t = DescribeTree(length => 7);
-
-  my $W1 = r8; my $W2 = r9;
-  my $K  = 31; my $D  = 30; my $N = 29;
-
-  my $nK = K k => 0x33; my $nD = K d => 0x44; my $nN = K n => 0x55;
-
-  K(K => Rd(map {2 * $_} 1..16))->loadZmm($K);
-  K(K => Rd(map {2 * $_} 1..16))->loadZmm($D);
-  K(K => Rd(map {2 * $_} 1..16))->loadZmm($N);
-
-  PushR my ($result, $eq, $keys) = (r15, k7, k6);                               # Result, mask registers
-
-  my $l = $tree->lengthFromKeys($K);                                            # Length of the block
-  Vpcmpud $eq, zmm($K), $key->address."{1to16}", $Vpcmp->eq;                    # Check for equal keys from the broadcasted memory
-
-  LoadBitsIntoMaskRegister($keys, $result, '00', $tree->zWidthD - 2);           # Key area to mask register
-  Kandq $eq, $eq, $keys;                                                        # Mask key area
-
-  Ktestw $eq, $eq;
-  IfNz                                                                          # Result mask is non zero so we must have found the key
-
-  If $index > 0,                                                                    # Already exists so replace data.
-  Then
-   {$nD->dIntoZ($D, ($i - 1) * $t->width, $W1);
-   },                                                                           # Shift no key/data/node into position
-  Else
-   {$index->setReg(r15);
-    Dec r15;
-     $nD->dIntoZ($D, ($i - 1) * $t->width, $W1);
-   };
-
-sub Nasm::X86::Tree::indexEq($$$)                                               # Return the one based position as a variable of the key in a zmm equal to the specified key else return zero if there is no such key.
- {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
-
-sub Nasm::X86::Tree::indexNode($$$)                                             # Return the zero based position as a variable of the node to be taken when traversing a tree searching for the specified variable key in the specified zmm.
- {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
-
-
-  ok Assemble eq => <<END;
-END
+           parameters => {key  => $key, data=>$data, subTree=>$subTree});
  }
 
 latest:
-if (0) {                                                                        #TNasm::X86::Tree::put
+if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
-  $t->put(K(one=>1), K(two=>2));
-
-  $a->dump("AAAA", K depth => 6);
+  $a->dump("0000", K depth => 6);
+  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
+  $a->dump("1111", K depth => 6);
+  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
+  $a->dump("2222", K depth => 6);
+  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
+  $a->dump("3333", K depth => 6);
+  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
+  $a->dump("4444", K depth => 6);
 
   ok Assemble eq => <<END;
 END
