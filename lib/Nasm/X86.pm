@@ -3485,7 +3485,7 @@ sub Nasm::X86::Variable::dFromPointInZ($$$)                                     
   Kmovq k7, r15;
   my ($z) = zmm $zmm;
   Vpcompressd "$z\{k7}", $z;
-  Vpextrd r15, xmm($zmm), 0;                                                     # Extract d from corresponding xmm
+  Vpextrd r15d, xmm($zmm), 0;                                                     # Extract d from corresponding xmm
   my $r = V d => r15;
   PopR;
   $r;
@@ -7025,7 +7025,7 @@ sub DescribeTree(%)                                                             
     lengthOffset => $keyAreaWidth,                                              # Offset of length in keys block.  The length field is a word - see: "MultiWayTree.svg"
     lengthRight  => $length - 1 - $l2,                                          # Right minimal number of keys
     loop         => $b - $o,                                                    # Offset of keys, data, node loop.
-    maxKeys      => $length,                                                    # Maximum number of keys.
+    maxKeys      => $length,                                                    # Maximum number of keys allowed in this tree which might well ne less than the maximum we can store in a zmm.
     offset       => V(offset  => 0),                                            # Offset of last node found
     splittingKey => ($l2 + 1) * $o,                                             # Offset at which to split a full block
     treeBits     => $keyAreaWidth + 2,                                          # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
@@ -7225,10 +7225,14 @@ sub Nasm::X86::Tree::incLengthInKeys($$$)                                       
    };
  }
 
-sub Nasm::X86::Tree::leafFromNodes($$$)                                         #P Set the zero flag to one if a block is a leaf of the containing tree.
+sub Nasm::X86::Tree::leafFromNodes($$$)                                         #P Return a variable containing true if we are on a leaf.  We determine whether we are on a leaf by checking the offset of the first sub node.  If it is zero we are on a leaf otherwise not.
  {my ($tree, $zmm, $transfer) = @_;                                             # Tree descriptor, number of zmm containing node block, transfer register
   @_ == 3 or confess "Three parameters";
-  dFromZ($zmm, 0, $transfer) == 0;                                              # Get first node which will be zero if this is a leaf
+  my $n = dFromZ($zmm, 0, $transfer);                                           # Get first node
+  $n->setReg($transfer);                                                        # Get first node which will be zero if this is a leaf
+  Not $transfer;                                                                # Invert
+  And $transfer, 1;                                                             # Convert -1 to 1 and zero to zero
+  V leaf => $transfer;                                                          # Return a variable which is non zero if  this is a leaf
  }
 
 sub Nasm::X86::Tree::getLoop($$$)                                               #P Return the value of the loop field as a variable.
@@ -7319,15 +7323,16 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
                           point => $point, subTree => $subTree});
  }
 
-sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$)                         # Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length and set the tree bit as indicated.
- {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Point at which to insert formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
+sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        # Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
+ {my ($tree, $point, $F, $K, $D, $IK, $ID, $subTree) = @_;                      # Point at which to insert formatted as a one in a sea of zeros, first, key, data, insert key, insert data, sub tree if tree.
 
-  @_ == 7 or confess "Seven parameters";
+  @_ == 8 or confess "Eight parameters";
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $success = Label;                                                        # End label
+    my $t = $$s{tree};                                                          # Address tree
 
     my $W1 = r8;                                                                # Work register
     PushR 1..7, $W1;
@@ -7335,8 +7340,8 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$)                         
     $$p{point}->setReg($W1);                                                    # Load mask register showing point of insertion.
     Kmovq k7, $W1;                                                              # A sea of zeros with a one at the point of insertion
 
-    $tree->maskForFullKeyArea(6);                                               # Mask for key area
-#   $tree->maskForFullNodesArea(5);                                             # Mask for nodes area
+    $t->maskForFullKeyArea(6);                                                  # Mask for key area
+#   $t->maskForFullNodesArea(5);                                                # Mask for nodes area
 
     Kandnq  k4, k7, k6;                                                         # Mask for key area with a hole at the insertion point
 #   Kandnq  k3, k7, k5;                                                         # Mask for nodes area with a hole at the insertion point
@@ -7349,19 +7354,21 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$)                         
     $$p{data} ->setReg($W1); Vpbroadcastd zmmM($D, 7), $W1."d";
 #   $$p{node} ->setReg($W1); Vpbroadcastd zmmM($N, 7), $W1."d";
 
-    $tree->incLengthInKeys($K, $W1);                                            # Increment the length to include the inserted value
+    $t->incLengthInKeys($K, $W1);                                               # Increment the length of this node to include the inserted value
 
     Kmovq $W1, k7;
     If $$p{subTree} > 0,                                                        # Set the inserted tree bit
     Then
-     {$tree->expandTreeBitsWithOne ($K, $W1);
+     {$t->expandTreeBitsWithOne ($K, $W1);
      },
     Else
-     {$tree->expandTreeBitsWithZero($K, $W1);
+     {$t->expandTreeBitsWithZero($K, $W1);
      };
 
+    $t->incSizeInFirst($F, $W1);                                                # Update number of elements in entire tree.
+
     PopR;
-   } name => "Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($K, $D)",              # Different variants for different blocks of registers.
+   } name => "Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($F, $K, $D)",          # Different variants for different blocks of registers.
      structures => {tree=>$tree},
      parameters => [qw(point key data subTree)];
 
@@ -7371,7 +7378,7 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$)                         
  }
 
 sub Nasm::X86::Tree::splitNode($$)                                              #P Split a node if it it is full returning a variable that indicates whether a split occurred or not.
- {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in arena of tree
+ {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in arena of tree as a variable
   @_ == 2 or confess 'Two parameters';
 
   my $PK = 31; my $PD = 30; my $PN = 29;                                        # Key, data, node blocks
@@ -7388,21 +7395,25 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
     PushR ((my $W1 = r8), (my $W2 = r9)); PushZmm 22...31;
 
-    $t->getBlock($$p{offset}, $LK, $LD, $LN, $W1, $W2);                         # Load node as left
+    my $offset = $$p{offset};                                                   # Offset of block in arena
+    my $split  = $$p{split};                                                    # Indicate whether we split or not
+    $t->getBlock($offset, $LK, $LD, $LN, $W1, $W2);                             # Load node as left
 
+    my $length = $t->lengthFromKeys($LK);
     If $t->lengthFromKeys($LK) < $t->maxKeys,
     Then                                                                        # Only split full blocks
-     {$$p{split}->copy(K split => 1);
+     {$split->copy(K split => 0);                                               # Split not required
       Jmp $success;
      };
 
     my $parent = $t->upFromData($LD, $W1);                                      # Parent of this block
+
     If $parent > 0,
     Then                                                                        # Not the root node because it has a parent
      {my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
       $t->upIntoData      ($parent, $RD, $W1);                                  # Address existing parent from new right
       $t->getBlock        ($parent, $PK, $PD, $PN, $W1, $W2);                   # Load extant parent
-      $t->splitLeftToRootAndRight
+      $t->splitNotRoot
                           ($r,      $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
       $t->putBlock        ($parent, $PK, $PD, $PN, $W1, $W2);
       $t->putBlock        ($offset, $LK, $LD, $LN, $W1, $W2);
@@ -7424,11 +7435,10 @@ sub Nasm::X86::Tree::splitNode($$)                                              
     Else                                                                        # Split the root node
      {my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
       my $p = $t->allocBlock       ($PK, $PD, $PN);                             # Create a new parent block
-      $t->splitLeftToRootAndRight
-                          ($offset, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+      $t->splitRoot   ($offset, $r, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
       $t->upIntoData      ($p,      $LD, $W1);                                  # Left  points up to new parent
       $t->upIntoData      ($p,      $RD, $W1);                                  # Right points up to new parent
-      $t->putBlock        ($parent, $PK, $PD, $PN, $W1, $W2);
+      $t->putBlock        ($p,      $PK, $PD, $PN, $W1, $W2);
       $t->putBlock        ($offset, $LK, $LD, $LN, $W1, $W2);
       $t->putBlock        ($r,      $RK, $RD, $RN, $W1, $W2);
 
@@ -7440,12 +7450,12 @@ sub Nasm::X86::Tree::splitNode($$)                                              
     SetLabel $success;                                                          # Insert completed successfully
     PopZmm;
     PopR;
-   }  structures =>{tree=>$tree},
-      parameters =>[qw(offset split)],
+   }  structures => {tree => $tree},
+      parameters => [qw(offset split)],
       name       => 'Nasm::X86::Tree::splitNode';
 
   $s->call(structures => {tree   => $tree},
-           parameters => {offset => $offset, split => my $p = V split => 0});
+           parameters => {offset => $offset, split => my $p = V split => 1});
 
   $p                                                                            # Return a variable containing one if the node was split else zero.
  } # splitNode
@@ -29737,7 +29747,7 @@ if (1) {
 END
  }
 
-sub Nasm::X86::Tree::splitLeftToRootAndRight($$$$$$$$$$$)                       # Split a left node pushing its excess right and up.
+sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  # Split a non root left node pushing its excess right and up.
  {my ($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;      # Tree definition, variable offset in arena of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 11 or confess "Eleven parameters required";
 
@@ -29901,13 +29911,13 @@ sub Nasm::X86::Tree::splitLeftToRootAndRight($$$$$$$$$$$)                       
     PopR;
    }
   parameters => [qw(newRight)],
-  name       => "Nasm::X86::Tree::splitLeftToRight".
+  name       => "Nasm::X86::Tree::splitNotRoot".
           "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
 
   $s->call(parameters => {newRight => $newRight});
  }
 
-sub Nasm::X86::Tree::splitLeftIntoRootandRight($$$$$$$$$$$$)                    # Split a parent node into left and right nodes with the splitting key/data left in the parent node
+sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    # Split a non root node into left and right nodes with the left half left in the left node and splitting key/data pushed into the parent node with the remainder pushed into the new right node
  {my ($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;# Tree definition, variable offset in arena of new left node block, variable offset in arena of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 12 or confess "Twelve parameters required";
 
@@ -29924,7 +29934,6 @@ sub Nasm::X86::Tree::splitLeftIntoRootandRight($$$$$$$$$$$$)                    
   my $transfer  = r8;                                                           # Transfer register
   my $transferD = r8d;                                                          # Transfer register as a dword
   my $transferW = r8w;                                                          # Transfer register as a  word
-  my $work      = r9;                                                           # Work register as a dword
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
@@ -29934,43 +29943,52 @@ sub Nasm::X86::Tree::splitLeftIntoRootandRight($$$$$$$$$$$$)                    
       LoadBitsIntoMaskRegister(7, $transfer,  $prefix, @onesAndZeroes);         # Load k7 with mask
      };
 
-    PushR $transfer, $work, 7;
+    my $t = $$s{tree};                                                          # Address tree
 
-    &$mask("0", +7);                                                            # Set parent keys to highest possible value to force key insertion at the front
+    PushR $transfer, 6, 7;
+
+    $t->maskForFullKeyArea(7);                                                  # Mask for keys area
+    $t->maskForFullNodesArea(6);                                                # Mask for nodes area
+
     Mov $transfer, -1;
-    Vpbroadcastq zmmM($PK, 7), $transfer;
+    Vpbroadcastd zmmM($PK, 7), $transferD;                                      # Force keys to be high so that insertion occurs before all of them
 
-    &$mask("0", +7);                                                            # Area to clear in keys and data preserving last qword
     Mov $transfer, 0;
-    Vpbroadcastq zmmM($PD, 7), $transfer;
-    Vpbroadcastq zmmM($RK, 7), $transfer;
-    Vpbroadcastq zmmM($RD, 7), $transfer;
+    Vpbroadcastd zmmM($PD, 7), $transferD;                                      # Zero other keys and data
+    Vpbroadcastd zmmM($RK, 7), $transferD;
+    Vpbroadcastd zmmM($RD, 7), $transferD;
 
-    &$mask("0", +15);                                                           # Area to clear in nodes
     Mov $transfer, 0;
-    Vpbroadcastd zmmM($PN, 7), $transferD;
-    Vpbroadcastd zmmM($RN, 7), $transferD;
+    Vpbroadcastd zmmM($PN, 6), $transferD;
+    Vpbroadcastd zmmM($RN, 6), $transferD;
 
-    $tree->splitLeftToRight($$p{newRight}, reverse 23..31);
+    $t->splitNotRoot($$p{newRight}, reverse 23..31);                            # Split the root node as if it were a non root node
 
-    &$mask("00", +13, -1);                                                      # Reset parent keys/data outside of single key/data
+    $$p{newLeft} ->dIntoZ($PN, 0, $transfer);                                   # Place first - left sub node into new root
+    $$p{newRight}->dIntoZ($PN, 4, $transfer);                                   # Place second - right sub node into new root
+
+    Kshiftrw k7, k7, 1;                                                         # Reset parent keys/data outside of single key/data
+    Kshiftlw k7, k7, 1;
     Mov $transfer, 0;
     Vpbroadcastd zmmM($PK, 7), $transferD;
 
-    Mov $work, 1;                                                               # Lengths
-    wRegIntoZmm $work, $PK, $lb;                                                # Left after split
+    Mov $transfer, 1;                                                           # Lengths
+    wRegIntoZmm $transfer, $PK, $lb;                                            # Left after split
 
-    wRegFromZmm $work, $PK, $tb;                                                # Parent tree bits
-    And $work, 1;
-    wRegIntoZmm $work, $PK, $tb;
+    wRegFromZmm $transfer, $PK, $tb;                                            # Parent tree bits
+    And $transfer, 1;
+    wRegIntoZmm $transfer, $PK, $tb;
 
     PopR;
    }
+  structures => {tree => $tree},
   parameters => [qw(newLeft newRight)],
-  name       => "Nasm::X86::Tree::splitLeftIntoRootandRight".
+  name       => "Nasm::X86::Tree::splitRoot".
           "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
 
-  $s->call(parameters => {newLeft => $nLeft, newRight => $nRight});
+  $s->call
+   (structures => {tree => $tree},
+    parameters => {newLeft => $nLeft, newRight => $nRight});
  }
 
 #latest:
@@ -30507,7 +30525,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::insertionPoint
   my $tree = DescribeTree(length => 7);
 
@@ -30544,7 +30562,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Variable::dFromPointInZ
   my $tree = DescribeTree(length => 7);
 
@@ -30552,30 +30570,16 @@ if (1) {                                                                        
 
   K(K => Rd(0..15))->loadZmm($K);
 
-  PrintErrRegisterInHex zmm $K;
+  PrintOutRegisterInHex zmm $K;
   K( offset => 1 << 5)->dFromPointInZ($K)->outNL;
 
   ok Assemble eq => <<END;
- 0             1 |
- 1            10 |
- 2           100 |
- 3          1000 |
- 4         10000 |
- 5        100000 |
- 6       1000000 |
- 7      10000000 |
- 8     100000000 |
- 9    1000000000 |
-10   10000000000 |
-11  100000000000 |
-12 1000000000000 |
-1310000000000000 |
-1410000000000000 |
-1510000000000000 |
+ zmm31: 0000 000F 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+d: 0000 0000 0000 0005
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::indexEq
   my $tree = DescribeTree();
   $tree->maskForFullKeyArea(7);                                                 # Mask for full key area
@@ -30644,6 +30648,8 @@ sub Nasm::X86::Tree::put($$$$)                                                  
     PushZmm my ($F, $K, $D, $N) = reverse 28..31;
 
     my $t = $$s{tree};
+    my $k = $$p{key};
+    my $d = $$p{data};
     my $a = $t->arena;
 
     my $descend = SetLabel;                                                     # Start the descent through the tree
@@ -30655,8 +30661,9 @@ sub Nasm::X86::Tree::put($$$$)                                                  
     If $Q == 0,                                                                 # First entry as there is no root node.
     Then
      {my $block = $t->allocBlock($K, $D, $N);
-      $key ->dIntoZ             ($K, 0,      $W1);
-      $data->dIntoZ             ($D, 0,      $W2);
+      $k->dIntoZ                ($K, 0,      $W1);
+      $d->dIntoZ                ($D, 0,      $W1);
+      $t->incLengthInKeys       ($K,         $W1);
       $t->putBlock($block,       $K, $D, $N, $W1, $W2);
       $t->rootIntoFirst         ($F, $block, $W1);
       $t->incSizeInFirst        ($F,         $W1);
@@ -30666,24 +30673,40 @@ sub Nasm::X86::Tree::put($$$$)                                                  
 
     $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                     # Get the current block from memory
 
-    my $eq = $t->indexEq($key, $K);                                             # Check for an equal key
+    my $eq = $t->indexEq($k, $K);                                               # Check for an equal key
+PrintErrStringNL "AAAAA";
+$k->d;
+$eq->d;
     If $eq > 0,                                                                 # Equal key found
     Then                                                                        # Overwrite the existing key/data
-     {$tree->overWriteKeyDataTreeInLeaf($eq, $K, $D, $key, $data, $$p{subTree});
+     {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d,  $$p{subTree});
+      $t->putBlock                  ($Q,  $K, $D, $N, $W1, $W2);
       Jmp $success;
      };
 
-    If $t->splitNode($Q) > 0,                                                   # Split blocks that are full
+    my $split = $t->splitNode($Q);                                              # Split blocks that are full
+PrintErrStringNL "BBBBB";
+$split->d;
+    If $split > 0,                                                              # Split blocks that are full
     Then
-     {Jmp $descend;                                                             # Restart the descent now tha this block has been split
+     {Jmp $descend;                                                             # Restart the descent now that this block has been split
      };
 
-    my $lt = $t->indexInsertionPoint($key, $K);                                 # Find inserttion point Check for an equal key
-
-    $tree->insertKeyDataTreeIntoLeaf($eq, $K, $D, $key, $data, $$p{subTree});
+    my $leaf = $t->leafFromNodes($N, $W1);                                      # Are we on a leaf node ?
+$leaf->d;
+    If $leaf > 0,
+    Then
+     {my $i = $t->insertionPoint($k, $K);                                       # Find insertion point
+PrintErrStringNL "CCCC insert into leaf";
+      $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $$p{subTree});
+      PrintErrRegisterInHex $K;
+      $t->putBlock                 ($Q,  $K, $D, $N, $W1, $W2);
+      $t->firstIntoMemory          ($F,              $W1, $W2);                 # First back into memory
+      Jmp $success;
+     };
+PrintErrStringNL "DDDD need descent";
 
     SetLabel $success;
-
     PopZmm;
     PopR;
    } name => "Nasm::X86::Tree::put",
@@ -30700,19 +30723,67 @@ if (1) {                                                                        
   my $t = $a->CreateTree(length => 3);
 
   $a->dump("0000", K depth => 6);
+
   $t->put(K(key=>1), K(data=>0x11), K(false=>0));
   $a->dump("1111", K depth => 6);
-#  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-#  $a->dump("2222", K depth => 6);
-#  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
-#  $a->dump("3333", K depth => 6);
+
+  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
+  $a->dump("2222", K depth => 6);
+  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
+  $a->dump("3333", K depth => 6);
+
+  $t->splitNode(K offset => 0x80);
 #  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
-#  $a->dump("4444", K depth => 6);
+  $a->dump("4444", K depth => 11);
 
   ok Assemble eq => <<END;
+0000
+Arena     Size:     4096    Used:      128
+0000 0000 0000 0000 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+1111
+Arena     Size:     4096    Used:      320
+0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | 80__ ____ ____ ____  01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+0000 0000 0000 00C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
+0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+2222
+Arena     Size:     4096    Used:      320
+0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | 80__ ____ ____ ____  02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | 01__ ____ 02__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ C0__ ____
+0000 0000 0000 00C0 | 11__ ____ 22__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
+0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+3333
+Arena     Size:     4096    Used:      320
+0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | 80__ ____ ____ ____  03__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | 01__ ____ 02__ ____  03__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  03__ ____ C0__ ____
+0000 0000 0000 00C0 | 11__ ____ 22__ ____  33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
+0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+4444
+Arena     Size:     4096    Used:      704
+0000 0000 0000 0000 | __10 ____ ____ ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | __02 ____ ____ ____  03__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+0000 0000 0000 00C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 0140 | 03__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 8001 ____
+0000 0000 0000 0180 | 33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 0200 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
+0000 0000 0000 0240 | 22__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 END
  }
-=cut
 
 #latest:
 if (0) {                                                                        # Split tree bits 3 : 3
