@@ -7338,7 +7338,9 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
     my $W1 = r8;                                                                # Work register
     PushR 1..7, $W1;
 
+    my $point = $$p{point};                                                     # Point at which to insert
     $$p{point}->setReg($W1);                                                    # Load mask register showing point of insertion.
+
     Kmovq k7, $W1;                                                              # A sea of zeros with a one at the point of insertion
 
     $t->maskForFullKeyArea(6);                                                  # Mask for key area
@@ -7466,10 +7468,12 @@ sub Nasm::X86::Tree::indexXX($$$$)                                              
  {my ($tree, $key, $K, $cmp) = @_;                                              # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>
   @_ == 4 or confess "Four parameters";
 
-  PushR rcx, r14, r15, k7;                                                      # Registers
+  my $A = $K == 17 ? 18 : 17;                                                   # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
+  PushR rcx, r14, r15, k7, $A;                                                  # Registers
 
-  Vpcmpud k7, zmm($K), $key->address."{1to16}", $cmp;                           # Check keys from memory broadcast
-
+  $key->setReg(r14);
+  Vpbroadcastd zmm($A), r14d;                                                   # Load key to test
+  Vpcmpud k7, zmm($K, $A), $cmp;                                                # Check keys from memory broadcast
   my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
   $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
   Mov   r15, 1;                                                                 # The one
@@ -7477,7 +7481,6 @@ sub Nasm::X86::Tree::indexXX($$$$)                                              
   Dec   r15;                                                                    # Reduce to fill block with ones
   Kmovq r14, k7;                                                                # Matching keys
   And   r15, r14;                                                               # Matching keys in mask area
-
   my $r = V index => r15;                                                       # Save result as a variable
   PopR;
 
@@ -7495,8 +7498,7 @@ sub Nasm::X86::Tree::insertionPoint($$$)                                        
  {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
   @_ == 3 or confess "Three parameters";
 
-  my $le = $tree->indexXX($key, $K, $Vpcmp->lt);                                # Check for less than or equal equal keys
-  $le + 1                                                                       # Show the insertion point
+  $tree->indexXX($key, $K, $Vpcmp->le) + 1;                                     # Check for less than or equal keys
  }
 
 # the  length byte in keys - zmm28 is not being correctly set on the insertion of the last key in the block
@@ -8771,8 +8773,8 @@ sub Nasm::X86::Tree::dumpNode($$$$$)                                            
 
     PushR my ($treeBitsR, $treeBitsIndexR, $transfer) = (r8, r9, r10);
 
-    $t->getTreeBits(31, $treeBitsR);                                            # Tree bits for this node
-    my $l = $t->lengthFromKeys($K);                                            # Number of nodes
+    $t->getTreeBits($K, $treeBitsR);                                            # Tree bits for this node
+    my $l = $t->lengthFromKeys($K);                                             # Number of nodes
 
     $I->outSpaces;
     PrintOutString "Tree at: ";                                                 # Print position and length
@@ -8833,12 +8835,13 @@ sub Nasm::X86::Tree::dumpNode($$$$$)                                            
       ($nodes ? $l + 1 : $l)->for(sub                                           # There is one more node than keys or data
        {my ($index, $start, $next, $end) = @_;
         my $i = $index * $t->width;                                             # Key or Data offset
-        my $k = dFromZ($zmm, $i, $transfer);                               # Key or Data
+        my $k = dFromZ($zmm, $i, $transfer);                                    # Key or Data
 
         if (!$tb)                                                               # No tree bits
          {PrintOutString ' ';
-          $k->outRightInHex(K width => 4) if  $nodes;
-          $k->outRightInDec(K width => 4) if !$nodes;
+          $k->outRightInHex(K width => 4);
+          #$k->outRightInHex(K width => 4) if  $nodes;
+          #$k->outRightInDec(K width => 4) if !$nodes;
          }
         else
          {Test $treeBitsR, $treeBitsIndexR;                                     # Check for a tree bit
@@ -8859,7 +8862,7 @@ sub Nasm::X86::Tree::dumpNode($$$$$)                                            
 
     $printKD->('Keys :', $K, 0, 0);                                             # Print keys
     $printKD->('Data :', $D, 0, 1);                                             # Print data either as _hex for a sub tree reference or in decimal for data
-    If dFromZ($N, 0, $transfer) > 0,                                       # If the first node is not zero we are not on a leaf
+    If dFromZ($N, 0, $transfer) > 0,                                            # If the first node is not zero we are not on a leaf
     Then
      {$printKD->('Nodes:', $N, 1, 0);
      };
@@ -8880,62 +8883,80 @@ sub Nasm::X86::Tree::dump($$)                                                   
   my $s = Subroutine2                                                           # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
+    my ($end, $start) = @_;
     my $t = $$s{tree};                                                          # Tree
-    my $F = $t->first;                                                          # First block in tree
     my $I = $$p{indentation};                                                   # Indentation to apply to the start of each new line
     my $arena = $t->arena;                                                      # Arena
 
-    PushZmm 29..31;
-    PushR my ($treeBitsR, $treeBitsIndexR, $transfer) = (r8, r9, r10);
-    $t->getBlock($F, 31, 30, 29);                                        # Load node
-    $t->getTreeBits(31, $treeBitsR);                                            # Tree bits for this node
-    my $l = $t->lengthFromKeys(31);                                            # Number of nodes
+    PushZmm my ($F, $K, $D, $N) = 28..31;
+    PushR my ($W1, $W2, $treeBitsR, $treeBitsIndexR) = (r8, r9, r10, r11);
 
-    $t->dumpNode($I, 31, 30, 29);
+    Block                                                                       # Print each node in the tree
+     {my ($end, $start) = @_;                                                   # Labels
+      my $offset = $$p{offset};                                                 # Offset of node to print
+      $t->getBlock($offset, $K, $D, $N, $W1, $W2);                              # Load node
+      $t->getTreeBits($K, $treeBitsR);                                          # Tree bits for this node
+      my $l = $t->lengthFromKeys($K);                                           # Number of nodes
 
-    Cmp $treeBitsR, 0;                                                          # Any tree bit sets?
-    IfNe
-    Then                                                                        # Tree bits present
-     {Mov $treeBitsIndexR, 1;                                                   # Check each tree bit position
-      K(loop, $t->maxKeys)->for(sub
+      $t->dumpNode($I, $K, $D, $N);
+
+      Cmp $treeBitsR, 0;                                                        # Any tree bit sets?
+      IfNe
+      Then                                                                      # Tree bits present
+       {Mov $treeBitsIndexR, 1;                                                 # Check each tree bit position
+        K(loop, $t->maxKeys)->for(sub
+         {my ($index, $start, $next, $end) = @_;
+          Test $treeBitsR, $treeBitsIndexR;                                     # Check for a tree bit
+          IfNz
+          Then                                                                  # This key indexes a sub tree
+           {my $i = $index * $t->width;                                         # Key/data offset
+            my $d = dFromZ($D, $i, $W1);                                        # Data
+            my $I = V(indentation => 0)->copy($I + 2);
+            $sub->call(parameters => {indentation => $I, offset => $d},
+                       structures => {tree        => $t});                      # Print sub tree referenced by data field
+           };
+          Shl $treeBitsIndexR, 1;                                               # Next tree bit position
+         });
+       };
+
+      ($l+1)->for(sub                                                           # Print sub nodes
        {my ($index, $start, $next, $end) = @_;
-        Test $treeBitsR, $treeBitsIndexR;                                       # Check for a tree bit
-        IfNz
-        Then                                                                    # This key indexes a sub tree
-         {my $i = $index * $t->width;                                           # Key/data offset
-          my $d = dFromZ(30, $i, $transfer);                               # Data
-          my $T = $arena->DescribeTree(first => $d);
-          my $I = V(indentation => 0)->copy($I + 2);
-          $sub->call(parameters => {indentation => $I},
-                     structures => {tree        => $T});                        # Print sub tree referenced by data field
+        my $i = $index * $t->width;                                             # Key/Data offset
+        my $d = dFromZ($N, $i, $W1);                                            # Sub nodes
+        If $d > 0,                                                              # Print any sub nodes
+        Then
+         {my $I = V(indentation => 0)->copy($I + 2);
+          $sub->call(parameters => {indentation => $I, offset=>$d},
+                     structures => {tree        => $t});                        # Print sub tree referenced by data field
          };
-        Shl $treeBitsIndexR, 1;                                                 # Next tree bit position
        });
+
+      ($I - 2)->outSpaces; PrintOutStringNL "end";                              # Separate sub tree dumps
+
      };
 
-    ($l+1)->for(sub                                                             # Print sub nodes
-     {my ($index, $start, $next, $end) = @_;
-      my $i = $index * $t->width;                                               # Key/Data offset
-      my $d = dFromZ(29, $i, $transfer);                                   # Data
-      If $d > 0,                                                                # Print any sub nodes
-      Then
-       {my $T = $arena->DescribeTree(first => $d);
-        my $I = V(indentation => 0)->copy($I + 2);
-        $sub->call(parameters => {indentation => $I},
-                   structures => {tree        => $T});                          # Print sub tree referenced by data field
-       };
-     });
-
-    ($I - 2)->outSpaces; PrintOutStringNL "end";                                # Separate sub tree dumps
     PopR; PopZmm;
-   } parameters => [qw(indentation)],
+   } parameters => [qw(indentation offset)],
      structures => {tree => $tree},
      name       => "Nasm::X86::Tree::dump";
 
   PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
 
-  $s->call(structures => {tree        => $tree},
-           parameters => {indentation => V indentation => 0});
+  PushR my ($F, $W1, $W2) = (31, r8, r9);                                        # Locate root node
+  $tree->firstFromMemory($F, $W1, $W2);
+  my $Q = $tree->rootFromFirst($F, $W1);
+
+  If $Q == 0,                                                                   # Empty tree
+  Then
+   {PrintOutStringNL "- empty";
+   },
+  Else
+   {$s->call(structures => {tree      => $tree},                                # Print root node
+             parameters => {indentation => V(indentation => 0),
+                            offset      => $Q});
+   };
+
+  PopR;
  }
 
 #D2 Iteration                                                                   # Iterate through a tree non recursively
@@ -30496,38 +30517,55 @@ if (1) {                                                                        
 
   my $K = 31;
 
-  K(K => Rd(0..15))->loadZmm($K);
+  K(K => Rd(map {2*$_} 1..16))->loadZmm($K);
   $tree->lengthIntoKeys($K, K length => 13);
+  PrintErrRegisterInHex $K;
 
-  K(loop => 16)->for(sub
+  K(loop => 32)->for(sub
    {my ($index, $start, $next, $end) = @_;
     my $f = $tree->insertionPoint($index, $K);
     $index->outRightInDec(K width =>  2);
-    $f    ->outRightInBin(K width => 14);
+    $f    ->outRightInBin(K width => 16);
     PrintOutStringNL " |"
    });
 
   ok Assemble eq => <<END;
- 0             1 |
- 1            10 |
- 2           100 |
- 3          1000 |
- 4         10000 |
- 5        100000 |
- 6       1000000 |
- 7      10000000 |
- 8     100000000 |
- 9    1000000000 |
-10   10000000000 |
-11  100000000000 |
-12 1000000000000 |
-1310000000000000 |
-1410000000000000 |
-1510000000000000 |
+ 0               1 |
+ 1               1 |
+ 2              10 |
+ 3              10 |
+ 4             100 |
+ 5             100 |
+ 6            1000 |
+ 7            1000 |
+ 8           10000 |
+ 9           10000 |
+10          100000 |
+11          100000 |
+12         1000000 |
+13         1000000 |
+14        10000000 |
+15        10000000 |
+16       100000000 |
+17       100000000 |
+18      1000000000 |
+19      1000000000 |
+20     10000000000 |
+21     10000000000 |
+22    100000000000 |
+23    100000000000 |
+24   1000000000000 |
+25   1000000000000 |
+26  10000000000000 |
+27  10000000000000 |
+28  10000000000000 |
+29  10000000000000 |
+30  10000000000000 |
+31  10000000000000 |
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Variable::dFromPointInZ
   my $tree = DescribeTree(length => 7);
 
@@ -30603,88 +30641,6 @@ Overwritten
 END
  }
 
-sub Nasm::X86::Tree::put($$$$)                                                  # Put a variable key and data into a tree.
- {my ($tree, $key, $data, $subTree) = @_;                                       # Tree definition, key as a variable, data as a variable, the data represents the offset of a sub tree if true.
-  @_ == 4 or confess "Four parameters";
-
-  my $s = Subroutine2
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-
-    my $success = Label;                                                        # End label
-
-    PushR my ($W1, $W2) = (r8, r9);
-    PushZmm my ($F, $K, $D, $N) = reverse 28..31;
-
-    my $t = $$s{tree};
-    my $k = $$p{key};
-    my $d = $$p{data};
-    my $a = $t->arena;
-
-    my $start = SetLabel;                                                       # Start the descent through the tree
-
-    $t->firstFromMemory($F, $W1, $W2);
-    my $Q = $t->rootFromFirst($F, $W1);                                         # Start the descent at the root node
-
-    If $Q == 0,                                                                 # First entry as there is no root node.
-    Then
-     {my $block = $t->allocBlock($K, $D, $N);
-      $k->dIntoZ                ($K, 0,      $W1);
-      $d->dIntoZ                ($D, 0,      $W1);
-      $t->incLengthInKeys       ($K,         $W1);
-      $t->putBlock($block,       $K, $D, $N, $W1, $W2);
-      $t->rootIntoFirst         ($F, $block, $W1);
-      $t->incSizeInFirst        ($F,         $W1);
-      $t->firstIntoMemory       ($F,         $W1, $W2);                         # First back into memory
-      Jmp $success;
-     };
-
-    my $descend = SetLabel;                                                     # Descend to the next level
-
-    $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                     # Get the current block from memory
-
-    my $eq = $t->indexEq($k, $K);                                               # Check for an equal key
-    If $eq > 0,                                                                 # Equal key found
-    Then                                                                        # Overwrite the existing key/data
-     {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d,  $$p{subTree});
-      $t->putBlock                  ($Q,  $K, $D, $N, $W1, $W2);
-      Jmp $success;
-     };
-
-    my $split = $t->splitNode($Q);                                              # Split blocks that are full
-    If $split > 0,
-    Then
-     {Jmp $start;                                                               # Restart the descent now that this block has been split
-     };
-
-    my $leaf = $t->leafFromNodes($N, $W1);                                      # Are we on a leaf node ?
-    If $leaf > 0,
-    Then
-     {
-
-      my $i = $t->insertionPoint($k, $K);                                       # Find insertion point
-      $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $$p{subTree});
-      $t->putBlock                 ($Q, $K, $D, $N, $W1, $W2);
-      $t->firstIntoMemory          ($F,             $W1, $W2);                  # First back into memory
-      Jmp $success;
-     };
-
-
-    my $in = $t->insertionPoint($k, $K);                                        # The position at which the key would be inserted if this were a leaf
-    my $next = $in->dFromPointInZ($N);                                          # The node to the left of the insertion point - this works because the insertion point can be upto one more than the maximum number of keys
-
-    $Q->copy($next);                                                            # Get the offset of the next node - we are not on a leaf so there must be one
-    Jmp $descend;                                                               # Descend to the next level
-
-    SetLabel $success;
-    PopZmm;
-    PopR;
-   } name => "Nasm::X86::Tree::put",
-     structures => {tree=>$tree},
-     parameters => [qw(key data subTree)];
-
-  $s->call(structures => {tree => $tree},
-           parameters => {key  => $key, data=>$data, subTree=>$subTree});
- }
 
 #latest:
 if (1) {
@@ -30692,17 +30648,23 @@ if (1) {
   my $t = $a->CreateTree(length => 3);
 
   $a->dump("0000", K depth => 6);
+  $t->dump("0000");
 
   $t->put(K(key=>1), K(data=>0x11), K(false=>0));
   $a->dump("1111", K depth => 6);
+  $t->dump("1111");
 
   $t->put(K(key=>2), K(data=>0x22), K(false=>0));
   $a->dump("2222", K depth => 6);
+  $t->dump("2222");
+
   $t->put(K(key=>3), K(data=>0x33), K(false=>0));
   $a->dump("3333", K depth => 6);
+  $t->dump("3333");
 
   $t->splitNode(K offset => 0x80);
   $a->dump("4444", K depth => 11);
+  $t->dump("4444");
 
   ok Assemble eq => <<END;
 0000
@@ -30713,6 +30675,8 @@ Arena     Size:     4096    Used:      128
 0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000
+- empty
 1111
 Arena     Size:     4096    Used:      320
 0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -30721,6 +30685,12 @@ Arena     Size:     4096    Used:      320
 0000 0000 0000 00C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
 0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+1111
+Tree at:   40,  length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+  Index:    0
+  Keys :    1
+  Data :   17
+end
 2222
 Arena     Size:     4096    Used:      320
 0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -30729,6 +30699,12 @@ Arena     Size:     4096    Used:      320
 0000 0000 0000 00C0 | 11__ ____ 22__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
 0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+2222
+Tree at:   40,  length:    2,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+  Index:    0    1
+  Keys :    1    2
+  Data :   17   34
+end
 3333
 Arena     Size:     4096    Used:      320
 0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -30737,6 +30713,12 @@ Arena     Size:     4096    Used:      320
 0000 0000 0000 00C0 | 11__ ____ 22__ ____  33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
 0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+3333
+Tree at:   40,  length:    3,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    3
+  Data :   17   34   51
+end
 4444
 Arena     Size:     4096    Used:      704
 0000 0000 0000 0000 | __10 ____ ____ ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -30750,6 +30732,23 @@ Arena     Size:     4096    Used:      704
 0000 0000 0000 0200 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
 0000 0000 0000 0240 | 22__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
 0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+4444
+Tree at:   40,  length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :   34
+  Nodes:   80  140
+    Tree at:   40,  length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+      Index:    0
+      Keys :    1
+      Data :   17
+    end
+    Tree at:   40,  length:    1,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
+      Index:    0
+      Keys :    3
+      Data :   51
+    end
+end
 END
  }
 
@@ -30763,6 +30762,7 @@ if (1) {                                                                        
   $t->put(K(key=>3), K(data=>0x33), K(false=>0));
   $t->put(K(key=>4), K(data=>0x44), K(false=>0));
   $a->dump("4444", K depth => 11);
+  $t->dump("4444");
 
   ok Assemble eq => <<END;
 4444
@@ -30778,6 +30778,23 @@ Arena     Size:     4096    Used:      704
 0000 0000 0000 0200 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
 0000 0000 0000 0240 | 22__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
 0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+4444
+Tree at:   40,  length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :   34
+  Nodes:   80  140
+    Tree at:   40,  length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+      Index:    0
+      Keys :    1
+      Data :   17
+    end
+    Tree at:   40,  length:    2,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
+      Index:    0    1
+      Keys :    3    4
+      Data :   51   68
+    end
+end
 END
  }
 
@@ -30876,7 +30893,7 @@ Arena     Size:     4096    Used:      896
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -30910,7 +30927,7 @@ Arena     Size:     4096    Used:      896
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -30923,37 +30940,208 @@ if (1) {                                                                        
   $t->put(K(key=>6), K(data=>0x66), K(false=>0));
   $t->put(K(key=>7), K(data=>0x77), K(false=>0));
   $t->put(K(key=>8), K(data=>0x88), K(false=>0));
-  $a->dump("8888",   K depth => 24);
+  $t->dump("8888");
 
   ok Assemble eq => <<END;
 8888
-Arena     Size:     4096    Used:     1472
-0000 0000 0000 0000 | __10 ____ ____ ____  C005 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 0040 | __05 ____ ____ ____  08__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
-0000 0000 0000 00C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
-0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
-0000 0000 0000 0140 | 03__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 8001 ____
-0000 0000 0000 0180 | 33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
-0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
-0000 0000 0000 0200 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
-0000 0000 0000 0240 | 22__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __05 ____ 8002 ____
-0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
-0000 0000 0000 02C0 | 05__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ __03 ____
-0000 0000 0000 0300 | 55__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ 4003 ____
-0000 0000 0000 0340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
-0000 0000 0000 0380 | 07__ ____ 08__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ C003 ____
-0000 0000 0000 03C0 | 77__ ____ 88__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __04 ____
-0000 0000 0000 0400 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
-0000 0000 0000 0440 | 06__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 8004 ____
-0000 0000 0000 0480 | 66__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __05 ____ C004 ____
-0000 0000 0000 04C0 | C002 ____ 8003 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
-0000 0000 0000 0500 | 04__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4005 ____
-0000 0000 0000 0540 | 44__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8005 ____
-0000 0000 0000 0580 | __02 ____ 4004 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
-0000 0000 0000 05C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+Tree at:   40,  length:    1,  data:  540,  nodes:  580,  keys:   40, root, parent
+  Index:    0
+  Keys :    4
+  Data :   68
+  Nodes:  200  440
+    Tree at:   40,  length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
+      Index:    0
+      Keys :    2
+      Data :   34
+      Nodes:   80  140
+        Tree at:   40,  length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+          Index:    0
+          Keys :    1
+          Data :   17
+        end
+        Tree at:   40,  length:    1,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
+          Index:    0
+          Keys :    3
+          Data :   51
+        end
+    end
+    Tree at:   40,  length:    1,  data:  480,  nodes:  4C0,  keys:   40, root, parent
+      Index:    0
+      Keys :    6
+      Data :  102
+      Nodes:  2C0  380
+        Tree at:   40,  length:    1,  data:  300,  nodes:  340,  keys:   40, root, leaf
+          Index:    0
+          Keys :    5
+          Data :   85
+        end
+        Tree at:   40,  length:    2,  data:  3C0,  nodes:  400,  keys:   40, root, leaf
+          Index:    0    1
+          Keys :    7    8
+          Data :  119  136
+        end
+    end
+end
 END
  }
+
+sub Nasm::X86::Tree::put($$$$)                                                  # Put a variable key and data into a tree.
+ {my ($tree, $key, $data, $subTree) = @_;                                       # Tree definition, key as a variable, data as a variable, the data represents the offset of a sub tree if true.
+  @_ == 4 or confess "Four parameters";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $success = Label;                                                        # End label
+
+    PushR my ($W1, $W2) = (r8, r9);
+    PushZmm my ($F, $K, $D, $N) = reverse 28..31;
+
+    my $t = $$s{tree};
+    my $k = $$p{key};
+    my $d = $$p{data};
+    my $a = $t->arena;
+
+    my $start = SetLabel;                                                       # Start the descent through the tree
+
+    $t->firstFromMemory($F, $W1, $W2);
+    my $Q = $t->rootFromFirst($F, $W1);                                         # Start the descent at the root node
+
+    If $Q == 0,                                                                 # First entry as there is no root node.
+    Then
+     {my $block = $t->allocBlock($K, $D, $N);
+      $k->dIntoZ                ($K, 0,      $W1);
+      $d->dIntoZ                ($D, 0,      $W1);
+      $t->incLengthInKeys       ($K,         $W1);
+      $t->putBlock($block,       $K, $D, $N, $W1, $W2);
+      $t->rootIntoFirst         ($F, $block, $W1);
+      $t->incSizeInFirst        ($F,         $W1);
+      $t->firstIntoMemory       ($F,         $W1, $W2);                         # First back into memory
+      Jmp $success;
+     };
+
+    my $descend = SetLabel;                                                     # Descend to the next level
+
+    $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                     # Get the current block from memory
+
+    my $eq = $t->indexEq($k, $K);                                               # Check for an equal key
+    If $eq > 0,                                                                 # Equal key found
+    Then                                                                        # Overwrite the existing key/data
+     {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d,  $$p{subTree});
+      $t->putBlock                  ($Q,  $K, $D, $N, $W1, $W2);
+      Jmp $success;
+     };
+
+    my $split = $t->splitNode($Q);                                              # Split blocks that are full
+    If $split > 0,
+    Then
+     {Jmp $start;                                                               # Restart the descent now that this block has been split
+     };
+
+    my $leaf = $t->leafFromNodes($N, $W1);                                      # Are we on a leaf node ?
+    If $leaf > 0,
+    Then
+     {my $i = $t->insertionPoint($k, $K);                                       # Find insertion point
+      $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $$p{subTree});
+      $t->putBlock                 ($Q, $K, $D, $N, $W1, $W2);
+      $t->firstIntoMemory          ($F,             $W1, $W2);                  # First back into memory
+      Jmp $success;
+     };
+
+    my $in = $t->insertionPoint($k, $K);                                        # The position at which the key would be inserted if this were a leaf
+    my $next = $in->dFromPointInZ($N);                                          # The node to the left of the insertion point - this works because the insertion point can be upto one more than the maximum number of keys
+
+    $Q->copy($next);                                                            # Get the offset of the next node - we are not on a leaf so there must be one
+    Jmp $descend;                                                               # Descend to the next level
+
+    SetLabel $success;
+    PopZmm;
+    PopR;
+   } name => "Nasm::X86::Tree::put",
+     structures => {tree=>$tree},
+     parameters => [qw(key data subTree)];
+
+  $s->call(structures => {tree => $tree},
+           parameters => {key  => $key, data=>$data, subTree=>$subTree});
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::put
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+
+  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
+  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
+  $t->dump("2222");
+
+  ok Assemble eq => <<END;
+2222
+Tree at:   40,  length:    2,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+  Index:    0    1
+  Keys :    1    2
+  Data :   17   34
+end
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::put
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+
+  $t->put(K(key=>8), K(data=>0x88), K(false=>0));
+  $t->put(K(key=>7), K(data=>0x77), K(false=>0));
+  $t->put(K(key=>6), K(data=>0x66), K(false=>0));
+  $t->put(K(key=>5), K(data=>0x55), K(false=>0));
+  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
+  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
+  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
+  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
+  $t->dump("8888");
+
+  ok Assemble eq => <<END;
+8888
+Tree at:   40,  length:    1,  data:  540,  nodes:  580,  keys:   40, root, parent
+  Index:    0
+  Keys :    5
+  Data :   85
+  Nodes:  200  440
+    Tree at:   40,  length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
+      Index:    0
+      Keys :    3
+      Data :   51
+      Nodes:   80  380
+        Tree at:   40,  length:    2,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+          Index:    0    1
+          Keys :    1    2
+          Data :   17   34
+        end
+        Tree at:   40,  length:    1,  data:  3C0,  nodes:  400,  keys:   40, root, leaf
+          Index:    0
+          Keys :    4
+          Data :   68
+        end
+    end
+    Tree at:   40,  length:    1,  data:  480,  nodes:  4C0,  keys:   40, root, parent
+      Index:    0
+      Keys :    7
+      Data :  119
+      Nodes:  2C0  140
+        Tree at:   40,  length:    1,  data:  300,  nodes:  340,  keys:   40, root, leaf
+          Index:    0
+          Keys :    6
+          Data :  102
+        end
+        Tree at:   40,  length:    1,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
+          Index:    0
+          Keys :    8
+          Data :  136
+        end
+    end
+end
+END
+ }
+
 
 #latest:
 if (0) {                                                                        # Split tree bits 3 : 3
