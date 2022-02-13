@@ -8779,7 +8779,8 @@ sub Nasm::X86::Tree::dumpNode($$$$$)                                            
     $I->outSpaces;
     PrintOutString "Tree at: ";                                                 # Print position and length
     $F->outRightInHex(K width => 4);
-    PrintOutString ",  length: ";
+    (K(col => 20) - $I)->outSpaces;
+    PrintOutString "length: ";
     $l->outRightInDec(K width => 4);
 
     PrintOutString ",  data: ";                                                 # Position of data block
@@ -30686,7 +30687,7 @@ Arena     Size:     4096    Used:      320
 0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 1111
-Tree at:   40,  length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+Tree at:   40                    length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
   Index:    0
   Keys :    1
   Data :   17
@@ -30700,7 +30701,7 @@ Arena     Size:     4096    Used:      320
 0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 2222
-Tree at:   40,  length:    2,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+Tree at:   40                    length:    2,  data:   C0,  nodes:  100,  keys:   40, root, leaf
   Index:    0    1
   Keys :    1    2
   Data :   17   34
@@ -30714,7 +30715,7 @@ Arena     Size:     4096    Used:      320
 0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 0000 0000 0000 0140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 3333
-Tree at:   40,  length:    3,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+Tree at:   40                    length:    3,  data:   C0,  nodes:  100,  keys:   40, root, leaf
   Index:    0    1    2
   Keys :    1    2    3
   Data :   17   34   51
@@ -30733,17 +30734,17 @@ Arena     Size:     4096    Used:      704
 0000 0000 0000 0240 | 22__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
 0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 4444
-Tree at:   40,  length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
+Tree at:   40                    length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
   Index:    0
   Keys :    2
   Data :   34
   Nodes:   80  140
-    Tree at:   40,  length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+    Tree at:   40                length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
       Index:    0
       Keys :    1
       Data :   17
     end
-    Tree at:   40,  length:    1,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
+    Tree at:   40                length:    1,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
       Index:    0
       Keys :    3
       Data :   51
@@ -30779,17 +30780,17 @@ Arena     Size:     4096    Used:      704
 0000 0000 0000 0240 | 22__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
 0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 4444
-Tree at:   40,  length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
+Tree at:   40                    length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
   Index:    0
   Keys :    2
   Data :   34
   Nodes:   80  140
-    Tree at:   40,  length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+    Tree at:   40                length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
       Index:    0
       Keys :    1
       Data :   17
     end
-    Tree at:   40,  length:    2,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
+    Tree at:   40                length:    2,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
       Index:    0    1
       Keys :    3    4
       Data :   51   68
@@ -30944,38 +30945,38 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END;
 8888
-Tree at:   40,  length:    1,  data:  540,  nodes:  580,  keys:   40, root, parent
+Tree at:   40                    length:    1,  data:  540,  nodes:  580,  keys:   40, root, parent
   Index:    0
   Keys :    4
   Data :   68
   Nodes:  200  440
-    Tree at:   40,  length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
+    Tree at:   40                length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
       Index:    0
       Keys :    2
       Data :   34
       Nodes:   80  140
-        Tree at:   40,  length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+        Tree at:   40            length:    1,  data:   C0,  nodes:  100,  keys:   40, root, leaf
           Index:    0
           Keys :    1
           Data :   17
         end
-        Tree at:   40,  length:    1,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
+        Tree at:   40            length:    1,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
           Index:    0
           Keys :    3
           Data :   51
         end
     end
-    Tree at:   40,  length:    1,  data:  480,  nodes:  4C0,  keys:   40, root, parent
+    Tree at:   40                length:    1,  data:  480,  nodes:  4C0,  keys:   40, root, parent
       Index:    0
       Keys :    6
       Data :  102
       Nodes:  2C0  380
-        Tree at:   40,  length:    1,  data:  300,  nodes:  340,  keys:   40, root, leaf
+        Tree at:   40            length:    1,  data:  300,  nodes:  340,  keys:   40, root, leaf
           Index:    0
           Keys :    5
           Data :   85
         end
-        Tree at:   40,  length:    2,  data:  3C0,  nodes:  400,  keys:   40, root, leaf
+        Tree at:   40            length:    2,  data:  3C0,  nodes:  400,  keys:   40, root, leaf
           Index:    0    1
           Keys :    7    8
           Data :  119  136
@@ -31076,7 +31077,7 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END;
 2222
-Tree at:   40,  length:    2,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+Tree at:   40                    length:    2,  data:   C0,  nodes:  100,  keys:   40, root, leaf
   Index:    0    1
   Keys :    1    2
   Data :   17   34
@@ -31101,38 +31102,38 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END;
 8888
-Tree at:   40,  length:    1,  data:  540,  nodes:  580,  keys:   40, root, parent
+Tree at:   40                    length:    1,  data:  540,  nodes:  580,  keys:   40, root, parent
   Index:    0
   Keys :    5
   Data :   85
   Nodes:  200  440
-    Tree at:   40,  length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
+    Tree at:   40                length:    1,  data:  240,  nodes:  280,  keys:   40, root, parent
       Index:    0
       Keys :    3
       Data :   51
       Nodes:   80  380
-        Tree at:   40,  length:    2,  data:   C0,  nodes:  100,  keys:   40, root, leaf
+        Tree at:   40            length:    2,  data:   C0,  nodes:  100,  keys:   40, root, leaf
           Index:    0    1
           Keys :    1    2
           Data :   17   34
         end
-        Tree at:   40,  length:    1,  data:  3C0,  nodes:  400,  keys:   40, root, leaf
+        Tree at:   40            length:    1,  data:  3C0,  nodes:  400,  keys:   40, root, leaf
           Index:    0
           Keys :    4
           Data :   68
         end
     end
-    Tree at:   40,  length:    1,  data:  480,  nodes:  4C0,  keys:   40, root, parent
+    Tree at:   40                length:    1,  data:  480,  nodes:  4C0,  keys:   40, root, parent
       Index:    0
       Keys :    7
       Data :  119
       Nodes:  2C0  140
-        Tree at:   40,  length:    1,  data:  300,  nodes:  340,  keys:   40, root, leaf
+        Tree at:   40            length:    1,  data:  300,  nodes:  340,  keys:   40, root, leaf
           Index:    0
           Keys :    6
           Data :  102
         end
-        Tree at:   40,  length:    1,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
+        Tree at:   40            length:    1,  data:  180,  nodes:  1C0,  keys:   40, root, leaf
           Index:    0
           Keys :    8
           Data :  136
