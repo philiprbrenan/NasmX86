@@ -6091,7 +6091,7 @@ sub Nasm::X86::String::putNextandPrevBlockOffsetIntoZmm($$$$)                   
    {PushR my @regs = (r8, r15);                                                 # Work registers
     $prev->setReg(r15);                                                         # Next offset
     my $l = V("Links", r15);                                                    # Links as variable
-    $l->dIntoZ($zmm, $String->prev, r8);                                        # Load links into zmm
+    $l->dIntoZ($zmm, $String->prev);                                            # Load links into zmm
     PopR @regs;                                                                 # Free work registers
    }
  }
@@ -29156,7 +29156,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
