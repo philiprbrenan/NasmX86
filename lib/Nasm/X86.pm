@@ -2724,39 +2724,30 @@ sub Nasm::X86::Variable::clone($$)                                              
  {my ($variable, $name) = @_;                                                   # Variable to clone, new name for variable
   @_ == 2 or confess "Two parameters";
   my $c = V($name);                                                             # Use supplied name or fall back on existing name
-  $c->copy($variable, rdi);                                                     # Copy into created variable
+  $c->copy($variable);                                                          # Copy into created variable
   $c                                                                            # Return the clone of the variable
  }
 
-sub Nasm::X86::Variable::copy($$;$)                                             # Copy one variable into another.
- {my ($left, $right, $Transfer) = @_;                                           # Left variable, right variable, optional transfer register
-  @_ == 2 or @_ == 3 or confess "Two or three parameters";
-  CheckGeneralPurposeRegister $Transfer if $Transfer;
+sub Nasm::X86::Variable::copy($$)                                               # Copy one variable into another.
+ {my ($left, $right) = @_;                                                      # Left variable, right variable
+  @_ == 2 or confess "Two parameters";
 
-  my $transfer = $Transfer // r15;                                              # Transfer register
-
-# ref($right) =~ m(Variable) or confess "Variable required";
   my $l = $left ->address;
   my $r = ref($right) ? $right->address : $right;                               # Variable address or register expression (which might in fact be a constant)
 
-  PushR $transfer unless $Transfer;
-  Mov $transfer, $r;                                                            # Load right hand side
+  Mov rdi, $r;                                                                  # Load right hand side
 
   if (ref($right) and $right->reference)                                        # Dereference a reference
-   {Mov $transfer, "[$transfer]";
+   {Mov rdi, "[rdi]";
    }
 
   if ($left ->reference)                                                        # Copy a reference
-   {my ($ref) = ChooseRegisters(1, $transfer);
-    PushR $ref;
-    Mov $ref, $l;
-    Mov "[$ref]", $transfer;
-    PopR $ref;
+   {Mov rsi, $l;
+    Mov "[rsi]", rdi;
    }
   else                                                                          # Copy a non reference
-   {Mov $l, $transfer;
+   {Mov $l, rdi;
    }
-  PopR $transfer unless $Transfer;
   $left                                                                         # Return the variable on the left now that it has had the right hand side copied into it.
  }
 
@@ -7549,9 +7540,9 @@ sub Nasm::X86::Tree::find($$)                                                   
     my $lengthMask = k6; my $testMask = k7;
     my $W1 = r8;  my $W2 = r9;                                                  # Work registers
 
-    $t->found  ->copy(0, $W1);                                                  # Key not found
-    $t->data   ->copy(0, $W1);                                                  # Data not yet found
-    $t->subTree->copy(0, $W1);                                                  # Not yet a sub tree
+    $t->found  ->copy(0);                                                       # Key not found
+    $t->data   ->copy(0);                                                       # Data not yet found
+    $t->subTree->copy(0);                                                       # Not yet a sub tree
 
     $t->firstFromMemory      ($F, $W1, $W2);                                    # Load first block
     my $Q = $t->rootFromFirst($F, $W1);                                         # Start the search from the ropot
@@ -7569,8 +7560,8 @@ sub Nasm::X86::Tree::find($$)                                                   
       If $eq  > 0,                                                              # Result mask is non zero so we must have found the key
       Then
        {my $d = $eq->dFromPointInZ($D);                                         # Get the corresponding data
-        $t->found->copy(1,  $W1);                                               # Key found
-        $t->data ->copy($d, $W1);                                               # Data associated with the key
+        $t->found->copy(1);                                                     # Key found
+        $t->data ->copy($d);                                                    # Data associated with the key
         Jmp $success;                                                           # Return
        };
 
@@ -27162,7 +27153,7 @@ END
  }
 
 #latest:
-if (11) {                                                                        #TNasm::X86::Variable::clone
+if (11) {                                                                       #TNasm::X86::Variable::clone
   my $a = V('a', 1);
   my $b = $a->clone('a');
 
