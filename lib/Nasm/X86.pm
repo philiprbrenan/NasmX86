@@ -473,17 +473,6 @@ sub ChooseRegisters($@)                                                         
   sort keys %r
  }
 
-#sub RegistersAvailable(@)                                                       # Add a new set of registers that are available.
-# {my (@reg) = @_;                                                               # Registers known to be available at the moment
-#  my %r = map {$_=>1} @reg;
-#  push @RegistersAvailable, \%r;
-# }
-#
-#sub RegistersFree                                                               # Remove the current set of registers known to be free.
-# {@RegistersAvailable or confess "No registers to free";
-#  pop @RegistersAvailable;
-# }
-
 sub CheckGeneralPurposeRegister($)                                              # Check that a register is in fact a general purpose register.
  {my ($reg) = @_;                                                               # Register to check
   @_ == 1 or confess "One parameter";
@@ -7993,7 +7982,6 @@ sub Nasm::X86::Tree::findAndSplit($$)                                           
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and test whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for
   @_ == 2 or confess "Two parameters";
-  my $W = $tree->width;                                                         # Width of keys and data
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -8002,10 +7990,9 @@ sub Nasm::X86::Tree::find($$)                                                   
     PushR 6..7, 8..15, 28..31;
 
     my $t = $$s{tree};                                                          # Tree to search
-    my $a = $t->arena;                                                          # First keys block
     my $k = $$p{key};                                                           # Key to find
 
-    my $F = 31; my $K = 30; my $D = 29; my $N = 28; my $T = 28;
+    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
     my $lengthMask = k6; my $testMask = k7;
     my $W1 = r8;  my $W2 = r9;                                                  # Work registers
 
@@ -8014,26 +8001,21 @@ sub Nasm::X86::Tree::find($$)                                                   
     $t->subTree->copy(0, $W1);                                                  # Not yet a sub tree
 
     $t->firstFromMemory      ($F, $W1, $W2);                                    # Load first block
-    my $Q = $t->rootFromFirst($F, $W1);                                         # First node
-
-    $k->setReg($W1);                                                            # Load key into test register
-    Vpbroadcastd zmm($T), $W1."d";                                              # Broadcast key
+    my $Q = $t->rootFromFirst($F, $W1);                                         # Start the search from the ropot
+    If $Q == 0,
+    Then                                                                        # Empty tree so we have not found the key
+     {Jmp $success;                                                             # Return
+     };
 
     K(loop, 99)->for(sub                                                        # Step down through tree
      {my ($index, $start, $next, $end) = @_;
 
-      $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                   # Get the keys block
-
-      my $l = $t->lengthFromKeys($K);                                           # Length of the block
-      If $l == 0,
-      Then                                                                      # Empty tree so we have not found the key
-       {Jmp $success;                                                           # Return
-       };
+      $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                   # Get the keys/data/nodes
 
       my $eq = $t->indexEq($k, $K);                                             # The position of a key in a zmm equal to the specified key as a point in a variable.
       If $eq  > 0,                                                              # Result mask is non zero so we must have found the key
       Then
-       {my $d = $eq->dFromPointInZ($D);                                          # Get the corresponding data
+       {my $d = $eq->dFromPointInZ($D);                                         # Get the corresponding data
         $t->found->copy(1,  $W1);                                               # Key found
         $t->data ->copy($d, $W1);                                               # Data associated with the key
         Jmp $success;                                                           # Return
@@ -8047,12 +8029,11 @@ sub Nasm::X86::Tree::find($$)                                                   
 
       my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting
       my $n = $i->dFromPointInZ($N);                                            # Get the corresponding data
-      $Q->copy($n);                                                           # Corresponding node
+      $Q->copy($n);                                                             # Corresponding node
      });
-    PrintErrStringNL "Stuck in find";                                           # We seem to be looping endlessly
-    Exit(1);
+    PrintErrTraceBack "Stuck in find";                                          # We seem to be looping endlessly
 
-    SetLabel $success;                                                          # Insert completed successfully
+    SetLabel $success;                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
      structures=>{tree=>$tree},
