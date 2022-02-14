@@ -3123,20 +3123,20 @@ sub Nasm::X86::Variable::incDec($$)                                             
   $left->constant and confess "Cannot increment or decrement a constant";
   my $l = $left->address;
   if ($left->reference)
-   {PushR (r14, r15);
-    Mov r15, $l;
-    Mov r14, "[r15]";
-    &$op(r14);
-    Mov "[r15]", r14;
+   {PushR (rdi, rsi);                                                           # Violates the rdi/rsi rule if removed
+    Mov rsi, $l;
+    Mov rdi, "[rsi]";
+    &$op(rdi);
+    Mov "[rsi]", rdi;
     PopR;
     return $left;
    }
   else
-   {PushR r15;
-    Mov r15, $l;
-    &$op(r15);
-    Mov $l, r15;
-    PopR r15;
+   {PushR rsi;
+    Mov rsi, $l;
+    &$op(rsi);
+    Mov $l, rsi;
+    PopR rsi;
     return $left;
    }
  }
@@ -3329,15 +3329,12 @@ sub Nasm::X86::Variable::setZmm($$$$)                                           
   PopR;
  }
 
-sub Nasm::X86::Variable::loadZmm($$;$)                                          # Load bytes from the memory addressed by the specified source variable into the numbered zmm register.
- {my ($source, $zmm, $Transfer) = @_;                                           # Variable containing the address of the source, number of zmm to get, optional transfer register
-  @_ == 2 or @_ == 3 or confess "Two or three parameters";
-  my $transfer = $Transfer // r15;                                              # Register to use to transfer value to variable
+sub Nasm::X86::Variable::loadZmm($$)                                            # Load bytes from the memory addressed by the specified source variable into the numbered zmm register.
+ {my ($source, $zmm) = @_;                                                      # Variable containing the address of the source, number of zmm to get
+  @_ == 2 or confess "Two parameters";
 
-  PushR r15 unless defined $Transfer;
-  $source->setReg($transfer);
-  Vmovdqu8 "zmm$zmm", "[$transfer]";
-  PopR unless defined $Transfer;
+  $source->setReg(rdi);
+  Vmovdqu8 "zmm$zmm", "[rdi]";
  }
 
 sub wRegFromZmm($$$)                                                            # Load the specified register from the word at the specified offset located in the numbered zmm.
