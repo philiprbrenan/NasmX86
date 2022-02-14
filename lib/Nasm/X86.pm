@@ -3551,10 +3551,10 @@ sub Nasm::X86::Variable::putBwdqIntoMm($$$$;$)                                  
   PushR @save unless $Transfer;                                                 # Push target register
   $content->setReg($transfer);
   Vmovdqu32 "[rsp-$w]", $mm;                                                    # Write below the stack
-  Mov   "[rsp+$o-$w]", $transfer."b" if $size =~ m(b);                          # Write byte register
-  Mov   "[rsp+$o-$w]", $transfer."w" if $size =~ m(w);                          # Write word register
-  Mov   "[rsp+$o-$w]", $transfer."d" if $size =~ m(d);                          # Write double word register
-  Mov   "[rsp+$o-$w]", $transfer     if $size =~ m(q);                          # Write register
+  Mov   "[rsp+$o-$w]",  byteRegister($transfer) if $size =~ m(b);               # Write byte register
+  Mov   "[rsp+$o-$w]",  wordRegister($transfer) if $size =~ m(w);               # Write word register
+  Mov   "[rsp+$o-$w]", dWordRegister($transfer) if $size =~ m(d);               # Write double word register
+  Mov   "[rsp+$o-$w]", $transfer                if $size =~ m(q);               # Write register
   Vmovdqu32 $mm, "[rsp-$w]";                                                    # Read below the stack
   PopR @save unless $Transfer;
 
@@ -3563,40 +3563,47 @@ sub Nasm::X86::Variable::putBwdqIntoMm($$$$;$)                                  
 
 sub Nasm::X86::Variable::bIntoX($$$)                                            # Place the value of the content variable at the byte in the numbered xmm register.
  {my ($content, $xmm, $offset) = @_;                                            # Variable with content, numbered xmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $content->putBwdqIntoMm('b', "xmm$xmm", $offset)                              # Place the value of the content variable at the word in the numbered xmm register
  }
 
 sub Nasm::X86::Variable::wIntoX($$$)                                            # Place the value of the content variable at the word in the numbered xmm register.
  {my ($content, $xmm, $offset) = @_;                                            # Variable with content, numbered xmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $content->putBwdqIntoMm('w', "xmm$xmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered xmm register
  }
 
 sub Nasm::X86::Variable::dIntoX($$$)                                            # Place the value of the content variable at the double word in the numbered xmm register.
  {my ($content, $xmm, $offset) = @_;                                            # Variable with content, numbered xmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $content->putBwdqIntoMm('d', "xmm$xmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered xmm register
  }
 
 sub Nasm::X86::Variable::qIntoX($$$)                                            # Place the value of the content variable at the quad word in the numbered xmm register.
  {my ($content, $xmm, $offset) = @_;                                            # Variable with content, numbered xmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $content->putBwdqIntoMm('q', "xmm$xmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered xmm register
  }
 
 sub Nasm::X86::Variable::bIntoZ($$$)                                            # Place the value of the content variable at the byte in the numbered zmm register.
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
   $content->putBwdqIntoMm('b', "zmm$zmm", $offset)                              # Place the value of the content variable at the word in the numbered zmm register
  }
 
 sub Nasm::X86::Variable::putWIntoZmm($$$)                                       # Place the value of the content variable at the word in the numbered zmm register.
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
   $content->putBwdqIntoMm('w', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
-sub Nasm::X86::Variable::dIntoZ($$$;$)                                          # Place the value of the content variable at the double word in the numbered zmm register.
- {my ($content, $zmm, $offset, $transfer) = @_;                                 # Variable with content, numbered zmm, offset in bytes, optional transfer register
+sub Nasm::X86::Variable::dIntoZ($$$)                                            # Place the value of the content variable at the double word in the numbered zmm register.
+ {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes, optional transfer register
+  @_ == 3 or confess "Three parameters";
   $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
-  $content->putBwdqIntoMm('d', "zmm$zmm", $offset, $transfer)                   # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
+  $content->putBwdqIntoMm('d', "zmm$zmm", $offset, rdi)                         # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
 sub Nasm::X86::Variable::qIntoZ($$$;$)                                          # Place the value of the content variable at the quad word in the numbered zmm register.
@@ -7148,7 +7155,7 @@ sub Nasm::X86::Tree::firstIntoMemory($$$$)                                      
 sub Nasm::X86::Tree::rootIntoFirst($$$$)                                        # Put the contents of a variable into the root field of the first block of a tree when held in a zmm register.
  {my ($tree, $zmm, $value, $transfer) = @_;                                     # Tree descriptor, number of zmm containing first block, variable containing value to put, transfer register
   @_ == 4 or confess "Four parameters";
-  $value->dIntoZ($zmm, $tree->rootOffset, $transfer);
+  $value->dIntoZ($zmm, $tree->rootOffset);
  }
 
 sub Nasm::X86::Tree::rootFromFirst($$$)                                         # Return a variable containing the offset of the root block of a tree from the first block when held in a zmm register.
@@ -7222,7 +7229,7 @@ sub Nasm::X86::Tree::upFromData($$$)                                            
 sub Nasm::X86::Tree::upIntoData($$$)                                            # Up into the data zmm in a block in a tree
  {my ($tree, $value, $zmm, $transfer) = @_;                                     # Tree descriptor, variable containing value to put, number of zmm containing first block, transfer register
   @_ == 4 or confess "Four parameters";
-  $value->dIntoZ($zmm, $tree->up, $transfer);
+  $value->dIntoZ($zmm, $tree->up);
  }
 
 sub Nasm::X86::Tree::lengthFromKeys($$)                                         #P Get the length of the keys block in the numbered zmm and return it as a variable.
@@ -7275,7 +7282,7 @@ sub Nasm::X86::Tree::getLoop($$$)                                               
 sub Nasm::X86::Tree::putLoop($$$$)                                              #P Set the value of the loop field from a variable.
  {my ($t, $value, $zmm, $transfer) = @_;                                        # Tree descriptor, variable containing offset of next loop entry, numbered zmm, transfer register
   @_ == 4 or confess "Four parameters";
-  $value->dIntoZ($zmm, $t->loop, $transfer);                                    # Put loop field as a variable
+  $value->dIntoZ($zmm, $t->loop);                                               # Put loop field as a variable
  }
 
 sub Nasm::X86::Tree::maskForFullKeyArea                                         # Place a mask for the full key area in the numbered mask register
@@ -27958,8 +27965,8 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
     my $newRight = $$p{newRight};
     $t->splitNotRoot($newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);   # Split the root node as if it were a non root node
 
-    $$p{newLeft} ->dIntoZ($PN, 0, $transfer);                                   # Place first - left sub node into new root
-    $$p{newRight}->dIntoZ($PN, 4, $transfer);                                   # Place second - right sub node into new root
+    $$p{newLeft} ->dIntoZ($PN, 0);                                              # Place first - left sub node into new root
+    $$p{newRight}->dIntoZ($PN, 4);                                              # Place second - right sub node into new root
 
     Kshiftrw k7, k7, 1;                                                         # Reset parent keys/data outside of single key/data
     Kshiftlw k7, k7, 1;
@@ -28433,7 +28440,7 @@ if (1) {                                                                        
   my $a = CreateArena;
   my $t = $a->CreateTree;
   my $b = $t->allocBlock(31, 30, 29);
-  K(data => 0x33)->dIntoZ(31, 4, r8);
+  K(data => 0x33)->dIntoZ(31, 4);
   $t->lengthIntoKeys(31, K length =>0x9);
   $t->putBlock($b, 31, 30, 29, r8, r9);
   $t->getBlock($b, 25, 24, 23, r8, r9);
@@ -29017,8 +29024,8 @@ sub Nasm::X86::Tree::put($$$$)                                                  
     If $Q == 0,                                                                 # First entry as there is no root node.
     Then
      {my $block = $t->allocBlock($K, $D, $N);
-      $k->dIntoZ                ($K, 0,      $W1);
-      $d->dIntoZ                ($D, 0,      $W1);
+      $k->dIntoZ                ($K, 0);
+      $d->dIntoZ                ($D, 0);
       $t->incLengthInKeys       ($K,         $W1);
       $t->putBlock($block,       $K, $D, $N, $W1, $W2);
       $t->rootIntoFirst         ($F, $block, $W1);
