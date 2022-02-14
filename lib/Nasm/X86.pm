@@ -432,30 +432,7 @@ sub Pi64 {Rq("__float32__($Pi)")}                                               
 
 #D1 Registers                                                                   # Operations on registers
 
-sub xmm(@)                                                                      # Add xmm to the front of a list of register expressions.
- {my (@r) = @_;                                                                 # Register numbers
-  map {"xmm$_"} @_;
- }
-
-sub ymm(@)                                                                      # Add ymm to the front of a list of register expressions.
- {my (@r) = @_;                                                                 # Register numbers
-  map {"ymm$_"} @_;
- }
-
-sub zmm(@)                                                                      # Add zmm to the front of a list of register expressions.
- {my (@r) = @_;                                                                 # Register numbers
-  map {"zmm$_"} @_;
- }
-
-sub zmmM($$)                                                                    # Add zmm to the front of a register number and a mask after it
- {my ($z, $m) = @_;                                                             # Zmm number, mask register
-  "zmm$z\{k$m}"
- }
-
-sub zmmMZ($$)                                                                   # Add zmm to the front of a register number and mask and zero after it
- {my ($z, $m) = @_;                                                             # Zmm number, mask register number
-  "zmm$z\{k$m}\{z}"
- }
+#D2 General                                                                     # Actions specific to general purpose registers
 
 sub registerNameFromNumber($)                                                   # Register name from number where possible
  {my ($r) = @_;                                                                 # Register number
@@ -528,13 +505,7 @@ sub InsertOneIntoRegisterAtPoint($$)                                            
    }
  }
 
-sub LoadZmm($@)                                                                 # Load a numbered zmm with the specified bytes.
- {my ($zmm, @bytes) = @_;                                                       # Numbered zmm, bytes
-  my $b = Rb(@bytes);
-  Vmovdqu8 "zmm$zmm", "[$b]";
- }
-
-#D2 Save and Restore                                                            # Saving and restoring registers via the stack
+#D3 Save and Restore                                                            # Saving and restoring registers via the stack
 
 my @syscallSequence = qw(rax rdi rsi rdx r10 r8 r9);                            # The parameter list sequence for system calls
 
@@ -627,6 +598,39 @@ sub ClearZF()                                                                   
   PopR rax;
  }
 
+#D2 x, y, zmm                                                                   # Actions specific to mm registers
+
+sub xmm(@)                                                                      # Add xmm to the front of a list of register expressions.
+ {my (@r) = @_;                                                                 # Register numbers
+  map {"xmm$_"} @_;
+ }
+
+sub ymm(@)                                                                      # Add ymm to the front of a list of register expressions.
+ {my (@r) = @_;                                                                 # Register numbers
+  map {"ymm$_"} @_;
+ }
+
+sub zmm(@)                                                                      # Add zmm to the front of a list of register expressions.
+ {my (@r) = @_;                                                                 # Register numbers
+  map {"zmm$_"} @_;
+ }
+
+sub zmmM($$)                                                                    # Add zmm to the front of a register number and a mask after it
+ {my ($z, $m) = @_;                                                             # Zmm number, mask register
+  "zmm$z\{k$m}"
+ }
+
+sub zmmMZ($$)                                                                   # Add zmm to the front of a register number and mask and zero after it
+ {my ($z, $m) = @_;                                                             # Zmm number, mask register number
+  "zmm$z\{k$m}\{z}"
+ }
+
+sub LoadZmm($@)                                                                 # Load a numbered zmm with the specified bytes.
+ {my ($zmm, @bytes) = @_;                                                       # Numbered zmm, bytes
+  my $b = Rb(@bytes);
+  Vmovdqu8 "zmm$zmm", "[$b]";
+ }
+
 #D2 Mask                                                                        # Operations on mask registers
 
 sub CheckMaskRegister($)                                                        # Check that a register is in fact a numbered mask register
@@ -675,8 +679,8 @@ sub LoadConstantIntoMaskRegister($$$)                                           
   $mask     = registerNameFromNumber $mask;
   $transfer = registerNameFromNumber $transfer;
   CheckGeneralPurposeRegister $transfer;
-  Mov $transfer, $value;                                                        # Load mask into a general purpose register
-  Kmovq $mask, $transfer;                                                       # Load mask register from general purpose register
+  Mov rdi, $value;                                                        # Load mask into a general purpose register
+  Kmovq $mask, rdi;                                                       # Load mask register from general purpose register
  }
 
 sub createBitNumberFromAlternatingPattern($@)                                   # Create a number from a bit pattern.
