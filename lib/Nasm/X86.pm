@@ -1578,7 +1578,7 @@ sub PrintOutNL()                                                                
 
 sub PrintString($@)                                                             # Print a constant string to the specified channel.
  {my ($channel, @string) = @_;                                                  # Channel, Strings
-  @_ >= 2 or confess;
+  @_ >= 2 or confess "Two or more parameters";
 
   my $c = join ' ', @string;
   my $l = length($c);
@@ -7412,33 +7412,18 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
     my $parent = $t->upFromData($LD, $W1);                                      # Parent of this block
 
+    my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
     If $parent > 0,
     Then                                                                        # Not the root node because it has a parent
-     {my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
-      $t->upIntoData      ($parent, $RD, $W1);                                  # Address existing parent from new right
+     {$t->upIntoData      ($parent, $RD, $W1);                                  # Address existing parent from new right
       $t->getBlock        ($parent, $PK, $PD, $PN, $W1, $W2);                   # Load extant parent
       $t->splitNotRoot
                           ($r,      $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
       $t->putBlock        ($parent, $PK, $PD, $PN, $W1, $W2);
       $t->putBlock        ($offset, $LK, $LD, $LN, $W1, $W2);
-
-      $t->leafFromNodes($RN, $W1);                                              # Whether the right block is a leaf
-      IfNe                                                                      # If the zero Flag is zero then this is not a leaf
-      Then
-       {(K(nodes => $t->lengthRight) + 1)->for(sub                              # Reparent the children of the right hand side now known not to be a leaf
-         {my ($index, $start, $next, $end) = @_;
-          my $n = dFromZ $RN, $index * $t->width, $W1;                          # Offset of node
-          $t->getBlock  ($n, $LK, $LD, $LN, $W1, $W2);                          # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
-          $t->upIntoData($r,      $LD, $W1);                                    # Parent for child of right hand side
-          $t->putBlock  ($n, $LK, $LD, $LN, $W1, $W2);                          # Save block into memory now that its parent pointer has been updated
-         });
-       };
-
-      $t->putBlock        ($r,      $RK, $RD, $RN, $W1, $W2);
      },
     Else                                                                        # Split the root node
-     {my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
-      my $p = $t->allocBlock       ($PK, $PD, $PN);                             # Create a new parent block
+     {my $p = $t->allocBlock       ($PK, $PD, $PN);                             # Create a new parent block
       $t->splitRoot   ($offset, $r, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
       $t->upIntoData      ($p,      $LD, $W1);                                  # Left  points up to new parent
       $t->upIntoData      ($p,      $RD, $W1);                                  # Right points up to new parent
@@ -7450,6 +7435,20 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       $t->rootIntoFirst   ($F, $p,                 $W1);
       $t->firstIntoMemory ($F,                     $W1, $W2);
      };
+
+    $t->leafFromNodes($RN, $W1);                                                # Whether the right block is a leaf
+    IfNe                                                                        # If the zero Flag is zero then this is not a leaf
+    Then
+     {(K(nodes => $t->lengthRight) + 1)->for(sub                                # Reparent the children of the right hand side now known not to be a leaf
+       {my ($index, $start, $next, $end) = @_;
+        my $n = dFromZ $RN, $index * $t->width, $W1;                            # Offset of node
+        $t->getBlock  ($n, $LK, $LD, $LN, $W1, $W2);                            # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+        $t->upIntoData($r,      $LD, $W1);                                      # Parent for child of right hand side
+        $t->putBlock  ($n, $LK, $LD, $LN, $W1, $W2);                            # Save block into memory now that its parent pointer has been updated
+       });
+     };
+
+    $t->putBlock        ($r,      $RK, $RD, $RN, $W1, $W2);                     # Save right block
 
     SetLabel $success;                                                          # Insert completed successfully
     PopZmm;
@@ -8931,6 +8930,79 @@ sub Nasm::X86::Tree::dump($$)                                                   
    {$s->call(structures => {tree        => $tree},                              # Print root node
              parameters => {indentation => V(indentation => 0),
                             offset      => $Q});
+   };
+
+  PopR;
+ }
+
+sub Nasm::X86::Tree::printInOrder($$)                                           # Print a tree in order
+ {my ($tree, $title) = @_;                                                      # Tree, title
+  @_ == 2 or confess "Two parameters";
+
+  PushR my ($W1, $W2, $F) = (r8, r9, 31);
+
+  my $s = Subroutine2                                                           # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $t = $$s{tree};                                                          # Tree
+    my $arena = $t->arena;                                                      # Arena
+
+    PushR my ($W1, $W2, $treeBitsR, $treeBitsIndexR, $K, $D, $N) =
+           (r8, r9, r10, r11, 30, 29, 28);
+
+    Block                                                                       # Print each node in the tree
+     {my ($end, $start) = @_;                                                   # Labels
+      my $offset = $$p{offset};                                                 # Offset of node to print
+      $t->getBlock($offset, $K, $D, $N, $W1, $W2);                              # Load node
+      my $l = $t->lengthFromKeys($K);                                           # Number of nodes
+      $l->for(sub                                                           # Print sub nodes
+       {my ($index, $start, $next, $end) = @_;
+        my $i = $index * $t->width;                                             # Key/Data?node offset
+        my $k = dFromZ($K, $i, $W1);                                            # Key
+        my $d = dFromZ($D, $i, $W1);                                            # Data
+        my $n = dFromZ($N, $i, $W1);                                            # Sub nodes
+        If $n > 0,                                                              # Not a leaf
+        Then
+         {$sub->call(parameters => {offset => $n},                              # Recurse
+                     structures => {tree   => $t});
+         };
+        $k->outRightInHex(K width => 4);                                        # Print key
+       });
+
+      If $l > 0,                                                                # Print final sub tree
+      Then
+       {my $o = $l * $t->width;                                                 # Final sub tree offset
+        my $n = dFromZ($N, $l * $t->width, $W1);                                # Final sub tree
+        If $n > 0,                                                             # Not a leaf
+        Then
+         {$sub->call(parameters => {offset => $n},
+                     structures => {tree   => $t});
+
+         };
+       };
+     };
+    PopR;
+   } parameters => [qw(offset)],
+     structures => {tree => $tree},
+     name       => "Nasm::X86::Tree::printInOrder";
+
+  PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
+
+  $tree->firstFromMemory($F, $W1, $W2);
+  my $R = $tree->rootFromFirst($F, $W1);
+  my $C = $tree->sizeFromFirst($F, $W1);
+
+  If $R == 0,                                                                   # Empty tree
+  Then
+   {PrintOutStringNL "- empty";
+   },
+  Else
+   {$C->outRightInDec(K width => 4);
+    PrintOutString ": ";
+
+     $s->call(structures => {tree  => $tree},                                   # Print root node
+             parameters => {offset => $R});
+    PrintOutNL;
    };
 
   PopR;
@@ -29761,6 +29833,7 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
   my $lr        = $tree->lengthRight;                                           # Minimum node on right
   my $lb        = $tree->lengthOffset;                                          # Position of length byte
   my $tb        = $tree->treeBits;                                              # Position of tree bits
+  my $up        = $tree->up;                                                    # Position of up word in data
   my $transfer  = r8;                                                           # Transfer register
   my $transferD = r8d;                                                          # Transfer register as a dword
   my $transferW = r8w;                                                          # Transfer register as a  word
@@ -29844,6 +29917,9 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
     Mov $work, $lr;                                                             # Lengths
     wRegIntoZmm $work, $RK, $lb;                                                # Right after split
 
+    &$mask("01", -$zwk);                                                        # Copy parent offset from left to right so that the new right node  still has the same parent
+    Vmovdqu32 zmmM($RD, 7), zmm($LD);
+
     wRegFromZmm $transfer, $LK, $tb;                                            # Tree bits
     Mov $work, $transfer;
     And $work, (1 << $ll) - 1;
@@ -29925,7 +30001,8 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
     Vpbroadcastd zmmM($PN, 6), $transferD;
     Vpbroadcastd zmmM($RN, 6), $transferD;
 
-    $t->splitNotRoot($$p{newRight}, reverse 23..31);                            # Split the root node as if it were a non root node
+    my $newRight = $$p{newRight};
+    $t->splitNotRoot($newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);   # Split the root node as if it were a non root node
 
     $$p{newLeft} ->dIntoZ($PN, 0, $transfer);                                   # Place first - left sub node into new root
     $$p{newRight}->dIntoZ($PN, 4, $transfer);                                   # Place second - right sub node into new root
@@ -30572,7 +30649,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
 
@@ -31119,21 +31196,73 @@ end
 END
  }
 
-
 latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
   my $N = K count => 8;
 
-  $N->for(sub                                                    # Replace leading zeros with spaces
+  $N->for(sub
    {my ($index, $start, $next, $end) = @_;
-    $t->put($N - $index, ($N - $index) * 2, K(false=>0));
-    $t->put($N + $index, ($N + $index) * 2, K(false=>0));
+    my $l = $N-$index;
+       $l->outNL("Add low: ");
+    $t->put($l, $l * 2, K(false=>0));
+    $t->printInOrder("AAAA");
+    $t->dump("AAAA");
+    PrintOutNL;
+    my $h = $N+$index;
+       $h->outNL("Add high: ");
+    If  $h == 0xc,
+    Then
+     {$t->splitNode(K offset => 0x140);
+      $t->printInOrder("AAAA after split child");
+      $t->dump("AAAA after split child");
+
+      $t->splitNode(K offset => 0x200);
+      $t->printInOrder("AAAA after split root");
+      $t->dump("AAAA after split root");
+      $a->dump("DDDD", K depth => 20);
+
+      Exit(0);
+     };
+    $t->put($h, $h * 2, K(false=>0));
+    $t->printInOrder("AAAA");
+    $t->dump("AAAA");
    });
-  $t->dump("AAAA");
 
   ok Assemble eq => <<END;
+AAAA
+   1:    8
+AAAA
+   1:    8
+AAAA
+   2:    7   8
+AAAA
+   3:    7   8   9
+AAAA
+   4:    6   7   8   9
+AAAA
+   5:    6   7   8   9   A
+AAAA
+   6:    5   6   7   8   9   A
+AAAA
+   7:    5   6   7   8   9   A   B
+AAAA
+   8:    4   5   6   7   8   9   A   B
+AAAA
+   9:    4   5   6   7   8   9   A   B   C
+AAAA
+  10:    3   4   5   6   7   8   9   A   B   C
+AAAA
+  11:    3   4   5   6   7   8   9   A   B   C   D
+AAAA
+  12:    2   3   4   5   6   7   8   9   A   B   C   D
+AAAA
+  13:    2   3   4   5   6   7   C   D   8   9   A   B   E
+AAAA
+  14:    1   2   3   4   5   6   7   C   D   8   9   A   B   E
+AAAA
+  15:    1   2   3   4   5   6   7   C   D   8   9   A   B   E   F
 AAAA
 At:  500                    length:    2,  data:  540,  nodes:  580,  first:   40, root, parent
   Index:    0    1
@@ -31189,6 +31318,67 @@ At:  500                    length:    2,  data:  540,  nodes:  580,  first:   4
         end
     end
 end
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::printInOrder
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $N = K count => 8;
+
+  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
+  $t->put(K(key=>8), K(data=>0x33), K(false=>0));
+  $t->put(K(key=>7), K(data=>0x33), K(false=>0));
+  $t->put(K(key=>6), K(data=>0x33), K(false=>0));
+  $t->put(K(key=>5), K(data=>0x33), K(false=>0));
+  $t->put(K(key=>4), K(data=>0x33), K(false=>0));
+  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
+  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
+  $t->dump        ("AAAA");
+
+  ok Assemble eq => <<END;
+AAAA
+At:  500                    length:    1,  data:  540,  nodes:  580,  first:   40, root, parent
+  Index:    0
+  Keys :    5
+  Data :   51
+  Nodes:  200  440
+    At:  200                length:    1,  data:  240,  nodes:  280,  first:   40,  up:  500, parent
+      Index:    0
+      Keys :    3
+      Data :   51
+      Nodes:   80  380
+        At:   80            length:    2,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+          Index:    0    1
+          Keys :    1    2
+          Data :   17   34
+        end
+        At:  380            length:    1,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
+          Index:    0
+          Keys :    4
+          Data :   51
+        end
+    end
+    At:  440                length:    1,  data:  480,  nodes:  4C0,  first:   40,  up:  500, parent
+      Index:    0
+      Keys :    7
+      Data :   51
+      Nodes:  2C0  140
+        At:  2C0            length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+          Index:    0
+          Keys :    6
+          Data :   51
+        end
+        At:  140            length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+          Index:    0
+          Keys :    8
+          Data :   51
+        end
+    end
+end
+AAAA
+   8:    1   2   3   4   5   6   7   8
 END
  }
 
