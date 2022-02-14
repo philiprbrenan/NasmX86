@@ -15,6 +15,8 @@
 # Document that V > 0 is required to create a boolean test
 # Optimize putBwdqIntoMm with vpbroadcast
 # WHat is the differenfe between variable clone and variable copy?
+# Standardize w1 = r8, w2 = r9 so we do need to pass them around.
+# Make sure that we are using bts and bzhi as much as possible in mask situations
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -3066,15 +3068,28 @@ sub Nasm::X86::Variable::setReg($$)                                             
  {my ($variable, $register) = @_;                                               # Variable, register to load
 
   my $r = registerNameFromNumber $register;
-  if ($variable->isRef)
-   {Mov $r, $variable->address;
-    Mov $r, "[$r]";
+  if (CheckMaskRegister($r))                                                    # Mask register is being set
+   {if ($variable->isRef)
+     {confess "Cannot set a mask register to the address of a variable";
+     }
+    else
+     {PushR r15;
+      Mov r15, $variable->address;
+      Kmovq $r, r15;
+      PopR;
+     }
    }
-  else
-   {Mov $r, $variable->address;
+  else                                                                          # Set normal register
+   {if ($variable->isRef)
+     {Mov $r, $variable->address;
+      Mov $r, "[$r]";
+     }
+    else
+     {Mov $r, $variable->address;
+     }
    }
 
-  $register
+  $register                                                                     # name of register being set
  }
 
 sub Nasm::X86::Variable::getReg($$)                                             # Load the variable from a register expression.
@@ -7984,74 +7999,61 @@ sub Nasm::X86::Tree::find($$)                                                   
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
+    PushR 6..7, 8..15, 28..31;
+
     my $t = $$s{tree};                                                          # Tree to search
     my $a = $t->arena;                                                          # First keys block
-    my $F = $t->first;                                                          # First keys block
-    my $K = $$p{key};                                                           # Key to find
+    my $k = $$p{key};                                                           # Key to find
 
-    PushR k6, k7, r8, r9, r14, r15; PushZmm 28..31;
-    my $zmmKeys = 31; my $zmmData = 30; my $zmmNode = 29; my $zmmTest = 28;
+    my $F = 31; my $K = 30; my $D = 29; my $N = 28; my $T = 28;
     my $lengthMask = k6; my $testMask = k7;
-    my $transfer = r8;                                                          # Use this register to transfer data between zmm blocks and variables
-    my $work     = r9;                                                          # Work register
+    my $W1 = r8;  my $W2 = r9;                                                  # Work registers
 
-    $t->found  ->copy(0, $transfer);                                            # Key not found
-    $t->data   ->copy(0, $transfer);                                            # Data not yet found
-    $t->subTree->copy(0, $transfer);                                            # Not yet a sub tree
+    $t->found  ->copy(0, $W1);                                                  # Key not found
+    $t->data   ->copy(0, $W1);                                                  # Data not yet found
+    $t->subTree->copy(0, $W1);                                                  # Not yet a sub tree
 
-    my $tree = $F->clone('tree', $transfer);                                    # Start at the first key block
+    $t->firstFromMemory      ($F, $W1, $W2);                                    # Load first block
+    my $Q = $t->rootFromFirst($F, $W1);                                         # First node
 
-    $K->setReg(r15);                                                            # Load key into test register
-    Vpbroadcastd "zmm$zmmTest", r15d;
+    $k->setReg($W1);                                                            # Load key into test register
+    Vpbroadcastd zmm($T), $W1."d";                                              # Broadcast key
 
     K(loop, 99)->for(sub                                                        # Step down through tree
      {my ($index, $start, $next, $end) = @_;
 
-      $t->getBlock($tree, $zmmKeys, $zmmData, $zmmNode,$transfer, $work);# Get the keys block
+      $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                   # Get the keys block
 
-      my $l = $t->lengthFromKeys($zmmKeys);                                    # Length of the block
+      my $l = $t->lengthFromKeys($K);                                           # Length of the block
       If $l == 0,
       Then                                                                      # Empty tree so we have not found the key
        {Jmp $success;                                                           # Return
        };
 
-      $l->setMaskFirst($lengthMask);                                            # Set the length mask
-      Vpcmpud "$testMask\{$lengthMask}", "zmm$zmmKeys", "zmm$zmmTest", 0;       # Check for equal elements
-      Ktestw   $testMask, $testMask;
-      IfNz                                                                      # Result mask is non zero so we must have found the key
+      my $eq = $t->indexEq($k, $K);                                             # The position of a key in a zmm equal to the specified key as a point in a variable.
+      If $eq  > 0,                                                              # Result mask is non zero so we must have found the key
       Then
-       {Kmovq r15, $testMask;
-        Tzcnt r14, r15;                                                         # Trailing zeros
-        $t->found->copy(1, $transfer);                                          # Key found
-        $t->data ->copy(dFromZ $zmmData, "r14*$W", $transfer);             # Data associated with the key
-        $t->isTree(r15, $zmmKeys);                                              # Check whether the data so found is a sub tree
-        $t->subTree->copyZFInverted;                                            # Copy zero flag which opposes the notion that this element is a sub tree
+       {my $d = $eq->dFromPointInZ($D);                                          # Get the corresponding data
+        $t->found->copy(1,  $W1);                                               # Key found
+        $t->data ->copy($d, $W1);                                               # Data associated with the key
         Jmp $success;                                                           # Return
        };
 
-      my $n = dFromZ $zmmNode, 0, $transfer;                               # First child empty implies we are on a leaf
-      If $n == 0,
-      Then                                                                      # Zero implies that this is a leaf node
+      my $leaf = $t->leafFromNodes($N, $W1);                                    # Are we on a leaf
+      If $leaf > 0,
+      Then                                                                      # Zero implies that this is a leaf node so we cannot search any further and will have to go with what you have
        {Jmp $success;                                                           # Return
        };
 
-      Vpcmpud "$testMask\{$lengthMask}", "zmm$zmmTest", "zmm$zmmKeys", 1;       # Check for greater elements
-      Ktestw   $testMask, $testMask;
-
-      IfNz                                                                      # Non zero implies that the key is less than some of the keys
-      Then
-       {Kmovq r15, $testMask;
-        Tzcnt r14, r15;                                                         # Trailing zeros
-        $tree->copy(dFromZ $zmmNode, "r14*$W", $transfer);                 # Corresponding node
-        Jmp $next;                                                              # Loop
-       };
-      $tree->copy(dFromZ $zmmNode, $l * $W, $transfer);                    # Greater than all keys
+      my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting
+      my $n = $i->dFromPointInZ($N);                                            # Get the corresponding data
+      $Q->copy($n);                                                           # Corresponding node
      });
     PrintErrStringNL "Stuck in find";                                           # We seem to be looping endlessly
     Exit(1);
 
     SetLabel $success;                                                          # Insert completed successfully
-    PopZmm; PopR;
+    PopR;
    } parameters=>[qw(key)],
      structures=>{tree=>$tree},
      name => 'Nasm::X86::Tree::find';
@@ -29620,7 +29622,7 @@ end
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -29633,11 +29635,164 @@ if (1) {                                                                        
     my $h = $N+$index;
     $t->put($h, $h * 2, K(false=>0));
    });
+  $t->put(K(zero=>0), K(zero=>0), K(false=>0));
   $t->printInOrder("AAAA");
+
+  PrintOutStringNL 'Indx   Found  Double   Found    Quad   Found    Octo   Found     *16   Found     *32   Found     *64   Found    *128   Found    *256   Found    *512';
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $i = $index;
+    my $j = $i * 2;
+    my $k = $j * 2;
+    my $l = $k * 2;
+    my $m = $l * 2;
+    my $n = $m * 2;
+    my $o = $n * 2;
+    my $p = $o * 2;
+    my $q = $p * 2;
+    $t->find($i); $i->outRightInDec(K width => 4); $t->found->outRightInBin(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($j);                                  $t->found->outRightInBin(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($k);                                  $t->found->outRightInBin(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($l);                                  $t->found->outRightInBin(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($m);                                  $t->found->outRightInBin(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($n);                                  $t->found->outRightInBin(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($o);                                  $t->found->outRightInBin(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($p);                                  $t->found->outRightInBin(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($q);                                  $t->found->outRightInBin(K width => 8);  $t->data->outRightInDecNL(K width => 8);
+   });
 
   ok Assemble eq => <<END;
 AAAA
- 255:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+ 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+Indx   Found  Double   Found    Quad   Found    Octo   Found     *16   Found     *32   Found     *64   Found    *128   Found    *256   Found    *512
+   0       1       0       1       0       1       0       1       0       1       0       1       0       1       0       1       0       1       0
+   1       1       2       1       4       1       8       1      16       1      32       1      64       1     128       1     256               0
+   2       1       4       1       8       1      16       1      32       1      64       1     128       1     256               0               0
+   3       1       6       1      12       1      24       1      48       1      96       1     192       1     384               0               0
+   4       1       8       1      16       1      32       1      64       1     128       1     256               0               0               0
+   5       1      10       1      20       1      40       1      80       1     160       1     320               0               0               0
+   6       1      12       1      24       1      48       1      96       1     192       1     384               0               0               0
+   7       1      14       1      28       1      56       1     112       1     224       1     448               0               0               0
+   8       1      16       1      32       1      64       1     128       1     256               0               0               0               0
+   9       1      18       1      36       1      72       1     144       1     288               0               0               0               0
+  10       1      20       1      40       1      80       1     160       1     320               0               0               0               0
+  11       1      22       1      44       1      88       1     176       1     352               0               0               0               0
+  12       1      24       1      48       1      96       1     192       1     384               0               0               0               0
+  13       1      26       1      52       1     104       1     208       1     416               0               0               0               0
+  14       1      28       1      56       1     112       1     224       1     448               0               0               0               0
+  15       1      30       1      60       1     120       1     240       1     480               0               0               0               0
+  16       1      32       1      64       1     128       1     256               0               0               0               0               0
+  17       1      34       1      68       1     136       1     272               0               0               0               0               0
+  18       1      36       1      72       1     144       1     288               0               0               0               0               0
+  19       1      38       1      76       1     152       1     304               0               0               0               0               0
+  20       1      40       1      80       1     160       1     320               0               0               0               0               0
+  21       1      42       1      84       1     168       1     336               0               0               0               0               0
+  22       1      44       1      88       1     176       1     352               0               0               0               0               0
+  23       1      46       1      92       1     184       1     368               0               0               0               0               0
+  24       1      48       1      96       1     192       1     384               0               0               0               0               0
+  25       1      50       1     100       1     200       1     400               0               0               0               0               0
+  26       1      52       1     104       1     208       1     416               0               0               0               0               0
+  27       1      54       1     108       1     216       1     432               0               0               0               0               0
+  28       1      56       1     112       1     224       1     448               0               0               0               0               0
+  29       1      58       1     116       1     232       1     464               0               0               0               0               0
+  30       1      60       1     120       1     240       1     480               0               0               0               0               0
+  31       1      62       1     124       1     248       1     496               0               0               0               0               0
+  32       1      64       1     128       1     256               0               0               0               0               0               0
+  33       1      66       1     132       1     264               0               0               0               0               0               0
+  34       1      68       1     136       1     272               0               0               0               0               0               0
+  35       1      70       1     140       1     280               0               0               0               0               0               0
+  36       1      72       1     144       1     288               0               0               0               0               0               0
+  37       1      74       1     148       1     296               0               0               0               0               0               0
+  38       1      76       1     152       1     304               0               0               0               0               0               0
+  39       1      78       1     156       1     312               0               0               0               0               0               0
+  40       1      80       1     160       1     320               0               0               0               0               0               0
+  41       1      82       1     164       1     328               0               0               0               0               0               0
+  42       1      84       1     168       1     336               0               0               0               0               0               0
+  43       1      86       1     172       1     344               0               0               0               0               0               0
+  44       1      88       1     176       1     352               0               0               0               0               0               0
+  45       1      90       1     180       1     360               0               0               0               0               0               0
+  46       1      92       1     184       1     368               0               0               0               0               0               0
+  47       1      94       1     188       1     376               0               0               0               0               0               0
+  48       1      96       1     192       1     384               0               0               0               0               0               0
+  49       1      98       1     196       1     392               0               0               0               0               0               0
+  50       1     100       1     200       1     400               0               0               0               0               0               0
+  51       1     102       1     204       1     408               0               0               0               0               0               0
+  52       1     104       1     208       1     416               0               0               0               0               0               0
+  53       1     106       1     212       1     424               0               0               0               0               0               0
+  54       1     108       1     216       1     432               0               0               0               0               0               0
+  55       1     110       1     220       1     440               0               0               0               0               0               0
+  56       1     112       1     224       1     448               0               0               0               0               0               0
+  57       1     114       1     228       1     456               0               0               0               0               0               0
+  58       1     116       1     232       1     464               0               0               0               0               0               0
+  59       1     118       1     236       1     472               0               0               0               0               0               0
+  60       1     120       1     240       1     480               0               0               0               0               0               0
+  61       1     122       1     244       1     488               0               0               0               0               0               0
+  62       1     124       1     248       1     496               0               0               0               0               0               0
+  63       1     126       1     252       1     504               0               0               0               0               0               0
+  64       1     128       1     256               0               0               0               0               0               0               0
+  65       1     130       1     260               0               0               0               0               0               0               0
+  66       1     132       1     264               0               0               0               0               0               0               0
+  67       1     134       1     268               0               0               0               0               0               0               0
+  68       1     136       1     272               0               0               0               0               0               0               0
+  69       1     138       1     276               0               0               0               0               0               0               0
+  70       1     140       1     280               0               0               0               0               0               0               0
+  71       1     142       1     284               0               0               0               0               0               0               0
+  72       1     144       1     288               0               0               0               0               0               0               0
+  73       1     146       1     292               0               0               0               0               0               0               0
+  74       1     148       1     296               0               0               0               0               0               0               0
+  75       1     150       1     300               0               0               0               0               0               0               0
+  76       1     152       1     304               0               0               0               0               0               0               0
+  77       1     154       1     308               0               0               0               0               0               0               0
+  78       1     156       1     312               0               0               0               0               0               0               0
+  79       1     158       1     316               0               0               0               0               0               0               0
+  80       1     160       1     320               0               0               0               0               0               0               0
+  81       1     162       1     324               0               0               0               0               0               0               0
+  82       1     164       1     328               0               0               0               0               0               0               0
+  83       1     166       1     332               0               0               0               0               0               0               0
+  84       1     168       1     336               0               0               0               0               0               0               0
+  85       1     170       1     340               0               0               0               0               0               0               0
+  86       1     172       1     344               0               0               0               0               0               0               0
+  87       1     174       1     348               0               0               0               0               0               0               0
+  88       1     176       1     352               0               0               0               0               0               0               0
+  89       1     178       1     356               0               0               0               0               0               0               0
+  90       1     180       1     360               0               0               0               0               0               0               0
+  91       1     182       1     364               0               0               0               0               0               0               0
+  92       1     184       1     368               0               0               0               0               0               0               0
+  93       1     186       1     372               0               0               0               0               0               0               0
+  94       1     188       1     376               0               0               0               0               0               0               0
+  95       1     190       1     380               0               0               0               0               0               0               0
+  96       1     192       1     384               0               0               0               0               0               0               0
+  97       1     194       1     388               0               0               0               0               0               0               0
+  98       1     196       1     392               0               0               0               0               0               0               0
+  99       1     198       1     396               0               0               0               0               0               0               0
+ 100       1     200       1     400               0               0               0               0               0               0               0
+ 101       1     202       1     404               0               0               0               0               0               0               0
+ 102       1     204       1     408               0               0               0               0               0               0               0
+ 103       1     206       1     412               0               0               0               0               0               0               0
+ 104       1     208       1     416               0               0               0               0               0               0               0
+ 105       1     210       1     420               0               0               0               0               0               0               0
+ 106       1     212       1     424               0               0               0               0               0               0               0
+ 107       1     214       1     428               0               0               0               0               0               0               0
+ 108       1     216       1     432               0               0               0               0               0               0               0
+ 109       1     218       1     436               0               0               0               0               0               0               0
+ 110       1     220       1     440               0               0               0               0               0               0               0
+ 111       1     222       1     444               0               0               0               0               0               0               0
+ 112       1     224       1     448               0               0               0               0               0               0               0
+ 113       1     226       1     452               0               0               0               0               0               0               0
+ 114       1     228       1     456               0               0               0               0               0               0               0
+ 115       1     230       1     460               0               0               0               0               0               0               0
+ 116       1     232       1     464               0               0               0               0               0               0               0
+ 117       1     234       1     468               0               0               0               0               0               0               0
+ 118       1     236       1     472               0               0               0               0               0               0               0
+ 119       1     238       1     476               0               0               0               0               0               0               0
+ 120       1     240       1     480               0               0               0               0               0               0               0
+ 121       1     242       1     484               0               0               0               0               0               0               0
+ 122       1     244       1     488               0               0               0               0               0               0               0
+ 123       1     246       1     492               0               0               0               0               0               0               0
+ 124       1     248       1     496               0               0               0               0               0               0               0
+ 125       1     250       1     500               0               0               0               0               0               0               0
+ 126       1     252       1     504               0               0               0               0               0               0               0
+ 127       1     254       1     508               0               0               0               0               0               0               0
 END
  }
 
