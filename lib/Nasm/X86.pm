@@ -3384,49 +3384,29 @@ sub SaveRegIntoMm($$$)                                                          
   Vmovdqu64 $mm, "[rsp-$W]";                                                    # Reload from the stack
  }
 
-sub getBwdqFromMm($$$;$$)                                                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
- {my ($size, $mm, $offset, $Transfer, $target) = @_;                            # Size of get, mm register, offset in bytes either as a constant or as a variable, optional transfer register, optional target variable - if none supplied we create a variable
-  @_ == 3 or @_ == 4 or @_ == 5 or confess "Three to five parameters";
-  my $w = RegisterSize $mm;                                                     # Size of mm register
-  my $transfer = $Transfer // r15;                                              # Register to use to transfer value to variable
+sub getBwdqFromMm($$$)                                                          # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
+ {my ($size, $mm, $offset) = @_;                                                # Size of get, mm register, offset in bytes either as a constant or as a variable
+  @_ == 3 or confess "Three parameters";
 
   my $o;                                                                        # The offset into the mm register
   if (ref($offset))                                                             # The offset is being passed in a variable
-   {my $name = $offset->name;
-    PushR ($o = r14);
-    $offset->setReg($o);
+   {$offset->setReg($o = rsi);
    }
   else                                                                          # The offset is being passed as a register expression
    {$o = $offset;
-    $offset >= 0 && $offset <= RegisterSize $mm or
-      confess "Out of range" if $offset =~ m(\A\d+\Z);                          # Check the offset if it is a number
-    $offset =~ m(r15) and
-      confess "Cannot pass offset: '$offset', in r15, choose another register";
    }
 
-  PushR $transfer unless $Transfer;
+  my $w = RegisterSize $mm;                                                     # Size of mm register
   Vmovdqu32 "[rsp-$w]", $mm;                                                    # Write below the stack
 
-  if ($size !~ m(q|d))                                                          # Clear the register if necessary
-   {ClearRegisters r15;
-   }
+  ClearRegisters rdi if $size !~ m(q|d);                                        # Clear the register if necessary
 
-  Mov  byteRegister($transfer), "[rsp+$o-$w]" if $size =~ m(b);                 # Load byte register from offset
-  Mov  wordRegister($transfer), "[rsp+$o-$w]" if $size =~ m(w);                 # Load word register from offset
-  Mov dWordRegister($transfer), "[rsp+$o-$w]" if $size =~ m(d);                 # Load double word register from offset
-  Mov $transfer,                "[rsp+$o-$w]" if $size =~ m(q);                 # Load register from offset
+  Mov  byteRegister(rdi), "[rsp+$o-$w]" if $size =~ m(b);                       # Load byte register from offset
+  Mov  wordRegister(rdi), "[rsp+$o-$w]" if $size =~ m(w);                       # Load word register from offset
+  Mov dWordRegister(rdi), "[rsp+$o-$w]" if $size =~ m(d);                       # Load double word register from offset
+  Mov rdi,                "[rsp+$o-$w]" if $size =~ m(q);                       # Load register from offset
 
-  if ($Transfer and $target)                                                    # Optimized load
-   {$target->getReg($transfer);                                                 # Load variable directly
-    PopR $o if ref($offset);                                                    # The offset is being passed in a variable
-    return $target;                                                             # Return variable
-   }
-  else                                                                          # Unable to optimize load
-   {my $v = V("$size at offset $offset in $mm", $transfer);                     # Create variable
-    PopR $transfer unless $Transfer;
-    PopR $o if ref($offset);                                                    # The offset is being passed in a variable
-    return $v                                                                   # Return variable
-   }
+  V("$size at offset $offset in $mm", rdi);                                     # Create variable
  }
 
 sub bFromX($$)                                                                  # Get the byte from the numbered xmm register and return it in a variable.
@@ -3461,7 +3441,7 @@ sub wFromZ($$)                                                                  
 
 sub dFromZ($$)                                                                  # Get the double word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes, optional transfer register
-  getBwdqFromMm('d', "zmm$zmm", $offset, rdi)                                   # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  getBwdqFromMm('d', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub qFromZ($$)                                                                  # Get the quad word from the numbered zmm register and return it in a variable.
@@ -3471,18 +3451,22 @@ sub qFromZ($$)                                                                  
 
 sub Nasm::X86::Variable::bFromZ($$$)                                            # Get the byte from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
-  $variable->copy(getBwdqFromMm('b', "zmm$zmm", $offset))                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
+  $variable->copy(getBwdqFromMm 'b', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::wFromZ($$$)                                            # Get the word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
-  $variable->copy(getBwdqFromMm('w', "zmm$zmm", $offset))                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
+  $variable->copy(getBwdqFromMm 'w', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::dFromZ($$$)                                            # Get the double word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes, transfer register
-  getBwdqFromMm 'd', "zmm$zmm", $offset, rdi, $variable;                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
-  $variable                                                                     # Return input variable so we can assign or chain
+  $variable->copy(getBwdqFromMm 'd', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
+ }
+
+sub Nasm::X86::Variable::qFromZ($$$)                                            # Get the quad word from the numbered zmm register and put it in a variable.
+ {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
+  $variable->copy(getBwdqFromMm 'q', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::dFromPointInZ($$)                                      # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
@@ -3496,11 +3480,6 @@ sub Nasm::X86::Variable::dFromPointInZ($$)                                      
   my $r = V d => r15;
   PopR;
   $r;
- }
-
-sub Nasm::X86::Variable::qFromZ($$$)                                            # Get the quad word from the numbered zmm register and put it in a variable.
- {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
-  $variable->copy(getBwdqFromMm('q', "zmm$zmm", $offset))                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::putBwdqIntoMm($$$$;$)                                  # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register.
