@@ -29860,3 +29860,5 @@ unlink $_ for qw(sde-footprint.txt sde-log.txt z.txt);
 say STDERR sprintf("# Time: %.2fs, bytes: %s, execs: %s",
   time - $start,
   map {numberWithCommas $_} totalBytesAssembled, $instructionsExecuted);
+
+# 619
