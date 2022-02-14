@@ -14,7 +14,7 @@
 # Have K and possibly V accept a flat hash of variable names and expressions
 # Document that V > 0 is required to create a boolean test
 # Optimize putBwdqIntoMm with vpbroadcast
-# Use VPSCATTERDD to reparent children of split node
+# WHat is the differenfe between variable clone and variable copy?
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -3334,17 +3334,18 @@ sub Nasm::X86::Variable::loadZmm($$;$)                                          
 sub wRegFromZmm($$$)                                                            # Load the specified register from the word at the specified offset located in the numbered zmm.
  {my ($register, $zmm, $offset) = @_;                                           # Register to load, numbered zmm register to load from, constant offset in bytes
   @_ == 3 or confess "Three parameters";
+  my $z = registerNameFromNumber $zmm;
   $offset >= 0 && $offset <= RegisterSize zmm0 or
     confess "Offset $offset Out of range";
 
   $register =~ m(\Ar\d+) or confess "Choose r8..r15 not $register";
 
-  PushRR "zmm$zmm";                                                             # Push source register
+  PushRR $z;                                                                    # Push source register
 
   ClearRegisters $register;
 
   Mov $register."w", "[rsp+$offset]";                                           # Load word register from offset
-  Add rsp, RegisterSize "zmm$zmm";                                              # Pop source register
+  Add rsp, RegisterSize $z;                                                     # Pop source register
  }
 
 sub wRegIntoZmm($$$)                                                            # Put the specified register into the word in the numbered zmm at the specified offset in the zmm.
@@ -25194,23 +25195,23 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TPrintOutTraceBack
+if (0) {                                                                        #TPrintOutTraceBack
   my $d = V depth => 3;                                                         # Create a variable on the stack
 
-  my $s = Subroutine
-   {my ($p, $s) = @_;                                                           # Parameters, subroutine descriptor
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine descriptor
 
     my $d = $$p{depth}->copy($$p{depth} - 1);                                   # Modify the variable referenced by the parameter
 
     If $d > 0,
     Then
-     {$s->call($d);                                                             # Recurse
+     {$sub->call(parameters => {depth => $d});                                     # Recurse
      };
 
-    PrintOutTraceBack '';
-   } [qw(depth)], name => 'ref';
+    #PrintOutTraceBack 'AAAA';
+   } parameters =>[qw(depth)], name => 'ref';
 
-  $s->call($d);                                                                 # Call the subroutine
+  $s->call(parameters=>{depth => V depth => 0});
 
   ok Assemble(debug => 0, eq => <<END);
 
@@ -25222,7 +25223,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TSubroutine
+if (0) {                                                                        #TSubroutine
   my $g = V g, 2;
   my $u = Subroutine
    {my ($p, $s) = @_;
@@ -25251,7 +25252,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TSubroutine
+if (0) {                                                                        #TSubroutine
   my $r = V r, 2;
 
   my $u = Subroutine
@@ -26057,7 +26058,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TNasm::X86::Variable::setMask
+if (0) {                                                                        #TNasm::X86::Variable::setMask
   my $z = V('zero', 0);
   my $o = V('one',  1);
   my $t = V('two',  2);
@@ -26084,7 +26085,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TNasm::X86::Array::size
+if (0) {                                                                        #TNasm::X86::Array::size
   my $N = 15;
   my $A = CreateArena;
   my $a = $A->CreateArray;
@@ -26101,7 +26102,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TNasm::X86::Array::size
+if (0) {                                                                        #TNasm::X86::Array::size
   my $N = 15;
   my $A = CreateArena;
   my $a = $A->CreateArray;
@@ -26156,7 +26157,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TNasm::X86::Array::size
+if (0) {                                                                        #TNasm::X86::Array::size
   my $N = 15;
   my $A = CreateArena;
   my $a = $A->CreateArray;
@@ -26194,7 +26195,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        # Arrays doubled
+if (0) {                                                                        # Arrays doubled
   my $A = CreateArena;  my $a = $A->CreateArray;
   my $B = CreateArena;  my $b = $B->CreateArray;
 
@@ -26228,7 +26229,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TNasm::X86::Array::push #TNasm::X86::Array::pop #TNasm::X86::Array::put #TNasm::X86::Array::get
+if (0) {                                                                        #TNasm::X86::Array::push #TNasm::X86::Array::pop #TNasm::X86::Array::put #TNasm::X86::Array::get
   my $c = Rb(0..255);
   my $A = CreateArena;  my $a = $A->CreateArray;
   my $l = V(limit, 15);
@@ -26415,7 +26416,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TNasm::X86::Arena::allocBlock #TNasm::X86::Arena::freeBlock
+if (0) {                                                                        #TNasm::X86::Arena::allocBlock #TNasm::X86::Arena::freeBlock
   my $a = CreateArena;
   for (1..4)
    {my $b1 = $a->allocZmmBlock; $a->dump("AAAA");
@@ -26525,7 +26526,7 @@ END
 
 #latest:;
 
-if (1) {                                                                        #TNasm::X86::Array::push
+if (0) {                                                                        #TNasm::X86::Array::push
   my $c = Rb(0..255);
   my $A = CreateArena;  my $a = $A->CreateArray;
 
@@ -26719,225 +26720,6 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::getLoop #TNasm::X86::Tree::putLoop #TNasm::X86::Tree::upIntoData #TNasm::X86::Tree::upFromData #TNasm::X86::Tree::sizeFromFirst #TNasm::X86::Tree::sizeIntoFirst #TNasm::X86::Tree::incSizeInFirst #TNasm::X86::Tree::rootFromFirst #TNasm::X86::Tree::rootIntoFirst
-  my $tree = DescribeTree(length=>3);
-  $tree->sizeIntoFirst(K(size => 3), 31, r8);
-  PrintOutRegisterInHex 31;
-  $tree->incSizeInFirst(31, r8);
-  PrintOutRegisterInHex 31;
-  $tree->sizeFromFirst(31, r8)->outNL;
-
-  $tree->rootIntoFirst(31, K(size => 0x99), r8);
-  PrintOutRegisterInHex 31;
-  $tree->rootFromFirst(31, r8)->outNL;
-
-  $tree->upIntoData(K(size => 0xffff), 31, r8);
-  PrintOutRegisterInHex 31;
-  $tree->upFromData(31, r8)->outNL;
-
-  $tree->putLoop(K(value => 0xcc), 31, r8);
-  PrintOutRegisterInHex 31;
-  $tree->getLoop(31, r8)->outNL;
-
-
-  ok Assemble eq => <<END;
- zmm31: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0000 0000 0000
- zmm31: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0004   0000 0000 0000 0000
-d at offset 8 in zmm31: 0000 0000 0000 0004
- zmm31: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0004   0000 0000 0000 0099
-d at offset 0 in zmm31: 0000 0000 0000 0099
- zmm31: 0000 0000 0000 FFFF   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0004   0000 0000 0000 0099
-d at offset 56 in zmm31: 0000 0000 0000 FFFF
- zmm31: 0000 00CC 0000 FFFF   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0004   0000 0000 0000 0099
-d at offset 60 in zmm31: 0000 0000 0000 00CC
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::splitFullLeftNode
-  my $Sk = Rd(17..28, 0, 0, 12,   0xFF);
-  my $Sd = Rd(17..28, 0, 0, 0xDD, 0xEE);
-  my $Sn = Rd(1..13,     0, 0,    0xCC);
-
-  my $sk = Rd(1..14, 14,   0xA1);
-  my $sd = Rd(1..14, 0xCC, 0xA2);
-  my $sn = Rd(1..15,       0xA3);
-
-  my $rk = Rd((0)x14, 14,   0xB1);
-  my $rd = Rd((0)x14, 0xCC, 0xB2);
-  my $rn = Rd((0)x15,       0xB3);
-
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-
-  Vmovdqu8 zmm31, "[$Sk]";
-  Vmovdqu8 zmm30, "[$Sd]";
-  Vmovdqu8 zmm29, "[$Sn]";
-
-  Vmovdqu8 zmm28, "[$sk]";
-  Vmovdqu8 zmm27, "[$sd]";
-  Vmovdqu8 zmm26, "[$sn]";
-
-  Vmovdqu8 zmm25, "[$rk]";
-  Vmovdqu8 zmm24, "[$rd]";
-  Vmovdqu8 zmm23, "[$rn]";
-
-  $t->splitFullLeftNode;
-
-  PrintOutRegisterInHex reverse zmm(23..31);
-
-  ok Assemble(debug => 0, eq => <<END);
- zmm31: 0000 00FF 0000 000D   0000 0000 0000 0000   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
- zmm30: 0000 00EE 0000 00DD   0000 0000 0000 0000   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
- zmm29: 0000 00CC 0000 0000   0000 0000 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm28: 0000 00A1 0000 0007   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm27: 0000 00A2 0000 00CC   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm26: 0000 00A3 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm25: 0000 00B1 0000 0006   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009
- zmm24: 0000 00B2 0000 00CC   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009
- zmm23: 0000 0000 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::splitFullLeftNode
-  my $tk = Rd(1, (0) x 13, 1, 0xC1);
-  my $td = Rd(1, (0) x 14,    0xC2);
-  my $tn = Rd(1, 0xAA, (0) x 13, 0xCC);
-
-  my $lk = Rd(1..14, 14,   0xA1);
-  my $ld = Rd(1..14, 0xCC, 0xA2);
-  my $ln = Rd(1..15,       0xAA);
-
-  my $rk = Rd((0)x14, 14,   0xB1);
-  my $rd = Rd((0)x14, 0xCC, 0xB2);
-  my $rn = Rd((0)x15,       0xBB);
-
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-
-  Vmovdqu8 zmm31, "[$tk]";
-  Vmovdqu8 zmm30, "[$td]";
-  Vmovdqu8 zmm29, "[$tn]";
-
-  Vmovdqu8 zmm28, "[$lk]";
-  Vmovdqu8 zmm27, "[$ld]";
-  Vmovdqu8 zmm26, "[$ln]";
-
-  Vmovdqu8 zmm25, "[$rk]";
-  Vmovdqu8 zmm24, "[$rd]";
-  Vmovdqu8 zmm23, "[$rn]";
-
-  $t->splitFullLeftNode;
-
-  PrintOutRegisterInHex reverse zmm(23..31);
-
-  ok Assemble(debug => 0, eq => <<END);
- zmm31: 0000 00C1 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0008 0000 0001
- zmm30: 0000 00C2 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0008 0000 0001
- zmm29: 0000 00CC 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 00BB   0000 00AA 0000 0001
- zmm28: 0000 00A1 0000 0007   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm27: 0000 00A2 0000 00CC   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm26: 0000 00AA 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm25: 0000 00B1 0000 0006   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009
- zmm24: 0000 00B2 0000 00CC   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009
- zmm23: 0000 00BB 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::splitFullRightNode
-  my $tk = Rd(1..12, 0, 0, 12,      0xC1);
-  my $td = Rd(1..12, 0, 0,  0,      0xC2);
-  my $tn = Rd(1, 0xBB, 3..13, 0, 0, 0xCC);
-
-  my $lk = Rd(17..30, 14,   0xA1);
-  my $ld = Rd(17..30, 0xCC, 0xA2);
-  my $ln = Rd(17..31,       0xAA);
-
-  my $rk = Rd(17..30, 14,   0xB1);
-  my $rd = Rd(17..30, 0xCC, 0xB2);
-  my $rn = Rd(17..31,       0xBB);
-
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-
-  Vmovdqu8 zmm31, "[$tk]";
-  Vmovdqu8 zmm30, "[$td]";
-  Vmovdqu8 zmm29, "[$tn]";
-
-  Vmovdqu8 zmm28, "[$lk]";
-  Vmovdqu8 zmm27, "[$ld]";
-  Vmovdqu8 zmm26, "[$ln]";
-
-  Vmovdqu8 zmm25, "[$rk]";
-  Vmovdqu8 zmm24, "[$rd]";
-  Vmovdqu8 zmm23, "[$rn]";
-
-  $t->splitFullRightNode;
-
-  PrintOutRegisterInHex reverse zmm(23..31);
-
-  ok Assemble(debug => 0, eq => <<END);
- zmm31: 0000 00C1 0000 000D   0000 0000 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0018 0000 0001
- zmm30: 0000 00C2 0000 0000   0000 0000 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0018 0000 0001
- zmm29: 0000 00CC 0000 0000   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 00BB   0000 00AA 0000 0001
- zmm28: 0000 00A1 0000 0007   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
- zmm27: 0000 00A2 0000 00CC   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
- zmm26: 0000 00AA 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
- zmm25: 0000 00B1 0000 0006   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019
- zmm24: 0000 00B2 0000 00CC   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019
- zmm23: 0000 00BB 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019
-END
- }
-
-#latest:
-if (1) {                                                                        # Insert at start rather than insert in middle
-  my $tk = Rd(1..12, 0, 0, 12,      0xC1);
-  my $td = Rd(1..12, 0, 0,  0,      0xC2);
-  my $tn = Rd(0xBB, 2, 3..13, 0, 0, 0xCC);
-
-  my $lk = Rd(17..30, 14,   0xA1);
-  my $ld = Rd(17..30, 0xCC, 0xA2);
-  my $ln = Rd(17..31,       0xAA);
-
-  my $rk = Rd(17..30, 14,   0xB1);
-  my $rd = Rd(17..30, 0xCC, 0xB2);
-  my $rn = Rd(17..31,       0xBB);
-
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-
-  Vmovdqu8 zmm31, "[$tk]";
-  Vmovdqu8 zmm30, "[$td]";
-  Vmovdqu8 zmm29, "[$tn]";
-
-  Vmovdqu8 zmm28, "[$lk]";
-  Vmovdqu8 zmm27, "[$ld]";
-  Vmovdqu8 zmm26, "[$ln]";
-
-  Vmovdqu8 zmm25, "[$rk]";
-  Vmovdqu8 zmm24, "[$rd]";
-  Vmovdqu8 zmm23, "[$rn]";
-
-  $t->splitFullRightNode;
-
-  PrintOutRegisterInHex reverse zmm(23..31);
-
-  ok Assemble(debug => 0, eq => <<END);
- zmm31: 0000 00C1 0000 000D   0000 0000 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0018
- zmm30: 0000 00C2 0000 0000   0000 0000 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0018
- zmm29: 0000 00CC 0000 0000   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 00BB 0000 00AA
- zmm28: 0000 00A1 0000 0007   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
- zmm27: 0000 00A2 0000 00CC   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
- zmm26: 0000 00AA 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
- zmm25: 0000 00B1 0000 0006   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019
- zmm24: 0000 00B2 0000 00CC   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019
- zmm23: 0000 00BB 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019
-END
- }
-
-#latest:
 if (1) {                                                                        #TLoadBitsIntoMaskRegister
   for (0..7)
    {ClearRegisters "k$_";
@@ -26984,583 +26766,27 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::dump
-  my $A = CreateArena;
-  my $t = $A->CreateTree;
-
-  $t->insert(K('key', 0x99), K('data', 0xcc));
-  $A->dump("AAAA");
-  $t->dump("TTTT");
-
-  ok Assemble(debug => 0, eq => <<END);
-AAAA
-Arena     Size:     4096    Used:      152
-0000 0000 0000 0000 | __10 ____ ____ ____  98__ ____ ____ ____  ____ ____ ____ ____  99__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 58__ ____  CC__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-TTTT
-Tree at:  0000 0000 0000 0018  length: 0000 0000 0000 0001
-  Keys: 0000 0058 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0099
-  Data: 0000 0000 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 00CC
-  Node: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-    index: 0000 0000 0000 0000   key: 0000 0000 0000 0099   data: 0000 0000 0000 00CC
-end
-END
- }
-
-#latest:
-if (1) {                                                                        # Replace a scalar with a tree in the first node
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  my $k = V(key,  15);
-  my $d = V(data, 14);
-
-  $t->insert($k, $d);  $d->outNL;                                               # Uses 'up'
-  $t->insertTree($k);  $t->data->outNL;                                         # Retrieve the sub tree rather than creating a new sub tree
-  $t->insertTree($k);  $t->data->outNL;
-
-  ok Assemble(debug => 0, eq => <<END);
-data: 0000 0000 0000 000E
-data: 0000 0000 0000 0098
-data: 0000 0000 0000 0098
-END
- }
-
-#latest:
-if (1) {                                                                        # Replace a scalar with a tree in the first node
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  my $k = V(key,  15);
-  my $d = V(data, 14);
-
-  for my $i(1..11)                                                              # Create new sub trees
-   {$t->insertTree(V(key,  $i));  $t->data->outNL;                              # Retrieve the sub tree rather than creating a new new sub tree
-   }
-
-  $b->dump("AAAA");
-  ok Assemble(debug => 0, eq => <<END);                                         # Tree bits at 0x50
-data: 0000 0000 0000 0098
-data: 0000 0000 0000 0118
-data: 0000 0000 0000 0198
-data: 0000 0000 0000 0218
-data: 0000 0000 0000 0298
-data: 0000 0000 0000 0318
-data: 0000 0000 0000 0398
-data: 0000 0000 0000 0418
-data: 0000 0000 0000 0498
-data: 0000 0000 0000 0518
-data: 0000 0000 0000 0598
-AAAA
-Arena     Size:     4096    Used:     1560
-0000 0000 0000 0000 | __10 ____ ____ ____  1806 ____ ____ ____  ____ ____ ____ ____  01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____
-0000 0000 0000 0040 | 0B__ ____ ____ ____  ____ ____ ____ ____  0B__ FF07 58__ ____  98__ ____ 1801 ____  9801 ____ 1802 ____  9802 ____ 1803 ____  9803 ____ 1804 ____  9804 ____ 1805 ____
-0000 0000 0000 0080 | 9805 ____ ____ ____  ____ ____ ____ ____  16__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ D8__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-END
- }
-
-#latest:
 if (1) {                                                                        #TNasm::X86::Tree::setOrClearTreeBits
-  ClearRegisters zmm0;
   my $b = CreateArena;
   my $t = $b->CreateTree;
 
   Mov r15, 8;
-  $t->setTree  (r15, 0); PrintOutRegisterInHex zmm0;
-  $t->isTree   (r15, 0); PrintOutZF;
+  $t->setTree  (r15, 31); PrintOutRegisterInHex 31;
+  $t->isTree   (r15, 31); PrintOutZF;
 
   Mov r15, 16;
-  $t->isTree   (r15, 0); PrintOutZF;
-  $t->setTree  (r15, 0); PrintOutRegisterInHex zmm0;
-  $t->clearTree(r15, 0); PrintOutRegisterInHex zmm0;
-  $t->isTree   (r15, 0); PrintOutZF;
+  $t->isTree   (r15, 31); PrintOutZF;
+  $t->setTree  (r15, 31); PrintOutRegisterInHex 31;
+  $t->clearTree(r15, 31); PrintOutRegisterInHex 31;
+  $t->isTree   (r15, 31); PrintOutZF;
 
   ok Assemble(debug => 0, eq => <<END);
-  zmm0: 0000 0000 0008 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+ zmm31: 0000 0000 0008 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
 ZF=0
 ZF=1
-  zmm0: 0000 0000 0018 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm0: 0000 0000 0008 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-ZF=1
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::transferTreeBitsFromParent
-  my $B = Rb(0..63);
-  Vmovdqu8 zmm0, "[$B]";
-  wRegFromZmm r15, zmm0, 14;
-
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  $t->getTreeBits(0, r14);
-
-  PrintOutRegisterInHex zmm0, r15, r14;
-
-  Mov r14, my $treeBits = 0xDCBA;
-  $t->setTreeBits(1, r14);
-  PrintOutRegisterInHex zmm1;
-
-  $t->transferTreeBitsFromParent(1, 2, 3);
-  PrintOutStringNL "Split:";
-  PrintOutRegisterInHex zmm1, zmm2, zmm3;
-
-  my $left  =  $treeBits & ((1<<$t->lengthLeft)  - 1);
-  my $right = ($treeBits >>    ($t->lengthLeft   + 1)) & ((1<<$t->lengthRight) - 1);
-
-  my $l = sprintf("%02X", $left);
-  my $r = sprintf("%02X", $right);
-
-  ok Assemble(debug => 0, eq => <<END);
-  zmm0: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130   2F2E 2D2C 2B2A 2928   2726 2524 2322 2120   1F1E 1D1C 1B1A 1918   1716 1514 1312 1110   0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
-   r15: 0000 0000 0000 0F0E
-   r14: 0000 0000 0000 3B3A
-  zmm1: 0000 0000 DCBA 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-Split:
-  zmm1: 0000 0000 0001 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm2: 0000 0000 00$l 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm3: 0000 0000 00$r 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::transferTreeBitsFromLeft #TNasm::X86::Tree::transferTreeBitsFromRight
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  my $lR = "110110";
-  my $lP = "1";
-  my $lL = "1110111";
-
-  my $p1 = "01010_110010";
-  my $p2 = "1";
-
-  my $epe = sprintf("%04X", eval "0b$p1$lP$p2");
-  my $ele = sprintf("%04X", eval "0b$lL"      );
-  my $ere = sprintf("%04X", eval "0b$lR"      );
-
-  my @expected;
-  for my $i(0..1)
-   {Mov r15, eval "0b$lR$lP$lL"; $t->setTreeBits(1+$i, r15);
-    Mov r15, eval "0b$p1$p2";    $t->setTreeBits(0,    r15);
-
-    PrintOutRegisterInHex zmm 0, 1+$i;
-
-    Mov r15, 0b10;
-    $t->transferTreeBitsFromLeft (r15, 0, 1, 2) unless $i;
-    $t->transferTreeBitsFromRight(r15, 0, 1, 2) if     $i;
-    PrintOutRegisterInHex zmm 0..2;
-
-    my $zzz = $i ? "zmm2" : "zmm1";
-    push @expected, <<END;
-  zmm0: 0000 0000 0565 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  $zzz: 0000 0000 36F7 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm0: 0000 0000 $epe 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm1: 0000 0000 $ele 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm2: 0000 0000 $ere 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-END
-   }
-
-  ok Assemble(debug => 0, eq => join "", @expected);
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::size
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  my $s = $t->size;
-     $s->outNL;
-
-  V(count, 24)->for(sub
-   {my ($index, $start, $next, $end) = @_;
-    my $k = $index + 1; my $d = $k + 0x100;
-    $t->insert($k, $d);
-    my $s = $t->size;
-       $s->outNL;
-   });
-
-  $t->getBlock($t->first, 31, 30, 29);
-  PrintOutStringNL "Root"; $t->first->outNL('First: ');
-  PrintOutRegisterInHex zmm31, zmm30, zmm29;
-
-  $t->getBlock(V(offset, 0xd8), 28,27,26);
-  PrintOutStringNL "Left";
-  PrintOutRegisterInHex zmm28, zmm27, zmm26;
-
-  $t->getBlock(V(offset, 0x258), 28,27,26);
-  PrintOutStringNL "Left";
-  PrintOutRegisterInHex zmm28, zmm27, zmm26;
-
-  $t->getBlock(V(offset, 0x198), 28,27,26);
-  PrintOutStringNL "Left";
-  PrintOutRegisterInHex zmm28, zmm27, zmm26;
-
-  ok Assemble(debug => 0, eq => <<END);
-size: 0000 0000 0000 0000
-size: 0000 0000 0000 0001
-size: 0000 0000 0000 0002
-size: 0000 0000 0000 0003
-size: 0000 0000 0000 0004
-size: 0000 0000 0000 0005
-size: 0000 0000 0000 0006
-size: 0000 0000 0000 0007
-size: 0000 0000 0000 0008
-size: 0000 0000 0000 0009
-size: 0000 0000 0000 000A
-size: 0000 0000 0000 000B
-size: 0000 0000 0000 000C
-size: 0000 0000 0000 000D
-size: 0000 0000 0000 000E
-size: 0000 0000 0000 000F
-size: 0000 0000 0000 0010
-size: 0000 0000 0000 0011
-size: 0000 0000 0000 0012
-size: 0000 0000 0000 0013
-size: 0000 0000 0000 0014
-size: 0000 0000 0000 0015
-size: 0000 0000 0000 0016
-size: 0000 0000 0000 0017
-size: 0000 0000 0000 0018
-Root
-First: 0000 0000 0000 0018
- zmm31: 0000 0058 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0010 0000 0008
- zmm30: 0000 0098 0000 0030   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0110 0000 0108
- zmm29: 0000 0018 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0198   0000 0258 0000 00D8
-Left
- zmm28: 0000 0118 0000 0007   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm27: 0000 0158 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0107   0000 0106 0000 0105   0000 0104 0000 0103   0000 0102 0000 0101
- zmm26: 0000 00D8 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-Left
- zmm28: 0000 0298 0000 0007   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009
- zmm27: 0000 02D8 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 010F   0000 010E 0000 010D   0000 010C 0000 010B   0000 010A 0000 0109
- zmm26: 0000 0258 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-Left
- zmm28: 0000 01D8 0000 0008   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
- zmm27: 0000 0218 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0118 0000 0117   0000 0116 0000 0115   0000 0114 0000 0113   0000 0112 0000 0111
- zmm26: 0000 0198 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-END
- }
-
-#latest:
-if (1) {                                                                        # Replace a scalar with a tree in the first node
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  my $k = V(key,  15);
-
-  for my $i(1..15)                                                              # Overflow the root node to force a split
-   {my $d = V(data, 2 * $i);
-    $t->insert    (V(key,  $i), $d),   $d->outNL if     $i % 2;
-    $t->insertTree(V(key,  $i)), $t->data->outNL unless $i % 2;
-   }
-
-  $b->dump(K blocks => 20);
-  ok Assemble(debug =>  0, eq => <<END);
-data: 0000 0000 0000 0002
-data: 0000 0000 0000 0098
-data: 0000 0000 0000 0006
-data: 0000 0000 0000 0118
-data: 0000 0000 0000 000A
-data: 0000 0000 0000 0198
-data: 0000 0000 0000 000E
-data: 0000 0000 0000 0218
-data: 0000 0000 0000 0012
-data: 0000 0000 0000 0298
-data: 0000 0000 0000 0016
-data: 0000 0000 0000 0318
-data: 0000 0000 0000 001A
-data: 0000 0000 0000 0398
-data: 0000 0000 0000 001E
-blocks
-Arena     Size:     4096    Used:     1496
-0000 0000 0000 0000 | __10 ____ ____ ____  D805 ____ ____ ____  ____ ____ ____ ____  08__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  01__ 01__ 58__ ____  1802 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  1E__ ____ 1804 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ D8__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-END
- }
-
-#latest:
-if (1) {                                                                        # Extended sub tree testing
-  my $b  = CreateArena;
-  my $t  = $b->CreateTree;
-  LoadZmm(0, (0) x 58, 0xf7, (0) x 5);
-  PrintOutRegisterInHex zmm0;
-
-  Mov r15, 2;
-  $t->expandTreeBitsWithZero(0, r15); PrintOutRegisterInHex zmm0;
-  $t->expandTreeBitsWithZero(0, r15); PrintOutRegisterInHex zmm0;
-  $t->expandTreeBitsWithZero(0, r15); PrintOutRegisterInHex zmm0;
-  $t->expandTreeBitsWithZero(0, r15); PrintOutRegisterInHex zmm0;
-
-  LoadZmm(1, (0) x 58, 0xf0, (0) x 5);
-  PrintOutRegisterInHex zmm1;
-
-  Mov r15, 2;
-  $t->expandTreeBitsWithOne(1, r15); PrintOutRegisterInHex zmm1;
-  $t->expandTreeBitsWithOne(1, r15); PrintOutRegisterInHex zmm1;
-  $t->expandTreeBitsWithOne(1, r15); PrintOutRegisterInHex zmm1;
-  $t->expandTreeBitsWithOne(1, r15); PrintOutRegisterInHex zmm1;
-
-  ok Assemble(debug => 0, eq => <<END);
-  zmm0: 0000 0000 00F7 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm0: 0000 0000 01ED 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm0: 0000 0000 03D9 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm0: 0000 0000 07B1 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm0: 0000 0000 0F61 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm1: 0000 0000 00F0 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm1: 0000 0000 01E2 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm1: 0000 0000 03C6 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm1: 0000 0000 078E 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-  zmm1: 0000 0000 0F1E 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-END
- }
-
-#latest:
-if (1) {
-  my $N = 45; my $M = 0;
-     $N % 2 == 1 or confess "Must be odd";
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  my $L = V(loop, $N);
-  my %I;
-
-  for(my $i = 0; $i < ($N-$M); ++$i)                                            # The insertions we intend to make
-   {my $l = $N - $i;
-    if ($i % 2 == 0)
-     {$I{$i} = $l;                                                              # Scalar
-      $I{$l} = -1;                                                              # Tree
-     }
-   }
-
-  ($L-$M)->for(sub                                                              # Do the planned insertions
-   {my ($i, $start, $next, $end) = @_;
-    my $l = $L - $i;
-    If ($i % 2 == 0, sub
-     {$t->insert($i, $l);
-      $t->insertTree($l);
-     });
-   });
-
-  ($L+2)->for(sub                                                               # Find each key
-   {my ($i, $start, $next, $end) = @_;
-    $t->find($i);
-    $i->out('i: '); $t->found->out('  f: '); $t->data->out('  d: '); $t->subTree->outNL('  s: ');
-   });
-
-  Assemble(debug => 0);
-
-  if (1)                                                                        # Check output has right structure
-   {my @r = readFile(q(zzzOut.txt));
-
-    for my $l(@r)
-     {my @w = split /\s*\w:\s+/, $l;
-      shift @w; s/\s+//gs for @w; $_ = eval("0x$_") for @w;
-      my ($k, $f, $d, $s) = @w;
-                                                                                # Inserted
-      if (defined(my $D = $I{$k}))
-       {if ($D >= 0)                                                            # Scalar
-         {$f == 1  or warn "F != 1 at key $k";
-          $d == $D or warn "Wrong data    at key $k";
-          $s == 0  or warn "Wrong subTree at key $k";
-         }
-        else
-         {$d % 16 == 8 or warn "Wrong data    at key $k";
-          $s == 1      or warn "Wrong subTree at key $k";
-         }
-       }
-      else
-       {$f == 0 && $d == 0 && $s == 0 or confess "Find should fail at key $k";
-       }
-     }
-   };
-
-  is_deeply scalar(readFile(q(zzzOut.txt))), <<END if $N == 45;
-i: 0000 0000 0000 0000  f: 0000 0000 0000 0001  d: 0000 0000 0000 002D  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0001  f: 0000 0000 0000 0001  d: 0000 0000 0000 0ED8  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0002  f: 0000 0000 0000 0001  d: 0000 0000 0000 002B  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0003  f: 0000 0000 0000 0001  d: 0000 0000 0000 0E58  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0004  f: 0000 0000 0000 0001  d: 0000 0000 0000 0029  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0005  f: 0000 0000 0000 0001  d: 0000 0000 0000 0DD8  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0006  f: 0000 0000 0000 0001  d: 0000 0000 0000 0027  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0007  f: 0000 0000 0000 0001  d: 0000 0000 0000 0D58  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0008  f: 0000 0000 0000 0001  d: 0000 0000 0000 0025  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0009  f: 0000 0000 0000 0001  d: 0000 0000 0000 0CD8  s: 0000 0000 0000 0001
-i: 0000 0000 0000 000A  f: 0000 0000 0000 0001  d: 0000 0000 0000 0023  s: 0000 0000 0000 0000
-i: 0000 0000 0000 000B  f: 0000 0000 0000 0001  d: 0000 0000 0000 0C58  s: 0000 0000 0000 0001
-i: 0000 0000 0000 000C  f: 0000 0000 0000 0001  d: 0000 0000 0000 0021  s: 0000 0000 0000 0000
-i: 0000 0000 0000 000D  f: 0000 0000 0000 0001  d: 0000 0000 0000 0BD8  s: 0000 0000 0000 0001
-i: 0000 0000 0000 000E  f: 0000 0000 0000 0001  d: 0000 0000 0000 001F  s: 0000 0000 0000 0000
-i: 0000 0000 0000 000F  f: 0000 0000 0000 0001  d: 0000 0000 0000 0B58  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0010  f: 0000 0000 0000 0001  d: 0000 0000 0000 001D  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0011  f: 0000 0000 0000 0001  d: 0000 0000 0000 0AD8  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0012  f: 0000 0000 0000 0001  d: 0000 0000 0000 001B  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0013  f: 0000 0000 0000 0001  d: 0000 0000 0000 0998  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0014  f: 0000 0000 0000 0001  d: 0000 0000 0000 0019  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0015  f: 0000 0000 0000 0001  d: 0000 0000 0000 0918  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0016  f: 0000 0000 0000 0001  d: 0000 0000 0000 0017  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0017  f: 0000 0000 0000 0001  d: 0000 0000 0000 0898  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0018  f: 0000 0000 0000 0001  d: 0000 0000 0000 0015  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0019  f: 0000 0000 0000 0001  d: 0000 0000 0000 0818  s: 0000 0000 0000 0001
-i: 0000 0000 0000 001A  f: 0000 0000 0000 0001  d: 0000 0000 0000 0013  s: 0000 0000 0000 0000
-i: 0000 0000 0000 001B  f: 0000 0000 0000 0001  d: 0000 0000 0000 06D8  s: 0000 0000 0000 0001
-i: 0000 0000 0000 001C  f: 0000 0000 0000 0001  d: 0000 0000 0000 0011  s: 0000 0000 0000 0000
-i: 0000 0000 0000 001D  f: 0000 0000 0000 0001  d: 0000 0000 0000 0658  s: 0000 0000 0000 0001
-i: 0000 0000 0000 001E  f: 0000 0000 0000 0001  d: 0000 0000 0000 000F  s: 0000 0000 0000 0000
-i: 0000 0000 0000 001F  f: 0000 0000 0000 0001  d: 0000 0000 0000 05D8  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0020  f: 0000 0000 0000 0001  d: 0000 0000 0000 000D  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0021  f: 0000 0000 0000 0001  d: 0000 0000 0000 0398  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0022  f: 0000 0000 0000 0001  d: 0000 0000 0000 000B  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0023  f: 0000 0000 0000 0001  d: 0000 0000 0000 0318  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0024  f: 0000 0000 0000 0001  d: 0000 0000 0000 0009  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0025  f: 0000 0000 0000 0001  d: 0000 0000 0000 0298  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0026  f: 0000 0000 0000 0001  d: 0000 0000 0000 0007  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0027  f: 0000 0000 0000 0001  d: 0000 0000 0000 0218  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0028  f: 0000 0000 0000 0001  d: 0000 0000 0000 0005  s: 0000 0000 0000 0000
-i: 0000 0000 0000 0029  f: 0000 0000 0000 0001  d: 0000 0000 0000 0198  s: 0000 0000 0000 0001
-i: 0000 0000 0000 002A  f: 0000 0000 0000 0001  d: 0000 0000 0000 0003  s: 0000 0000 0000 0000
-i: 0000 0000 0000 002B  f: 0000 0000 0000 0001  d: 0000 0000 0000 0118  s: 0000 0000 0000 0001
-i: 0000 0000 0000 002C  f: 0000 0000 0000 0001  d: 0000 0000 0000 0001  s: 0000 0000 0000 0000
-i: 0000 0000 0000 002D  f: 0000 0000 0000 0001  d: 0000 0000 0000 0098  s: 0000 0000 0000 0001
-i: 0000 0000 0000 002E  f: 0000 0000 0000 0000  d: 0000 0000 0000 0000  s: 0000 0000 0000 0000
-END
- }
-
-#latest:
-if (1) {
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  my $d = V(data);
-  my $f = V(found);
-
-  my $N = 24;
-  V(count, $N)->for(sub
-   {my ($index, $start, $next, $end) = @_;
-    if (1)
-     {my $k = $index *  2 + 1;      my $d = $k + 0x100;
-      $t->insert($k, $d);
-     }
-    if (1)
-     {my $k = $index * -2 + 2 * $N; my $d = $k + 0x100;
-      $t->insert($k, $d);
-     }
-   });
-
-  $t->getBlock($t->first, 31, 30, 29);
-  PrintOutStringNL "Root"; $t->first->outNL('First: ');
-  PrintOutRegisterInHex zmm31, zmm30, zmm29;
-
-  $t->getBlock(V(offset, 0x258), 28,27,26);
-  PrintOutStringNL "Left";
-  PrintOutRegisterInHex zmm28, zmm27, zmm26;
-
-  $t->getBlock(V(offset, 0x3d8), 28,27,26);
-  PrintOutStringNL "Left";
-  PrintOutRegisterInHex zmm28, zmm27, zmm26;
-
-  $t->getBlock(V(offset, 0x318), 28,27,26);
-  PrintOutStringNL "Left";
-  PrintOutRegisterInHex zmm28, zmm27, zmm26;
-
-  $t->getBlock(V(offset, 0xd8), 28,27,26);
-  PrintOutStringNL "Left";
-  PrintOutRegisterInHex zmm28, zmm27, zmm26;
-
-  $t->getBlock(V(offset, 0x198), 28,27,26);
-  PrintOutStringNL "Left";
-  PrintOutRegisterInHex zmm28, zmm27, zmm26;
-
-  $t->find(V(key, 0xffff));  $t->found->outNL('Found: ');
-  $t->find(V(key, 0x1b)  );  $t->found->outNL('Found: ');
-
-  ok Assemble(debug => 0, eq => <<END);
-Root
-First: 0000 0000 0000 0018
- zmm31: 0000 0058 0000 0004   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0024 0000 001A   0000 000F 0000 0008
- zmm30: 0000 0098 0000 0060   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0124 0000 011A   0000 010F 0000 0108
- zmm29: 0000 0018 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0198   0000 00D8 0000 0318   0000 03D8 0000 0258
-Left
- zmm28: 0000 0298 0000 0007   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm27: 0000 02D8 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0107   0000 0106 0000 0105   0000 0104 0000 0103   0000 0102 0000 0101
- zmm26: 0000 0258 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-Left
- zmm28: 0000 0418 0000 0006   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009
- zmm27: 0000 0458 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 010E 0000 010D   0000 010C 0000 010B   0000 010A 0000 0109
- zmm26: 0000 03D8 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-Left
- zmm28: 0000 0358 0000 000A   0000 0000 0000 0000   0000 0000 0000 0000   0000 0019 0000 0018   0000 0017 0000 0016   0000 0015 0000 0014   0000 0013 0000 0012   0000 0011 0000 0010
- zmm27: 0000 0398 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0119 0000 0118   0000 0117 0000 0116   0000 0115 0000 0114   0000 0113 0000 0112   0000 0111 0000 0110
- zmm26: 0000 0318 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-Left
- zmm28: 0000 0118 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0023   0000 0022 0000 0021   0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B
- zmm27: 0000 0158 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0123   0000 0122 0000 0121   0000 0120 0000 011F   0000 011E 0000 011D   0000 011C 0000 011B
- zmm26: 0000 00D8 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-Left
- zmm28: 0000 01D8 0000 000C   0000 0000 0000 0000   0000 0030 0000 002F   0000 002E 0000 002D   0000 002C 0000 002B   0000 002A 0000 0029   0000 0028 0000 0027   0000 0026 0000 0025
- zmm27: 0000 0218 0000 0001   0000 0000 0000 0000   0000 0130 0000 012F   0000 012E 0000 012D   0000 012C 0000 012B   0000 012A 0000 0129   0000 0128 0000 0127   0000 0126 0000 0125
- zmm26: 0000 0198 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-Found: 0000 0000 0000 0000
-Found: 0000 0000 0000 0001
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Arena::CreateTree
-  my $N = 12;
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-
-  K(count, $N)->for(sub                                                         # Add some entries to the tree
-   {my ($index, $start, $next, $end) = @_;
-    my $k = $index + 1;
-    $t->insert($k,      $k + 0x100);
-    $t->insert($k + $N, $k + 0x200);
-   });
-
-  $t->by(sub                                                                    # Iterate through the tree
-   {my ($iter, $end) = @_;
-    $iter->key ->out('key: ');
-    $iter->data->out(' data: ');
-    my $D = $iter->tree->depth($iter->node);
-
-    $t->find($iter->key);
-    $t->found->out(' found: '); $t->data->out(' data: '); $D->outNL(' depth: ');
-   });
-
-  $t->find(K key => 0xd);     $t->found->outNL('Found: ');
-  $t->find(K key => 0xffff);  $t->found->outNL('Found: ');                      # Find some entries
-  If ($t->found > 0,
-  Then
-   {$t->data->outNL("Data : ");
-   });
-
-  ok Assemble(debug => 0, eq => <<END);
-key: 0000 0000 0000 0001 data: 0000 0000 0000 0101 found: 0000 0000 0000 0001 data: 0000 0000 0000 0101 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0002 data: 0000 0000 0000 0102 found: 0000 0000 0000 0001 data: 0000 0000 0000 0102 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0003 data: 0000 0000 0000 0103 found: 0000 0000 0000 0001 data: 0000 0000 0000 0103 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0004 data: 0000 0000 0000 0104 found: 0000 0000 0000 0001 data: 0000 0000 0000 0104 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0005 data: 0000 0000 0000 0105 found: 0000 0000 0000 0001 data: 0000 0000 0000 0105 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0006 data: 0000 0000 0000 0106 found: 0000 0000 0000 0001 data: 0000 0000 0000 0106 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0007 data: 0000 0000 0000 0107 found: 0000 0000 0000 0001 data: 0000 0000 0000 0107 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0008 data: 0000 0000 0000 0108 found: 0000 0000 0000 0001 data: 0000 0000 0000 0108 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0009 data: 0000 0000 0000 0109 found: 0000 0000 0000 0001 data: 0000 0000 0000 0109 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000A data: 0000 0000 0000 010A found: 0000 0000 0000 0001 data: 0000 0000 0000 010A depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000B data: 0000 0000 0000 010B found: 0000 0000 0000 0001 data: 0000 0000 0000 010B depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000C data: 0000 0000 0000 010C found: 0000 0000 0000 0001 data: 0000 0000 0000 010C depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000D data: 0000 0000 0000 0201 found: 0000 0000 0000 0001 data: 0000 0000 0000 0201 depth: 0000 0000 0000 0001
-key: 0000 0000 0000 000E data: 0000 0000 0000 0202 found: 0000 0000 0000 0001 data: 0000 0000 0000 0202 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000F data: 0000 0000 0000 0203 found: 0000 0000 0000 0001 data: 0000 0000 0000 0203 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0010 data: 0000 0000 0000 0204 found: 0000 0000 0000 0001 data: 0000 0000 0000 0204 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0011 data: 0000 0000 0000 0205 found: 0000 0000 0000 0001 data: 0000 0000 0000 0205 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0012 data: 0000 0000 0000 0206 found: 0000 0000 0000 0001 data: 0000 0000 0000 0206 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0013 data: 0000 0000 0000 0207 found: 0000 0000 0000 0001 data: 0000 0000 0000 0207 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0014 data: 0000 0000 0000 0208 found: 0000 0000 0000 0001 data: 0000 0000 0000 0208 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0015 data: 0000 0000 0000 0209 found: 0000 0000 0000 0001 data: 0000 0000 0000 0209 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0016 data: 0000 0000 0000 020A found: 0000 0000 0000 0001 data: 0000 0000 0000 020A depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0017 data: 0000 0000 0000 020B found: 0000 0000 0000 0001 data: 0000 0000 0000 020B depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0018 data: 0000 0000 0000 020C found: 0000 0000 0000 0001 data: 0000 0000 0000 020C depth: 0000 0000 0000 0002
-Found: 0000 0000 0000 0001
-Found: 0000 0000 0000 0000
-Data : 0000 0000 0000 0201
+ zmm31: 0000 0000 0018 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+ zmm31: 0000 0000 0008 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+ZF=0
 END
  }
 
@@ -27602,53 +26828,6 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::insert #TNasm::X86::Tree::print
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  my $T = $b->CreateTree;
-
-  $T->insert(K(key, 2), K(data, 4));
-  $t->insert(K(key, 5), K(data, 7));
-
-  $T->print;
-  $t->print;
-
-  ok Assemble(debug => 0, eq => <<END);
-Tree at:  0000 0000 0000 0098
-key: 0000 0000 0000 0002 data: 0000 0000 0000 0004 depth: 0000 0000 0000 0001
-Tree at:  0000 0000 0000 0018
-key: 0000 0000 0000 0005 data: 0000 0000 0000 0007 depth: 0000 0000 0000 0001
-END
- }
-
-#latest:
-if (00) {        ### print/iter                                                 #TNasm::X86::Tree::insertTree
-  my $b = CreateArena;
-  my $t = $b->CreateTree;
-  my $T = $b->CreateTree;
-
-  $T->insert    (K(key, 2), K(data, 4));
-  $t->insertTree(K(key, 1), $T);
-
-  $t->print;
-
-  ok Assemble(debug => 0, eq => <<END);
-Tree at:  0000 0000 0000 0098
-key: 0000 0000 0000 0002 data: 0000 0000 0000 0004 depth: 0000 0000 0000 0001
-Tree at:  0000 0000 0000 0018
-key: 0000 0000 0000 0005 data: 0000 0000 0000 0007 depth: 0000 0000 0000 0001
-END
- }
-
-#latest:
-if (1) {                                                                        # Performance
-  my $d = V(byte)->dFromZ(31, 0, r8);
-
-  ok Assemble(debug => 0, eq => <<END);
-END
- }
-
-#latest:
 if (1) {                                                                        # Print empty tree
   my $b = CreateArena;
   my $t = $b->CreateTree;
@@ -27661,7 +26840,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        # An example of using sigaction in x86 and x64 assembler code.  Linux on x86 requires not only a signal handler but a signal trampoline.  The following code shows how to set up a signal and its associated trampoline using sigaction or rt_sigaction.
+if (0) {                                                                        # An example of using sigaction in x86 and x64 assembler code.  Linux on x86 requires not only a signal handler but a signal trampoline.  The following code shows how to set up a signal and its associated trampoline using sigaction or rt_sigaction.
   my $end   = Label;
   Jmp $end;                                                                     # Jump over subroutine definition
   my $start = SetLabel;
@@ -27731,7 +26910,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TOnSegv
+if (0) {                                                                        #TOnSegv
   OnSegv();                                                                     # Request a trace back followed by exit on a segv signal.
 
   my $t = Subroutine                                                            # Subroutine that will cause an error to occur to force a trace back to be printed
@@ -27854,7 +27033,7 @@ if (1) {                                                                        
   $address->printOutMemoryInHexNL(K(size, 16));
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
-70D7 0100 71D7 010072D7 0100 73D7 0100
+70D7 0100 71D7 0100  72D7 0100 73D7 0100
 END
  }
 
@@ -27895,7 +27074,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TCreateShortString #TNasm::X86::ShortString::load #TNasm::X86::ShortString::append #TNasm::X86::ShortString::getLength #TNasm::X86::ShortString::setLength #TNasm::X86::ShortString::appendVar
+if (0) {                                                                        #TCreateShortString #TNasm::X86::ShortString::load #TNasm::X86::ShortString::append #TNasm::X86::ShortString::getLength #TNasm::X86::ShortString::setLength #TNasm::X86::ShortString::appendVar
   my $s = CreateShortString(0);
   my $d = Rb(1..63);
   $s->load(K(address, $d), K(size, 9));
@@ -27970,7 +27149,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::String::appendShortString
+if (0) {                                                                        #TNasm::X86::String::appendShortString
   my $a = CreateArena;
   my $S = $a->CreateString;
 
@@ -27985,13 +27164,13 @@ if (1) {                                                                        
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
 String Dump      Total Length:       18
-Offset: 0000 0000 0000 0018  Length: 18  0000 0018 0000 0018   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0009 0807   0605 0403 0201 0908   0706 0504 0302 0112
+Offset: 0000 0000 0000 0040  Length: 18  0000 0040 0000 0040   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0009 0807   0605 0403 0201 0908   0706 0504 0302 0112
 
 END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::insertShortString
+if (0) {                                                                        #TNasm::X86::Tree::insertShortString
   my $a = CreateArena;
   my $t = $a->CreateTree;
 
@@ -28026,7 +27205,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Arena::CreateQuarks #TNasm::X86::Quarks::quarkFromShortString #TNasm::X86::Quarks::shortStringFromQuark
+if (0) {                                                                        #TNasm::X86::Arena::CreateQuarks #TNasm::X86::Quarks::quarkFromShortString #TNasm::X86::Quarks::shortStringFromQuark
   my $N = 5;
   my $a = CreateArena;                                                          # Arena containing quarks
   my $Q = $a->CreateQuarks;                                                     # Quarks
@@ -28080,7 +27259,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Arena::CreateQuarks #TNasm::X86::Quarks::quarkFromShortString #TNasm::X86::Quarks::shortStringFromQuark
+if (0) {                                                                        #TNasm::X86::Arena::CreateQuarks #TNasm::X86::Quarks::quarkFromShortString #TNasm::X86::Quarks::shortStringFromQuark
   my $N  = 5;
   my $a  = CreateArena;                                                         # Arena containing quarks
   my $Q1 = $a->CreateQuarks;                                                    # Quarks
@@ -28199,7 +27378,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::String::getQ1
+if (0) {                                                                        #TNasm::X86::String::getQ1
   my $a  = CreateArena;
 
   my $s = $a->CreateString;
@@ -28219,7 +27398,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Quarks::quarkFromSub #TNasm::X86::Quarks::subFromQuark #TNasm::X86::Quarks::loadConstantString
+if (0) {                                                                        #TNasm::X86::Quarks::quarkFromSub #TNasm::X86::Quarks::subFromQuark #TNasm::X86::Quarks::loadConstantString
   my $s1 = Subroutine
    {PrintOutStringNL "11111";
    } [], name => 'test1';
@@ -28366,7 +27545,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put #TNasm::X86::Quarks::putSub #TNasm::X86::Quarks::dump #TNasm::X86::Quarks::subFromQuarkViaQuarks #TNasm::X86::Quarks::subFromQuarkNumber #TNasm::X86::Quarks::subFromShortString #TNasm::X86::Quarks::callSubFromShortString
+if (0) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put #TNasm::X86::Quarks::putSub #TNasm::X86::Quarks::dump #TNasm::X86::Quarks::subFromQuarkViaQuarks #TNasm::X86::Quarks::subFromQuarkNumber #TNasm::X86::Quarks::subFromShortString #TNasm::X86::Quarks::callSubFromShortString
   my $s = Subroutine
    {my ($p, $s) = @_;
     PrintOutString "SSSS";
@@ -28448,7 +27627,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put #TNasm::X86::Quarks::putSub #TNasm::X86::Quarks::dump #TNasm::X86::Quarks::subFromQuarkViaQuarks #TNasm::X86::Quarks::subFromQuarkNumber #TNasm::X86::Quarks::subFromShortString #TNasm::X86::Quarks::callSubFromShortString
+if (11) {                                                                        #TNasm::X86::Variable::clone
   my $a = V('a', 1);
   my $b = $a->clone();
 
@@ -28461,7 +27640,7 @@ END
  }
 
 #latest:
-if (11) {                                                                        #TNasm::X86::ClassifyWithInRangeAndSaveWordOffset Nasm::X86::Variable::loadZmm
+if (1) {                                                                        #TNasm::X86::ClassifyWithInRangeAndSaveWordOffset Nasm::X86::Variable::loadZmm
   my $l = V('low',   Rd(2, 7, (0) x 14));
   my $h = V('high' , Rd(3, 9, (0) x 14));
   my $o = V('off',   Rd(2, 5, (0) x 14));
@@ -29005,7 +28184,7 @@ var: 8
 END
  }
 
-latest:
+#latest:
 if (1) {
   my $s = Subroutine2                                                           #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
@@ -29025,7 +28204,7 @@ var: 0000 0000 0000 0001
 END
  }
 
-latest:
+#latest:
 if (1) {
   my $N = 256;
   my $t = V struct => 33;
@@ -29277,7 +28456,7 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
     parameters => {newLeft => $nLeft, newRight => $nRight});
  }
 
-latest:
+#latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
   my $newRight = K newRight => 0x9119;                                          # Offset of new right block
   my $tree = DescribeTree(length => 3);                                         # Test with a narrow tree
@@ -30462,7 +29641,7 @@ AAAA
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::printInOrder
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -30487,7 +29666,7 @@ AAAA
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::printInOrder
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
