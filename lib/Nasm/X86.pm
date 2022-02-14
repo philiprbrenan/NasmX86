@@ -3482,19 +3482,13 @@ sub Nasm::X86::Variable::dFromPointInZ($$)                                      
   $r;
  }
 
-sub Nasm::X86::Variable::putBwdqIntoMm($$$$;$)                                  # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register.
- {my ($content, $size, $mm, $offset, $Transfer) = @_;                           # Variable with content, size of put, numbered zmm, offset in bytes, optional transfer register
-  @_ == 4 or @_ == 5 or confess "Four or five parameters";
-  my $w = RegisterSize $mm;                                                     # Size of mm register
-  my ($temp)   = ChooseRegisters(1, r14);
-  my $transfer = $Transfer // $temp;
-  my $o;                                                                        # The offset into the mm register
+sub Nasm::X86::Variable::putBwdqIntoMm($$$$)                                    # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register.
+ {my ($content, $size, $mm, $offset) = @_;                                      # Variable with content, size of put, numbered zmm, offset in bytes
+  @_ == 4 or confess "Four parameters";
 
+  my $o;                                                                        # The offset into the mm register
   if (ref($offset))                                                             # The offset is being passed in a variable
-   {my $name = $offset->name;
-    Comment "Put $size at $name in $mm";
-    PushR ($o = r14);
-    $offset->setReg($o);
+   {$offset->setReg($o = rsi);
    }
   else                                                                          # The offset is being passed as a register expression
    {$o = $offset;
@@ -3503,18 +3497,14 @@ sub Nasm::X86::Variable::putBwdqIntoMm($$$$;$)                                  
       confess "Out of range" if $offset =~ m(\A\d+\Z);                          # Check the offset if it is a number
    }
 
-  my @save = ($transfer);
-  PushR @save unless $Transfer;                                                 # Push target register
-  $content->setReg($transfer);
+  $content->setReg(rsi);
+  my $w = RegisterSize $mm;                                                     # Size of mm register
   Vmovdqu32 "[rsp-$w]", $mm;                                                    # Write below the stack
-  Mov   "[rsp+$o-$w]",  byteRegister($transfer) if $size =~ m(b);               # Write byte register
-  Mov   "[rsp+$o-$w]",  wordRegister($transfer) if $size =~ m(w);               # Write word register
-  Mov   "[rsp+$o-$w]", dWordRegister($transfer) if $size =~ m(d);               # Write double word register
-  Mov   "[rsp+$o-$w]", $transfer                if $size =~ m(q);               # Write register
+  Mov "[rsp+$o-$w]",  byteRegister(rsi) if $size =~ m(b);                       # Write byte register
+  Mov "[rsp+$o-$w]",  wordRegister(rsi) if $size =~ m(w);                       # Write word register
+  Mov "[rsp+$o-$w]", dWordRegister(rsi) if $size =~ m(d);                       # Write double word register
+  Mov "[rsp+$o-$w]", rsi                if $size =~ m(q);                       # Write register
   Vmovdqu32 $mm, "[rsp-$w]";                                                    # Read below the stack
-  PopR @save unless $Transfer;
-
-  PopR $o if ref($offset);                                                      # The offset is being passed in a variable
  }
 
 sub Nasm::X86::Variable::bIntoX($$$)                                            # Place the value of the content variable at the byte in the numbered xmm register.
@@ -3559,13 +3549,13 @@ sub Nasm::X86::Variable::dIntoZ($$$)                                            
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes, optional transfer register
   @_ == 3 or confess "Three parameters";
   $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
-  $content->putBwdqIntoMm('d', "zmm$zmm", $offset, rdi)                         # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
+  $content->putBwdqIntoMm('d', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
 sub Nasm::X86::Variable::qIntoZ($$$;$)                                          # Place the value of the content variable at the quad word in the numbered zmm register.
  {my ($content, $zmm, $offset, $transfer) = @_;                                 # Variable with content, numbered zmm, offset in bytes, optional transfer register
   $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
-  $content->putBwdqIntoMm('q', "zmm$zmm", $offset, $transfer)                   # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
+  $content->putBwdqIntoMm('q', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
 #D2 Broadcast                                                                   # Broadcast from a variable into a zmm
