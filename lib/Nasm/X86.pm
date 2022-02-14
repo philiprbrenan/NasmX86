@@ -1132,18 +1132,20 @@ sub Nasm::X86::Sub::V($)                                                        
   V('call', $sub->start);                                                       # Address subroutine via a stack variable
  }
 
-sub Nasm::X86::Sub::dispatch($$)                                                # Jump into the specified subroutine so that code of the target subroutine is executed instead of the code of the current subroutine allowing the target subroutine to be dispatched to process the parameter list of the current subroutine.  When the target subroutine returns it returns to the caller of the current sub, not to the current subroutine.
- {my ($sub, $transfer) = @_;                                                    # Subroutine descriptor of target subroutine, transfer register
-  $sub->V()->setReg($transfer);                                                 # Start of sub routine
-  Add $transfer, 4;                                                             # Skip initial enter as to prevent a new stack from being created
-  Jmp $transfer;                                                                # Start h specified sub - when it exits it will return to the code that called us.
+sub Nasm::X86::Sub::dispatch($)                                                 # Jump into the specified subroutine so that code of the target subroutine is executed instead of the code of the current subroutine allowing the target subroutine to be dispatched to process the parameter list of the current subroutine.  When the target subroutine returns it returns to the caller of the current sub, not to the current subroutine.
+ {my ($sub) = @_;                                                               # Subroutine descriptor of target subroutine, transfer register
+  @_ == 1 or confess "One parameter";
+  $sub->V()->setReg(rdi);                                                       # Start of sub routine
+  Add rdi, 4;                                                                   # Skip initial enter as to prevent a new stack from being created
+  Jmp rdi;                                                                      # Start h specified sub - when it exits it will return to the code that called us.
  }
 
-sub Nasm::X86::Sub::dispatchV($$$)                                              # L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specified register.
- {my ($sub, $reference, $transfer) = @_;                                        # Subroutine descriptor, variable referring to the target subroutine, transfer register
-  $reference->setReg($transfer);                                                # Start of sub routine
-  Add $transfer, 4;                                                             # Skip initial enter as to prevent a new stack from being created
-  Jmp $transfer;                                                                # Start h specified sub - when it exits it will return to the code that called us.
+sub Nasm::X86::Sub::dispatchV($)                                                # L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specified register.
+ {my ($sub, $reference) = @_;                                                   # Subroutine descriptor, variable referring to the target subroutine
+  @_ == 2 or confess "Two parameters";
+  $reference->setReg(rdi);                                                      # Start of sub routine
+  Add rdi, 4;                                                                   # Skip initial enter as to prevent a new stack from being created
+  Jmp rdi;                                                                      # Start h specified sub - when it exits it will return to the code that called us.
  }
 
 sub PrintTraceBack($)                                                           # Trace the call stack.
@@ -27034,7 +27036,7 @@ if (1) {                                                                        
 
   my $d = Subroutine                                                            # Dispatcher
    {my ($p, $s) = @_;
-    $a->dispatch(r15);
+    $a->dispatch;
     PrintOutStringNL "This should NOT happen!";
    } [], name => 'dispatch', with => $p;
 
@@ -27049,7 +27051,6 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Sub::dispatchV
-
   my $s = Subroutine                                                            # Containing sub
    {my ($parameters, $sub) = @_;
 
@@ -27063,7 +27064,7 @@ if (1) {                                                                        
 
     my $d = Subroutine                                                          # Dispatcher
      {my ($p, $s) = @_;
-      $a->dispatchV($a->V, r15);
+      $a->dispatchV($a->V);
       PrintOutStringNL "This should NOT happen!";
      } [], name => 'dispatch', with => $p;
 
