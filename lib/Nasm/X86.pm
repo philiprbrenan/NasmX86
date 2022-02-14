@@ -2751,26 +2751,22 @@ sub Nasm::X86::Variable::copy($$)                                               
   $left                                                                         # Return the variable on the left now that it has had the right hand side copied into it.
  }
 
-sub Nasm::X86::Variable::copyRef($$;$)                                          # Copy a reference to a variable.
- {my ($left, $right, $Transfer) = @_;                                           # Left variable, right variable, optional transfer register
-  CheckGeneralPurposeRegister $Transfer if $Transfer;
-
-  my $transfer = $Transfer // r15;
+sub Nasm::X86::Variable::copyRef($$)                                            # Copy a reference to a variable.
+ {my ($left, $right) = @_;                                                      # Left variable, right variable
+  @_ == 2 or confess "Two parameters";
 
   $left->reference  or confess "Left hand side must be a reference";
 
   my $l = $left ->address;
   my $r = $right->address;
 
-  PushR $transfer unless $Transfer;
   if ($right->reference)                                                        # Right is a reference so we copy its value to create a new reference to the original data
-   {Mov $transfer, $r;
+   {Mov rdi, $r;
    }
   else                                                                          # Right is not a reference so we copy its address to make a reference to the data
-   {Lea $transfer, $r;
+   {Lea rdi, $r;
    }
-  Mov $l, $transfer;                                                            # Save value of address in left
-  PopR $transfer unless $Transfer;
+  Mov $l, rdi;                                                                  # Save value of address in left
 
   $left;                                                                        # Chain
  }
@@ -3115,18 +3111,11 @@ sub Nasm::X86::Variable::getReg($$)                                             
   $variable                                                                     # Chain
  }
 
-sub Nasm::X86::Variable::getConst($$;$)                                         # Load the variable from a constant in effect setting a variable to a specified value.
- {my ($variable, $constant, $transfer) = @_;                                    # Variable, constant to load, optional transfer register
-  if ($transfer)
-   {Mov $transfer, $constant;
-    $variable->getReg($transfer);
-   }
-  else
-   {PushR r15;
-    Mov r15, $constant;
-    $variable->getReg(r15);
-    PopR;
-   }
+sub Nasm::X86::Variable::getConst($$)                                           # Load the variable from a constant in effect setting a variable to a specified value.
+ {my ($variable, $constant) = @_;                                               # Variable, constant to load
+  @_ == 2 or confess "Two parameters";
+  Mov rdi, $constant;
+  $variable->getReg(rdi);
  }
 
 sub Nasm::X86::Variable::incDec($$)                                             # Increment or decrement a variable.
