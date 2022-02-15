@@ -4573,7 +4573,7 @@ sub ReadInteger()                                                               
       IfGe Then {Jmp $end};
       Cmp rax, 0x29;                                                            # Too low
       IfLe Then {Jmp $end};
-      Imul r15, 10;                                                              # Move into position
+      Imul r15, 10;                                                             # Move into position
       Sub rax, 0x30;
       Add r15, rax;
      });
@@ -6555,10 +6555,10 @@ sub Nasm::X86::String::free($)                                                  
     $string->getZmmBlock($first,  30);                                          # Get the first block
     my ($second, $last) = $string->getNextAndPrevBlockOffsetFromZmm(30);        # Get the offsets of the second and last blocks
 
-    my $ffb = $string->arena->firstFreeBlock;                                      # First free block
+    my $ffb = $string->arena->firstFreeBlock;                                   # First free block
     $string->getZmmBlock($last,   31);                                          # Get the last block
     $string->putNextandPrevBlockOffsetIntoZmm(31, $ffb, undef);                 # Reset next pointer in last block to remainder of free chain
-    $string->arena->setFirstFreeBlock($first);                                     # The first block becomes the head of the free chain
+    $string->arena->setFirstFreeBlock($first);                                  # The first block becomes the head of the free chain
     $string->putZmmBlock($first,  30);                                          # Put the second block
     $string->putZmmBlock($last,   31);                                          # Put the last block
 
@@ -6620,7 +6620,7 @@ sub Nasm::X86::Array::dump($)                                                   
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $array = $$s{array};                                                     # Array
     my $F     = $array->first;                                                  # First
-    my $arena = $array->arena;                                                     # Arena
+    my $arena = $array->arena;                                                  # Arena
 
     PushR (r8, zmm30, zmm31);
     $arena->getZmmBlock($F, 31);                                                # Get the first block
@@ -6714,7 +6714,7 @@ sub Nasm::X86::Array::push($$)                                                  
         my $new = $arena->allocZmmBlock;                                        # Allocate new block
         $E       ->dIntoZ(30, 0);                                               # Place new element last in new second block
         ($size+1)->dIntoZ(31, 0);                                               # Save new size in first block
-        $new     ->dIntoZ(31, ($size / $N + 1) * $w);                          # Address new second block from first block
+        $new     ->dIntoZ(31, ($size / $N + 1) * $w);                           # Address new second block from first block
         $arena   ->putZmmBlock($new, 30);                                       # Put the second block back into memory
         $arena   ->putZmmBlock($F,   31);                                       # Put the first  block back into memory
         PopR;
@@ -7204,7 +7204,7 @@ sub Nasm::X86::Tree::leafFromNodes($$)                                          
   @_ == 2 or confess "Two parameters";
   my $n = dFromZ $zmm, 0;                                                       # Get first node
   my $l = V leaf => 0;                                                          # Return a variable which is non zero if  this is a leaf
-  If $n == 0, Then {$l->copy(1)};                                                # Leaf if the node is zero
+  If $n == 0, Then {$l->copy(1)};                                               # Leaf if the node is zero
   $l
  }
 
@@ -7467,6 +7467,299 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
   $p                                                                            # Return a variable containing one if the node was split else zero.
  } # splitNode
+
+sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  # Split a non root left node pushing its excess right and up.
+ {my ($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;      # Tree definition, variable offset in arena of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
+  @_ == 11 or confess "Eleven parameters required";
+
+  my $w         = $tree->width;                                                 # Size of keys, data, nodes
+  my $zw        = $tree->zWidthD;                                               # Number of dwords in a zmm
+  my $zwn       = $tree->maxNodesZ;                                             # Maximum number of dwords that could be used for nodes in a zmm register.
+  my $zwk       = $tree->maxKeysZ;                                              # Maxiumum number of dwords used for keys/data in a zmm
+  my $lw        = $tree->maxKeys;                                               # Maximum number of keys in a node
+  my $ll        = $tree->lengthLeft;                                            # Minimum node width on left
+  my $lm        = $tree->lengthMiddle;                                          # Position of splitting key
+  my $lr        = $tree->lengthRight;                                           # Minimum node on right
+  my $lb        = $tree->lengthOffset;                                          # Position of length byte
+  my $tb        = $tree->treeBits;                                              # Position of tree bits
+  my $up        = $tree->up;                                                    # Position of up word in data
+  my $transfer  = r8;                                                           # Transfer register
+  my $transferD = r8d;                                                          # Transfer register as a dword
+  my $transferW = r8w;                                                          # Transfer register as a  word
+  my $work      = r9;                                                           # Work register as a dword
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    PushR $transfer, $work, 1..7;
+
+    my $SK = dFromZ $LK, $ll * $w;                                              # Splitting key
+    my $SD = dFromZ $LD, $ll * $w;                                              # Data corresponding to splitting key
+
+    my $mask = sub                                                              # Set k7 to a specified bit mask
+     {my ($prefix, @onesAndZeroes) = @_;                                        # Prefix bits, alternating zeroes and ones
+      LoadBitsIntoMaskRegister(7, $prefix, @onesAndZeroes);                     # Load k7 with mask
+     };
+
+    &$mask("00", $zwk);                                                         # Area to clear in keys and data preserving last qword
+    Vmovdqu32    zmmM($RK, 7),  zmm($LK);
+    Vmovdqu32    zmmM($RD, 7),  zmm($LD);
+
+    &$mask("0",  $zwn);                                                         # Area to clear in nodes preserving last dword
+    Vmovdqu32    zmmM($RN, 7),  zmm($LN);
+
+    &$mask("00", $lw-$zwk,  $lr, -$ll-1);                                       # Compress right data/keys
+    Vpcompressd  zmmM($RK, 7),  zmm($RK);
+    Vpcompressd  zmmM($RD, 7),  zmm($RD);
+
+    &$mask("0",  $lw-$zwk, $lr+1, -$lr-1);                                      # Compress right nodes
+    Vpcompressd  zmmM($RN, 7),  zmm($RN);
+
+    &$mask("11", $ll-$zwk, $ll);                                                # Clear left keys and data
+    Vmovdqu32    zmmMZ($LK, 7), zmm($LK);
+    Vmovdqu32    zmmMZ($LD, 7), zmm($LD);
+
+    &$mask("1",  $ll-$zwk, $ll+1);                                              # Clear left nodes
+    Vmovdqu32    zmmMZ($LN, 7), zmm($LN);
+
+    &$mask("11", 2+$lr-$zw,  $lr);                                              # Clear right keys and data
+    Vmovdqu32    zmmMZ($RK, 7), zmm($RK);
+    Vmovdqu32    zmmMZ($RD, 7), zmm($RD);
+
+    &$mask("1",  $lr-$zwk, $lr+1);                                              # Clear right nodes
+    Vmovdqu32    zmmMZ($RN, 7), zmm($RN);
+
+    my $t = $$s{tree};                                                          # Address tree
+
+    &$mask("00", $zwk);                                                         # Area to clear in keys and data preserving last qword
+    my $in = $t->insertionPoint($SK, $PK);                                      # The position at which the key would be inserted if this were a leaf
+    $in->setReg($transfer);
+    Kmovq k6, $transfer;                                                        # Mask shows insertion point
+    Kandnq k5, k6, k7;                                                          # Mask shows expansion needed to make the insertion possible
+
+    Vpexpandd zmmM($PK, 5), zmm($PK);                                           # Make room in parent keys and place the splitting key
+    Vpexpandd zmmM($PD, 5), zmm($PD);                                           # Make room in parent data and place the data associated with the splitting key
+
+    $SK->setReg($transfer);                                                     # Key to be inserted
+    Vpbroadcastd zmmM($PK, 6), $transferD;                                      # Insert key
+
+    $SD->setReg($transfer);                                                     # Data to be inserted
+    Vpbroadcastd zmmM($PD, 6), $transferD;                                      # Insert data
+
+
+    $in->setReg($transfer);                                                     # Next node up as we always expand to the right
+    Shl $transfer, 1;
+    Kmovq k4, $transfer;                                                        # Mask shows insertion point
+    &$mask("0", $zwn);                                                          # Area to clear in keys and data preserving last qword
+    Kandnq k3, k4, k7;                                                          # Mask shows expansion needed to make the insertion possible
+    Vpexpandd zmmM($PN, 3), zmm($PN);                                           # Expand nodes
+
+    $$p{newRight}->setReg($transfer);                                           # New right node to be inserted
+    Vpbroadcastd zmmM($PN, 4), $transferD;                                      # Insert node
+
+                                                                                # Lengths
+    wRegFromZmm $work, $PK, $lb;                                                # Increment length of parent field
+    Inc $work;
+    wRegIntoZmm $work, $PK, $lb;
+
+    Mov $work, $ll;                                                             # Lengths
+    wRegIntoZmm $work, $LK, $lb;                                                # Left after split
+    Mov $work, $lr;                                                             # Lengths
+    wRegIntoZmm $work, $RK, $lb;                                                # Right after split
+
+    &$mask("01", -$zwk);                                                        # Copy parent offset from left to right so that the new right node  still has the same parent
+    Vmovdqu32 zmmM($RD, 7), zmm($LD);
+
+    wRegFromZmm $transfer, $LK, $tb;                                            # Tree bits
+    Mov $work, $transfer;
+    And $work, (1 << $ll) - 1;
+    wRegIntoZmm $work, $LK, $tb;                                                # Left after split
+
+    Mov $work, $transfer;
+    Shr $work, $lm;
+    And $work, (1 << $lr) - 1;
+    wRegIntoZmm $work, $RK, $tb;                                                # Right after split
+
+    Mov $work, $transfer;                                                       # Insert splitting key tree bit into parent at the location indicated by k5
+    Shr $work, $ll;
+    And  $work, 1;                                                              # Tree bit to be inserted parent at the position indicated by a single 1 in k5 in parent
+    wRegFromZmm $transfer, $PK, $tb;                                            # Tree bits from parent
+
+    Cmp  $work, 0;                                                              # Are we inserting a zero into the tree bits?
+    IfEq
+    Then                                                                        # Inserting zero
+     {InsertZeroIntoRegisterAtPoint k6, $transfer;                              # Insert a zero into transfer at the point indicated by k5
+     },
+    Else                                                                        # Inserting one
+     {InsertOneIntoRegisterAtPoint k6, $transfer;                               # Insert a zero into transfer at the point indicated by k5
+     };
+    wRegIntoZmm $transfer, $PK, $tb;                                            # Save parent tree bits after split
+
+    PopR;
+   }
+  structures => {tree => $tree},
+  parameters => [qw(newRight)],
+  name       => "Nasm::X86::Tree::splitNotRoot".
+          "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
+
+  $s->call(
+    structures => {tree => $tree},
+    parameters => {newRight => $newRight});
+ }
+sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    # Split a non root node into left and right nodes with the left half left in the left node and splitting key/data pushed into the parent node with the remainder pushed into the new right node
+ {my ($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;# Tree definition, variable offset in arena of new left node block, variable offset in arena of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
+  @_ == 12 or confess "Twelve parameters required";
+
+  my $w         = $tree->width;                                                 # Size of keys, data, nodes
+  my $zw        = $tree->zWidthD;                                               # Number of dwords in a zmm
+  my $zwn       = $tree->maxNodesZ;                                             # Maximum number of dwords that could be used for nodes in a zmm register.
+  my $zwk       = $tree->maxKeysZ;                                              # Maxiumum number of dwords used for keys/data in a zmm
+  my $lw        = $tree->maxKeys;                                               # Maximum number of keys in a node
+  my $ll        = $tree->lengthLeft;                                            # Minimum node width on left
+  my $lm        = $tree->lengthMiddle;                                          # Position of splitting key
+  my $lr        = $tree->lengthRight;                                           # Minimum node on right
+  my $lb        = $tree->lengthOffset;                                          # Position of length byte
+  my $tb        = $tree->treeBits;                                              # Position of tree bits
+  my $transfer  = r8;                                                           # Transfer register
+  my $transferD = r8d;                                                          # Transfer register as a dword
+  my $transferW = r8w;                                                          # Transfer register as a  word
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+
+    my $mask = sub                                                              # Set k7 to a specified bit mask
+     {my ($prefix, @onesAndZeroes) = @_;                                        # Prefix bits, alternating zeroes and ones
+      LoadBitsIntoMaskRegister(7, $prefix, @onesAndZeroes);                     # Load k7 with mask
+     };
+
+    my $t = $$s{tree};                                                          # Address tree
+
+    PushR $transfer, 6, 7;
+
+    $t->maskForFullKeyArea(7);                                                  # Mask for keys area
+    $t->maskForFullNodesArea(6);                                                # Mask for nodes area
+
+    Mov $transfer, -1;
+    Vpbroadcastd zmmM($PK, 7), $transferD;                                      # Force keys to be high so that insertion occurs before all of them
+
+    Mov $transfer, 0;
+    Vpbroadcastd zmmM($PD, 7), $transferD;                                      # Zero other keys and data
+    Vpbroadcastd zmmM($RK, 7), $transferD;
+    Vpbroadcastd zmmM($RD, 7), $transferD;
+
+    Mov $transfer, 0;
+    Vpbroadcastd zmmM($PN, 6), $transferD;
+    Vpbroadcastd zmmM($RN, 6), $transferD;
+
+    my $newRight = $$p{newRight};
+    $t->splitNotRoot($newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);   # Split the root node as if it were a non root node
+
+    $$p{newLeft} ->dIntoZ($PN, 0);                                              # Place first - left sub node into new root
+    $$p{newRight}->dIntoZ($PN, 4);                                              # Place second - right sub node into new root
+
+    Kshiftrw k7, k7, 1;                                                         # Reset parent keys/data outside of single key/data
+    Kshiftlw k7, k7, 1;
+    Mov $transfer, 0;
+    Vpbroadcastd zmmM($PK, 7), $transferD;
+
+    Mov $transfer, 1;                                                           # Lengths
+    wRegIntoZmm $transfer, $PK, $lb;                                            # Left after split
+
+    wRegFromZmm $transfer, $PK, $tb;                                            # Parent tree bits
+    And $transfer, 1;
+    wRegIntoZmm $transfer, $PK, $tb;
+
+    PopR;
+   }
+  structures => {tree => $tree},
+  parameters => [qw(newLeft newRight)],
+  name       => "Nasm::X86::Tree::splitRoot".
+          "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
+
+  $s->call
+   (structures => {tree => $tree},
+    parameters => {newLeft => $nLeft, newRight => $nRight});
+ }
+
+sub Nasm::X86::Tree::put($$$$)                                                  # Put a variable key and data into a tree.
+ {my ($tree, $key, $data, $subTree) = @_;                                       # Tree definition, key as a variable, data as a variable, the data represents the offset of a sub tree if true.
+  @_ == 4 or confess "Four parameters";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $success = Label;                                                        # End label
+
+    PushR my ($W1, $W2) = (r8, r9);
+    PushZmm my ($F, $K, $D, $N) = reverse 28..31;
+
+    my $t = $$s{tree};
+    my $k = $$p{key};
+    my $d = $$p{data};
+    my $a = $t->arena;
+
+    my $start = SetLabel;                                                       # Start the descent through the tree
+
+    $t->firstFromMemory($F, $W1, $W2);
+    my $Q = $t->rootFromFirst($F);                                              # Start the descent at the root node
+
+    If $Q == 0,                                                                 # First entry as there is no root node.
+    Then
+     {my $block = $t->allocBlock($K, $D, $N);
+      $k->dIntoZ                ($K, 0);
+      $d->dIntoZ                ($D, 0);
+      $t->incLengthInKeys       ($K);
+      $t->putBlock($block,       $K, $D, $N);
+      $t->rootIntoFirst         ($F, $block);
+      $t->incSizeInFirst        ($F);
+      $t->firstIntoMemory       ($F,         $W1, $W2);                         # First back into memory
+      Jmp $success;
+     };
+
+    my $descend = SetLabel;                                                     # Descend to the next level
+
+    $t->getBlock($Q, $K, $D, $N);                                               # Get the current block from memory
+
+    my $eq = $t->indexEq($k, $K);                                               # Check for an equal key
+    If $eq > 0,                                                                 # Equal key found
+    Then                                                                        # Overwrite the existing key/data
+     {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d,  $$p{subTree});
+      $t->putBlock                  ($Q,  $K, $D, $N);
+      Jmp $success;
+     };
+
+    my $split = $t->splitNode($Q);                                              # Split blocks that are full
+    If $split > 0,
+    Then
+     {Jmp $start;                                                               # Restart the descent now that this block has been split
+     };
+
+    my $leaf = $t->leafFromNodes($N);                                           # Are we on a leaf node ?
+    If $leaf > 0,
+    Then
+     {my $i = $t->insertionPoint($k, $K);                                       # Find insertion point
+      $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $$p{subTree});
+      $t->putBlock                 ($Q, $K, $D, $N);
+      $t->firstIntoMemory          ($F,             $W1, $W2);                  # First back into memory
+      Jmp $success;
+     };
+
+    my $in = $t->insertionPoint($k, $K);                                        # The position at which the key would be inserted if this were a leaf
+    my $next = $in->dFromPointInZ($N);                                          # The node to the left of the insertion point - this works because the insertion point can be upto one more than the maximum number of keys
+
+    $Q->copy($next);                                                            # Get the offset of the next node - we are not on a leaf so there must be one
+    Jmp $descend;                                                               # Descend to the next level
+
+    SetLabel $success;
+    PopZmm;
+    PopR;
+   } name => "Nasm::X86::Tree::put",
+     structures => {tree=>$tree},
+     parameters => [qw(key data subTree)];
+
+  $s->call(structures => {tree => $tree},
+           parameters => {key  => $key, data=>$data, subTree=>$subTree});
+ }
+
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and test whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for
   @_ == 2 or confess "Two parameters";
@@ -7693,7 +7986,7 @@ sub Nasm::X86::Tree::nodeFromData($$$)                                          
 confess "Not needed";
   @_ == 3 or confess "Three parameters";
   my $loop = $t->getLoop($data);                                                # Get loop offset from data
-  $t->getZmmBlock($t->arena, $loop, $node);                                   # Node
+  $t->getZmmBlock($t->arena, $loop, $node);                                     # Node
  }
 
 sub Nasm::X86::Tree::depth($$)                                                  # Return the depth of a node within a tree.
@@ -7714,7 +8007,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
     K(loop, 9)->for(sub                                                         # Step up through tree
      {my ($index, $start, $next, $end) = @_;
       $t->getKeysData($tree, 31, 30, r8, r9);                                   # Get the first node of the tree
-      my $P = $t->getUpFromData(30);                                        # Parent
+      my $P = $t->getUpFromData(30);                                            # Parent
       If $P == 0,
       Then                                                                      # Empty tree so we have not found the key
        {$$p{depth}->copy($index+1);                                             # Key not found
@@ -13900,218 +14193,6 @@ struct: 34
 END
  }
 
-sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  # Split a non root left node pushing its excess right and up.
- {my ($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;      # Tree definition, variable offset in arena of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
-  @_ == 11 or confess "Eleven parameters required";
-
-  my $w         = $tree->width;                                                 # Size of keys, data, nodes
-  my $zw        = $tree->zWidthD;                                               # Number of dwords in a zmm
-  my $zwn       = $tree->maxNodesZ;                                             # Maximum number of dwords that could be used for nodes in a zmm register.
-  my $zwk       = $tree->maxKeysZ;                                              # Maxiumum number of dwords used for keys/data in a zmm
-  my $lw        = $tree->maxKeys;                                               # Maximum number of keys in a node
-  my $ll        = $tree->lengthLeft;                                            # Minimum node width on left
-  my $lm        = $tree->lengthMiddle;                                          # Position of splitting key
-  my $lr        = $tree->lengthRight;                                           # Minimum node on right
-  my $lb        = $tree->lengthOffset;                                          # Position of length byte
-  my $tb        = $tree->treeBits;                                              # Position of tree bits
-  my $up        = $tree->up;                                                    # Position of up word in data
-  my $transfer  = r8;                                                           # Transfer register
-  my $transferD = r8d;                                                          # Transfer register as a dword
-  my $transferW = r8w;                                                          # Transfer register as a  word
-  my $work      = r9;                                                           # Work register as a dword
-
-  my $s = Subroutine2
-   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
-    PushR $transfer, $work, 1..7;
-
-    my $SK = dFromZ $LK, $ll * $w;                                              # Splitting key
-    my $SD = dFromZ $LD, $ll * $w;                                              # Data corresponding to splitting key
-
-    my $mask = sub                                                              # Set k7 to a specified bit mask
-     {my ($prefix, @onesAndZeroes) = @_;                                        # Prefix bits, alternating zeroes and ones
-      LoadBitsIntoMaskRegister(7, $prefix, @onesAndZeroes);                     # Load k7 with mask
-     };
-
-    &$mask("00", $zwk);                                                         # Area to clear in keys and data preserving last qword
-    Vmovdqu32    zmmM($RK, 7),  zmm($LK);
-    Vmovdqu32    zmmM($RD, 7),  zmm($LD);
-
-    &$mask("0",  $zwn);                                                         # Area to clear in nodes preserving last dword
-    Vmovdqu32    zmmM($RN, 7),  zmm($LN);
-
-    &$mask("00", $lw-$zwk,  $lr, -$ll-1);                                       # Compress right data/keys
-    Vpcompressd  zmmM($RK, 7),  zmm($RK);
-    Vpcompressd  zmmM($RD, 7),  zmm($RD);
-
-    &$mask("0",  $lw-$zwk, $lr+1, -$lr-1);                                      # Compress right nodes
-    Vpcompressd  zmmM($RN, 7),  zmm($RN);
-
-    &$mask("11", $ll-$zwk, $ll);                                                # Clear left keys and data
-    Vmovdqu32    zmmMZ($LK, 7), zmm($LK);
-    Vmovdqu32    zmmMZ($LD, 7), zmm($LD);
-
-    &$mask("1",  $ll-$zwk, $ll+1);                                              # Clear left nodes
-    Vmovdqu32    zmmMZ($LN, 7), zmm($LN);
-
-    &$mask("11", 2+$lr-$zw,  $lr);                                              # Clear right keys and data
-    Vmovdqu32    zmmMZ($RK, 7), zmm($RK);
-    Vmovdqu32    zmmMZ($RD, 7), zmm($RD);
-
-    &$mask("1",  $lr-$zwk, $lr+1);                                              # Clear right nodes
-    Vmovdqu32    zmmMZ($RN, 7), zmm($RN);
-
-    my $t = $$s{tree};                                                          # Address tree
-
-    &$mask("00", $zwk);                                                         # Area to clear in keys and data preserving last qword
-    my $in = $t->insertionPoint($SK, $PK);                                      # The position at which the key would be inserted if this were a leaf
-    $in->setReg($transfer);
-    Kmovq k6, $transfer;                                                        # Mask shows insertion point
-    Kandnq k5, k6, k7;                                                          # Mask shows expansion needed to make the insertion possible
-
-    Vpexpandd zmmM($PK, 5), zmm($PK);                                           # Make room in parent keys and place the splitting key
-    Vpexpandd zmmM($PD, 5), zmm($PD);                                           # Make room in parent data and place the data associated with the splitting key
-
-    $SK->setReg($transfer);                                                     # Key to be inserted
-    Vpbroadcastd zmmM($PK, 6), $transferD;                                      # Insert key
-
-    $SD->setReg($transfer);                                                     # Data to be inserted
-    Vpbroadcastd zmmM($PD, 6), $transferD;                                      # Insert data
-
-
-    $in->setReg($transfer);                                                     # Next node up as we always expand to the right
-    Shl $transfer, 1;
-    Kmovq k4, $transfer;                                                        # Mask shows insertion point
-    &$mask("0", $zwn);                                                          # Area to clear in keys and data preserving last qword
-    Kandnq k3, k4, k7;                                                          # Mask shows expansion needed to make the insertion possible
-    Vpexpandd zmmM($PN, 3), zmm($PN);                                           # Expand nodes
-
-    $$p{newRight}->setReg($transfer);                                           # New right node to be inserted
-    Vpbroadcastd zmmM($PN, 4), $transferD;                                      # Insert node
-
-                                                                                # Lengths
-    wRegFromZmm $work, $PK, $lb;                                                # Increment length of parent field
-    Inc $work;
-    wRegIntoZmm $work, $PK, $lb;
-
-    Mov $work, $ll;                                                             # Lengths
-    wRegIntoZmm $work, $LK, $lb;                                                # Left after split
-    Mov $work, $lr;                                                             # Lengths
-    wRegIntoZmm $work, $RK, $lb;                                                # Right after split
-
-    &$mask("01", -$zwk);                                                        # Copy parent offset from left to right so that the new right node  still has the same parent
-    Vmovdqu32 zmmM($RD, 7), zmm($LD);
-
-    wRegFromZmm $transfer, $LK, $tb;                                            # Tree bits
-    Mov $work, $transfer;
-    And $work, (1 << $ll) - 1;
-    wRegIntoZmm $work, $LK, $tb;                                                # Left after split
-
-    Mov $work, $transfer;
-    Shr $work, $lm;
-    And $work, (1 << $lr) - 1;
-    wRegIntoZmm $work, $RK, $tb;                                                # Right after split
-
-    Mov $work, $transfer;                                                       # Insert splitting key tree bit into parent at the location indicated by k5
-    Shr $work, $ll;
-    And  $work, 1;                                                              # Tree bit to be inserted parent at the position indicated by a single 1 in k5 in parent
-    wRegFromZmm $transfer, $PK, $tb;                                            # Tree bits from parent
-
-    Cmp  $work, 0;                                                              # Are we inserting a zero into the tree bits?
-    IfEq
-    Then                                                                        # Inserting zero
-     {InsertZeroIntoRegisterAtPoint k6, $transfer;                              # Insert a zero into transfer at the point indicated by k5
-     },
-    Else                                                                        # Inserting one
-     {InsertOneIntoRegisterAtPoint k6, $transfer;                               # Insert a zero into transfer at the point indicated by k5
-     };
-    wRegIntoZmm $transfer, $PK, $tb;                                            # Save parent tree bits after split
-
-    PopR;
-   }
-  structures => {tree => $tree},
-  parameters => [qw(newRight)],
-  name       => "Nasm::X86::Tree::splitNotRoot".
-          "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
-
-  $s->call(
-    structures => {tree => $tree},
-    parameters => {newRight => $newRight});
- }
-sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    # Split a non root node into left and right nodes with the left half left in the left node and splitting key/data pushed into the parent node with the remainder pushed into the new right node
- {my ($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;# Tree definition, variable offset in arena of new left node block, variable offset in arena of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
-  @_ == 12 or confess "Twelve parameters required";
-
-  my $w         = $tree->width;                                                 # Size of keys, data, nodes
-  my $zw        = $tree->zWidthD;                                               # Number of dwords in a zmm
-  my $zwn       = $tree->maxNodesZ;                                             # Maximum number of dwords that could be used for nodes in a zmm register.
-  my $zwk       = $tree->maxKeysZ;                                              # Maxiumum number of dwords used for keys/data in a zmm
-  my $lw        = $tree->maxKeys;                                               # Maximum number of keys in a node
-  my $ll        = $tree->lengthLeft;                                            # Minimum node width on left
-  my $lm        = $tree->lengthMiddle;                                          # Position of splitting key
-  my $lr        = $tree->lengthRight;                                           # Minimum node on right
-  my $lb        = $tree->lengthOffset;                                          # Position of length byte
-  my $tb        = $tree->treeBits;                                              # Position of tree bits
-  my $transfer  = r8;                                                           # Transfer register
-  my $transferD = r8d;                                                          # Transfer register as a dword
-  my $transferW = r8w;                                                          # Transfer register as a  word
-
-  my $s = Subroutine2
-   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
-
-    my $mask = sub                                                              # Set k7 to a specified bit mask
-     {my ($prefix, @onesAndZeroes) = @_;                                        # Prefix bits, alternating zeroes and ones
-      LoadBitsIntoMaskRegister(7, $prefix, @onesAndZeroes);                     # Load k7 with mask
-     };
-
-    my $t = $$s{tree};                                                          # Address tree
-
-    PushR $transfer, 6, 7;
-
-    $t->maskForFullKeyArea(7);                                                  # Mask for keys area
-    $t->maskForFullNodesArea(6);                                                # Mask for nodes area
-
-    Mov $transfer, -1;
-    Vpbroadcastd zmmM($PK, 7), $transferD;                                      # Force keys to be high so that insertion occurs before all of them
-
-    Mov $transfer, 0;
-    Vpbroadcastd zmmM($PD, 7), $transferD;                                      # Zero other keys and data
-    Vpbroadcastd zmmM($RK, 7), $transferD;
-    Vpbroadcastd zmmM($RD, 7), $transferD;
-
-    Mov $transfer, 0;
-    Vpbroadcastd zmmM($PN, 6), $transferD;
-    Vpbroadcastd zmmM($RN, 6), $transferD;
-
-    my $newRight = $$p{newRight};
-    $t->splitNotRoot($newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);   # Split the root node as if it were a non root node
-
-    $$p{newLeft} ->dIntoZ($PN, 0);                                              # Place first - left sub node into new root
-    $$p{newRight}->dIntoZ($PN, 4);                                              # Place second - right sub node into new root
-
-    Kshiftrw k7, k7, 1;                                                         # Reset parent keys/data outside of single key/data
-    Kshiftlw k7, k7, 1;
-    Mov $transfer, 0;
-    Vpbroadcastd zmmM($PK, 7), $transferD;
-
-    Mov $transfer, 1;                                                           # Lengths
-    wRegIntoZmm $transfer, $PK, $lb;                                            # Left after split
-
-    wRegFromZmm $transfer, $PK, $tb;                                            # Parent tree bits
-    And $transfer, 1;
-    wRegIntoZmm $transfer, $PK, $tb;
-
-    PopR;
-   }
-  structures => {tree => $tree},
-  parameters => [qw(newLeft newRight)],
-  name       => "Nasm::X86::Tree::splitRoot".
-          "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
-
-  $s->call
-   (structures => {tree => $tree},
-    parameters => {newLeft => $nLeft, newRight => $nRight});
- }
-
 #latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
   my $newRight = K newRight => 0x9119;                                          # Offset of new right block
@@ -15117,86 +15198,6 @@ At:  500                    length:    1,  data:  540,  nodes:  580,  first:   4
     end
 end
 END
- }
-
-sub Nasm::X86::Tree::put($$$$)                                                  # Put a variable key and data into a tree.
- {my ($tree, $key, $data, $subTree) = @_;                                       # Tree definition, key as a variable, data as a variable, the data represents the offset of a sub tree if true.
-  @_ == 4 or confess "Four parameters";
-
-  my $s = Subroutine2
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-
-    my $success = Label;                                                        # End label
-
-    PushR my ($W1, $W2) = (r8, r9);
-    PushZmm my ($F, $K, $D, $N) = reverse 28..31;
-
-    my $t = $$s{tree};
-    my $k = $$p{key};
-    my $d = $$p{data};
-    my $a = $t->arena;
-
-    my $start = SetLabel;                                                       # Start the descent through the tree
-
-    $t->firstFromMemory($F, $W1, $W2);
-    my $Q = $t->rootFromFirst($F);                                              # Start the descent at the root node
-
-    If $Q == 0,                                                                 # First entry as there is no root node.
-    Then
-     {my $block = $t->allocBlock($K, $D, $N);
-      $k->dIntoZ                ($K, 0);
-      $d->dIntoZ                ($D, 0);
-      $t->incLengthInKeys       ($K);
-      $t->putBlock($block,       $K, $D, $N);
-      $t->rootIntoFirst         ($F, $block);
-      $t->incSizeInFirst        ($F);
-      $t->firstIntoMemory       ($F,         $W1, $W2);                         # First back into memory
-      Jmp $success;
-     };
-
-    my $descend = SetLabel;                                                     # Descend to the next level
-
-    $t->getBlock($Q, $K, $D, $N);                                               # Get the current block from memory
-
-    my $eq = $t->indexEq($k, $K);                                               # Check for an equal key
-    If $eq > 0,                                                                 # Equal key found
-    Then                                                                        # Overwrite the existing key/data
-     {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d,  $$p{subTree});
-      $t->putBlock                  ($Q,  $K, $D, $N);
-      Jmp $success;
-     };
-
-    my $split = $t->splitNode($Q);                                              # Split blocks that are full
-    If $split > 0,
-    Then
-     {Jmp $start;                                                               # Restart the descent now that this block has been split
-     };
-
-    my $leaf = $t->leafFromNodes($N);                                           # Are we on a leaf node ?
-    If $leaf > 0,
-    Then
-     {my $i = $t->insertionPoint($k, $K);                                       # Find insertion point
-      $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $$p{subTree});
-      $t->putBlock                 ($Q, $K, $D, $N);
-      $t->firstIntoMemory          ($F,             $W1, $W2);                  # First back into memory
-      Jmp $success;
-     };
-
-    my $in = $t->insertionPoint($k, $K);                                        # The position at which the key would be inserted if this were a leaf
-    my $next = $in->dFromPointInZ($N);                                          # The node to the left of the insertion point - this works because the insertion point can be upto one more than the maximum number of keys
-
-    $Q->copy($next);                                                            # Get the offset of the next node - we are not on a leaf so there must be one
-    Jmp $descend;                                                               # Descend to the next level
-
-    SetLabel $success;
-    PopZmm;
-    PopR;
-   } name => "Nasm::X86::Tree::put",
-     structures => {tree=>$tree},
-     parameters => [qw(key data subTree)];
-
-  $s->call(structures => {tree => $tree},
-           parameters => {key  => $key, data=>$data, subTree=>$subTree});
  }
 
 #latest:
