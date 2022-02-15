@@ -7150,9 +7150,9 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
   $a
  } # allocBlock
 
-sub Nasm::X86::Tree::upFromData($$$)                                            # Up from the data zmm in a block in a tree
- {my ($tree, $zmm, $transfer) = @_;                                             # Tree descriptor, number of zmm containing data block, transfer register
-  @_ == 3 or confess "Three parameters";
+sub Nasm::X86::Tree::upFromData($$)                                             # Up from the data zmm in a block in a tree
+ {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing data block
+  @_ == 2 or confess "Two parameters";
   dFromZ $zmm, $tree->up;
  }
 
@@ -7410,7 +7410,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       Jmp $success;
      };
 
-    my $parent = $t->upFromData($LD, $W1);                                      # Parent of this block
+    my $parent = $t->upFromData($LD);                                           # Parent of this block
 
     my $r = $t->allocBlock    ($RK, $RD, $RN);                                  # Create a new right block
     If $parent > 0,
@@ -7709,7 +7709,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
     K(loop, 9)->for(sub                                                         # Step up through tree
      {my ($index, $start, $next, $end) = @_;
       $t->getKeysData($tree, 31, 30, r8, r9);                                   # Get the first node of the tree
-      my $P = $t->getUpFromData(30, r8);                                        # Parent
+      my $P = $t->getUpFromData(30);                                        # Parent
       If $P == 0,
       Then                                                                      # Empty tree so we have not found the key
        {$$p{depth}->copy($index+1);                                             # Key not found
@@ -7894,7 +7894,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
       PrintOutString ",  first: ";                                              # First block of tree
       $t->getLoop($N)->outRightInHex(K width => 4);
 
-      my $U = $t->upFromData($D, $W1);                                          # Up field determines root / parent / leaf
+      my $U = $t->upFromData($D);                                               # Up field determines root / parent / leaf
 
       If $root == $offset,
       Then
@@ -8207,7 +8207,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
       ForEver                                                                   # Up through the tree
        {my ($start, $end) = @_;                                                 # Parameters
         $t->getKeysData($n, $zmmNK, $zmmND, r8, r9);                            # Load keys and data for current node
-        my $p = $t->getUpFromData($zmmND, r8);
+        my $p = $t->getUpFromData($zmmND);
         If $p == 0, sub{Jmp $end};                                              # Jump to the end if we have reached the top of the tree
         $t->getBlock($p, $zmmPK, $zmmPD, $zmmPN);                               # Load keys, data and children nodes for parent which must have children
         $n->setReg(r15);                                                        # Offset of child
