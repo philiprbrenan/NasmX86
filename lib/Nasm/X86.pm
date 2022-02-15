@@ -7176,20 +7176,23 @@ sub Nasm::X86::Tree::lengthIntoKeys($$$)                                        
   $length->bIntoZ($zmm, $t->lengthOffset)                                       # Set the length field
  }
 
-sub Nasm::X86::Tree::incLengthInKeys($$$)                                       #P Increment the number of keys in a keys block or complain if such is not possible
- {my ($t, $K, $work) = @_;                                                      # Tree, zmm number, work register
+sub Nasm::X86::Tree::incLengthInKeys($$)                                        #P Increment the number of keys in a keys block or complain if such is not possible
+ {my ($t, $K) = @_;                                                             # Tree, zmm number
+  @_ == 2 or confess "Two parameters";
   my $l = $t->lengthOffset;                                                     # Offset of length bits
-  ClearRegisters $work;
-  wRegFromZmm $work, $K, $l;                                                    # Length
-  Cmp $work, $t->length;
+  PushR r15;
+  ClearRegisters r15;
+  wRegFromZmm r15, $K, $l;                                                      # Length
+  Cmp r15, $t->length;
   IfLt
   Then
-   {Inc $work;
-    wRegIntoZmm $work, $K, $l;
+   {Inc r15;
+    wRegIntoZmm r15, $K, $l;
    },
   Else
    {PrintErrTraceBack "Cannot increment length of block beyond ".$t->length;
    };
+  PopR;
  }
 
 sub Nasm::X86::Tree::leafFromNodes($$)                                          #P Return a variable containing true if we are on a leaf.  We determine whether we are on a leaf by checking the offset of the first sub node.  If it is zero we are on a leaf otherwise not.
@@ -7355,7 +7358,7 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
     $$p{key}  ->setReg($W1); Vpbroadcastd zmmM($K, 7), $W1."d";                 # Insert value at expansion point
     $$p{data} ->setReg($W1); Vpbroadcastd zmmM($D, 7), $W1."d";
 
-    $t->incLengthInKeys($K, $W1);                                               # Increment the length of this node to include the inserted value
+    $t->incLengthInKeys($K);                                                    # Increment the length of this node to include the inserted value
 
     Kmovq $W1, k7;
     If $$p{subTree} > 0,                                                        # Set the inserted tree bit
@@ -15139,7 +15142,7 @@ sub Nasm::X86::Tree::put($$$$)                                                  
      {my $block = $t->allocBlock($K, $D, $N);
       $k->dIntoZ                ($K, 0);
       $d->dIntoZ                ($D, 0);
-      $t->incLengthInKeys       ($K,         $W1);
+      $t->incLengthInKeys       ($K);
       $t->putBlock($block,       $K, $D, $N);
       $t->rootIntoFirst         ($F, $block);
       $t->incSizeInFirst        ($F);
