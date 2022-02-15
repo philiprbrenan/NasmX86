@@ -5621,13 +5621,12 @@ sub Nasm::X86::Arena::dumpFreeChain($)                                          
   PopR;
  }
 
-sub Nasm::X86::Arena::getZmmBlock($$$;$$)                                       #P Get the block with the specified offset in the specified string and return it in the numbered zmm.
- {my ($arena, $block, $zmm, $work1, $work2) = @_;                               # Arena descriptor, offset of the block as a variable, number of zmm register to contain block, first optional work register, second optional work register
-  @_ == 3 or @_ == 5 or confess "Three or five parameters";
+sub Nasm::X86::Arena::getZmmBlock($$$)                                          #P Get the block with the specified offset in the specified string and return it in the numbered zmm.
+ {my ($arena, $block, $zmm) = @_;                                               # Arena descriptor, offset of the block as a variable, number of zmm register to contain block
+  @_ == 3 or confess "Three parameters";
 
-  my $a = $work1 // r14;                                                        # Work registers
-  my $o = $work2 // r15;
-  PushR my @save = ($a, $o) unless $work1 && $work2;
+  my $a = rdi;                                                                  # Work registers
+  my $o = rsi;
 
   $arena->address->setReg($a);                                                  # Arena address
   $block->setReg($o);                                                           # Offset of block in arena
@@ -5639,16 +5638,14 @@ sub Nasm::X86::Arena::getZmmBlock($$$;$$)                                       
    };
 
   Vmovdqu64 "zmm$zmm", "[$a+$o]";                                               # Read from memory
-  PopR unless $work1 && $work2;                                                 # Restore registers
  }
 
-sub Nasm::X86::Arena::putZmmBlock($$$;$$)                                       #P Write the numbered zmm to the block at the specified offset in the specified arena.
- {my ($arena, $block, $zmm, $work1, $work2) = @_;                               # Arena descriptor, offset of the block as a variable, number of zmm register to contain block, first optional work register, second optional work register
-  @_ == 3 or @_ == 5 or confess "Three or five parameters";
+sub Nasm::X86::Arena::putZmmBlock($$$)                                          #P Write the numbered zmm to the block at the specified offset in the specified arena.
+ {my ($arena, $block, $zmm) = @_;                                               # Arena descriptor, offset of the block as a variable, number of zmm register to contain block, first optional work register, second optional work register
+  @_ == 3 or confess "Three parameters";
 
-  my $a = $work1 // r14;                                                        # Work registers
-  my $o = $work2 // r15;
-  PushR my @save = ($a, $o) unless $work1 && $work2;
+  my $a = rdi;                                                                  # Work registers
+  my $o = rsi;
 
   $arena->address->setReg($a);                                                  # Arena address
   $block->setReg($o);                                                           # Offset of block in arena
@@ -5660,16 +5657,15 @@ sub Nasm::X86::Arena::putZmmBlock($$$;$$)                                       
    };
 
   Vmovdqu64 "[$a+$o]", "zmm$zmm";                                               # Read from memory
-  PopR unless $work1 && $work2;                                                 # Restore registers
  }
 
 sub Nasm::X86::Arena::clearZmmBlock($$)                                         #P Clear the zmm block at the specified offset in the arena
  {my ($arena, $offset) = @_;                                                    # Arena descriptor, offset of the block as a variable
   @_ == 2 or confess "Two parameters";
 
-  PushR r8, r9, zmm31;                                                          # Clear a zmm block
+  PushR zmm31;                                                                  # Clear a zmm block
   ClearRegisters zmm31;
-  $arena->putZmmBlock($offset, 31, r8, r9);
+  $arena->putZmmBlock($offset, 31);
   PopR;
  }
 
@@ -7138,9 +7134,9 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
     my $n = $arena->allocZmmBlock;                                              # Children
 
     PushR r8;
-    $t->putLoop($d, $K, r8);                                                    # Set the link from key to data
-    $t->putLoop($n, $D, r8);                                                    # Set the link from data to node
-    $t->putLoop($t->first, $N, r8);                                             # Set the link from node to tree first block
+    $t->putLoop($d, $K);                                                        # Set the link from key to data
+    $t->putLoop($n, $D);                                                        # Set the link from data to node
+    $t->putLoop($t->first, $N);                                                 # Set the link from node to tree first block
 
     $$p{address}->copy($k);                                                     # Address of block
     PopR r8;
@@ -7160,9 +7156,9 @@ sub Nasm::X86::Tree::upFromData($$$)                                            
   dFromZ $zmm, $tree->up;
  }
 
-sub Nasm::X86::Tree::upIntoData($$$)                                            # Up into the data zmm in a block in a tree
- {my ($tree, $value, $zmm, $transfer) = @_;                                     # Tree descriptor, variable containing value to put, number of zmm containing first block, transfer register
-  @_ == 4 or confess "Four parameters";
+sub Nasm::X86::Tree::upIntoData($$)                                             # Up into the data zmm in a block in a tree
+ {my ($tree, $value, $zmm) = @_;                                                # Tree descriptor, variable containing value to put, number of zmm containing first block
+  @_ == 3 or confess "Three parameters";
   $value->dIntoZ($zmm, $tree->up);
  }
 
@@ -7207,15 +7203,15 @@ sub Nasm::X86::Tree::leafFromNodes($$$)                                         
   $l
  }
 
-sub Nasm::X86::Tree::getLoop($$$)                                               #P Return the value of the loop field as a variable.
- {my ($t, $zmm, $transfer) = @_;                                                # Tree descriptor, numbered zmm, transfer register
-  @_ == 3 or confess "Three parameters";
+sub Nasm::X86::Tree::getLoop($$)                                                #P Return the value of the loop field as a variable.
+ {my ($t, $zmm) = @_;                                                           # Tree descriptor, numbered zmm
+  @_ == 2 or confess "Two parameters";
   dFromZ $zmm, $t->loop;                                                        # Get loop field as a variable
  }
 
-sub Nasm::X86::Tree::putLoop($$$$)                                              #P Set the value of the loop field from a variable.
- {my ($t, $value, $zmm, $transfer) = @_;                                        # Tree descriptor, variable containing offset of next loop entry, numbered zmm, transfer register
-  @_ == 4 or confess "Four parameters";
+sub Nasm::X86::Tree::putLoop($$$)                                               #P Set the value of the loop field from a variable.
+ {my ($t, $value, $zmm) = @_;                                                   # Tree descriptor, variable containing offset of next loop entry, numbered zmm
+  @_ == 3 or confess "Three parameters";
   $value->dIntoZ($zmm, $t->loop);                                               # Put loop field as a variable
  }
 
@@ -7235,26 +7231,26 @@ sub Nasm::X86::Tree::maskForFullNodesArea                                       
   Kshiftrw $m, $m, 1;                                                           # Mask with ones in the full key area
  }
 
-sub Nasm::X86::Tree::getBlock($$$$$$$)                                          #P Get the keys, data and child nodes for a tree node from the specified offset in the arena for the tree.
- {my ($t, $offset, $K, $D, $N, $W1, $W2) = @_;                                  # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes, first work register, second work register
-  @_ == 7 or confess "Seven parameters";
+sub Nasm::X86::Tree::getBlock($$$$$)                                            #P Get the keys, data and child nodes for a tree node from the specified offset in the arena for the tree.
+ {my ($t, $offset, $K, $D, $N) = @_;                                            # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
+  @_ == 5 or confess "Five parameters";
   my $a = $t->arena;                                                            # Underlying arena
-  $a->getZmmBlock($offset, $K, $W1, $W2);                                       # Get the keys block
-  my $data = $t->getLoop(  $K, $W1);                                            # Get the offset of the corresponding data block
-  $a->getZmmBlock($data,   $D, $W1, $W2);                                       # Get the data block
-  my $node = $t->getLoop  ($D, $W1);                                            # Get the offset of the corresponding node block
-  $a->getZmmBlock($node,   $N, $W1, $W2);                                       # Get the node block
+  $a->getZmmBlock($offset, $K);                                                 # Get the keys block
+  my $data = $t->getLoop(  $K);                                                 # Get the offset of the corresponding data block
+  $a->getZmmBlock($data,   $D);                                                 # Get the data block
+  my $node = $t->getLoop  ($D);                                                 # Get the offset of the corresponding node block
+  $a->getZmmBlock($node,   $N);                                                 # Get the node block
  }
 
-sub Nasm::X86::Tree::putBlock($$$$$$$$)                                         #P Put a tree block held in three zmm registers back into the arena holding the tree at the specified offset.
- {my ($t, $offset, $K, $D, $N, $W1, $W2) = @_;                                  # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes, first work register, second work register
-  @_ == 7 or confess "Seven parameters";
+sub Nasm::X86::Tree::putBlock($$$$$$)                                           #P Put a tree block held in three zmm registers back into the arena holding the tree at the specified offset.
+ {my ($t, $offset, $K, $D, $N) = @_;                                            # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
+  @_ == 5 or confess "Five parameters";
   my $a    = $t->arena;                                                         # Arena for tree
-  my $data = $t->getLoop(  $K, $W1);                                            # Get the offset of the corresponding data block
-  my $node = $t->getLoop(  $D, $W1);                                            # Get the offset of the corresponding node block
-  $a->putZmmBlock($offset, $K, $W1, $W2);                                       # Put the keys block
-  $a->putZmmBlock($data,   $D, $W1, $W2);                                       # Put the data block
-  $a->putZmmBlock($node,   $N, $W1, $W2);                                       # Put the node block
+  my $data = $t->getLoop(  $K);                                                 # Get the offset of the corresponding data block
+  my $node = $t->getLoop(  $D);                                                 # Get the offset of the corresponding node block
+  $a->putZmmBlock($offset, $K);                                                 # Put the keys block
+  $a->putZmmBlock($data,   $D);                                                 # Put the data block
+  $a->putZmmBlock($node,   $N);                                                 # Put the node block
  }
 
 sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        # Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
@@ -7405,7 +7401,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
     my $offset = $$p{offset};                                                   # Offset of block in arena
     my $split  = $$p{split};                                                    # Indicate whether we split or not
-    $t->getBlock($offset, $LK, $LD, $LN, $W1, $W2);                             # Load node as left
+    $t->getBlock($offset, $LK, $LD, $LN);                                       # Load node as left
 
     my $length = $t->lengthFromKeys($LK);
     If $t->lengthFromKeys($LK) < $t->maxKeys,
@@ -7416,24 +7412,24 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
     my $parent = $t->upFromData($LD, $W1);                                      # Parent of this block
 
-    my $r = $t->allocBlock       ($RK, $RD, $RN);                             # Create a new right block
+    my $r = $t->allocBlock    ($RK, $RD, $RN);                                  # Create a new right block
     If $parent > 0,
     Then                                                                        # Not the root node because it has a parent
-     {$t->upIntoData      ($parent, $RD, $W1);                                  # Address existing parent from new right
-      $t->getBlock        ($parent, $PK, $PD, $PN, $W1, $W2);                   # Load extant parent
+     {$t->upIntoData      ($parent, $RD);                                       # Address existing parent from new right
+      $t->getBlock        ($parent, $PK, $PD, $PN);                             # Load extant parent
       $t->splitNotRoot
                           ($r,      $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
-      $t->putBlock        ($parent, $PK, $PD, $PN, $W1, $W2);
-      $t->putBlock        ($offset, $LK, $LD, $LN, $W1, $W2);
+      $t->putBlock        ($parent, $PK, $PD, $PN);
+      $t->putBlock        ($offset, $LK, $LD, $LN);
      },
     Else                                                                        # Split the root node
      {my $p = $t->allocBlock       ($PK, $PD, $PN);                             # Create a new parent block
       $t->splitRoot   ($offset, $r, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
-      $t->upIntoData      ($p,      $LD, $W1);                                  # Left  points up to new parent
-      $t->upIntoData      ($p,      $RD, $W1);                                  # Right points up to new parent
-      $t->putBlock        ($p,      $PK, $PD, $PN, $W1, $W2);
-      $t->putBlock        ($offset, $LK, $LD, $LN, $W1, $W2);
-      $t->putBlock        ($r,      $RK, $RD, $RN, $W1, $W2);
+      $t->upIntoData      ($p,      $LD);                                       # Left  points up to new parent
+      $t->upIntoData      ($p,      $RD);                                       # Right points up to new parent
+      $t->putBlock        ($p,      $PK, $PD, $PN);
+      $t->putBlock        ($offset, $LK, $LD, $LN);
+      $t->putBlock        ($r,      $RK, $RD, $RN);
 
       $t->firstFromMemory ($F,                     $W1, $W2);                   # Update new root of tree
       $t->rootIntoFirst   ($F, $p,                 $W1);
@@ -7446,13 +7442,13 @@ sub Nasm::X86::Tree::splitNode($$)                                              
      {(K(nodes => $t->lengthRight) + 1)->for(sub                                # Reparent the children of the right hand side now known not to be a leaf
        {my ($index, $start, $next, $end) = @_;
         my $n = dFromZ $RN, $index * $t->width;                                 # Offset of node
-        $t->getBlock  ($n, $LK, $LD, $LN, $W1, $W2);                            # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
-        $t->upIntoData($r,      $LD, $W1);                                      # Parent for child of right hand side
-        $t->putBlock  ($n, $LK, $LD, $LN, $W1, $W2);                            # Save block into memory now that its parent pointer has been updated
+        $t->getBlock  ($n, $LK, $LD, $LN);                                      # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+        $t->upIntoData($r,      $LD);                                           # Parent for child of right hand side
+        $t->putBlock  ($n, $LK, $LD, $LN);                                      # Save block into memory now that its parent pointer has been updated
        });
      };
 
-    $t->putBlock        ($r,      $RK, $RD, $RN, $W1, $W2);                     # Save right block
+    $t->putBlock        ($r,      $RK, $RD, $RN);                               # Save right block
 
     SetLabel $success;                                                          # Insert completed successfully
     PopZmm;
@@ -7497,7 +7493,7 @@ sub Nasm::X86::Tree::find($$)                                                   
     K(loop, 99)->for(sub                                                        # Step down through tree
      {my ($index, $start, $next, $end) = @_;
 
-      $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                   # Get the keys/data/nodes
+      $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
 
       my $eq = $t->indexEq($k, $K);                                             # The position of a key in a zmm equal to the specified key as a point in a variable.
       If $eq  > 0,                                                              # Result mask is non zero so we must have found the key
@@ -7644,7 +7640,7 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
 
     K(loopLimit, 9)->for(sub                                                    # Loop a reasonable number of times
      {my ($index, $start, $next, $end) = @_;
-      $t->getBlock($F, 31, 30, 29, r8, r9);                                     # Get the first keys block
+      $t->getBlock($F, 31, 30, 29);                                             # Get the first keys block
       my $n = dFromZ 29, 0;                                                     # Get the node block offset from the data block loop
       If $n == 0,
       Then                                                                      # Reached the end so return the containing block
@@ -7737,17 +7733,6 @@ sub Nasm::X86::Tree::depth($$)                                                  
  } # depth
 
 #D2 Sub trees                                                                   # Construct trees of trees.
-
-#sub Nasm::X86::Tree::testTree($$$)                                              #P Set the Zero Flag to oppose the tree bit indexed by the specified variable in the numbered zmm register holding the keys of a node to indicate whether the data element indicated by the specified register is an offset to a sub tree in the containing arena or not.
-#{my ($t, $position, $zmm) = @_;                                                 # Tree descriptor, variable holding index of position to test, numbered zmm register holding the keys for a node in the tree
-#  @_ == 3 or confess "3 parameters";
-#  PushR rax, rcx;
-#  Mov rax, 1;                                                                   # Place a single 1 at the position to test
-#  $position->setReg(rcx);                                                       # Position
-#  Shl rax, cl;                                                                  # Move into position
-#  $t->isTree(rax, $zmm);                                                        # Test position
-#  PopR;
-# } # isTree
 
 sub Nasm::X86::Tree::isTree($$$)                                                #P Set the Zero Flag to oppose the tree bit in the numbered zmm register holding the keys of a node to indicate whether the data element indicated by the specified register is an offset to a sub tree in the containing arena or not.
 {my ($t, $point, $zmm) = @_;                                                    # Tree descriptor, register showing point to test, numbered zmm register holding the keys for a node in the tree
@@ -7887,7 +7872,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
     Block                                                                       # Print each node in the tree
      {my ($end, $start) = @_;                                                   # Labels
       my $offset = $$p{offset};                                                 # Offset of node to print
-      $t->getBlock($offset, $K, $D, $N, $W1, $W2);                              # Load node
+      $t->getBlock($offset, $K, $D, $N);                                        # Load node
       $t->getTreeBits($K, $treeBitsR);                                          # Tree bits for this node
       my $l = $t->lengthFromKeys($K);                                           # Number of nodes
 
@@ -7901,13 +7886,13 @@ sub Nasm::X86::Tree::dump($$)                                                   
       $l->outRightInDec(K width => 4);
 
       PrintOutString ",  data: ";                                               # Position of data block
-      $t->getLoop($K, r8)->outRightInHex(K width => 4);
+      $t->getLoop($K)->outRightInHex(K width => 4);
 
       PrintOutString ",  nodes: ";                                              # Position of nodes block
-      $t->getLoop($D, r8)->outRightInHex(K width => 4);
+      $t->getLoop($D)->outRightInHex(K width => 4);
 
       PrintOutString ",  first: ";                                              # First block of tree
-      $t->getLoop($N, r8)->outRightInHex(K width => 4);
+      $t->getLoop($N)->outRightInHex(K width => 4);
 
       my $U = $t->upFromData($D, $W1);                                          # Up field determines root / parent / leaf
 
@@ -8062,7 +8047,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
     Block                                                                       # Print each node in the tree
      {my ($end, $start) = @_;                                                   # Labels
       my $offset = $$p{offset};                                                 # Offset of node to print
-      $t->getBlock($offset, $K, $D, $N, $W1, $W2);                              # Load node
+      $t->getBlock($offset, $K, $D, $N);                                        # Load node
       my $l = $t->lengthFromKeys($K);                                           # Number of nodes
       $l->for(sub                                                               # Print sub nodes
        {my ($index, $start, $next, $end) = @_;
@@ -8178,9 +8163,9 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
      {my $end = Label;
 
       PushR r8, r9; PushZmm 29..31;
-      $tree->getBlock($C, 31, 30, 29, r8, r9);                           # Load keys and data
+      $tree->getBlock($C, 31, 30, 29);                                          # Load keys and data
 
-      my $l = $tree->lengthFromKeys(31);                                       # Length of the block
+      my $l = $tree->lengthFromKeys(31);                                        # Length of the block
       If $l == 0,                                                               # Check for  empty tree.
       Then                                                                      # Empty tree
        {&$done;
@@ -8224,14 +8209,14 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
         $t->getKeysData($n, $zmmNK, $zmmND, r8, r9);                            # Load keys and data for current node
         my $p = $t->getUpFromData($zmmND, r8);
         If $p == 0, sub{Jmp $end};                                              # Jump to the end if we have reached the top of the tree
-        $t->getBlock($p, $zmmPK, $zmmPD, $zmmPN, r8, r9);                # Load keys, data and children nodes for parent which must have children
+        $t->getBlock($p, $zmmPK, $zmmPD, $zmmPN);                               # Load keys, data and children nodes for parent which must have children
         $n->setReg(r15);                                                        # Offset of child
         Vpbroadcastd "zmm".$zmmTest, r15d;                                      # Current node broadcasted
         Vpcmpud k7, "zmm".$zmmPN, "zmm".$zmmTest, 0;                            # Check for equal offset - one of them will match to create the single insertion point in k6
         Kmovw r14d, k7;                                                         # Bit mask ready for count
         Tzcnt r14, r14;                                                         # Number of leading zeros gives us the position of the child in the parent
         my $i = V(indexInParent, r14);                                          # Index in parent
-        my $l = $t->lengthFromKeys($zmmPK);                                    # Length of parent
+        my $l = $t->lengthFromKeys($zmmPK);                                     # Length of parent
 
         If $i < $l,
         Then                                                                    # Continue with this node if all the keys have yet to be finished
@@ -27967,8 +27952,8 @@ if (1) {                                                                        
   my $b = $t->allocBlock(31, 30, 29);
   K(data => 0x33)->dIntoZ(31, 4);
   $t->lengthIntoKeys(31, K length =>0x9);
-  $t->putBlock($b, 31, 30, 29, r8, r9);
-  $t->getBlock($b, 25, 24, 23, r8, r9);
+  $t->putBlock($b, 31, 30, 29);
+  $t->getBlock($b, 25, 24, 23);
   PrintOutRegisterInHex 25;
   $t->lengthFromKeys(25)->outNL;
 
@@ -28552,7 +28537,7 @@ sub Nasm::X86::Tree::put($$$$)                                                  
       $k->dIntoZ                ($K, 0);
       $d->dIntoZ                ($D, 0);
       $t->incLengthInKeys       ($K,         $W1);
-      $t->putBlock($block,       $K, $D, $N, $W1, $W2);
+      $t->putBlock($block,       $K, $D, $N);
       $t->rootIntoFirst         ($F, $block, $W1);
       $t->incSizeInFirst        ($F);
       $t->firstIntoMemory       ($F,         $W1, $W2);                         # First back into memory
@@ -28561,13 +28546,13 @@ sub Nasm::X86::Tree::put($$$$)                                                  
 
     my $descend = SetLabel;                                                     # Descend to the next level
 
-    $t->getBlock($Q, $K, $D, $N, $W1, $W2);                                     # Get the current block from memory
+    $t->getBlock($Q, $K, $D, $N);                                               # Get the current block from memory
 
     my $eq = $t->indexEq($k, $K);                                               # Check for an equal key
     If $eq > 0,                                                                 # Equal key found
     Then                                                                        # Overwrite the existing key/data
      {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d,  $$p{subTree});
-      $t->putBlock                  ($Q,  $K, $D, $N, $W1, $W2);
+      $t->putBlock                  ($Q,  $K, $D, $N);
       Jmp $success;
      };
 
@@ -28582,7 +28567,7 @@ sub Nasm::X86::Tree::put($$$$)                                                  
     Then
      {my $i = $t->insertionPoint($k, $K);                                       # Find insertion point
       $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $$p{subTree});
-      $t->putBlock                 ($Q, $K, $D, $N, $W1, $W2);
+      $t->putBlock                 ($Q, $K, $D, $N);
       $t->firstIntoMemory          ($F,             $W1, $W2);                  # First back into memory
       Jmp $success;
      };
