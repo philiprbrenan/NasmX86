@@ -654,6 +654,11 @@ sub LoadZmm($@)                                                                 
   Vmovdqu8 "zmm$zmm", "[$b]";
  }
 
+sub checkZmmRegister($)                                                         # Check that a register is a zmm register
+ {my ($z) = @_;                                                              # Parameters
+  $z =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess "$z is not the number of a zmm register";
+ }
+
 #D2 Mask                                                                        # Operations on mask registers
 
 sub CheckMaskRegister($)                                                        # Check that a register is in fact a numbered mask register
@@ -3534,67 +3539,50 @@ sub Nasm::X86::Variable::qIntoX($$$)                                            
 sub Nasm::X86::Variable::bIntoZ($$$)                                            # Place the value of the content variable at the byte in the numbered zmm register.
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
-  $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
+  checkZmmRegister($zmm);
   $content->putBwdqIntoMm('b', "zmm$zmm", $offset)                              # Place the value of the content variable at the word in the numbered zmm register
  }
 
 sub Nasm::X86::Variable::putWIntoZmm($$$)                                       # Place the value of the content variable at the word in the numbered zmm register.
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
-  $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
+  checkZmmRegister($zmm);
   $content->putBwdqIntoMm('w', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
 sub Nasm::X86::Variable::dIntoZ($$$)                                            # Place the value of the content variable at the double word in the numbered zmm register.
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes, optional transfer register
   @_ == 3 or confess "Three parameters";
-  $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
+  checkZmmRegister($zmm);
   $content->putBwdqIntoMm('d', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
-sub Nasm::X86::Variable::qIntoZ($$$;$)                                          # Place the value of the content variable at the quad word in the numbered zmm register.
- {my ($content, $zmm, $offset, $transfer) = @_;                                 # Variable with content, numbered zmm, offset in bytes, optional transfer register
-  $zmm =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess;
+sub Nasm::X86::Variable::qIntoZ($$$)                                            # Place the value of the content variable at the quad word in the numbered zmm register.
+ {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
+  checkZmmRegister $zmm;
   $content->putBwdqIntoMm('q', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
- }
-
-#D2 Broadcast                                                                   # Broadcast from a variable into a zmm
-
-sub Nasm::X86::Variable::zBroadCastD($$;$)                                      # Broadcast a double word in a variable into the numbered zmm.  Only use this routine if you cannot use the decoration "{1to16}" on an instruction as shown in the instruction description using m32/64bcst.
- {my ($variable, $z, $transfer) = @_;                                           # Variable containing value to broadcast, numbered zmm to broadcast to, optional transfer register
-  @_ == 2 or @_ == 3 or confess "Two or three parameters";
-  if (defined $transfer)                                                        # Transfer register available
-   {$variable->setReg($transfer);                                               # Value of variable
-    Vpbroadcastd zmm($z), $transfer."d";                                        # Broadcast
-   }
-  else                                                                          # Use our own transfer register
-   {PushR (r15);
-    $variable->setReg(r15);                                                     # Value of variable
-    Vpbroadcastd zmm($z), r15d;                                                 # Broadcast
-    PopR;
-   }
  }
 
 #D2 Stack                                                                       # Push and pop variables to and from the stack
 
-sub Nasm::X86::Variable::push($)                                                # Push a variable onto the stack.
- {my ($variable) = @_;                                                          # Variable
-  PushR rax; Push rax;                                                          # Make a slot on the stack and save rax
-  $variable->setReg(rax);                                                       # Variable to rax
-  my $s = RegisterSize rax;                                                     # Size of rax
-  Mov "[rsp+$s]", rax;                                                          # Move variable to slot
-  PopR rax;                                                                     # Remove rax to leave variable on top of the stack
- }
-
-sub Nasm::X86::Variable::pop($)                                                 # Pop a variable from the stack.
- {my ($variable) = @_;                                                          # Variable
-  PushR rax;                                                                    # Liberate a register
-  my $s = RegisterSize rax;                                                     # Size of rax
-  Mov rax, "[rsp+$s]";                                                          # Load from stack
-  $variable->getReg(rax);                                                       # Variable to rax
-  PopR rax;                                                                     # Remove rax to leave variable on top of the stack
-  Add rsp, $s;                                                                  # Remove variable from stack
- }
+#sub Nasm::X86::Variable::push($)                                                # Push a variable onto the stack.
+# {my ($variable) = @_;                                                          # Variable
+#  PushR rax; Push rax;                                                          # Make a slot on the stack and save rax
+#  $variable->setReg(rax);                                                       # Variable to rax
+#  my $s = RegisterSize rax;                                                     # Size of rax
+#  Mov "[rsp+$s]", rax;                                                          # Move variable to slot
+#  PopR rax;                                                                     # Remove rax to leave variable on top of the stack
+# }
+#
+#sub Nasm::X86::Variable::pop($)                                                 # Pop a variable from the stack.
+# {my ($variable) = @_;                                                          # Variable
+#  PushR rax;                                                                    # Liberate a register
+#  my $s = RegisterSize rax;                                                     # Size of rax
+#  Mov rax, "[rsp+$s]";                                                          # Load from stack
+#  $variable->getReg(rax);                                                       # Variable to rax
+#  PopR rax;                                                                     # Remove rax to leave variable on top of the stack
+#  Add rsp, $s;                                                                  # Remove variable from stack
+# }
 
 #D2 Memory                                                                      # Actions on memory described by variables
 
@@ -6030,7 +6018,7 @@ sub Nasm::X86::String::putNextandPrevBlockOffsetIntoZmm($$$$)                   
    {PushR my @regs = (r8, r15);                                                 # Work registers
     $next->setReg(r15);                                                         # Next offset
     my $l = V("Links", r15);                                                    # Links as variable
-    $l->dIntoZ($zmm, $String->next, r8);                                        # Load links into zmm
+    $l->dIntoZ($zmm, $String->next);                                            # Load links into zmm
     PopR @regs;                                                                 # Free work registers
    }
   elsif ($prev)                                                                 # Set just prev
@@ -6695,8 +6683,8 @@ sub Nasm::X86::Array::push($$)                                                  
 
     If $size < $n,
     Then                                                                        # Room in the first block
-     {$E       ->dIntoZ(31, ($size + 1) * $w, $transfer);                       # Place element
-      ($size+1)->dIntoZ(31, 0, $transfer);                                      # Update size
+     {$E       ->dIntoZ(31, ($size + 1) * $w);                                  # Place element
+      ($size+1)->dIntoZ(31, 0);                                                 # Update size
       $arena   ->putZmmBlock($F, 31);                                           # Put the first block back into memory
       Jmp $success;                                                             # Element successfully inserted in first block
      };
@@ -6708,10 +6696,10 @@ sub Nasm::X86::Array::push($$)                                                  
       Kmovq k7, rax;                                                            # Set  compression mask
       Vpcompressd "zmm30{k7}{z}", zmm31;                                        # Compress first block into second block
       ClearRegisters zmm31;                                                     # Clear first block
-      ($size+1)->dIntoZ(31, 0, $transfer);                                      # Save new size in first block
+      ($size+1)->dIntoZ(31, 0);                                                 # Save new size in first block
       my $new = $arena->allocZmmBlock;                                          # Allocate new block
-      $new->dIntoZ(31, $w, $transfer);                                          # Save offset of second block in first block
-      $E  ->dIntoZ(30, $W - 1 * $w, $transfer);                                 # Place new element
+      $new->dIntoZ(31, $w);                                                     # Save offset of second block in first block
+      $E  ->dIntoZ(30, $W - 1 * $w);                                            # Place new element
       $arena->putZmmBlock($new, 30);                                            # Put the second block back into memory
       $arena->putZmmBlock($F,   31);                                            # Put the first  block back into memory
       PopR;
@@ -6724,9 +6712,9 @@ sub Nasm::X86::Array::push($$)                                                  
       Then                                                                      # New secondary block needed
        {PushR (rax, zmm30);
         my $new = $arena->allocZmmBlock;                                        # Allocate new block
-        $E       ->dIntoZ(30, 0, $transfer);                                    # Place new element last in new second block
-        ($size+1)->dIntoZ(31, 0, $transfer);                                    # Save new size in first block
-        $new     ->dIntoZ(31, ($size / $N + 1) * $w, $transfer);                # Address new second block from first block
+        $E       ->dIntoZ(30, 0);                                               # Place new element last in new second block
+        ($size+1)->dIntoZ(31, 0);                                               # Save new size in first block
+        $new     ->dIntoZ(31, ($size / $N + 1) * $w);                          # Address new second block from first block
         $arena   ->putZmmBlock($new, 30);                                       # Put the second block back into memory
         $arena   ->putZmmBlock($F,   31);                                       # Put the first  block back into memory
         PopR;
@@ -6738,7 +6726,7 @@ sub Nasm::X86::Array::push($$)                                                  
         my $S = dFromZ 31, ($size / $N + 1) * $w;                               # Offset of second block in first block
         $arena   ->getZmmBlock($S, 30);                                         # Get the second block
         $E       ->dIntoZ( 30, ($size % $N) * $w);                              # Place new element last in new second block
-        ($size+1)->dIntoZ( 31, 0, $transfer);                                   # Save new size in first block
+        ($size+1)->dIntoZ( 31, 0);                                              # Save new size in first block
         $arena   ->putZmmBlock($S, 30);                                         # Put the second block back into memory
         $arena   ->putZmmBlock($F, 31);                                         # Put the first  block back into memory
         PopR;
@@ -6796,7 +6784,7 @@ sub Nasm::X86::Array::pop($)                                                    
         Mov rax, -2;                                                            # Load expansion mask
         Kmovq k7, rax;                                                          # Set  expansion mask
         Vpexpandd "zmm31{k7}{z}", zmm30;                                        # Expand second block into first block
-        ($size-1)->dIntoZ(31, 0, $transfer);                                    # Save new size in first block
+        ($size-1)->dIntoZ(31, 0);                                               # Save new size in first block
         $arena-> putZmmBlock($F, 31);                                           # Save the first block
         $arena->freeZmmBlock($S);                                               # Free the now redundant second block
         PopR;
@@ -6811,8 +6799,8 @@ sub Nasm::X86::Array::pop($)                                                    
           my $S = dFromZ 31, ($size / $N + 1) * $w;                             # Address secondary block from first block
           $arena    ->getZmmBlock($S, 30);                                      # Load secondary block
           $E->dFromZ(30, 0);                                                    # Get first element from secondary block
-          V(zero, 0)->dIntoZ(31, ($size / $N + 1) * $w, $transfer);             # Zero at offset of secondary block in first block
-          ($size-1)->dIntoZ(31, 0, $transfer);                                  # Save new size in first block
+          V(zero, 0)->dIntoZ(31, ($size / $N + 1) * $w);                        # Zero at offset of secondary block in first block
+          ($size-1)->dIntoZ(31, 0);                                             # Save new size in first block
           $arena->freeZmmBlock($S);                                             # Free the secondary block
           $arena->putZmmBlock ($F, 31);                                         # Put the first  block back into memory
           PopR;
@@ -6824,7 +6812,7 @@ sub Nasm::X86::Array::pop($)                                                    
           my $S = dFromZ 31, (($size-1) / $N + 1) * $w;                         # Offset of secondary block in first block
           $arena   ->getZmmBlock($S, 30);                                       # Get the secondary block
           $E       ->dFromZ(30, (($size - 1)  % $N) * $w);                      # Get element from secondary block
-          ($size-1)->dIntoZ(31, 0, $transfer);                                  # Save new size in first block
+          ($size-1)->dIntoZ(31, 0);                                             # Save new size in first block
           $arena   ->putZmmBlock($S, 30);                                       # Put the secondary block back into memory
           $arena   ->putZmmBlock($F, 31);                                       # Put the first  block back into memory
           PopR;
@@ -6956,7 +6944,7 @@ sub Nasm::X86::Array::put($$$)                                                  
     Then                                                                        # Index is in array
      {If $size <= $n,
        Then                                                                     # Element is in the first block
-       {$E->dIntoZ(31, ($I + 1) * $w, $transfer);                               # Put element
+       {$E->dIntoZ(31, ($I + 1) * $w);                                          # Put element
         $arena->putZmmBlock($F, 31);                                            # Get the first block
         Jmp $success;                                                           # Element successfully inserted in first block
        };
@@ -6965,7 +6953,7 @@ sub Nasm::X86::Array::put($$$)                                                  
       Then                                                                      # Still within two levels
        {my $S = dFromZ 31, ($I / $N + 1) * $w;                                  # Offset of second block in first block
         $arena->getZmmBlock($S, 31);                                            # Get the second block
-        $E->dIntoZ(31, ($I % $N) * $w, $transfer);                              # Put the element into the second block in first block
+        $E->dIntoZ(31, ($I % $N) * $w);                                         # Put the element into the second block in first block
         $arena->putZmmBlock($S, 31);                                            # Get the first block
         Jmp $success;                                                           # Element successfully inserted in second block
        };
@@ -7598,242 +7586,242 @@ sub Nasm::X86::Tree::findShortString($$)                                        
   $t                                                                            # Return the cloned tree descriptor as it shows the data and the find status
  } # findShortString
 
-sub Nasm::X86::Tree::size($)                                                    # Return a variable containing the number of keys in the specified tree.
- {my ($tree) = @_;                                                              # Tree descriptor
-  @_ == 1 or confess "One parameter";
-
-  my $s = Subroutine2
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-
-    PushR ((my $transfer = r8), (my $work = r9));
-
-    my $t      = $$s{tree};                                                     # Tree
-    my $arena  = $t->arena;                                                     # Arena
-
-    $t->getKeysData($t->first, 31, 30, $transfer, $work);                       # Get the first block so we can update the key count
-    my $size = $t->getCountFromData(30, $transfer);                             # Get key count
-    $$p{size}->copy($size);                                                     # Set result
-    PopR;
-   } structures =>{tree=>$tree},
-     parameters => [qw(size)],
-     name => "Nasm::X86::Tree::size";
-
-  $s->call(structures => {tree => $tree},
-           parameters => {size => my $size = V size => 0});
-
-  $size;
- } # size
-
-sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     # Insert either a key, data pair into the tree or create a sub tree at the specified key (if it does not already exist) and return the offset of the first block of the sub tree in the data variable.
- {my ($tree, $tnd, $key, $data) = @_;                                           # Tree descriptor, 0 - data or 1 - tree, key as a dword, data as a dword
-  @_ >= 2 or confess;
-  my $W = RegisterSize zmm0;                                                    # The size of a block
-
-  my $s = Subroutine2
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
-
-    my $t = $$s{tree};                                                          # Tree
-    my $F = $t->first;                                                          # First keys block
-    my $K = $$p{key};                                                           # Key  to be inserted
-    my $D = $$p{data};                                                          # Data to be inserted
-    my $arena = $t->arena;                                                      # Describe arena for tree
-
-    PushMask 4..7;
-    PushR r8, r9, r13, r14, r15;
-    PushZmm 22..31;
-    my $transfer =  r8;                                                         # Use this register to transfer data between zmm blocks and variables
-    my $work     =  r9;                                                         # Work register
-    my $point    = r13;                                                         # Insertion indicator
-
-    $t->getBlock($F, 31, 30, 29, $transfer, $work);                             # Get the first block
-
-    my $l = $t->lengthFromKeys(31);                                             # Length of the block
-    If $l == 0,                                                                 # Check for empty tree.
-    Then                                                                        # Empty tree
-     {$K->dIntoZ    (31, 0, $transfer);                                         # Write key
-      $t->lengthIntoKeys(31, K(one, 1));                                        # Set the length of the block
-      if ($tnd)                                                                 # Create and mark key as addressing a sub tree
-       {$D->copy($arena->CreateTree->first) if $tnd == 1;                       # Create sub tree. Later: check if there is a sub tree already in place and free it to liberate the space
-        Mov r15, 1;                                                             # Indicate first position
-        $t->setTree(r15,  31);                                                  # Mark this key as addressing a sub tree from the existing tree
-       }
-      $D->dIntoZ    (30,  0, $transfer);                                        # Write data
-      $t->incCountInData (30,     $transfer);                                   # Update count
-      $t->putKeysData($F, 31, 30, $transfer, $work);                            # Write the data block back into the underlying arena
-      Jmp $success;                                                             # Insert completed successfully
-     };
-
-    my $n = $t->getLoop(30, $transfer);                                         # Get the offset of the node block
-    If $n == 0,
-    Then                                                                        # Node is root with no children and space for more keys
-     {If $l < $t->maxKeys,
-      Then                                                                      # Node is root with no children and space for more keys
-       {$l->setMaskFirst(k7);                                                   # Set the compare bits
-        $K->setReg(r15);                                                        # Key to search for
-        Vpbroadcastd zmm22, r15d;                                               # Load key
-        Vpcmpud "k6{k7}", zmm22, zmm31, 0;                                      # Check for equal key
-        Ktestd k6, k6;                                                          # Check whether a matching key was found - the operation clears the zero flag if the register is not zero
-
-        IfNz                                                                    # Found the key so we just update the data field
-        Then
-         {if ($tnd)                                                             # Insert sub tree if requested
-           {Kmovq r15, k6;                                                      # Position of key just found
-            $t->isTree(r15, 31);                                                # Set the zero flag to indicate whether the existing data element is in fact a tree
-            IfNz                                                                # If the data element is already a tree then get its value and return it in the data variable
-            Then
-             {Tzcnt r14, r15;                                                   # Trailing zeros
-              $D->copy(dFromZ 30, "r14*$$t{width}");                            # Data associated with the key
-              Jmp $success;                                                     # Return offset of sub tree
-             },
-            Else                                                                # The existing element is not a tree so we mark it as such using the single bit in r15/k6
-             {$t->setTree(r15, 31);
-             };
-            $D->copy($t->arena->CreateTree->first) if $tnd == 1;                # Create tree and copy offset of first  block
-           }
-          $D->setReg(r14);                                                      # Key to search for
-          Vpbroadcastd "zmm30{k6}", r14d;                                       # Load data
-          $t->putKeysData($F, 31, 30, $transfer, $work);                        # Write the data block back into the underlying arena
-          Jmp $success;                                                         # Insert completed successfully
-         };
-
-        Vpcmpud "k6{k7}", zmm22, zmm31, 1;                                      # Check for elements that are greater than an existing element
-        Ktestw   k6, k6;
-        IfEq
-        Then                                                                    # K6 zero implies the latest key goes at the end
-         {Kshiftlw k6, k7, 1;                                                   # Reach next empty field
-          Kandnw   k6, k7, k6;                                                  # Remove back fill to leave a single bit at the next empty field
-         },
-        Else
-         {Kandw    k5, k6, k7;                                                  # Tested at: # Insert key for Tree but we could simplify by using a mask for the valid area
-          Kandnw   k4, k5, k7;
-          Kshiftlw k5, k5, 1;
-          Korw     k5, k4, k5;                                                  # Broadcast mask
-          Kandnw   k6, k5, k7;                                                  # Expand mask
-          Vpexpandd  "zmm31{k5}", zmm31;                                        # Shift up keys
-          Vpexpandd  "zmm30{k5}", zmm30;                                        # Shift up data
-         };
-
-        Vpbroadcastd "zmm31{k6}", r15d;                                         # Load key
-
-        if ($tnd)                                                               # Insert new sub tree
-         {$D->copy($t->arena->CreateTree->first) if $tnd == 1;                  # Create tree and copy offset of first block
-         }
-        if (1)                                                                  # Expand tree bits to match
-         {Kmovq $point, k6;                                                     # Position of key just found
-          $t->expandTreeBitsWithZeroOrOne($tnd, 31, $point);                    # Mark new entry as a sub tree
-         }
-
-        $D->setReg(r14);                                                        # Corresponding data
-        Vpbroadcastd "zmm30{k6}", r14d;                                         # Load data
-        $t->lengthIntoKeys( 31, $l + 1);                                        # Set the length of the block
-        $t->incCountInData ( 30, $transfer);                                    # Update count
-
-        If $l + 1 == $t->maxKeys,
-        Then                                                                    # Root is now full: allocate the node block for it and chain it in
-         {my $n = $t->arena->allocZmmBlock;                                     # Children
-          $t->putLoop($n, 30, $transfer);                                       # Set the link from data to node
-          $t->putLoop($F, 29, $transfer);                                       # Set the link from node to key
-         };
-
-        $t->putKeysDataNode($F, 31, 30, 29, $transfer, $work);                  # Write the data block back into the underlying arena
-        $t->splitNode($F, $K);                                                  # Split if the leaf has got too big
-        Jmp $success;                                                           # Insert completed successfully
-       };
-     };
-
-    $t->findAndSplit($K);                                                       # Find block that contains the specified key
-    $t->getBlock($t->offset, 31, 30, 29, $transfer, $work);
-    Mov $point, 0;
-    $t->index->setBit($point);                                                  # Set point at the index
-
-    If $t->compare == 0,                                                        # Duplicate key
-    Then                                                                        # Found an equal key so update the data
-     {$D->dIntoZ(30, $t->index * $t->width, $transfer);                         # Update data at key
-      $t->putKeysDataNode($t->offset, 31, 30, 29, $transfer, $work);            # Rewrite data and keys
-      $t->setOrClearTree($tnd, $point, 31);                                     # Set or clear tree bit as necessary
-      Jmp $success;
-     };
-
-#    If $t->compare > 0,                                                        # We have room for the insert because each block has been split to make it non full
-#    Then                                                                       # Position at which to insert new key if it is greater than the indexed key
-     {$t->index->copy($t->index + 1);
-      Shl $point, 1;                                                            # Move point up as well
-     };
-
-    my $length = $t->lengthFromKeys(31);                                        # Number of keys
-    If $t->index < $length,
-    Then                                                                        # Need to expand as we cannot push
-     {$length->setMaskFirst(k7);                                                # Length as bits
-      Kshiftlw k6, k7, 1;                                                       # Length plus one as bits with a  trailing zero
-      Korw     k6, k6, k7;                                                      # Length plus one as bits with no trailing zero
-      $t->index->clearMaskBit(k6);                                              # Zero at the index
-      Vpexpandd    "zmm31{k6}", zmm31;                                          # Shift up keys
-      Vpexpandd    "zmm30{k6}", zmm30;                                          # Shift up data
-     };
-
-    $t->expandTreeBitsWithZeroOrOne($tnd, 31, $point);                          # Mark inserted key as referring to a tree or not
-
-    $D->copy($t->arena->CreateTree->first) if $tnd == 1;                        # Create tree and place its offset into data field
-
-    ClearRegisters k7;
-    $t->index->setMaskBit(k7);                                                  # Set bit at insertion point
-    $K->setReg(r15);                                                            # Corresponding data
-
-    Vpbroadcastd "zmm31{k7}", r15d;                                             # Load key
-    $D->setReg(r14);                                                            # Corresponding data
-    Vpbroadcastd "zmm30{k7}", r14d;                                             # Load data
-    $t->lengthIntoKeys(31, $length + 1);                                        # Set the new length of the block
-    $t->putKeysDataNode($t->offset, 31, 30, 29, $transfer, $work);              # Rewrite data and keys
-    $t->splitNode($t->offset, $K);                                              # Split if the leaf has got too big
-
-#    $t->getKeysData($F, 31, 30, $transfer, $work);                             # Get the first block so we can update the key count
-#    $t->incCountInData (    30, $transfer);                                    # Update key count
-#    $t->putKeysData($F, 31, 30, $transfer, $work);                             # Write the first block with the updated key count
-
-    SetLabel $success;                                                          # Insert completed successfully
-    PopZmm;
-    PopR;
-    PopMask;
-   } structures=>{tree => $tree},
-     parameters=>[qw(key data)],
-     name => "Nasm::X86::Tree::insertDataOrTree_$tnd";                          # Data either supplies the data or returns the offset of the sub tree
-
-  $s->call(structures=>{tree=>$tree},
-           parameters=>{key => $key, data => $tnd == 1 ? $tree->data : $data});
- } # insert
-
-sub Nasm::X86::Tree::insert($$$)                                                # Insert a dword into into the specified tree at the specified key.
- {my ($t, $key, $data) = @_;                                                    # Tree descriptor, key as a dword, data as a dword
-  @_ == 3 or confess "Three parameters";
-  $t->insertDataOrTree(0, $key, $data);                                         # Insert data
- }
-
-sub Nasm::X86::Tree::insertTree($$;$)                                           # Insert a sub tree into the specified tree tree under the specified key. If no sub tree is supplied an empty one is provided gratis.
- {my ($t, $key, $subTree) = @_;                                                 # Tree descriptor, key as a dword, sub tree to insert else an empty one will be added
-  @_ == 2 or @_ == 3 or confess "Two or three parameters";
-  if (my $r = ref($subTree))
-   {if ($r =~ m(Tree))
-     {$t->insertDataOrTree(2, $key, $subTree->first);                           # Insert a sub tree from a tree descriptor
-     }
-    elsif ($r =~ m(Variable))
-     {$t->insertDataOrTree(2, $key, $subTree);                                  # Insert a sub tree from a variable containing an offset to the first node of the tree
-     }
-    else
-     {confess "Reference to a variable or a tree required";
-     }
-   }
-  else                                                                          # Create a sub tree
-   {$t->insertDataOrTree(1, $key);                                              # Request a sub tree be created if one has not been supplied
-   }
- }
-
-sub Nasm::X86::Tree::insertTreeAndReload($$)                                    # Insert a new sub tree into the specified tree tree under the specified key and return a descriptor for it.  If the tree already exists, return a descriptor for it.
- {my ($t, $key) = @_;                                                           # Tree descriptor, key as a dword
-  @_ == 2 or confess "Two parameters";
-  $t->insertTree($key);
-  $t->first->copy($t->data);                                                    # Copy the data variable to the first variable without checking whether it is valid
- }
+#sub Nasm::X86::Tree::size($)                                                    # Return a variable containing the number of keys in the specified tree.
+# {my ($tree) = @_;                                                              # Tree descriptor
+#  @_ == 1 or confess "One parameter";
+#
+#  my $s = Subroutine2
+#   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+#
+#    PushR ((my $transfer = r8), (my $work = r9));
+#
+#    my $t      = $$s{tree};                                                     # Tree
+#    my $arena  = $t->arena;                                                     # Arena
+#
+#    $t->getKeysData($t->first, 31, 30, $transfer, $work);                       # Get the first block so we can update the key count
+#    my $size = $t->getCountFromData(30, $transfer);                             # Get key count
+#    $$p{size}->copy($size);                                                     # Set result
+#    PopR;
+#   } structures =>{tree=>$tree},
+#     parameters => [qw(size)],
+#     name => "Nasm::X86::Tree::size";
+#
+#  $s->call(structures => {tree => $tree},
+#           parameters => {size => my $size = V size => 0});
+#
+#  $size;
+# } # size
+#
+#sub Nasm::X86::Tree::insertDataOrTree($$$$)                                     # Insert either a key, data pair into the tree or create a sub tree at the specified key (if it does not already exist) and return the offset of the first block of the sub tree in the data variable.
+# {my ($tree, $tnd, $key, $data) = @_;                                           # Tree descriptor, 0 - data or 1 - tree, key as a dword, data as a dword
+#  @_ >= 2 or confess;
+#  my $W = RegisterSize zmm0;                                                    # The size of a block
+#
+#  my $s = Subroutine2
+#   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+#    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+#
+#    my $t = $$s{tree};                                                          # Tree
+#    my $F = $t->first;                                                          # First keys block
+#    my $K = $$p{key};                                                           # Key  to be inserted
+#    my $D = $$p{data};                                                          # Data to be inserted
+#    my $arena = $t->arena;                                                      # Describe arena for tree
+#
+#    PushMask 4..7;
+#    PushR r8, r9, r13, r14, r15;
+#    PushZmm 22..31;
+#    my $transfer =  r8;                                                         # Use this register to transfer data between zmm blocks and variables
+#    my $work     =  r9;                                                         # Work register
+#    my $point    = r13;                                                         # Insertion indicator
+#
+#    $t->getBlock($F, 31, 30, 29, $transfer, $work);                             # Get the first block
+#
+#    my $l = $t->lengthFromKeys(31);                                             # Length of the block
+#    If $l == 0,                                                                 # Check for empty tree.
+#    Then                                                                        # Empty tree
+#     {$K->dIntoZ    (31, 0, $transfer);                                         # Write key
+#      $t->lengthIntoKeys(31, K(one, 1));                                        # Set the length of the block
+#      if ($tnd)                                                                 # Create and mark key as addressing a sub tree
+#       {$D->copy($arena->CreateTree->first) if $tnd == 1;                       # Create sub tree. Later: check if there is a sub tree already in place and free it to liberate the space
+#        Mov r15, 1;                                                             # Indicate first position
+#        $t->setTree(r15,  31);                                                  # Mark this key as addressing a sub tree from the existing tree
+#       }
+#      $D->dIntoZ    (30,  0, $transfer);                                        # Write data
+#      $t->incCountInData (30,     $transfer);                                   # Update count
+#      $t->putKeysData($F, 31, 30, $transfer, $work);                            # Write the data block back into the underlying arena
+#      Jmp $success;                                                             # Insert completed successfully
+#     };
+#
+#    my $n = $t->getLoop(30, $transfer);                                         # Get the offset of the node block
+#    If $n == 0,
+#    Then                                                                        # Node is root with no children and space for more keys
+#     {If $l < $t->maxKeys,
+#      Then                                                                      # Node is root with no children and space for more keys
+#       {$l->setMaskFirst(k7);                                                   # Set the compare bits
+#        $K->setReg(r15);                                                        # Key to search for
+#        Vpbroadcastd zmm22, r15d;                                               # Load key
+#        Vpcmpud "k6{k7}", zmm22, zmm31, 0;                                      # Check for equal key
+#        Ktestd k6, k6;                                                          # Check whether a matching key was found - the operation clears the zero flag if the register is not zero
+#
+#        IfNz                                                                    # Found the key so we just update the data field
+#        Then
+#         {if ($tnd)                                                             # Insert sub tree if requested
+#           {Kmovq r15, k6;                                                      # Position of key just found
+#            $t->isTree(r15, 31);                                                # Set the zero flag to indicate whether the existing data element is in fact a tree
+#            IfNz                                                                # If the data element is already a tree then get its value and return it in the data variable
+#            Then
+#             {Tzcnt r14, r15;                                                   # Trailing zeros
+#              $D->copy(dFromZ 30, "r14*$$t{width}");                            # Data associated with the key
+#              Jmp $success;                                                     # Return offset of sub tree
+#             },
+#            Else                                                                # The existing element is not a tree so we mark it as such using the single bit in r15/k6
+#             {$t->setTree(r15, 31);
+#             };
+#            $D->copy($t->arena->CreateTree->first) if $tnd == 1;                # Create tree and copy offset of first  block
+#           }
+#          $D->setReg(r14);                                                      # Key to search for
+#          Vpbroadcastd "zmm30{k6}", r14d;                                       # Load data
+#          $t->putKeysData($F, 31, 30, $transfer, $work);                        # Write the data block back into the underlying arena
+#          Jmp $success;                                                         # Insert completed successfully
+#         };
+#
+#        Vpcmpud "k6{k7}", zmm22, zmm31, 1;                                      # Check for elements that are greater than an existing element
+#        Ktestw   k6, k6;
+#        IfEq
+#        Then                                                                    # K6 zero implies the latest key goes at the end
+#         {Kshiftlw k6, k7, 1;                                                   # Reach next empty field
+#          Kandnw   k6, k7, k6;                                                  # Remove back fill to leave a single bit at the next empty field
+#         },
+#        Else
+#         {Kandw    k5, k6, k7;                                                  # Tested at: # Insert key for Tree but we could simplify by using a mask for the valid area
+#          Kandnw   k4, k5, k7;
+#          Kshiftlw k5, k5, 1;
+#          Korw     k5, k4, k5;                                                  # Broadcast mask
+#          Kandnw   k6, k5, k7;                                                  # Expand mask
+#          Vpexpandd  "zmm31{k5}", zmm31;                                        # Shift up keys
+#          Vpexpandd  "zmm30{k5}", zmm30;                                        # Shift up data
+#         };
+#
+#        Vpbroadcastd "zmm31{k6}", r15d;                                         # Load key
+#
+#        if ($tnd)                                                               # Insert new sub tree
+#         {$D->copy($t->arena->CreateTree->first) if $tnd == 1;                  # Create tree and copy offset of first block
+#         }
+#        if (1)                                                                  # Expand tree bits to match
+#         {Kmovq $point, k6;                                                     # Position of key just found
+#          $t->expandTreeBitsWithZeroOrOne($tnd, 31, $point);                    # Mark new entry as a sub tree
+#         }
+#
+#        $D->setReg(r14);                                                        # Corresponding data
+#        Vpbroadcastd "zmm30{k6}", r14d;                                         # Load data
+#        $t->lengthIntoKeys( 31, $l + 1);                                        # Set the length of the block
+#        $t->incCountInData ( 30, $transfer);                                    # Update count
+#
+#        If $l + 1 == $t->maxKeys,
+#        Then                                                                    # Root is now full: allocate the node block for it and chain it in
+#         {my $n = $t->arena->allocZmmBlock;                                     # Children
+#          $t->putLoop($n, 30, $transfer);                                       # Set the link from data to node
+#          $t->putLoop($F, 29, $transfer);                                       # Set the link from node to key
+#         };
+#
+#        $t->putKeysDataNode($F, 31, 30, 29, $transfer, $work);                  # Write the data block back into the underlying arena
+#        $t->splitNode($F, $K);                                                  # Split if the leaf has got too big
+#        Jmp $success;                                                           # Insert completed successfully
+#       };
+#     };
+#
+#    $t->findAndSplit($K);                                                       # Find block that contains the specified key
+#    $t->getBlock($t->offset, 31, 30, 29, $transfer, $work);
+#    Mov $point, 0;
+#    $t->index->setBit($point);                                                  # Set point at the index
+#
+#    If $t->compare == 0,                                                        # Duplicate key
+#    Then                                                                        # Found an equal key so update the data
+#     {$D->dIntoZ(30, $t->index * $t->width, $transfer);                         # Update data at key
+#      $t->putKeysDataNode($t->offset, 31, 30, 29, $transfer, $work);            # Rewrite data and keys
+#      $t->setOrClearTree($tnd, $point, 31);                                     # Set or clear tree bit as necessary
+#      Jmp $success;
+#     };
+#
+##    If $t->compare > 0,                                                        # We have room for the insert because each block has been split to make it non full
+##    Then                                                                       # Position at which to insert new key if it is greater than the indexed key
+#     {$t->index->copy($t->index + 1);
+#      Shl $point, 1;                                                            # Move point up as well
+#     };
+#
+#    my $length = $t->lengthFromKeys(31);                                        # Number of keys
+#    If $t->index < $length,
+#    Then                                                                        # Need to expand as we cannot push
+#     {$length->setMaskFirst(k7);                                                # Length as bits
+#      Kshiftlw k6, k7, 1;                                                       # Length plus one as bits with a  trailing zero
+#      Korw     k6, k6, k7;                                                      # Length plus one as bits with no trailing zero
+#      $t->index->clearMaskBit(k6);                                              # Zero at the index
+#      Vpexpandd    "zmm31{k6}", zmm31;                                          # Shift up keys
+#      Vpexpandd    "zmm30{k6}", zmm30;                                          # Shift up data
+#     };
+#
+#    $t->expandTreeBitsWithZeroOrOne($tnd, 31, $point);                          # Mark inserted key as referring to a tree or not
+#
+#    $D->copy($t->arena->CreateTree->first) if $tnd == 1;                        # Create tree and place its offset into data field
+#
+#    ClearRegisters k7;
+#    $t->index->setMaskBit(k7);                                                  # Set bit at insertion point
+#    $K->setReg(r15);                                                            # Corresponding data
+#
+#    Vpbroadcastd "zmm31{k7}", r15d;                                             # Load key
+#    $D->setReg(r14);                                                            # Corresponding data
+#    Vpbroadcastd "zmm30{k7}", r14d;                                             # Load data
+#    $t->lengthIntoKeys(31, $length + 1);                                        # Set the new length of the block
+#    $t->putKeysDataNode($t->offset, 31, 30, 29, $transfer, $work);              # Rewrite data and keys
+#    $t->splitNode($t->offset, $K);                                              # Split if the leaf has got too big
+#
+##    $t->getKeysData($F, 31, 30, $transfer, $work);                             # Get the first block so we can update the key count
+##    $t->incCountInData (    30, $transfer);                                    # Update key count
+##    $t->putKeysData($F, 31, 30, $transfer, $work);                             # Write the first block with the updated key count
+#
+#    SetLabel $success;                                                          # Insert completed successfully
+#    PopZmm;
+#    PopR;
+#    PopMask;
+#   } structures=>{tree => $tree},
+#     parameters=>[qw(key data)],
+#     name => "Nasm::X86::Tree::insertDataOrTree_$tnd";                          # Data either supplies the data or returns the offset of the sub tree
+#
+#  $s->call(structures=>{tree=>$tree},
+#           parameters=>{key => $key, data => $tnd == 1 ? $tree->data : $data});
+# } # insert
+#
+#sub Nasm::X86::Tree::insert($$$)                                                # Insert a dword into into the specified tree at the specified key.
+# {my ($t, $key, $data) = @_;                                                    # Tree descriptor, key as a dword, data as a dword
+#  @_ == 3 or confess "Three parameters";
+#  $t->insertDataOrTree(0, $key, $data);                                         # Insert data
+# }
+#
+#sub Nasm::X86::Tree::insertTree($$;$)                                           # Insert a sub tree into the specified tree tree under the specified key. If no sub tree is supplied an empty one is provided gratis.
+# {my ($t, $key, $subTree) = @_;                                                 # Tree descriptor, key as a dword, sub tree to insert else an empty one will be added
+#  @_ == 2 or @_ == 3 or confess "Two or three parameters";
+#  if (my $r = ref($subTree))
+#   {if ($r =~ m(Tree))
+#     {$t->insertDataOrTree(2, $key, $subTree->first);                           # Insert a sub tree from a tree descriptor
+#     }
+#    elsif ($r =~ m(Variable))
+#     {$t->insertDataOrTree(2, $key, $subTree);                                  # Insert a sub tree from a variable containing an offset to the first node of the tree
+#     }
+#    else
+#     {confess "Reference to a variable or a tree required";
+#     }
+#   }
+#  else                                                                          # Create a sub tree
+#   {$t->insertDataOrTree(1, $key);                                              # Request a sub tree be created if one has not been supplied
+#   }
+# }
+#
+#sub Nasm::X86::Tree::insertTreeAndReload($$)                                    # Insert a new sub tree into the specified tree tree under the specified key and return a descriptor for it.  If the tree already exists, return a descriptor for it.
+# {my ($t, $key) = @_;                                                           # Tree descriptor, key as a dword
+#  @_ == 2 or confess "Two parameters";
+#  $t->insertTree($key);
+#  $t->first->copy($t->data);                                                    # Copy the data variable to the first variable without checking whether it is valid
+# }
 
 sub Nasm::X86::Tree::insertShortString($$$)                                     # Insert some data at the end of a chain of sub trees keyed by the contents of a short string.
  {my ($tree, $string, $data) = @_;                                              # Tree descriptor, short string, data as a dword
@@ -7877,18 +7865,6 @@ sub Nasm::X86::Tree::insertShortString($$$)                                     
      $t->first->copy($tree->first);
   $s->call(structures => {tree => $t}, parameters => {data => $data});          # Insert the data at the end of the short string key
  } # insertShortString
-#sub Nasm::X86::Tree::getUpFromData11($$$)                                       #P Get the up offset from the data block in the numbered zmm and return it as a variable.
-# {my ($t, $zmm, $transfer) = @_;                                                # Tree descriptor, zmm number, transfer register
-#  @_ == 3 or confess "3 parameters";
-#  dFromZ($zmm, $t->up, $transfer);                                         # The length field as a variable
-# }
-#
-#sub Nasm::X86::Tree::putUpIntoData11($$$;$)                                     #P Put the offset of the parent keys block expressed as a variable into the numbered zmm.
-# {my ($t, $offset, $zmm, $transfer) = @_;                                       # Tree descriptor, variable containing up offset, zmm number, optional transfer register
-#  @_ == 3 or @_ == 4 or confess "3 or 4 parameters";
-#  defined($offset) or confess;
-#  $offset->dIntoZ($zmm, $t->up, $transfer);                                # Save the up offset into the data block
-# }
 
 sub Nasm::X86::Tree::getCountFromData($$$)                                      #P Get the number of keys in the tree. The number of keys in the tree is stored in the up field of the data block associated with the root. If the lowest bit in this field is set then the field is an offset, if it is clear then it is a count.
  {my ($t, $zmm, $transfer) = @_;                                                # Tree descriptor, zmm number, transfer register
@@ -7957,24 +7933,24 @@ sub Nasm::X86::Tree::decCountInData($$$)                                        
   Vmovdqu64 "zmm$zmm", "[rsp-$w]";                                              # Reload zmm
  }
 
-sub Nasm::X86::Tree::getUpFromData($$$)                                         #P Get the decompressed up offset from the data block in the numbered zmm and return it as a variable.  The lowest 6 bits of an offset are always 0b011000. The up field becomes the count field for the root node which has no node above it.  To differentiate between up and count, the lowest bit of the up field is set for offsets, and cleared for the count of the number of nodes in the tree held in the root node. Thus if this dword is set to zero it means that this is the count field for an empty tree.
- {my ($t, $zmm, $transfer) = @_;                                                # Tree descriptor, zmm number, transfer register
-  @_ == 3 or confess "3 parameters";
+sub Nasm::X86::Tree::getUpFromData($$)                                          #P Get the decompressed up offset from the data block in the numbered zmm and return it as a variable.  The lowest 6 bits of an offset are always 0b011000. The up field becomes the count field for the root node which has no node above it.  To differentiate between up and count, the lowest bit of the up field is set for offsets, and cleared for the count of the number of nodes in the tree held in the root node. Thus if this dword is set to zero it means that this is the count field for an empty tree.
+ {my ($t, $zmm, $transfer) = @_;                                                # Tree descriptor, zmm number
+  @_ == 2 or confess "Two parameters";
   my $z = "zmm$zmm";
   my $w = RegisterSize $z;                                                      # Size of zmm register
   my $o = $t->up;                                                               # Offset into register in bytes
   Vmovdqu32 "[rsp-$w]", $z;                                                     # Write below the stack
-  Mov $transfer."d", "[rsp+$o-$w]";                                             # Load double word register from offset
-  Shr $transfer."d", 1;                                                         # Shift out the lowest bit which tells us whether this is an offset(1) or a count (0) and set the flags accordingly
+  Mov di, "[rsp+$o-$w]";                                                        # Load double word register from offset
+  Shr di, 1;                                                                    # Shift out the lowest bit which tells us whether this is an offset(1) or a count (0) and set the flags accordingly
   IfC
   Then                                                                          # Low bit set so it is an offset
-   {Shl $transfer, 6;                                                           # Divide the offset by 64 being the minimum size of a block
-    Add $transfer, 0x18;                                                        # Blocks are always offset by this amount which represents the header overhead for an arena. If anything other than 64 byte allocations have been made in the arena this formula becomes inaccurate.
+   {Shl rdi, 6;                                                                 # Divide the offset by 64 being the minimum size of a block
+    Add rdi, 0x18;                                                              # Blocks are always offset by this amount which represents the header overhead for an arena. If anything other than 64 byte allocations have been made in the arena this formula becomes inaccurate.
    },
   Else                                                                          # Low bit clear so it is a count in the root node and so the up offset is zero.
-   {ClearRegisters $transfer;
+   {ClearRegisters rdi;
    };
-  V(up, $transfer);
+  V(up, rdi);
  }
 
 #sub Nasm::X86::Tree::getUpFromDataNM($$$)                                       #P Get the compressed up offset//count from the data block in the numbered zmm and return it as a variable.
@@ -7988,18 +7964,18 @@ sub Nasm::X86::Tree::getUpFromData($$$)                                         
 #  V(up, $transfer);
 # }
 
-sub Nasm::X86::Tree::putUpIntoData($$$$)                                        #P Put the offset of the parent keys block expressed as a variable into the numbered zmm. Offsets always end in 0b01100 as long as only 64 byte allocations have been made in the arena. Offsets are indicated by setting the lowest bit in the dword containing the offset to 1.
- {my ($t, $offset, $zmm, $transfer) = @_;                                       # Tree descriptor, variable containing up offset, zmm number, transfer register
-  @_ == 4 or confess "4 parameters";
+sub Nasm::X86::Tree::putUpIntoData($$$)                                         #P Put the offset of the parent keys block expressed as a variable into the numbered zmm. Offsets always end in 0b01100 as long as only 64 byte allocations have been made in the arena. Offsets are indicated by setting the lowest bit in the dword containing the offset to 1.
+ {my ($t, $offset, $zmm) = @_;                                                  # Tree descriptor, variable containing up offset, zmm number
+  @_ == 3 or confess "Three parameters";
 
-  $offset->setReg($transfer);
-  Shr $transfer."d", 5;                                                         # The lowest 6 bits of an offset are always 0b011000 so we shift them off to save space but we need one bit to indicate whether this is an offset(1) or a count(0)
-  Or $transfer, 1;                                                              # Set highest lowest bit to show that it is an offset
+  $offset->setReg(rdi);
+  Shr di, 5;                                                                    # The lowest 6 bits of an offset are always 0b011000 so we shift them off to save space but we need one bit to indicate whether this is an offset(1) or a count(0)
+  Or rdi, 1;                                                                    # Set highest lowest bit to show that it is an offset
   my $z = "zmm$zmm";
   my $w = RegisterSize $z;                                                      # Size of zmm register
   my $o = $t->up;                                                               # Offset into zmm register in bytes of count/up field
   Vmovdqu64 "[rsp-$w]", $z;                                                     # Write zmm below the stack
-  Mov "[rsp+$o-$w]", $transfer."d";                                             # Save offset
+  Mov "[rsp+$o-$w]", rdi."d";                                                   # Save offset
   Vmovdqu64 $z, "[rsp-$w]";                                                     # Reload zmm
  }
 
@@ -26090,52 +26066,6 @@ if (1) {                                                                        
     k7: 0000 0000 0000 007F
     k5: 0000 0000 0000 00F7
     k6: 0000 0000 0000 0008
-END
- }
-
-#latest:
-if (1) {                                                                        #TLoadConstantIntoMaskRegister #TPopEax #IfZ
-  Mov r14, 0;
-  Kmovq k0, r14;
-  Ktestq k0, k0;
-  IfZ Then {PrintOutStringNL "0 & 0 == 0"};
-  PrintOutZF;
-
-  LoadConstantIntoMaskRegister 1, 1;
-  Ktestq k1, k1;
-  IfNz Then {PrintOutStringNL "1 & 1 != 0"};
-  PrintOutZF;
-
-  LoadConstantIntoMaskRegister 2, eval "0b".(('1'x4).('0'x4))x2;
-
-  PrintOutRegisterInHex 0, 1, 2;
-
-  Mov  r15, 0x89abcdef;
-  Mov  r14, 0x01234567;
-  Shl  r14, 32;
-  Or r15, r14;
-  Push r15;
-  Push r15;
-  PopEax;  PrintRaxInHex($stdout, 3); PrintOutNL;
-
-  my $a = V('aaaa');
-  $a->pop;
-  $a->push;
-  $a->outNL;
-
-  PopEax;  PrintRaxInHex($stdout, 3); PrintOutNL;
-
-  ok Assemble(debug => 0, eq => <<END);
-0 & 0 == 0
-ZF=1
-1 & 1 != 0
-ZF=0
-    k0: 0000 0000 0000 0000
-    k1: 0000 0000 0000 0001
-    k2: 0000 0000 0000 F0F0
-89AB CDEF
-aaaa: 89AB CDEF 0123 4567
-0123 4567
 END
  }
 
