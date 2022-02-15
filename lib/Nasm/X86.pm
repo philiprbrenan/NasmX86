@@ -7680,9 +7680,9 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
     parameters => {newLeft => $nLeft, newRight => $nRight});
  }
 
-sub Nasm::X86::Tree::put($$$$)                                                  # Put a variable key and data into a tree.
- {my ($tree, $key, $data, $subTree) = @_;                                       # Tree definition, key as a variable, data as a variable, the data represents the offset of a sub tree if true.
-  @_ == 4 or confess "Four parameters";
+sub Nasm::X86::Tree::put($$$)                                                   # Put a variable key and data into a tree. The data could be a tree descriptor to place a sub tree into a tree at the indicated key.
+ {my ($tree, $key, $data) = @_;                                                 # Tree definition, key as a variable, data as a variable or a tree descriptor
+  @_ == 3 or confess "Three parameters";
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -7757,7 +7757,8 @@ sub Nasm::X86::Tree::put($$$$)                                                  
      parameters => [qw(key data subTree)];
 
   $s->call(structures => {tree => $tree},
-           parameters => {key  => $key, data=>$data, subTree=>$subTree});
+           parameters => {key  => $key, data=>$data,
+            subTree => V(subTree => ref($data) =~ m(Tree) ? 1 : 0)});
  }
 
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and test whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor.
@@ -12054,7 +12055,7 @@ END
  }
 
 #latest:;
-if (0) {                                                                        #TNasm::X86::Variable::setMask
+if (1) {                                                                        #TNasm::X86::Variable::setMask
   my $z = V('zero', 0);
   my $o = V('one',  1);
   my $t = V('two',  2);
@@ -14856,7 +14857,6 @@ Overwritten
 END
  }
 
-
 #latest:
 if (1) {
   my $a = CreateArena;
@@ -14865,15 +14865,15 @@ if (1) {
   $a->dump("0000", K depth => 6);
   $t->dump("0000");
 
-  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
+  $t->put(K(key=>1), K(data=>0x11));
   $a->dump("1111", K depth => 6);
   $t->dump("1111");
 
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
+  $t->put(K(key=>2), K(data=>0x22));
   $a->dump("2222", K depth => 6);
   $t->dump("2222");
 
-  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
+  $t->put(K(key=>3), K(data=>0x33));
   $a->dump("3333", K depth => 6);
   $t->dump("3333");
 
@@ -14972,10 +14972,10 @@ if (1) {                                                                        
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
-  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
-  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
   $a->dump("4444", K depth => 11);
   $t->dump("4444");
 
@@ -15018,11 +15018,11 @@ if (1) {                                                                        
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
-  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
-  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
-  $t->put(K(key=>5), K(data=>0x55), K(false=>0));
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>5), K(data=>0x55));
   $a->dump("5555",   K depth => 11);
 
   ok Assemble eq => <<END;
@@ -15047,11 +15047,11 @@ if (1) {                                                                        
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
-  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
-  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
-  $t->put(K(key=>5), K(data=>0x55), K(false=>0));
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>5), K(data=>0x55));
   $t->splitNode(K split => 0x140);
   $a->dump("6666",   K depth => 14);
 
@@ -15080,12 +15080,12 @@ if (1) {                                                                        
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
-  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
-  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
-  $t->put(K(key=>5), K(data=>0x55), K(false=>0));
-  $t->put(K(key=>6), K(data=>0x66), K(false=>0));
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>5), K(data=>0x55));
+  $t->put(K(key=>6), K(data=>0x66));
   $a->dump("6666",   K depth => 14);
 
   ok Assemble eq => <<END;
@@ -15113,13 +15113,13 @@ if (1) {                                                                        
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
-  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
-  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
-  $t->put(K(key=>5), K(data=>0x55), K(false=>0));
-  $t->put(K(key=>6), K(data=>0x66), K(false=>0));
-  $t->put(K(key=>7), K(data=>0x77), K(false=>0));
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>5), K(data=>0x55));
+  $t->put(K(key=>6), K(data=>0x66));
+  $t->put(K(key=>7), K(data=>0x77));
   $a->dump("7777",   K depth => 14);
 
   ok Assemble eq => <<END;
@@ -15147,14 +15147,14 @@ if (1) {                                                                        
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
-  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
-  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
-  $t->put(K(key=>5), K(data=>0x55), K(false=>0));
-  $t->put(K(key=>6), K(data=>0x66), K(false=>0));
-  $t->put(K(key=>7), K(data=>0x77), K(false=>0));
-  $t->put(K(key=>8), K(data=>0x88), K(false=>0));
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>5), K(data=>0x55));
+  $t->put(K(key=>6), K(data=>0x66));
+  $t->put(K(key=>7), K(data=>0x77));
+  $t->put(K(key=>8), K(data=>0x88));
   $t->dump("8888");
 
   ok Assemble eq => <<END;
@@ -15205,8 +15205,8 @@ if (1) {                                                                        
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>1), K(data=>0x11));
   $t->dump("2222");
 
   ok Assemble eq => <<END;
@@ -15224,14 +15224,14 @@ if (1) {                                                                        
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
-  $t->put(K(key=>8), K(data=>0x88), K(false=>0));
-  $t->put(K(key=>7), K(data=>0x77), K(false=>0));
-  $t->put(K(key=>6), K(data=>0x66), K(false=>0));
-  $t->put(K(key=>5), K(data=>0x55), K(false=>0));
-  $t->put(K(key=>4), K(data=>0x44), K(false=>0));
-  $t->put(K(key=>3), K(data=>0x33), K(false=>0));
-  $t->put(K(key=>2), K(data=>0x22), K(false=>0));
-  $t->put(K(key=>1), K(data=>0x11), K(false=>0));
+  $t->put(K(key=>8), K(data=>0x88));
+  $t->put(K(key=>7), K(data=>0x77));
+  $t->put(K(key=>6), K(data=>0x66));
+  $t->put(K(key=>5), K(data=>0x55));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>1), K(data=>0x11));
   $t->dump("8888");
 
   ok Assemble eq => <<END;
@@ -15286,11 +15286,11 @@ if (1) {                                                                        
   $N->for(sub
    {my ($index, $start, $next, $end) = @_;
     my $l = $N-$index;
-    $t->put($l, $l * 2, K(false=>0));
+    $t->put($l, $l * 2);
     my $h = $N+$index;
-    $t->put($h, $h * 2, K(false=>0));
+    $t->put($h, $h * 2);
    });
-  $t->put(K(zero=>0), K(zero=>0), K(false=>0));
+  $t->put(K(zero=>0), K(zero=>0));
   $t->printInOrder("AAAA");
 
   PrintOutStringNL 'Indx   Found  Double   Found    Quad   Found    Octo   Found     *16   Found     *32   Found     *64   Found    *128   Found    *256   Found    *512';
@@ -15463,10 +15463,10 @@ if (1) {                                                                        
     my $l1 = ($N+$index) / 2;
     my $h0 =  $N-$index;
     my $h1 =  $N+$index;
-    $t->put($l0, $l0 * 2, K(false=>0));
-    $t->put($h1, $h1 * 2, K(false=>0));
-    $t->put($l1, $l1 * 2, K(false=>0));
-    $t->put($h0, $h0 * 2, K(false=>0));
+    $t->put($l0, $l0 * 2);
+    $t->put($h1, $h1 * 2);
+    $t->put($l1, $l1 * 2);
+    $t->put($h0, $h0 * 2);
    });
   $t->printInOrder("AAAA");
 
@@ -15492,14 +15492,14 @@ if (1) {                                                                        
     my $l11 = ($N+$index) / 4 * 3;
     my $h10 =  $N-$index ;
     my $h11 =  $N+$index ;
-    $t->put($l00, $l00 * 2, K(false=>0));
-    $t->put($h01, $h01 * 2, K(false=>0));
-    $t->put($l01, $l01 * 2, K(false=>0));
-    $t->put($h00, $h00 * 2, K(false=>0));
-    $t->put($l10, $l10 * 2, K(false=>0));
-    $t->put($h11, $h11 * 2, K(false=>0));
-    $t->put($l11, $l11 * 2, K(false=>0));
-    $t->put($h10, $h10 * 2, K(false=>0));
+    $t->put($l00, $l00 * 2);
+    $t->put($h01, $h01 * 2);
+    $t->put($l01, $l01 * 2);
+    $t->put($h00, $h00 * 2);
+    $t->put($l10, $l10 * 2);
+    $t->put($h11, $h11 * 2);
+    $t->put($l11, $l11 * 2);
+    $t->put($h10, $h10 * 2);
    });
   $t->printInOrder("AAAA");
 
