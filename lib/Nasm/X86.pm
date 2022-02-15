@@ -701,7 +701,7 @@ sub SetMaskRegister($$$)                                                        
  }
 
 sub LoadConstantIntoMaskRegister($$)                                            # Set a mask register equal to a constant.
- {my ($mask, $value) = @_;                                           # Number of mask register to load, transfer register, constant to load
+ {my ($mask, $value) = @_;                                                      # Number of mask register to load, constant to load
   @_ == 2 or confess "Two parameters";
   CheckMaskRegisterNumber $mask;
   $mask     = registerNameFromNumber $mask;
@@ -1138,7 +1138,7 @@ sub Nasm::X86::Sub::V($)                                                        
  }
 
 sub Nasm::X86::Sub::dispatch($)                                                 # Jump into the specified subroutine so that code of the target subroutine is executed instead of the code of the current subroutine allowing the target subroutine to be dispatched to process the parameter list of the current subroutine.  When the target subroutine returns it returns to the caller of the current sub, not to the current subroutine.
- {my ($sub) = @_;                                                               # Subroutine descriptor of target subroutine, transfer register
+ {my ($sub) = @_;                                                               # Subroutine descriptor of target subroutine
   @_ == 1 or confess "One parameter";
   $sub->V()->setReg(rdi);                                                       # Start of sub routine
   Add rdi, 4;                                                                   # Skip initial enter as to prevent a new stack from being created
@@ -2713,9 +2713,9 @@ if (1)                                                                          
    '='   => \&equals,
  }
 
-sub Nasm::X86::Variable::call($;$)                                              # Execute the call instruction for a target whose address is held in the specified variable.
- {my ($target) = @_;                                                            # Variable containing the address of the code to call, optional transfer register
-  $target->setReg(rdi);                                                         # Address of code to call to transfer register
+sub Nasm::X86::Variable::call($)                                                # Execute the call instruction for a target whose address is held in the specified variable.
+ {my ($target) = @_;                                                            # Variable containing the address of the code to call
+  $target->setReg(rdi);                                                         # Address of code to call
   Call rdi;                                                                     # Call referenced code
  }
 
@@ -3445,7 +3445,7 @@ sub wFromZ($$)                                                                  
  }
 
 sub dFromZ($$)                                                                  # Get the double word from the numbered zmm register and return it in a variable.
- {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes, optional transfer register
+ {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
   getBwdqFromMm('d', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
@@ -3456,21 +3456,25 @@ sub qFromZ($$)                                                                  
 
 sub Nasm::X86::Variable::bFromZ($$$)                                            # Get the byte from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $variable->copy(getBwdqFromMm 'b', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::wFromZ($$$)                                            # Get the word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $variable->copy(getBwdqFromMm 'w', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::dFromZ($$$)                                            # Get the double word from the numbered zmm register and put it in a variable.
- {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes, transfer register
+ {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $variable->copy(getBwdqFromMm 'd', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::qFromZ($$$)                                            # Get the quad word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   $variable->copy(getBwdqFromMm 'q', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
@@ -3551,7 +3555,7 @@ sub Nasm::X86::Variable::putWIntoZmm($$$)                                       
  }
 
 sub Nasm::X86::Variable::dIntoZ($$$)                                            # Place the value of the content variable at the double word in the numbered zmm register.
- {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes, optional transfer register
+ {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
   checkZmmRegister($zmm);
   $content->putBwdqIntoMm('d', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
