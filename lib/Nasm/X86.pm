@@ -3370,6 +3370,34 @@ sub Nasm::X86::Variable::loadZmm($$)                                            
   Vmovdqu8 "zmm$zmm", "[rdi]";
  }
 
+sub bRegFromZmm($$$)                                                            # Load the specified register from the byte at the specified offset located in the numbered zmm.
+ {my ($register, $zmm, $offset) = @_;                                           # Register to load, numbered zmm register to load from, constant offset in bytes
+  @_ == 3 or confess "Three parameters";
+  my $z = registerNameFromNumber $zmm;
+  $offset >= 0 && $offset <= RegisterSize zmm0 or
+    confess "Offset $offset Out of range";
+
+  PushRR $z;                                                                    # Push source register
+
+  my $b = byteRegister $register;                                               # Corresponding byte register
+
+  Mov $b, "[rsp+$offset]";                                                      # Load byte register from offset
+  Add rsp, RegisterSize $z;                                                     # Pop source register
+ }
+
+sub bRegIntoZmm($$$)                                                            # Put the byte content of the specified register into the byte in the numbered zmm at the specified offset in the zmm.
+ {my ($register,  $zmm, $offset) = @_;                                          # Register to load, numbered zmm register to load from, constant offset in bytes
+  @_ == 3 or confess "Three parameters";
+  $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
+
+  PushR "zmm$zmm";                                                              # Push source register
+
+  my $b = byteRegister $register;                                               # Corresponding byte register
+
+  Mov "[rsp+$offset]", $b;                                                      # Save byte at specified offset
+  PopR "zmm$zmm";                                                               # Reload zmm
+ }
+
 sub wRegFromZmm($$$)                                                            # Load the specified register from the word at the specified offset located in the numbered zmm.
  {my ($register, $zmm, $offset) = @_;                                           # Register to load, numbered zmm register to load from, constant offset in bytes
   @_ == 3 or confess "Three parameters";
@@ -3392,7 +3420,9 @@ sub wRegIntoZmm($$$)                                                            
 
   PushR "zmm$zmm";                                                              # Push source register
 
-  Mov "[rsp+$offset]", $register."w";                                           # Load word register from offset
+  my $w = byteRegister $register;                                               # Corresponding word register
+
+  Mov "[rsp+$offset]", $w;                                                      # Save word at specified offset
   PopR "zmm$zmm";                                                               # Reload zmm
  }
 
@@ -7224,12 +7254,12 @@ sub Nasm::X86::Tree::incLengthInKeys($$)                                        
   my $l = $t->lengthOffset;                                                     # Offset of length bits
   PushR r15;
   ClearRegisters r15;
-  wRegFromZmm r15, $K, $l;                                                      # Length
+  bRegFromZmm r15, $K, $l;                                                      # Length
   Cmp r15, $t->length;
   IfLt
   Then
    {Inc r15;
-    wRegIntoZmm r15, $K, $l;
+    bRegIntoZmm r15, $K, $l;
    },
   Else
    {PrintErrTraceBack "Cannot increment length of block beyond ".$t->length;
@@ -7243,16 +7273,17 @@ sub Nasm::X86::Tree::decLengthInKeys($$)                                        
   my $l = $t->lengthOffset;                                                     # Offset of length bits
   PushR r15;
   ClearRegisters r15;
-  wRegFromZmm r15, $K, $l;                                                      # Length
+  bRegFromZmm r15, $K, $l;                                                      # Length
   Cmp r15, 0;
   IfGt
   Then
    {Dec r15;
-    wRegIntoZmm r15, $K, $l;
+    bRegIntoZmm r15, $K, $l;
    },
   Else
    {PrintErrTraceBack "Cannot decrement length of block below 0";
    };
+
   PopR;
  }
 
@@ -15676,7 +15707,7 @@ sub Nasm::X86::Tree::stealFromRight($$)                                         
        (7, createBitNumberFromAlternatingPattern '0', $t->maxNodesZ-1, -1);
       Vpcompressd zmmM($RN, 7), zmm($RN);                                       # Compress right nodes one slot left
 
-      #$t->incLengthInKeys($LK);                                                 # Increment left hand length
+      $t->incLengthInKeys($LK);                                                 # Increment left hand length
       $t->decLengthInKeys($RK);                                                 # Decrement right hand
 
      };
@@ -15708,8 +15739,8 @@ sub Nasm::X86::Tree::stealFromLeft($$)                                          
 
     Block                                                                       # Check that it is possible to steal a key from the node on the left
      {my ($end, $start) = @_;                                                   # Code with labels supplied
-      If $ll != $t->lengthRight,  Then {Jmp $end};                              # Right not minimal
-      If $lr == $t->lengthLeft,   Then {Jmp $end};                              # Left minimal
+      If $lr != $t->lengthRight,  Then {Jmp $end};                              # Right not minimal
+      If $ll == $t->lengthLeft,   Then {Jmp $end};                              # Left minimal
 
       $$p{result}->copy(1);                                                     # Proceed with the steal
 
@@ -15743,10 +15774,10 @@ sub Nasm::X86::Tree::stealFromLeft($$)                                          
       $pir->dIntoPointInZ($RK, $pk);                                            # Parent key into right
       $pir->dIntoPointInZ($RD, $pd);                                            # Parent data into right
       $pir->dIntoPointInZ($RN, $ln);                                            # Left node into right
-      $t->insertIntoTreeBits($RK, $pir);                                        # Parent tree bit into right
+      $t->insertIntoTreeBits($RK, $pir, $pb);                                   # Parent tree bit into right
 
-      $t->incLengthInKeys($LK);                                                 # Increment left hand
-      $t->decLengthInKeys($RK);                                                 # Decrement right hand
+      $t->decLengthInKeys($LK);                                                 # Decrement left hand
+      $t->incLengthInKeys($RK);                                                 # Increment right hand
      };
     PopR;
    }
@@ -15795,7 +15826,12 @@ if (1) {
 
   $t->stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
 
-  PrintOutStringNL "Finish";
+  PrintOutStringNL "From right to left";
+  PrintOutRegisterInHex reverse 23..31;
+
+  $t->stealFromLeft($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+
+  PrintOutStringNL "From Left to right";
   PrintOutRegisterInHex reverse 23..31;
 
   ok Assemble eq => <<END;
@@ -15809,16 +15845,26 @@ Start
  zmm25: 0000 0310 00CC 0307   0000 030E 0000 030D   0000 030C 0000 030B   0000 030A 0000 0309   0000 0308 0000 0307   0000 0306 0000 0305   0000 0304 0000 0303   0000 0302 0000 0301
  zmm24: 0000 0320 0000 031F   0000 031E 0000 031D   0000 031C 0000 031B   0000 031A 0000 0319   0000 0318 0000 0317   0000 0316 0000 0315   0000 0314 0000 0313   0000 0312 0000 0311
  zmm23: 0000 0330 0000 032F   0000 032E 0000 032D   0000 032C 0000 032B   0000 032A 0000 0329   0000 0328 0000 0327   0000 0326 0000 0325   0000 0324 0000 0323   0000 0322 0000 0321
-Finish
+From right to left
  zmm31: 0000 0110 008C 0106   0000 010E 0000 010D   0000 010C 0000 010B   0000 010A 0000 0109   0000 0108 0000 0301   0000 0106 0000 0105   0000 0104 0000 0103   0000 0102 0000 0101
  zmm30: 0000 0120 0000 011F   0000 011E 0000 011D   0000 011C 0000 011B   0000 011A 0000 0119   0000 0118 0000 0311   0000 0116 0000 0115   0000 0114 0000 0113   0000 0112 0000 0111
  zmm29: 0000 0130 0000 012F   0000 012E 0000 012D   0000 012C 0000 012B   0000 012A 0000 0129   0000 0128 0000 0127   0000 0126 0000 0125   0000 0124 0000 0123   0000 0122 0000 0121
- zmm28: 0000 0210 01CC 0207   0000 020E 0000 020D   0000 020C 0000 020B   0000 020A 0000 0209   0000 0208 0000 0107   0000 0206 0000 0205   0000 0204 0000 0203   0000 0202 0000 0201
- zmm27: 0000 0220 0000 021F   0000 021E 0000 021D   0000 021C 0000 021B   0000 021A 0000 0219   0000 0218 0000 0207   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
+ zmm28: 0000 0210 00CC 0207   0000 020E 0000 020D   0000 020C 0000 020B   0000 020A 0000 0209   0000 0208 0000 0107   0000 0206 0000 0205   0000 0204 0000 0203   0000 0202 0000 0201
+ zmm27: 0000 0220 0000 021F   0000 021E 0000 021D   0000 021C 0000 021B   0000 021A 0000 0219   0000 0218 0000 0117   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
  zmm26: 0000 0230 0000 022F   0000 022E 0000 022D   0000 022C 0000 022B   0000 022A 0000 0229   0000 0228 0000 0321   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
  zmm25: 0000 0310 00CC 0306   0000 030E 0000 030E   0000 030D 0000 030C   0000 030B 0000 030A   0000 0309 0000 0308   0000 0307 0000 0306   0000 0305 0000 0304   0000 0303 0000 0302
  zmm24: 0000 0320 0000 031F   0000 031E 0000 031E   0000 031D 0000 031C   0000 031B 0000 031A   0000 0319 0000 0318   0000 0317 0000 0316   0000 0315 0000 0314   0000 0313 0000 0312
  zmm23: 0000 0330 0000 032F   0000 032F 0000 032E   0000 032D 0000 032C   0000 032B 0000 032A   0000 0329 0000 0328   0000 0327 0000 0326   0000 0325 0000 0324   0000 0323 0000 0322
+From Left to right
+ zmm31: 0000 0110 00CC 0106   0000 010E 0000 010D   0000 010C 0000 010B   0000 010A 0000 0109   0000 0108 0000 0107   0000 0106 0000 0105   0000 0104 0000 0103   0000 0102 0000 0101
+ zmm30: 0000 0120 0000 011F   0000 011E 0000 011D   0000 011C 0000 011B   0000 011A 0000 0119   0000 0118 0000 0117   0000 0116 0000 0115   0000 0114 0000 0113   0000 0112 0000 0111
+ zmm29: 0000 0130 0000 012F   0000 012E 0000 012D   0000 012C 0000 012B   0000 012A 0000 0129   0000 0128 0000 0127   0000 0126 0000 0125   0000 0124 0000 0123   0000 0122 0000 0121
+ zmm28: 0000 0210 00CC 0206   0000 020E 0000 020D   0000 020C 0000 020B   0000 020A 0000 0209   0000 0208 0000 0107   0000 0206 0000 0205   0000 0204 0000 0203   0000 0202 0000 0201
+ zmm27: 0000 0220 0000 021F   0000 021E 0000 021D   0000 021C 0000 021B   0000 021A 0000 0219   0000 0218 0000 0117   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
+ zmm26: 0000 0230 0000 022F   0000 022E 0000 022D   0000 022C 0000 022B   0000 022A 0000 0229   0000 0228 0000 0321   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
+ zmm25: 0000 0310 0098 0307   0000 030E 0000 030D   0000 030C 0000 030B   0000 030A 0000 0309   0000 0308 0000 0307   0000 0306 0000 0305   0000 0304 0000 0303   0000 0302 0000 0301
+ zmm24: 0000 0320 0000 031F   0000 031E 0000 031D   0000 031C 0000 031B   0000 031A 0000 0319   0000 0318 0000 0317   0000 0316 0000 0315   0000 0314 0000 0313   0000 0312 0000 0311
+ zmm23: 0000 0330 0000 032F   0000 032E 0000 032D   0000 032C 0000 032B   0000 032A 0000 0329   0000 0328 0000 0327   0000 0326 0000 0325   0000 0324 0000 0323   0000 0322 0000 0321
 END
  }
 
