@@ -2713,6 +2713,8 @@ if (1)                                                                          
    '+='  => \&plusAssign,
    '-='  => \&minusAssign,
    '='   => \&equals,
+   '<<'  => \&shiftLeft,
+   '>>'  => \&shiftRight,
  }
 
 sub Nasm::X86::Variable::call($)                                                # Execute the call instruction for a target whose address is held in the specified variable.
@@ -2920,14 +2922,38 @@ sub Nasm::X86::Variable::division($$$)                                          
  }
 
 sub Nasm::X86::Variable::divide($$)                                             # Divide the left hand variable by the right hand variable and return the result as a new variable.
- {my ($left, $right) = @_;                                                      # Left variable,  right variable
+ {my ($left, $right) = @_;                                                      # Left variable, right variable
   Nasm::X86::Variable::division("/", $left, $right);
  }
 
 sub Nasm::X86::Variable::mod($$)                                                # Divide the left hand variable by the right hand variable and return the remainder as a new variable.
- {my ($left, $right) = @_;                                                      # Left variable,  right variable
+ {my ($left, $right) = @_;                                                      # Left variable, right variable
   Nasm::X86::Variable::division("%", $left, $right);
  }
+
+sub Nasm::X86::Variable::shiftLeft($$)                                          # Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
+ {my ($left, $right) = @_;                                                      # Left variable, right variable
+  PushR rcx, r15;
+  $left ->setReg(r15);                                                          # Value to shift
+  $right->setReg(rcx);                                                          # Amount to shift
+  Shl r15, cl;                                                                  # Shift
+  my $r = V "shift left" => r15;                                                # Save result in a new variable
+  PopR;
+  $r
+ }
+
+sub Nasm::X86::Variable::shiftRight($$)                                         # Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
+ {my ($left, $right) = @_;                                                      # Left variable, right variable
+  PushR rcx, r15;
+  $left ->setReg(r15);                                                          # Value to shift
+  $right->setReg(rcx);                                                          # Amount to shift
+  Shr r15, cl;                                                                  # Shift
+  my $r = V "shift right" => r15;                                               # Save result in a new variable
+  PopR;
+  $r
+ }
+
+#D2 Boolean                                                                     # Operations on variables that yield a boolean result
 
 sub Nasm::X86::Variable::boolean($$$$)                                          # Combine the left hand variable with the right hand variable via a boolean operator.
  {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
@@ -15599,7 +15625,7 @@ AAAA
 END
  }
 
-sub Nasm::X86::Tree::stealFromRight($$)                                         # Steal one key from the node on the right where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
+sub Nasm::X86::Tree::stealFromRight($$)                                         # Steal one key from the node on the right where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else zero.
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
@@ -15611,22 +15637,26 @@ sub Nasm::X86::Tree::stealFromRight($$)                                         
 
     PushR 7;
 
-    Block                                                                       # Check that it is possible to seal key from the node on the right
+    Block                                                                       # Check that it is possible to steal key a from the node on the right
      {my ($end, $start) = @_;                                                   # Code with labels supplied
       If $ll != $t->lengthLeft,  Then {Jmp $end};                               # Left not minimal
       If $lr == $t->lengthRight, Then {Jmp $end};                               # Right minimal
 
       $$p{result}->copy(1);                                                     # Proceed with the steal
 
-      my $pip = $t->insertionPoint(dFromZ($RK, 0), $PK);                        # Point of parent key to merge in
-      my $pk  = $pip->dFromPointInZ($PK);                                       # Parent key to rotate left
-      my $pd  = $pip->dFromPointInZ($LK);                                       # Parent data to rotate left
-      my $rk  = dFromZ($RK, 0);                                                 # Right key to rotate left
-      my $rd  = dFromZ($RD, 0);                                                 # Right data to rotate left
-      my $rn  = dFromZ($RN, 0);                                                 # Right node to rotate left
+      my $pir = (K one => 1);                                                   # Point of right key to steal
+      my $pil = $pir << ($ll - 1);                                              # Point of left key to receive key
 
-       my $pb  = $t->getTreeBit($PK, $pip);                                     # Parent tree bit
-       my $rb  = $t->getTreeBit($RK, K one => 1);                               # First right tree bit
+      my $rk  = $pir->dFromPointInZ($RK);                                       # Right key to rotate left
+      my $rd  = $pir->dFromPointInZ($RD);                                       # Right data to rotate left
+      my $rn  = $pir->dFromPointInZ($RN);                                       # Right node to rotate left
+
+      my $pip = $t->insertionPoint($rk, $PK);                                   # Point of parent key to merge in
+      my $pk  = $pip->dFromPointInZ($PK);                                       # Parent key to rotate left
+      my $pd  = $pip->dFromPointInZ($PD);                                       # Parent data to rotate left
+
+      my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
+      my $rb  = $t->getTreeBit($RK, K one => 1);                                # First right tree bit
 
       $pip->dIntoPointInZ($PK, $rk);                                            # Right key into parent
       $pip->dIntoPointInZ($PD, $rd);                                            # Right data into parent
@@ -15646,14 +15676,14 @@ sub Nasm::X86::Tree::stealFromRight($$)                                         
        (7, createBitNumberFromAlternatingPattern '0', $t->maxNodesZ-1, -1);
       Vpcompressd zmmM($RN, 7), zmm($RN);                                       # Compress right nodes one slot left
 
-      $t->lengthIntoKeys($LK, K size => $t->lengthLeft+1);                      # Set left hand length
+      #$t->incLengthInKeys($LK);                                                 # Increment left hand length
       $t->decLengthInKeys($RK);                                                 # Decrement right hand
 
      };
     PopR;
    }
   name       =>
-  "Nasm::X86::Tree::stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  "Nasm::X86::Tree::stealFromRight($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
   structures => {tree => $tree},
   parameters => [qw(result)];
 
@@ -15664,7 +15694,75 @@ sub Nasm::X86::Tree::stealFromRight($$)                                         
   $result
  }
 
-#latest:
+sub Nasm::X86::Tree::stealFromLeft($$)                                          # Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
+ {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+  @_ == 10 or confess "Ten parameters required";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    my $t  = $$s{tree};
+    my $ll = $t->lengthFromKeys($LK);
+    my $lr = $t->lengthFromKeys($RK);
+
+    PushR 7;
+
+    Block                                                                       # Check that it is possible to steal a key from the node on the left
+     {my ($end, $start) = @_;                                                   # Code with labels supplied
+      If $ll != $t->lengthRight,  Then {Jmp $end};                              # Right not minimal
+      If $lr == $t->lengthLeft,   Then {Jmp $end};                              # Left minimal
+
+      $$p{result}->copy(1);                                                     # Proceed with the steal
+
+      my $pir = K(one => 1);                                                    # Point of right key
+      my $pil = $pir << ($ll - 1);                                              # Point of left key
+
+      my $lk  = $pil->dFromPointInZ($LK);                                       # Left key to rotate right
+      my $ld  = $pil->dFromPointInZ($LD);                                       # Left key to rotate right
+      my $ln  = $pil->dFromPointInZ($LN);                                       # Left key to rotate right
+      my $lb  = $t->getTreeBit($LK, $pil);                                      # Left tree bit to rotate right
+
+      my $pip = $t->insertionPoint($lk, $PK);                                   # Point of parent key to merge in
+
+      my $pk  = $pip->dFromPointInZ($PK);                                       # Parent key to rotate right
+      my $pd  = $pip->dFromPointInZ($PD);                                       # Parent data to rotate right
+      my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
+
+      LoadConstantIntoMaskRegister                                              # Nodes area
+       (7, createBitNumberFromAlternatingPattern '00', $t->maxKeysZ-1, -1);
+      Vpexpandd zmmM($RK, 7), zmm($RK);                                         # Expand right keys one slot right
+      Vpexpandd zmmM($RD, 7), zmm($RD);                                         # Expand right data one slot right
+
+      LoadConstantIntoMaskRegister                                              # Nodes area
+       (7, createBitNumberFromAlternatingPattern '0', $t->maxNodesZ-1, -1);
+      Vpexpandd zmmM($RN, 7), zmm($RN);                                         # Expand right nodes one slot right
+
+      $pip->dIntoPointInZ($PK, $lk);                                            # Left key into parent
+      $pip->dIntoPointInZ($PD, $ld);                                            # Left data into parent
+      $t->setOrClearTreeBitToMatchContent($PK, $pip, $lb);                      # Left tree bit into parent
+
+      $pir->dIntoPointInZ($RK, $pk);                                            # Parent key into right
+      $pir->dIntoPointInZ($RD, $pd);                                            # Parent data into right
+      $pir->dIntoPointInZ($RN, $ln);                                            # Left node into right
+      $t->insertIntoTreeBits($RK, $pir);                                        # Parent tree bit into right
+
+      $t->incLengthInKeys($LK);                                                 # Increment left hand
+      $t->decLengthInKeys($RK);                                                 # Decrement right hand
+     };
+    PopR;
+   }
+  name       =>
+  "Nasm::X86::Tree::stealFromLeft($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  structures => {tree => $tree},
+  parameters => [qw(result)];
+
+  $s->call
+   (structures => {tree   => $tree},
+    parameters => {result => my $result = V result => 0});
+
+  $result
+ }
+
+latest:
 if (1) {
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 13);
@@ -15721,6 +15819,50 @@ Finish
  zmm25: 0000 0310 00CC 0306   0000 030E 0000 030E   0000 030D 0000 030C   0000 030B 0000 030A   0000 0309 0000 0308   0000 0307 0000 0306   0000 0305 0000 0304   0000 0303 0000 0302
  zmm24: 0000 0320 0000 031F   0000 031E 0000 031E   0000 031D 0000 031C   0000 031B 0000 031A   0000 0319 0000 0318   0000 0317 0000 0316   0000 0315 0000 0314   0000 0313 0000 0312
  zmm23: 0000 0330 0000 032F   0000 032F 0000 032E   0000 032D 0000 032C   0000 032B 0000 032A   0000 0329 0000 0328   0000 0327 0000 0326   0000 0325 0000 0324   0000 0323 0000 0322
+END
+ }
+
+#latest:
+if (1) {                                                                        #Nasm::X86::Variable::shiftLeft #Nasm::X86::Variable::shiftRight
+  K(loop=>16)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+   (K(one => 1)     << $index)->outRightInBinNL(K width => 16);
+   (K(one => 1<<15) >> $index)->outRightInBinNL(K width => 16);
+   });
+
+  ok Assemble eq => <<END;
+               1
+1000000000000000
+              10
+ 100000000000000
+             100
+  10000000000000
+            1000
+   1000000000000
+           10000
+    100000000000
+          100000
+     10000000000
+         1000000
+      1000000000
+        10000000
+       100000000
+       100000000
+        10000000
+      1000000000
+         1000000
+     10000000000
+          100000
+    100000000000
+           10000
+   1000000000000
+            1000
+  10000000000000
+             100
+ 100000000000000
+              10
+1000000000000000
+               1
 END
  }
 
