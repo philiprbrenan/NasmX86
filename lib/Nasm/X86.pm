@@ -104,12 +104,15 @@ vpcompressd vpcompressq vpexpandd vpexpandq xchg xor
 vmovd vmovq
 mulpd
 pslldq psrldq
+vpmovb2m vpmovw2m Vpmovd2m vpmovq2m
+
 vsqrtpd
 vmovdqa32 vmovdqa64
 END
 # print STDERR join ' ', sort @i2; exit;
 
   my @i2qdwb =  split /\s+/, <<END;                                             # Double operand instructions which have qdwb versions
+vpmovm2
 vpbroadcast
 END
 
@@ -2715,6 +2718,7 @@ if (1)                                                                          
    '='   => \&equals,
    '<<'  => \&shiftLeft,
    '>>'  => \&shiftRight,
+  '!'    => \&not,
  }
 
 sub Nasm::X86::Variable::call($)                                                # Execute the call instruction for a target whose address is held in the specified variable.
@@ -2935,6 +2939,7 @@ sub Nasm::X86::Variable::shiftLeft($$)                                          
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   PushR rcx, r15;
   $left ->setReg(r15);                                                          # Value to shift
+confess "AAAA" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
   Shl r15, cl;                                                                  # Shift
   my $r = V "shift left" => r15;                                                # Save result in a new variable
@@ -2951,6 +2956,13 @@ sub Nasm::X86::Variable::shiftRight($$)                                         
   my $r = V "shift right" => r15;                                               # Save result in a new variable
   PopR;
   $r
+ }
+
+sub Nasm::X86::Variable::not($)                                                 # Form two complement of left hand side and return it as a variable.
+ {my ($left) = @_;                                                              # Left variable
+  $left->setReg(rdi);                                                           # Value to negate
+  Not rdi;                                                                      # Two's complement
+  V "neg" => rdi;                                                               # Save result in a new variable
  }
 
 #D2 Boolean                                                                     # Operations on variables that yield a boolean result
@@ -8211,7 +8223,7 @@ sub Nasm::X86::Tree::setTreeBits($$$)                                           
   wRegIntoZmm $register, $zmm, $t->treeBits;
  }
 
-sub Nasm::X86::Tree::insertTreeBit($$$$)                                        #P Insert a zero or one into the tree bits field in the numbered zmm at the specified point.
+sub Nasm::X86::Tree::insertTreeBit($$$$)                                        #P Insert a zero or one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
  {my ($t, $onz, $zmm, $point) = @_;                                             # Tree descriptor, 0 - zero or 1 - one, numbered zmm, register indicating point
   @_ == 4 or confess "Four parameters";
   my $z = registerNameFromNumber $zmm;
@@ -8225,22 +8237,22 @@ sub Nasm::X86::Tree::insertTreeBit($$$$)                                        
    {InsertZeroIntoRegisterAtPoint($p, $bits);                                   # Insert a zero into the tree bits at the indicated location
    }
   $t->setTreeBits($zmm, $bits);                                                 # Put tree bits
-   PopR;
+  PopR;
  }
 
-sub Nasm::X86::Tree::insertZeroIntoTreeBits($$$)                                #P Insert a zero into the tree bits field in the numbered zmm at the specified point.
+sub Nasm::X86::Tree::insertZeroIntoTreeBits($$$)                                #P Insert a zero into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
  {my ($t, $zmm, $point) = @_;                                                   # Tree descriptor, numbered zmm, register indicating point
   @_ == 3 or confess "3 parameters";
   $t->insertTreeBit(0, $zmm, $point);                                           # Insert a zero into the tree bits field in the numbered zmm at the specified point
  }
 
-sub Nasm::X86::Tree::insertOneIntoTreeBits($$$)                                 #P Insert a one into the tree bits field in the numbered zmm at the specified point.
+sub Nasm::X86::Tree::insertOneIntoTreeBits($$$)                                 #P Insert a one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
  {my ($t, $zmm, $point) = @_;                                                   # Tree descriptor, numbered zmm, register indicating point
   @_ == 3 or confess "Three parameters";
   $t->insertTreeBit(1, $zmm, $point);                                           # Insert a one into the tree bits field in the numbered zmm at the specified point
  }
 
-sub Nasm::X86::Tree::insertIntoTreeBits($$$$)                                   #P Insert a one into the tree bits field in the numbered zmm at the specified point.
+sub Nasm::X86::Tree::insertIntoTreeBits($$$$)                                   #P Insert a one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
  {my ($t, $zmm, $point, $content) = @_;                                         # Tree descriptor, numbered zmm, register indicating point
   @_ == 4 or confess "Four parameters";
 
@@ -15709,7 +15721,6 @@ sub Nasm::X86::Tree::stealFromRight($$)                                         
 
       $t->incLengthInKeys($LK);                                                 # Increment left hand length
       $t->decLengthInKeys($RK);                                                 # Decrement right hand
-
      };
     PopR;
    }
@@ -15725,7 +15736,7 @@ sub Nasm::X86::Tree::stealFromRight($$)                                         
   $result
  }
 
-sub Nasm::X86::Tree::stealFromLeft($$)                                          # Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
+sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  # Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
@@ -15793,7 +15804,103 @@ sub Nasm::X86::Tree::stealFromLeft($$)                                          
   $result
  }
 
-latest:
+sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          # Merge a left and right node.
+ {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+  @_ == 10 or confess "Ten parameters required";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    my $t  = $$s{tree};
+    my $ll = $t->lengthFromKeys($LK);
+    my $lr = $t->lengthFromKeys($RK);
+
+    PushR 7, 14, 15;
+
+    Block                                                                       # Check that it is possible to steal a key from the node on the left
+     {my ($end, $start) = @_;                                                   # Code with labels supplied
+      If $ll != $t->lengthLeft,  Then {Jmp $end};                               # Left not minimal
+      If $lr != $t->lengthRight, Then {Jmp $end};                               # Right not minimal
+
+      $$p{result}->copy(1);                                                     # Proceed with the merge
+
+      my $pil = K(one => 1);                                                    # Point of first left key
+      my $lk  = $pil->dFromPointInZ($LK);                                       # First left key
+      my $pip = $t->insertionPoint($lk, $PK);                                   # Point of parent key to merge in
+      my $pk  = $pip->dFromPointInZ($PK);                                       # Parent key to merge
+      my $pd  = $pip->dFromPointInZ($PD);                                       # Parent data to merge
+      my $pn  = $pip->dFromPointInZ($PN);                                       # Parent node to merge
+      my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
+
+      my $m = K(one => 1) << K( shift => $t->lengthLeft);                       # Position of parent key in left
+      $m->dIntoPointInZ($LK, $pk);                                              # Position parent key in left
+      $m->dIntoPointInZ($LD, $pd);                                              # Position parent data in left
+      $m->dIntoPointInZ($LN, $pn);                                              # Position parent node in left
+      $t->insertIntoTreeBits($LK, $m, $pb);                                     # Tree bit for parent data
+      LoadConstantIntoMaskRegister                                              # Keys/Data area
+       (7, createBitNumberFromAlternatingPattern '00', $t->lengthRight,   -$t->lengthMiddle);
+      Vpexpandd zmmM($LK, 7), zmm($RK);                                         # Expand right keys into left
+      Vpexpandd zmmM($LD, 7), zmm($RD);                                         # Expand right data into left
+      LoadConstantIntoMaskRegister                                              # Nodes area
+       (7, createBitNumberFromAlternatingPattern '0',  $t->lengthRight+1, -$t->lengthMiddle);
+      Vpexpandd zmmM($LN, 7), zmm($RN);                                         # Expand right data into left
+
+      $pip->setReg(r15);                                                        # Collapse mask for keys/data in parent
+      Not r15;
+      And r15, $t->treeBitsMask;
+      Kmovq k7, r15;
+      Vpcompressd zmmM($PK, 7), zmm($PK);                                       # Collapse parent keys
+      Vpcompressd zmmM($PD, 7), zmm($PD);                                       # Collapse data keys
+
+      my $one = K(one => 1);                                                    # Collapse mask for keys/data in parent
+      my $np = (!$pip << $one) >> $one;
+      $np->setReg(7);
+      Vpcompressd zmmM($PN, 7), zmm($PN);                                       # Collapse nodes
+
+      my $z = $PK == 31 ? 30: 31;                                               # Collapse parent tree bits
+      PushR zmm $z;                                                             # Collapse parent tree bits
+      $t->getTreeBits($PK, r15);                                                # Get tree bits
+      Kmovq k7, r15;                                                            # Tree bits
+      Vpmovm2d zmm($z), k7;                                                     # Broadcast
+      $pip->setReg(r15);                                                        # Parent insertion point
+      Kmovq k7, r15;
+      Knotq k7, k7;                                                             # Invert parent insertion point
+      Vpcompressd zmmM($z, 7), zmm($z);                                         # Compress
+      Vpmovd2m k7, zmm $z;                                                      # Recover bits
+      Kmovq r15, k7;
+      And r15, $t->treeBitsMask;                                                # Clear trailing bits beyond valid tree bits
+      $t->setTreeBits($PK, r15);
+      PopR;
+
+      $t->getTreeBits($LK, r15);                                                # Append right tree bits to the Left tree bits
+      $t->getTreeBits($RK, r14);                                                # Right tree bits
+      my $sl = RegisterSize(r15) * $bitsInByte / 4 - $tree->lengthMiddle;       # Clear bits right of the lower left bits
+      Shl r15w, $sl;
+      Shr r15w, $sl;
+
+      Shl r14, $tree->lengthMiddle;                                             # Move right tree bits into position
+      Or  r15, r14;                                                             # And in left tree bits
+      And r15, $t->treeBitsMask;                                                # Clear trailing bits beyond valid tree bits
+      $t->setTreeBits($LK, r15);                                                # Set tree bits
+
+      $t->decLengthInKeys($PK);                                                 # Parent now has one less
+      $t->lengthIntoKeys($LK, K length => $t->length);                          # Left is now full
+
+     };
+    PopR;
+   }
+  name       =>
+  "Nasm::X86::Tree::stealFromLeft($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  structures => {tree => $tree},
+  parameters => [qw(result)];
+
+  $s->call
+   (structures => {tree   => $tree},
+    parameters => {result => my $result = V result => 0});
+
+  $result
+ }
+
+#latest:
 if (1) {
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 13);
@@ -15865,6 +15972,74 @@ From Left to right
  zmm25: 0000 0310 0098 0307   0000 030E 0000 030D   0000 030C 0000 030B   0000 030A 0000 0309   0000 0308 0000 0307   0000 0306 0000 0305   0000 0304 0000 0303   0000 0302 0000 0301
  zmm24: 0000 0320 0000 031F   0000 031E 0000 031D   0000 031C 0000 031B   0000 031A 0000 0319   0000 0318 0000 0317   0000 0316 0000 0315   0000 0314 0000 0313   0000 0312 0000 0311
  zmm23: 0000 0330 0000 032F   0000 032E 0000 032D   0000 032C 0000 032B   0000 032A 0000 0329   0000 0328 0000 0327   0000 0326 0000 0325   0000 0324 0000 0323   0000 0322 0000 0321
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 13);
+
+  my ($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = reverse 23..31;
+
+  K(PK => Rd(map {16 * $_ }  1..16))->loadZmm($PK);
+  K(PD => Rd(map {0x100+$_} 17..32))->loadZmm($PD);
+  K(PN => Rd(map {0x100+$_} 33..48))->loadZmm($PN);
+
+  K(LK => Rd(map {48+ $_  }  1..16))->loadZmm($LK);
+  K(LD => Rd(map {0x200+$_} 17..32))->loadZmm($LD);
+  K(LN => Rd(map {0x200+$_} 33..48))->loadZmm($LN);
+
+  K(RK => Rd(map {64  + $_}  1..16))->loadZmm($RK);
+  K(RD => Rd(map {0x300+$_} 17..32))->loadZmm($RD);
+  K(RN => Rd(map {0x300+$_} 33..48))->loadZmm($RN);
+
+  $t->lengthIntoKeys($PK, K length => 6);
+  $t->lengthIntoKeys($LK, K length => 6);
+  $t->lengthIntoKeys($RK, K length => 6);
+
+  Mov r15, 0b11111111111111;
+  $t->setTreeBits($PK, r15);
+  Mov r15, 0;
+  $t->setTreeBits($LK, r15);
+  $t->setTreeBits($RK, r15);
+
+  PrintOutStringNL "Start parent";
+  PrintOutRegisterInHex reverse 29..31;
+  PrintOutStringNL "Start Left";
+  PrintOutRegisterInHex reverse 26..28;
+  PrintOutStringNL "Start Right";
+  PrintOutRegisterInHex reverse 23..25;
+
+  $t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+
+
+  PrintOutStringNL "Finish parent";
+  PrintOutRegisterInHex reverse 29..31;
+  PrintOutStringNL "Finish Left";
+  PrintOutRegisterInHex reverse 26..28;
+
+  ok Assemble eq => <<END;
+Start parent
+ zmm31: 0000 0100 00FF 0006   0000 00E0 0000 00D0   0000 00C0 0000 00B0   0000 00A0 0000 0090   0000 0080 0000 0070   0000 0060 0000 0050   0000 0040 0000 0030   0000 0020 0000 0010
+ zmm30: 0000 0120 0000 011F   0000 011E 0000 011D   0000 011C 0000 011B   0000 011A 0000 0119   0000 0118 0000 0117   0000 0116 0000 0115   0000 0114 0000 0113   0000 0112 0000 0111
+ zmm29: 0000 0130 0000 012F   0000 012E 0000 012D   0000 012C 0000 012B   0000 012A 0000 0129   0000 0128 0000 0127   0000 0126 0000 0125   0000 0124 0000 0123   0000 0122 0000 0121
+Start Left
+ zmm28: 0000 0040 0000 0006   0000 003E 0000 003D   0000 003C 0000 003B   0000 003A 0000 0039   0000 0038 0000 0037   0000 0036 0000 0035   0000 0034 0000 0033   0000 0032 0000 0031
+ zmm27: 0000 0220 0000 021F   0000 021E 0000 021D   0000 021C 0000 021B   0000 021A 0000 0219   0000 0218 0000 0217   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
+ zmm26: 0000 0230 0000 022F   0000 022E 0000 022D   0000 022C 0000 022B   0000 022A 0000 0229   0000 0228 0000 0227   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
+Start Right
+ zmm25: 0000 0050 0000 0006   0000 004E 0000 004D   0000 004C 0000 004B   0000 004A 0000 0049   0000 0048 0000 0047   0000 0046 0000 0045   0000 0044 0000 0043   0000 0042 0000 0041
+ zmm24: 0000 0320 0000 031F   0000 031E 0000 031D   0000 031C 0000 031B   0000 031A 0000 0319   0000 0318 0000 0317   0000 0316 0000 0315   0000 0314 0000 0313   0000 0312 0000 0311
+ zmm23: 0000 0330 0000 032F   0000 032E 0000 032D   0000 032C 0000 032B   0000 032A 0000 0329   0000 0328 0000 0327   0000 0326 0000 0325   0000 0324 0000 0323   0000 0322 0000 0321
+Finish parent
+ zmm31: 0000 0100 007F 0005   0000 00E0 0000 00E0   0000 00D0 0000 00C0   0000 00B0 0000 00A0   0000 0090 0000 0080   0000 0070 0000 0060   0000 0050 0000 0030   0000 0020 0000 0010
+ zmm30: 0000 0120 0000 011F   0000 011E 0000 011E   0000 011D 0000 011C   0000 011B 0000 011A   0000 0119 0000 0118   0000 0117 0000 0116   0000 0115 0000 0113   0000 0112 0000 0111
+ zmm29: 0000 0130 0000 0130   0000 012F 0000 012E   0000 012D 0000 012C   0000 012B 0000 012A   0000 0129 0000 0128   0000 0127 0000 0126   0000 0125 0000 0123   0000 0122 0000 0121
+Finish Left
+ zmm28: 0000 0040 0040 000D   0000 003E 0000 0046   0000 0045 0000 0044   0000 0043 0000 0042   0000 0041 0000 0040   0000 0036 0000 0035   0000 0034 0000 0033   0000 0032 0000 0031
+ zmm27: 0000 0220 0000 021F   0000 021E 0000 0316   0000 0315 0000 0314   0000 0313 0000 0312   0000 0311 0000 0114   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
+ zmm26: 0000 0230 0000 022F   0000 0327 0000 0326   0000 0325 0000 0324   0000 0323 0000 0322   0000 0321 0000 0124   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
 END
  }
 
