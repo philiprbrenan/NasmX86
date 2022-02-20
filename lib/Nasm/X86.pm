@@ -15681,12 +15681,14 @@ sub Nasm::X86::Tree::stealFromRight($$)                                         
 
     PushR 7;
 
+    $t->found->copy(0);                                                         # Assume we cannot steal
+
     Block                                                                       # Check that it is possible to steal key a from the node on the right
      {my ($end, $start) = @_;                                                   # Code with labels supplied
       If $ll != $t->lengthLeft,  Then {Jmp $end};                               # Left not minimal
       If $lr == $t->lengthRight, Then {Jmp $end};                               # Right minimal
 
-      $$p{result}->copy(1);                                                     # Proceed with the steal
+      $t->found->copy(1);                                                       # Proceed with the steal
 
       my $pir = (K one => 1);                                                   # Point of right key to steal
       my $pil = $pir << ($ll - 1);                                              # Point of left key to receive key
@@ -15730,11 +15732,9 @@ sub Nasm::X86::Tree::stealFromRight($$)                                         
   structures => {tree => $tree},
   parameters => [qw(result)];
 
-  $s->call
-   (structures => {tree   => $tree},
-    parameters => {result => my $result = V result => 0});
+  $s->call(structures => {tree   => $tree});
 
-  $result
+  $tree                                                                         # Chain
  }
 
 sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  # Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
@@ -15749,12 +15749,14 @@ sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  
 
     PushR 7;
 
+    $t->found->copy(0);                                                         # Assume we cannot steal
+
     Block                                                                       # Check that it is possible to steal a key from the node on the left
      {my ($end, $start) = @_;                                                   # Code with labels supplied
       If $lr != $t->lengthRight,  Then {Jmp $end};                              # Right not minimal
       If $ll == $t->lengthLeft,   Then {Jmp $end};                              # Left minimal
 
-      $$p{result}->copy(1);                                                     # Proceed with the steal
+      $t->found->copy(1);                                                       # Proceed with the steal
 
       my $pir = K(one => 1);                                                    # Point of right key
       my $pil = $pir << ($ll - 1);                                              # Point of left key
@@ -15795,14 +15797,11 @@ sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  
    }
   name       =>
   "Nasm::X86::Tree::stealFromLeft($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
-  structures => {tree => $tree},
-  parameters => [qw(result)];
+  structures => {tree => $tree};
 
-  $s->call
-   (structures => {tree   => $tree},
-    parameters => {result => my $result = V result => 0});
+  $s->call(structures => {tree   => $tree});
 
-  $result
+  $tree                                                                         # Chain
  }
 
 sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          # Merge a left and right node.
@@ -15817,12 +15816,14 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
 
     PushR 7, 14, 15;
 
+    $t->found->copy(0);                                                         # Assume we cannot merge
+
     Block                                                                       # Check that it is possible to steal a key from the node on the left
      {my ($end, $start) = @_;                                                   # Code with labels supplied
       If $ll != $t->lengthLeft,  Then {Jmp $end};                               # Left not minimal
       If $lr != $t->lengthRight, Then {Jmp $end};                               # Right not minimal
 
-      $$p{result}->copy(1);                                                     # Proceed with the merge
+      $t->found->copy(1);                                                       # Proceed with the merge
 
       my $pil = K(one => 1);                                                    # Point of first left key
       my $lk  = $pil->dFromPointInZ($LK);                                       # First left key
@@ -15891,14 +15892,11 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
    }
   name       =>
   "Nasm::X86::Tree::stealFromLeft($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
-  structures => {tree => $tree},
-  parameters => [qw(result)];
+  structures => {tree => $tree};
 
-  $s->call
-   (structures => {tree   => $tree},
-    parameters => {result => my $result = V result => 0});
+  $s->call(structures => {tree=> $tree});
 
-  $result
+  $tree                                                                         # Chain
  }
 
 sub Nasm::X86::Tree::deleteFirstKeyAndData($$$$)                                # Delete the first element of a leaf mode returning its characteristics in the calling tree descriptor.
