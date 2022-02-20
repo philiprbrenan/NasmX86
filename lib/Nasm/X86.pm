@@ -7093,11 +7093,12 @@ sub DescribeTree(%)                                                             
     rightOffset  => $o * ($l2 + 1),                                             # Offset of the first right slot in bytes
 
     compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
-    data         => V(data    => 0),                                            # Variable containing the last data found
+    data         => V(data    => 0),                                            # Variable containing the current data
     debug        => V(debug   => 0),                                            # Write debug trace if true
     first        => V(first   => 0),                                            # Variable addressing offset to first block of the tree which is the header block
     found        => V(found   => 0),                                            # Variable indicating whether the last find was successful or not
     index        => V(index   => 0),                                            # Index of key in last node found
+    key          => V(key     => 0),                                            # Variable containing the current key
     subTree      => V(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
    )
  }
@@ -15900,6 +15901,52 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
   $result
  }
 
+sub Nasm::X86::Tree::deleteFirstKeyAndData($$$$)                                # Delete the first element of a leaf mode returning its characteristics in the calling tree descriptor.
+ {my ($tree, $K, $D) = @_;                                                      # Tree definition, keys zmm, data zmm
+  @_ == 3 or confess "Three parameters";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    my $t = $$s{tree};
+    my $l = $t->lengthFromKeys($K);
+
+    PushR 7, 14, 15;
+
+    $t->found->copy(0);                                                         # Assume not found
+
+    Block                                                                       # Check that it is possible to steal a key from the node on the left
+     {my ($end, $start) = @_;                                                   # Code with labels supplied
+      If $l == 0,  Then {Jmp $end};                                             # No elements left
+
+      $t->found->copy(1);                                                       # Show first key and data have been found
+
+      $t->key ->copy(dFromZ $K, 0);                                             # First key
+      $t->data->copy(dFromZ $D, 0);                                             # First data
+      $t->getTreeBits($K, r15);                                                 # First tree bit
+
+      Mov r14, r15;
+      Shr r14, 1;                                                               # Shift tree bits over by 1
+      $t->setTreeBits($K, r14);                                                 # Save new tree bits
+      And r15, 1;                                                               # Isolate first tree bit
+      $t->subTree->copy(r15);                                                   # Save first tree bit
+
+      my $m = (K(one => 1) << K(shift => $t->length)) - 2;                      # Compression mask to remove key/data
+      $m->setReg(7);
+      Vpcompressd zmmM($K, 7), zmm($K);                                         # Compress out first key
+      Vpcompressd zmmM($D, 7), zmm($D);                                         # Compress out first data
+
+      $t->decLengthInKeys($K);                                                  # Reduce length
+     };
+    PopR;
+   }
+  name       => "Nasm::X86::Tree::deleteFirstKeyAndData($K, $D)",
+  structures => {tree => $tree};
+
+  $s->call(structures => {tree => $tree});
+
+  $tree                                                                         # Chain tree - actual data is in key, data,  subTree, found variables
+ }
+
 #latest:
 if (1) {
   my $a = CreateArena;
@@ -16040,6 +16087,48 @@ Finish Left
  zmm28: 0000 0040 0040 000D   0000 003E 0000 0046   0000 0045 0000 0044   0000 0043 0000 0042   0000 0041 0000 0040   0000 0036 0000 0035   0000 0034 0000 0033   0000 0032 0000 0031
  zmm27: 0000 0220 0000 021F   0000 021E 0000 0316   0000 0315 0000 0314   0000 0313 0000 0312   0000 0311 0000 0114   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
  zmm26: 0000 0230 0000 022F   0000 0327 0000 0326   0000 0325 0000 0324   0000 0323 0000 0322   0000 0321 0000 0124   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
+END
+ }
+
+
+latest:
+if (1) {
+  my $N = 13;
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => $N);
+
+  my ($K, $D) = (31, 30);
+
+  K(K => Rd( 1..16))->loadZmm($K);
+  K(D => Rd(17..32))->loadZmm($D);
+
+  $t->lengthIntoKeys($K, K length => $t->length);
+
+  Mov r15, 0b11001100110011;
+  $t->setTreeBits($K, r15);
+
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex $K, $D;
+
+  K(loop => $N)->for(sub
+   {my ($index) = @_;                                                           # Parameters
+    $t->deleteFirstKeyAndData($K, $D);
+
+    $index->outNL;
+    PrintOutRegisterInHex $K, $D;
+    $t->key->outNL;
+    $t->data->outNL;
+    $t->subTree->outNL;
+    $t->found->outNL;
+   });
+
+  ok Assemble eq => <<END;
+Start
+ zmm31: 0000 0010 0003 0006   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+Finish
+ zmm31: 0000 0010 0001 0005   0000 000E 0000 000D   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002
+ zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001D 0000 001C   0000 001B 0000 001A   0000 0019 0000 0018   0000 0017 0000 0016   0000 0015 0000 0014   0000 0013 0000 0012
 END
  }
 
