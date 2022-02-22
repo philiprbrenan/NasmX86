@@ -7866,7 +7866,7 @@ sub Nasm::X86::Tree::find($$)                                                   
 
     my $t = $$s{tree};                                                          # Tree to search
     my $k = $$p{key};                                                           # Key to find
-    $t->copy($k);                                                               # Copy in key so we know what was searched for
+    $t->key->copy($k);                                                          # Copy in key so we know what was searched for
 
     my $F = 31; my $K = 30; my $D = 29; my $N = 28;
     my $lengthMask = k6; my $testMask = k7;
