@@ -7854,7 +7854,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
             subTree => V(subTree => ref($data) =~ m(Tree) ? 1 : 0)});
  }
 
-sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and test whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor.
+sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and test whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for
   @_ == 2 or confess "Two parameters";
 
@@ -7866,6 +7866,7 @@ sub Nasm::X86::Tree::find($$)                                                   
 
     my $t = $$s{tree};                                                          # Tree to search
     my $k = $$p{key};                                                           # Key to find
+    $t->copy($k);                                                               # Copy in key so we know what was searched for
 
     my $F = 31; my $K = 30; my $D = 29; my $N = 28;
     my $lengthMask = k6; my $testMask = k7;
