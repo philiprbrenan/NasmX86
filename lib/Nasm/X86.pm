@@ -16280,7 +16280,6 @@ Need to make a subroutine out of the insert into key/data/node block
 
 =cut
 
-
 #unlink $_ for qw(hash print2 sde-log.txt sde-ptr-check.out.txt z.txt);         # Remove incidental files
 #unlink $_ for qw(hash print2 pin-log.txt pin-tool-log.txt sde-footprint.txt sde-log.txt clear hash signal z.o);
 unlink $_ for qw(sde-footprint.txt sde-log.txt z.txt);
@@ -16288,7 +16287,3 @@ unlink $_ for qw(sde-footprint.txt sde-log.txt z.txt);
 say STDERR sprintf("# Time: %.2fs, bytes: %s, execs: %s",
   time - $start,
   map {numberWithCommas $_} totalBytesAssembled, $instructionsExecuted);
-
-# 619 ... ..22 chula vista
-
-# Intel FPGA Altera start edition
