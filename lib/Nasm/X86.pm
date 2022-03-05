@@ -15,7 +15,7 @@
 # Document that V > 0 is required to create a boolean test
 # Optimize putBwdqIntoMm with vpbroadcast
 # WHat is the differenfe between variable clone and variable copy?
-# Standardize w1 = r8, w2 = r9 so we do need to pass them around - rdi, rsi are always general purpose
+# Standardize w1 = r8, w2 = r9 so we do need to pass them around - rdi, rsi are always general purpose except in system calls
 # Make sure that we are using bts and bzhi as much as possible in mask situations
 package Nasm::X86;
 our $VERSION = "20211204";
@@ -3473,7 +3473,6 @@ sub getBwdqFromMm($$$)                                                          
   Vmovdqu32 "[rsp-$w]", $mm;                                                    # Write below the stack
 
   ClearRegisters rdi if $size !~ m(q|d);                                        # Clear the register if necessary
-
   Mov  byteRegister(rdi), "[rsp+$o-$w]" if $size =~ m(b);                       # Load byte register from offset
   Mov  wordRegister(rdi), "[rsp+$o-$w]" if $size =~ m(w);                       # Load word register from offset
   Mov dWordRegister(rdi), "[rsp+$o-$w]" if $size =~ m(d);                       # Load double word register from offset
@@ -15441,7 +15440,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::put #TNasm::X86::Tree::find
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -16263,6 +16262,47 @@ if (1) {                                                                        
               10
 1000000000000000
                1
+END
+ }
+
+sub Nasm::X86::Tree::firstNode($$$$)                                            # Return the first node in the specified node zmm as a variable
+ {my ($tree, $K, $D, $N) = @_;                                                  # Tree definition, key zmm, data zmm, node zmm for a node block
+  @_ == 4 or confess "Four parameters";
+
+  dFromZ($N, 0)
+ }
+
+sub Nasm::X86::Tree::lastNode($$$$)                                             # Return the last node in the specified node zmm as a variable
+ {my ($tree, $K, $D, $N) = @_;                                                  # Tree definition, key zmm, data zmm, node zmm for a node block
+  @_ == 4 or confess "Four parameters";
+
+  dFromZ($N, $tree->lengthFromKeys($K) * $tree->width)
+ }
+
+latest:
+if (1) {                                                                        # First node from nodes
+  my $L = 13;
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => $L);
+
+  my ($K, $D, $N) = (31, 30, 29);
+
+  K(K => Rd( 1..16))->loadZmm($K);
+  K(K => Rd( 1..16))->loadZmm($N);
+
+  $t->lengthIntoKeys($K, K length => $t->length);
+
+  PrintOutRegisterInHex 31, 29;
+  my $f = $t->firstNode($K, $D, $N);
+  my $l = $t-> lastNode($K, $D, $N);
+  $f->outNL;
+  $l->outNL;
+
+  ok Assemble eq => <<END;
+ zmm31: 0000 0010 0000 000D   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm29: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+d at offset 0 in zmm29: 0000 0000 0000 0001
+d at offset (b at offset 56 in zmm31 times 4) in zmm29: 0000 0000 0000 000E
 END
  }
 
