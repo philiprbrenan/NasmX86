@@ -16028,7 +16028,7 @@ END
  }
 
 #latest:
-if (1) {
+if (1) {                                                                        #TNasm::X86::Tree::merge
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 13);
 
@@ -16065,7 +16065,6 @@ if (1) {
 
   $t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
 
-
   PrintOutStringNL "Finish parent";
   PrintOutRegisterInHex reverse 29..31;
   PrintOutStringNL "Finish Left";
@@ -16091,7 +16090,7 @@ Finish parent
 Finish Left
  zmm28: 0000 0040 0040 000D   0000 003E 0000 0046   0000 0045 0000 0044   0000 0043 0000 0042   0000 0041 0000 0040   0000 0036 0000 0035   0000 0034 0000 0033   0000 0032 0000 0031
  zmm27: 0000 0220 0000 021F   0000 021E 0000 0316   0000 0315 0000 0314   0000 0313 0000 0312   0000 0311 0000 0114   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
- zmm26: 0000 0230 0000 022F   0000 0327 0000 0326   0000 0325 0000 0324   0000 0323 0000 0322   0000 0321 0000 0124   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
+ zmm26: 0000 0230 0000 022F   0000 0327 0000 0326   0000 0325 0000 0324   0000 0323 0000 0322   0000 0321 0000 0227   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
 END
  }
 
@@ -16594,8 +16593,8 @@ sub Nasm::X86::Tree::delete($$)                                                 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # find
 
-latest:
-if (1) {                                                                        #
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::expand
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
 
