@@ -16564,6 +16564,7 @@ latest:
 if (1) {                                                                        #
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
+$t->first->d;
 
   my ($PK, $PD, $PN) = (31, 30, 29);
   my ($LK, $LD, $LN) = (28, 27, 26);
@@ -16593,24 +16594,27 @@ if (1) {                                                                        
   $t->sizeIntoFirst(K(size => 3), $F);
 
   $t->firstIntoMemory($F);
+PrintErrStringNL "Parent";
+PrintErrRegisterInHex $PK, $PD;
+$P->d;
   $t->putBlock($P, $PK, $PD, $PN);
-  $t->putBlock($L, $LK, $LD, $LN);
-  $t->putBlock($R, $RK, $RD, $RN);
-
-  PrintOutStringNL "Start";
-  PrintOutRegisterInHex reverse $F..$PK;
+#  $t->putBlock($L, $LK, $LD, $LN);
+#  $t->putBlock($R, $RK, $RD, $RN);
+#
+#  PrintOutStringNL "Start";
+#  PrintOutRegisterInHex reverse $F..$PK;
 
 # $t->expand($L);
 
   $t->firstFromMemory($F);
-  $t->getBlock($P, $PK, $PD, $PN);
-  $t->getBlock($L, $LK, $LD, $LN);
-  $t->getBlock($R, $RK, $RD, $RN);
-
-  PrintOutStringNL "Finish";
-  PrintOutRegisterInHex reverse $F..$PK;
-
-  $t->found->outNL;
+#  $t->getBlock($P, $PK, $PD, $PN);
+#  $t->getBlock($L, $LK, $LD, $LN);
+#  $t->getBlock($R, $RK, $RD, $RN);
+#
+#  PrintOutStringNL "Finish";
+#  PrintOutRegisterInHex reverse $F..$PK;
+#
+#  $t->found->outNL;
 
   ok Assemble eq => <<END;
 END
