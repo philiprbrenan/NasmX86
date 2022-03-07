@@ -7160,8 +7160,6 @@ sub Nasm::X86::Tree::firstFromMemory($$)                                        
   $tree->arena->address->setReg($base);
   $tree->first->setReg($offset);
   Vmovdqu64 zmm($zmm), "[$base+$offset]";
-PrintErrStringNL "Load first";
-PrintErrRegisterInHex rdi, rsi, $zmm;
  }
 
 sub Nasm::X86::Tree::firstIntoMemory($$)                                        # Save the first block of a tree in the numbered zmm back into memory.
@@ -7170,8 +7168,6 @@ sub Nasm::X86::Tree::firstIntoMemory($$)                                        
   my $base = rdi; my $offset = rsi;
   $tree->arena->address->setReg($base);
   $tree->first->setReg($offset);
-PrintErrStringNL "Save first";
-PrintErrRegisterInHex rdi, rsi, $zmm;
   Vmovdqu64  "[$base+$offset]", zmm($zmm);
  }
 
@@ -15814,8 +15810,8 @@ sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  
 
   $tree                                                                         # Chain
  }
-
-sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          # Merge a left and right node.
+# Need to change up to point to new parent for merged in node children
+sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          # Merge a left and right node if they are at minimum size.
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
@@ -15827,14 +15823,14 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
 
     PushR 7, 14, 15;
 
-    $t->found->copy(0);                                                         # Assume we cannot merge
+    #$t->found->copy(0);                                                        # Assume we cannot merge
 
     Block                                                                       # Check that it is possible to steal a key from the node on the left
      {my ($end, $start) = @_;                                                   # Code with labels supplied
       If $ll != $t->lengthLeft,  Then {Jmp $end};                               # Left not minimal
       If $lr != $t->lengthRight, Then {Jmp $end};                               # Right not minimal
 
-      $t->found->copy(1);                                                       # Proceed with the merge
+      #$t->found->copy(1);                                                      # Proceed with the merge
 
       my $pil = K(one => 1);                                                    # Point of first left key
       my $lk  = $pil->dFromPointInZ($LK);                                       # First left key
@@ -15847,7 +15843,7 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
       my $m = K(one => 1) << K( shift => $t->lengthLeft);                       # Position of parent key in left
       $m->dIntoPointInZ($LK, $pk);                                              # Position parent key in left
       $m->dIntoPointInZ($LD, $pd);                                              # Position parent data in left
-      $m->dIntoPointInZ($LN, $pn);                                              # Position parent node in left
+     #$m->dIntoPointInZ($LN, $pn);                                              # Position parent node in left - not needed because the left and right around teh aprent lkey are the left and right node offsets - we should use this fact to update the children of the right node so that their up pointers point to the left node
       $t->insertIntoTreeBits($LK, $m, $pb);                                     # Tree bit for parent data
       LoadConstantIntoMaskRegister                                              # Keys/Data area
        (7, createBitNumberFromAlternatingPattern '00', $t->lengthRight,   -$t->lengthMiddle);
@@ -16341,6 +16337,29 @@ d at offset (b at offset 56 in zmm31 times 4) in zmm29: 0000 0000 0000 000E
 END
  }
 
+sub Nasm::X86::Tree::indexNode($$$$)                                            # Return, as a variable, the point mask obtained by testing the nodes in a block for specified offset. We have to supply the keys as well so that we can find the number of nodes. We need the number of nodes so that we only search the valid area not all possible node positions in the zmm.
+ {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>
+  @_ == 4 or confess "Four parameters";
+
+  my $A = $K == 17 ? 18 : 17;                                                   # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
+  PushR rcx, r14, r15, k7, $A;                                                  # Registers
+
+  $offset->setReg(r14);                                                         # The offset we are looking for
+  Vpbroadcastd zmm($A), r14d;                                                   # Load offset to test
+  Vpcmpud k7, zmm($N, $A), $Vpcmp->eq;                                          # Check for nodes equal to offset
+  my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
+  $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
+  Mov   r15, 2;                                                                 # A one in position two because the number of nodes is always one more than the number of keys
+  Shl   r15, cl;                                                                # Position the one at end of nodes block
+  Dec   r15;                                                                    # Reduce to fill block with ones
+  Kmovq r14, k7;                                                                # Matching nodes
+  And   r15, r14;                                                               # Matching nodes in mask area
+  my $r = V index => r15;                                                       # Save result as a variable
+  PopR;
+
+  $r                                                                            # Point of key if non zero, else no match
+ }
+
 sub Nasm::X86::Tree::expand($$)                                                 # Expand the node at the specified offset in the specified tree if it needs to be expanded and is not the root node (which cannot be expanded because it has no siblings to take substance from whereas as all other nodes do).  Set tree.found to the offset of the left sibling if the node at the specified offset was merged into it and freed else set tree.found to zero.
  {my ($tree, $offset) = @_;                                                     # Tree descriptor, offset of node block to expand
   @_ == 2 or confess "Two parameters";
@@ -16353,7 +16372,6 @@ sub Nasm::X86::Tree::expand($$)                                                 
 
     my $t = $$s{tree};                                                          # Tree to search
     my $L = $$p{offset};                                                        # Offset of node to expand is currently regarded as left
-
     my $F = 31;
     my $PK = 30; my $PD = 29; my $PN = 28;
     my $LK = 27; my $LD = 26; my $LN = 25;
@@ -16362,11 +16380,7 @@ sub Nasm::X86::Tree::expand($$)                                                 
     $t->found->copy(0);                                                         # Assume the left node will not be freed by the expansion
     $t->firstFromMemory($F);                                                    # Load first block
     my $root = $t->rootFromFirst($F);                                           # Root node block offset
-PrintErrStringNL "AAAA";
-PrintErrRegisterInHex $F;
-$root->d;
     If $root == 0 || $root == $L, Then {Jmp $success};                          # Empty tree or on root so nothing to do
-PrintErrStringNL "AAAA";
 
     Block                                                                       # If not on the root and node has the minimum number of keys then either steal left or steal right or merge left or merge right
      {my ($end, $start) = @_;                                                   # Code with labels supplied
@@ -16379,22 +16393,28 @@ PrintErrStringNL "AAAA";
       my $fn = $t->firstNode($PK, $PD, $PN);                                    # Parent first node
       my $ln = $t-> lastNode($PK, $PD, $PN);                                    # Parent last node
 
-      my $R;                                                                    # The node on the right
-      my $plp = $t->indexEq($L, $PN);                                           # Position of the left node in the parent
+      my $R = V right => 0;                                                     # The node on the right
+      my $plp = $t->indexNode($L, $PK, $PN);                                    # Position of the left node in the parent
+
+      If $plp == 0,                                                             # Zero implies that the left child is not registered in its parent
+      Then
+       {PrintErrTraceBack "Cannot find left node in parent";
+       };
+
       If $L == $ln,                                                             # If necessary step one to the let and record the fact that we did is that we can restart the search at the top
       Then                                                                      # Last child and needs merging
        {Vmovdqu64 zmm $RK, $LK;                                                 # Copy the current left node into the right node
         Vmovdqu64 zmm $RD, $LD;
         Vmovdqu64 zmm $RN, $LN;
-        $R = $L;                                                                # Left becomes right node because it is last
+        $R->copy($L);                                                           # Left becomes right node because it is last
         my $l = $plp >> K(one => 1);                                            # The position of the previous node known to exist because we are currently on the last node
-        $L = $l->dFromPointInZ($PN);                                            # Load previous sibling as new left keeping old left in right so that left and right now form a pair of siblings
+        $L->copy($l->dFromPointInZ($PN));                                       # Load previous sibling as new left keeping old left in right so that left and right now form a pair of siblings
         $t->getBlock($L, $LK, $LD, $LN);                                        # Load the new left
         $t->found->copy($L);                                                    # Show that we created a new left
        },
       Else
-       {my $r = $plp << K(one => 1);                                            # The position of the next node known to exist because we are currently not on the last node
-        $R = $r->dFromPointInZ($PN);                                            # Load next sibling as right
+       {my $r = $plp << K(one => 1);                                            # The position of the node to tthe right known to exist because we are not currently on the last node
+        $R->copy($r->dFromPointInZ($PN));                                       # Load next sibling as right
         $t->getBlock($R, $RK, $RD, $RN);                                        # Load the right sibling
        };
 
@@ -16421,6 +16441,20 @@ PrintErrStringNL "AAAA";
         $t->putBlock($R, $RK, $RD, $RN);                                        # Save modified right
        };
       $t->putBlock($L, $LK, $LD, $LN);                                          # Save non minimum left
+
+      $t->leafFromNodes($LN);                                                   # Whether the left block is a leaf
+      IfNe                                                                      # If the zero Flag is zero then this is not a leaf
+      Then
+       {PushR $RK, $RD, $RN;                                                    # Save these zmm even though we are not going to need them any more
+        ($t->lengthFromKeys($LK) + 1)->for(sub                                  # Reparent the children of the left hand side.  This is not efficient as we load all the children (if there are any) but it is effective.
+         {my ($index, $start, $next, $end) = @_;
+          my $R = dFromZ $LN, $index * $t->width;                               # Offset of node
+          $t->getBlock  ($R, $RK, $RD, $RN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+          $t->upIntoData($L,      $RD);                                         # Parent for child of right hand side
+          $t->putBlock  ($R, $RK, $RD, $RN);                                    # Save block into memory now that its parent pointer has been updated
+         });
+         PopR;
+       };
      };  # Block
 
     SetLabel $success;                                                          # Find completed successfully
@@ -16532,21 +16566,21 @@ sub Nasm::X86::Tree::delete($$)                                                 
       my $eq = $t->indexEq($k, $LK);                                            # The position of a key in a zmm equal to the specified key as a point in a variable.
       If $eq  > 0,                                                              # Result mask is non zero so we must have found the key
       Then
-       {my $d = $eq->dFromPointInZ($LD);                                         # Get the corresponding data
+       {my $d = $eq->dFromPointInZ($LD);                                        # Get the corresponding data
         $t->found ->copy($eq);                                                  # Key found at this point
         $t->data  ->copy($d);                                                   # Data associated with the key
         $t->offset->copy($Q);                                                   # Offset of the containing block
         Jmp $success;                                                           # Return
        };
 
-      my $leaf = $t->leafFromNodes($LN);                                         # Are we on a leaf
+      my $leaf = $t->leafFromNodes($LN);                                        # Are we on a leaf
       If $leaf > 0,
       Then                                                                      # Zero implies that this is a leaf node so we cannot search any further and will have to go with what you have
        {Jmp $success;                                                           # Return
        };
 
-      my $i = $t->insertionPoint($k, $LK);                                       # The insertion point if we were inserting
-      my $n = $i->dFromPointInZ($LN);                                            # Get the corresponding data
+      my $i = $t->insertionPoint($k, $LK);                                      # The insertion point if we were inserting
+      my $n = $i->dFromPointInZ($LN);                                           # Get the corresponding data
       $Q->copy($n);                                                             # Corresponding node
      });
     PrintErrTraceBack "Stuck in find";                                          # We seem to be looping endlessly
@@ -16564,16 +16598,19 @@ latest:
 if (1) {                                                                        #
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
-$t->first->d;
 
   my ($PK, $PD, $PN) = (31, 30, 29);
   my ($LK, $LD, $LN) = (28, 27, 26);
   my ($RK, $RD, $RN) = (25, 24, 23);
-  my $F = 22;
+  my ($lK, $lD, $lN) = (22, 21, 20);
+  my ($rK, $rD, $rN) = (19, 18, 17);
+  my $F = 16;
 
-  my $P = $t->allocBlock($PK, $PN, $PD);
-  my $L = $t->allocBlock($LK, $LN, $LD);
-  my $R = $t->allocBlock($RK, $RN, $RD);
+  my $P  = $t->allocBlock($PK, $PD, $PN);
+  my $L  = $t->allocBlock($LK, $LD, $LN);
+  my $R  = $t->allocBlock($RK, $RD, $RN);
+  my $l  = $t->allocBlock($lK, $lD, $lN);
+  my $r  = $t->allocBlock($rK, $rD, $rN);
 
   $t->lengthIntoKeys($PK, K length => 1);
   $t->lengthIntoKeys($LK, K length => 1);
@@ -16585,38 +16622,80 @@ $t->first->d;
 
   $L->dIntoZ($PN, 0);
   $R->dIntoZ($PN, 4);
+  $l->dIntoZ($LN, 0); $l->dIntoZ($LN, 4);
+  $r->dIntoZ($RN, 0); $r->dIntoZ($RN, 4);
 
   $t->upIntoData($P, $LD);
   $t->upIntoData($P, $RD);
+  $t->upIntoData($L, $lD);
+  $t->upIntoData($R, $rD);
 
   $t->firstFromMemory($F);
   $t->rootIntoFirst($F, $P);
   $t->sizeIntoFirst(K(size => 3), $F);
 
   $t->firstIntoMemory($F);
-PrintErrStringNL "Parent";
-PrintErrRegisterInHex $PK, $PD;
-$P->d;
   $t->putBlock($P, $PK, $PD, $PN);
-#  $t->putBlock($L, $LK, $LD, $LN);
-#  $t->putBlock($R, $RK, $RD, $RN);
-#
-#  PrintOutStringNL "Start";
-#  PrintOutRegisterInHex reverse $F..$PK;
+  $t->putBlock($L, $LK, $LD, $LN);
+  $t->putBlock($R, $RK, $RD, $RN);
+  $t->putBlock($l, $lK, $lD, $lN);
+  $t->putBlock($r, $rK, $rD, $rN);
 
-# $t->expand($L);
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex reverse $F..$PK;
+
+  $t->expand($L);
 
   $t->firstFromMemory($F);
-#  $t->getBlock($P, $PK, $PD, $PN);
-#  $t->getBlock($L, $LK, $LD, $LN);
-#  $t->getBlock($R, $RK, $RD, $RN);
-#
-#  PrintOutStringNL "Finish";
-#  PrintOutRegisterInHex reverse $F..$PK;
-#
-#  $t->found->outNL;
+  $t->getBlock($P, $PK, $PD, $PN);
+  $t->getBlock($L, $LK, $LD, $LN);
+  $t->getBlock($R, $RK, $RD, $RN);
+
+  PrintOutStringNL "Finish";
+  PrintOutRegisterInHex reverse $LN..$LK;
+
+  PrintOutStringNL "Children";
+  PrintOutRegisterInHex reverse $LN..$LK;
+
+  $t->getBlock($l, $lK, $lD, $lN);
+  my $lu = $t->upFromData($lD);
+  $lu->outNL;
+
+  $t->getBlock($r, $rK, $rD, $rN);
+  my $ru = $t->upFromData($rD);
+  $ru->outNL;
+
+  $t->found->outNL;
 
   ok Assemble eq => <<END;
+Start
+ zmm31: 0000 00C0 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0002
+ zmm30: 0000 0100 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0002
+ zmm29: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0200 0000 0140
+ zmm28: 0000 0180 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001
+ zmm27: 0000 01C0 0000 0080   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001
+ zmm26: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 02C0 0000 02C0
+ zmm25: 0000 0240 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003
+ zmm24: 0000 0280 0000 0080   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003
+ zmm23: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0380 0000 0380
+ zmm22: 0000 0300 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+ zmm21: 0000 0340 0000 0140   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+ zmm20: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+ zmm19: 0000 03C0 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+ zmm18: 0000 0400 0000 0200   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+ zmm17: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+ zmm16: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0000 0000 0080
+Finish
+ zmm28: 0000 0180 0000 0003   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0002 0000 0001
+ zmm27: 0000 01C0 0000 0080   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0002 0000 0001
+ zmm26: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0380 0000 0380   0000 02C0 0000 02C0
+Children
+ zmm28: 0000 0180 0000 0003   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0002 0000 0001
+ zmm27: 0000 01C0 0000 0080   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0002 0000 0001
+ zmm26: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0380 0000 0380   0000 02C0 0000 02C0
+d at offset 56 in zmm21: 0000 0000 0000 0140
+d at offset 56 in zmm18: 0000 0000 0000 0140
+found: 0000 0000 0000 0000
 END
  }
 
