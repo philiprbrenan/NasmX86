@@ -7080,6 +7080,8 @@ sub DescribeTree(%)                                                             
     splittingKey => ($l2 + 1) * $o,                                             # Offset at which to split a full block
     treeBits     => $keyAreaWidth + 2,                                          # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
     treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
+    keyDataMask  => 0x3fff,                                                     # Key data mask
+    nodeMask     => 0x7fff,                                                     # Node mask
     up           => $keyAreaWidth,                                              # Offset of up in data block.
     width        => $o,                                                         # Width of a key or data slot.
     zWidth       => $b,                                                         # Width of a zmm register
@@ -15869,7 +15871,7 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
       PushR zmm $z;                                                             # Collapse parent tree bits
       $t->getTreeBits($PK, r15);                                                # Get tree bits
       Kmovq k7, r15;                                                            # Tree bits
-      Vpmovm2d zmm($z), k7;                                                     # Broadcast
+      Vpmovm2d zmm($z), k7;                                                     # Broadcast the bits into a zmm
       $pip->setReg(r15);                                                        # Parent insertion point
       Kmovq k7, r15;
       Knotq k7, k7;                                                             # Invert parent insertion point
@@ -16465,6 +16467,52 @@ sub Nasm::X86::Tree::expand($$)                                                 
   $s->call(structures=>{tree => $tree}, parameters=>{offset => $offset});
  } # expand
 
+sub Nasm::X86::Tree::extract($$$$$)                                             # Extract the key/data/node and tree bit at the specified point from the block held in the specified zmm registers.
+ {my ($tree, $point, $K, $D, $N) = @_;                                          # Tree descriptor, point at which to extract, keys zmm, data zmm, node zmm
+  @_ == 5 or confess "Five parameters";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+
+    my $t = $$s{tree};                                                          # Tree to search
+
+    PushR 6, 7, 15;
+
+    $$p{point}->setReg(r15);                                                    # Create a compression mask to squeeze out the key/data
+    Not r15;                                                                    # Invert point
+    Mov rsi, r15;                                                               # Inverted point
+    And rsi, $t->keyDataMask;                                                   # Mask for keys area
+    Kmovq k7, rsi;
+    Vpcompressd zmmM($K, 7), zmm($K);                                           # Compress out the key
+    Vpcompressd zmmM($D, 7), zmm($D);                                           # Compress out the data
+
+    $t->getTreeBits($K, rdi);                                                   # Tree bits
+    Kmovq k6, rdi;
+    PushR 31;
+    Vpmovm2d zmm(31), k6;                                                       # Broadcast the tree bits into a zmm
+    Vpcompressd zmmM(31, 7), zmm(31);                                           # Compress out the tree bit in question
+    Vpmovd2m k6, zmm(31);                                                       # Reform the tree bits minus the squeezed out bit
+    Kmovq rdi, k6;                                                              # New tree bits
+    PopR;
+    $t->setTreeBits($K, rdi);                                                   # Reload tree bits
+
+    Mov rsi, r15;                                                               # Inverted point
+    And rsi, $t->nodeMask;                                                      # Mask for node area
+    Kmovq k7, rsi;
+    Vpcompressd zmmM($N, 7), zmm($N);                                           # Compress out the node
+
+    $t->decLengthInKeys($K);                                                    # Reduce length by  one
+
+    SetLabel $success;                                                          # Find completed successfully
+    PopR;
+   } parameters=>[qw(point)],
+     structures=>{tree=>$tree},
+     name => "Nasm::X86::Tree::find($K, $D, $N, $$tree{length})";
+
+  $s->call(structures=>{tree => $tree}, parameters=>{point => $point});
+ } # extract
+
 sub Nasm::X86::Tree::delete($$)                                                 # Find a key in a tree and delete it
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to delete
   @_ == 2 or confess "Two parameters";
@@ -16473,35 +16521,42 @@ sub Nasm::X86::Tree::delete($$)                                                 
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR 6..7, 8..15, 22..31;
-
     my $t = $$s{tree};                                                          # Tree to search
     my $k = $$p{key};                                                           # Key to find
+
+    $t->found  ->copy(0);                                                       # Key not found
+    $t->data   ->copy(0);                                                       # Data not yet found
+    $t->subTree->copy(0);                                                       # Not yet a sub tree
+    $t->offset ->copy(0);                                                       # Offset not known
     $t->key->copy($k);                                                          # Copy in key so we know what was searched for
+
+    $t->find($key);                                                             # See if we can find the key
+    If $t->found == 0, Then {Jmp $success};                                     # Key not present so we cannot delete
+
+    PushR 6..7, 8..15, 22..31;
 
     my $F = 31;
     my $PK = 30; my $PD = 29; my $PN = 28;
     my $LK = 27; my $LD = 26; my $LN = 25;
     my $RK = 24; my $RD = 23; my $RN = 22;
     my $lengthMask = k6; my $testMask = k7;
-    my $W1 = r8;  my $W2 = r9;                                                  # Work registers
-
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
 
     $t->firstFromMemory      ($F);                                              # Load first block
     my $Q = my $root = $t->rootFromFirst($F);                                   # Start the search from the root
     If $Q == 0, Then{Jmp $success};                                             # Empty tree so we have not found the key and nothing needs to be done
 
     my $size = $t->sizeFromFirst($F);                                           # Size of tree
-    If $$size == 1,                                                             # Delete the last element if matching
+    If $size == 1,                                                              # Delete the last element which must be the matching element
     Then
-     {$t->getBlock($Q, $PK, $PD, $PN);                                          # Get the keys/data/nodes
-      my $p = $t->indexEq($k, $PK);                                             # The position of the key in the root node
-      If $p > 0,
-      Then {my $p = dFromZ($PK, 0)};                                            # Offset of previous child
+     {$t->rootIntoFirst($F, K zero => 0);                                       # Empty the tree
+      $t->firstIntoMemory($F);                                                  # The position of the key in the root node
+      Jmp $success
+     };
+
+    If $size <= $t->Length,                                                     # Element is in the root and the root is a leaf
+    Then
+     {$t->rootIntoFirst($F, K zero => 0);                                       # Empty the tree
+      $t->firstIntoMemory($F);                                                  # The position of the key in the root node
       Jmp $success
      };
 
@@ -16695,6 +16750,41 @@ Children
 d at offset 56 in zmm21: 0000 0000 0000 0140
 d at offset 56 in zmm18: 0000 0000 0000 0140
 found: 0000 0000 0000 0000
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::extract
+  my ($K, $D, $N) = (31, 30, 29);
+
+  K(K => Rd( 1..16))->loadZmm($K);
+  K(K => Rd( 1..16))->loadZmm($D);
+  K(K => Rd( 1..16))->loadZmm($N);
+
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 13);
+
+  my $p = K(one => 1) << K three => 3;
+  Mov r15, 0xAAAA;
+  $t->setTreeBits($K, r15);
+
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex 31, 30, 29;
+
+  $t->extract($p, $K, $D, $N);
+
+  PrintOutStringNL "Finish";
+  PrintOutRegisterInHex 31, 30, 29;
+
+  ok Assemble eq => <<END;
+Start
+ zmm31: 0000 0010 2AAA 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm29: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+Finish
+ zmm31: 0000 0010 3552 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0003   0000 0002 0000 0001
+ zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0003   0000 0002 0000 0001
+ zmm29: 0000 0010 0000 000F   0000 000F 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0003   0000 0002 0000 0001
 END
  }
 
