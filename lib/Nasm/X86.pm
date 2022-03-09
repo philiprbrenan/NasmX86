@@ -16513,6 +16513,44 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
   $s->call(structures=>{tree => $tree}, parameters=>{point => $point});
  } # extract
 
+sub Nasm::X86::Tree::extractFirst($$$$)                                         # Extract the first key/data/node and tree bit at the specified point from the block held in the specified zmm registers.
+ {my ($tree, $K, $D, $N) = @_;                                                  # Tree descriptor, keys zmm, data zmm, node zmm
+  @_ == 4 or confess "Four parameters";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+
+    my $t = $$s{tree};                                                          # Tree to search
+
+    PushR 6, 7, 15;
+
+    Mov rsi, $t->keyDataMask;                                                   # Mask for keys area
+    Sub rsi, 1;                                                                 # Mask for keys area with a zero in the first position
+    Kmovq k7, rsi;
+    Vpcompressd zmmM($K, 7), zmm($K);                                           # Compress out the key
+    Vpcompressd zmmM($D, 7), zmm($D);                                           # Compress out the data
+
+    $t->getTreeBits($K, rdi);                                                   # Tree bits
+    Shr rdi, 1;                                                                 # Remove first tree bit
+    $t->setTreeBits($K, rdi);                                                   # Reload tree bits
+
+    Mov rsi, $t->keyDataMask;                                                   # Mask for keys area
+    Shl rsi , 1;                                                                # Mask for node area with zero in first position
+    Kmovq k7, rsi;
+    Vpcompressd zmmM($N, 7), zmm($N);                                           # Compress out the node
+
+    $t->decLengthInKeys($K);                                                    # Reduce length by  one
+
+    SetLabel $success;                                                          # Find completed successfully
+    PopR;
+   } parameters=>[qw(point)],
+     structures=>{tree=>$tree},
+     name => "Nasm::X86::Tree::find($K, $D, $N, $$tree{length})";
+
+  $s->call(structures=>{tree => $tree});
+ } # extractFirst
+
 sub Nasm::X86::Tree::delete($$)                                                 # Find a key in a tree and delete it
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to delete
   @_ == 2 or confess "Two parameters";
@@ -16750,6 +16788,41 @@ Children
 d at offset 56 in zmm21: 0000 0000 0000 0140
 d at offset 56 in zmm18: 0000 0000 0000 0140
 found: 0000 0000 0000 0000
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::extractFirst
+  my ($K, $D, $N) = (31, 30, 29);
+
+  K(K => Rd( 1..16))->loadZmm($K);
+  K(K => Rd( 1..16))->loadZmm($D);
+  K(K => Rd( 1..16))->loadZmm($N);
+
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 13);
+
+  my $p = K(one => 1) << K three => 3;
+  Mov r15, 0xAAAA;
+  $t->setTreeBits($K, r15);
+
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex 31, 30, 29;
+
+  $t->extractFirst($K, $D, $N);
+
+  PrintOutStringNL "Finish";
+  PrintOutRegisterInHex 31, 30, 29;
+
+  ok Assemble eq => <<END;
+Start
+ zmm31: 0000 0010 2AAA 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm29: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+Finish
+ zmm31: 0000 0010 1555 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002
+ zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002
+ zmm29: 0000 0010 0000 000F   0000 000F 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002
 END
  }
 
