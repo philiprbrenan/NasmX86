@@ -16477,10 +16477,25 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t = $$s{tree};                                                          # Tree to search
+    $t->leafFromNodes($N);                                                      # Check for a leaf
+    IfNe                                                                        # If the zero Flag is zero then this is not a leaf
+    Then                                                                        # We can only perform this operation on a leaf
+     {PrintErrTraceBack "Cannot extract from a non leaf node";
+     };
 
-    PushR 6, 7, 15;
+#    my $l = $t->lengthFromKeys($K);                                             # Check for a minimal block
+#    If $l <= $t->lengthMin,
+#    Then                                                                        # Minimal block - extraction not possible
+#     {PrintErrTraceBack "Cannot extract from a minimum block";
+#     };
+#
+    PushR 7, 15;
 
-    $$p{point}->setReg(r15);                                                    # Create a compression mask to squeeze out the key/data
+    my $q = $$p{point};                                                         # Point at which to extract
+    $t->data->copy($q->dFromPointInZ($D));                                      # Data at point
+    $t->subTree->copy($t->getTreeBit($K, $q));                                  # Sub tree or not a sub tree
+
+    $q->setReg(r15);                                                            # Create a compression mask to squeeze out the key/data
     Not r15;                                                                    # Invert point
     Mov rsi, r15;                                                               # Inverted point
     And rsi, $t->keyDataMask;                                                   # Mask for keys area
@@ -16488,15 +16503,15 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
     Vpcompressd zmmM($K, 7), zmm($K);                                           # Compress out the key
     Vpcompressd zmmM($D, 7), zmm($D);                                           # Compress out the data
 
-    $t->getTreeBits($K, rdi);                                                   # Tree bits
-    Kmovq k6, rdi;
-    PushR 31;
+    PushR 6, 31;
+    $t->getTreeBits($K, rsi);                                                   # Tree bits
+    Kmovq k6, rsi;
     Vpmovm2d zmm(31), k6;                                                       # Broadcast the tree bits into a zmm
     Vpcompressd zmmM(31, 7), zmm(31);                                           # Compress out the tree bit in question
     Vpmovd2m k6, zmm(31);                                                       # Reform the tree bits minus the squeezed out bit
-    Kmovq rdi, k6;                                                              # New tree bits
+    Kmovq rsi, k6;                                                              # New tree bits
+    $t->setTreeBits($K, rsi);                                                   # Reload tree bits
     PopR;
-    $t->setTreeBits($K, rdi);                                                   # Reload tree bits
 
     Mov rsi, r15;                                                               # Inverted point
     And rsi, $t->nodeMask;                                                      # Mask for node area
@@ -16529,13 +16544,11 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
      {PrintErrTraceBack "Cannot extract first from a non leaf node";
      };
 
-    my $l = $t->lengthFromKeys($K);                                             # Check for a minimal block
-PrintErrStringNL "AAAA";
-$l->d;
-          If $l <= $t->lengthMin,
-    Then                                                                        # Minimal block - extraction not possible
-     {PrintErrTraceBack "Cannot extract first from a minimum block";
-     };
+#    my $l = $t->lengthFromKeys($K);                                             # Check for a minimal block
+#    If $l <= $t->lengthMin,
+#    Then                                                                        # Minimal block - extraction not possible
+#     {PrintErrTraceBack "Cannot extract first from a minimum block";
+#     };
 
     $t->data->copy(dFromZ($D, 0));                                              # Save corresponding data into tree data field
 
@@ -16821,30 +16834,28 @@ if (1) {                                                                        
   Mov r15, 0xAAAA;
   $t->setTreeBits($K, r15);
 
-  PrintErrStringNL "Start";
-  PrintErrRegisterInHex 31, 30, 29;
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex 31, 30, 29;
 
-  K(n=>12)->for(sub
+  K(n=>4)->for(sub
    {my ($index, $start, $next, $end) = @_;
 
     $t->extractFirst($K, $D, $N);
 
-    PrintErrStringNL "-------------";
-    $index->d;
-    PrintErrRegisterInHex 31, 30, 29;
+    PrintOutStringNL "-------------";
+    $index->outNL;
+    PrintOutRegisterInHex 31, 30, 29;
 
-    $t->data->d;
-    $t->subTree->d;
-    $t->lengthFromKeys($K)->d;
+    $t->data->outNL;
+    $t->subTree->outNL;
+    $t->lengthFromKeys($K)->outNL;
    });
 
-  ok Assemble debug=>2, eq => <<END;
+  ok Assemble eq => <<END;
 Start
  zmm31: 0000 0010 2AAA 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
  zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
  zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-AAAA
-b at offset 56 in zmm31: 0000 0000 0000 000F
 -------------
 index: 0000 0000 0000 0000
  zmm31: 0000 0010 1555 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002
@@ -16852,8 +16863,6 @@ index: 0000 0000 0000 0000
  zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
 data: 0000 0000 0000 0001
 subTree: 0000 0000 0000 0000
-b at offset 56 in zmm31: 0000 0000 0000 000E
-AAAA
 b at offset 56 in zmm31: 0000 0000 0000 000E
 -------------
 index: 0000 0000 0000 0001
@@ -16863,8 +16872,6 @@ index: 0000 0000 0000 0001
 data: 0000 0000 0000 0002
 subTree: 0000 0000 0000 0001
 b at offset 56 in zmm31: 0000 0000 0000 000D
-AAAA
-b at offset 56 in zmm31: 0000 0000 0000 000D
 -------------
 index: 0000 0000 0000 0002
  zmm31: 0000 0010 0555 000C   0000 000E 0000 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004
@@ -16872,8 +16879,6 @@ index: 0000 0000 0000 0002
  zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
 data: 0000 0000 0000 0003
 subTree: 0000 0000 0000 0000
-b at offset 56 in zmm31: 0000 0000 0000 000C
-AAAA
 b at offset 56 in zmm31: 0000 0000 0000 000C
 -------------
 index: 0000 0000 0000 0003
@@ -16883,63 +16888,6 @@ index: 0000 0000 0000 0003
 data: 0000 0000 0000 0004
 subTree: 0000 0000 0000 0001
 b at offset 56 in zmm31: 0000 0000 0000 000B
-AAAA
-b at offset 56 in zmm31: 0000 0000 0000 000B
--------------
-index: 0000 0000 0000 0004
- zmm31: 0000 0010 0155 000A   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006
- zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006
- zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-data: 0000 0000 0000 0005
-subTree: 0000 0000 0000 0000
-b at offset 56 in zmm31: 0000 0000 0000 000A
-AAAA
-b at offset 56 in zmm31: 0000 0000 0000 000A
--------------
-index: 0000 0000 0000 0005
- zmm31: 0000 0010 00AA 0009   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007
- zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007
- zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-data: 0000 0000 0000 0006
-subTree: 0000 0000 0000 0001
-b at offset 56 in zmm31: 0000 0000 0000 0009
-AAAA
-b at offset 56 in zmm31: 0000 0000 0000 0009
--------------
-index: 0000 0000 0000 0006
- zmm31: 0000 0010 0055 0008   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008
- zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008
- zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-data: 0000 0000 0000 0007
-subTree: 0000 0000 0000 0000
-b at offset 56 in zmm31: 0000 0000 0000 0008
-AAAA
-b at offset 56 in zmm31: 0000 0000 0000 0008
--------------
-index: 0000 0000 0000 0007
- zmm31: 0000 0010 002A 0007   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009
- zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009
- zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-data: 0000 0000 0000 0008
-subTree: 0000 0000 0000 0001
-b at offset 56 in zmm31: 0000 0000 0000 0007
-AAAA
-b at offset 56 in zmm31: 0000 0000 0000 0007
--------------
-index: 0000 0000 0000 0008
- zmm31: 0000 0010 0015 0006   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A
- zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A
- zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-data: 0000 0000 0000 0009
-subTree: 0000 0000 0000 0000
-b at offset 56 in zmm31: 0000 0000 0000 0006
-AAAA
-b at offset 56 in zmm31: 0000 0000 0000 0006
-Cannot extract first from a minimum block
-
-Subroutine trace back, depth:  1
-0000 0000 0000 0000    0000 7FD5 D4B3 8000    Nasm::X86::Tree::find(31, 30, 29, 13)
-
 END
  }
 
@@ -16949,7 +16897,7 @@ if (1) {                                                                        
 
   K(K => Rd( 1..16))->loadZmm($K);
   K(K => Rd( 1..16))->loadZmm($D);
-  K(K => Rd( 1..16))->loadZmm($N);
+  K(K => Rd(map {0} 1..16))->loadZmm($N);
 
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 13);
@@ -16970,11 +16918,11 @@ if (1) {                                                                        
 Start
  zmm31: 0000 0010 2AAA 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
  zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
- zmm29: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
 Finish
- zmm31: 0000 0010 3552 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0003   0000 0002 0000 0001
+ zmm31: 0000 0010 2AAA 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0003   0000 0002 0000 0001
  zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0003   0000 0002 0000 0001
- zmm29: 0000 0010 0000 000F   0000 000F 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0003   0000 0002 0000 0001
+ zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
 END
  }
 
