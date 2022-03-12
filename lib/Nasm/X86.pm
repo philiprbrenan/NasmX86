@@ -16101,7 +16101,7 @@ Start Right
 Finish parent
  zmm31: 0000 0100 1FFF 0005   0000 00E0 0000 00E0   0000 00D0 0000 00C0   0000 00B0 0000 00A0   0000 0090 0000 0080   0000 0070 0000 0060   0000 0050 0000 0030   0000 0020 0000 0010
  zmm30: 0000 0120 0000 011F   0000 011E 0000 011E   0000 011D 0000 011C   0000 011B 0000 011A   0000 0119 0000 0118   0000 0117 0000 0116   0000 0115 0000 0113   0000 0112 0000 0111
- zmm29: 0000 0130 0000 0130   0000 012F 0000 012E   0000 012D 0000 012C   0000 012B 0000 012A   0000 0129 0000 0128   0000 0127 0000 0126   0000 0125 0000 0123   0000 0122 0000 0121
+ zmm29: 0000 0130 0000 0130   0000 012F 0000 012E   0000 012D 0000 012C   0000 012B 0000 012A   0000 0129 0000 0128   0000 0127 0000 0126   0000 0124 0000 0123   0000 0122 0000 0121
 Finish Left
  zmm28: 0000 0040 0040 000D   0000 003E 0000 0046   0000 0045 0000 0044   0000 0043 0000 0042   0000 0041 0000 0040   0000 0036 0000 0035   0000 0034 0000 0033   0000 0032 0000 0031
  zmm27: 0000 0220 0000 021F   0000 021E 0000 0316   0000 0315 0000 0314   0000 0313 0000 0312   0000 0311 0000 0114   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
@@ -16295,6 +16295,47 @@ sub Nasm::X86::Tree::lastNode($$$$)                                             
   @_ == 4 or confess "Four parameters";
 
   dFromZ($N, $tree->lengthFromKeys($K) * $tree->width)
+ }
+
+sub Nasm::X86::Tree::relativeNode($$$$)                                         # Return as a variable a node offset relative (specified as ac constant) to another offset in the same node in the specified zmm
+ {my ($tree, $offset, $relative, $K, $N) = @_;                                  # Tree definition, offset, relative location, key zmm, node zmm
+  @_ == 5 or confess "Five parameters";
+
+  abs($relative) == 1 or confess "Relative must be +1 or -1";
+
+  my $l = $tree->lengthFromKeys($K);                                            # Length of block
+  PushR $K, 7, 15;                                                              # Reuse keys for comparison value
+  $offset->setReg(r15);
+  Vpbroadcastd zmm($K), r15d;                                                   # Load offset to test
+  Vpcmpud k7, zmm($N, $K), $Vpcmp->eq;                                          # Check for nodes equal to offset
+  Kmovq r15, k7;
+  Tzcnt r15, r15;                                                               # Index of offset
+  if ($relative < 0)
+   {Cmp r15, 0;
+    IfEq Then{PrintErrTraceBack "Cannot get offset before first offset"};
+    Sub r15, 1;
+   }
+  if ($relative > 0)
+   {Cmp r15, $tree->length;
+    IfGt Then{PrintErrTraceBack "Cannot get offset beyond last offset"};
+    Add r15, 1;
+   }
+  my $r = dFromZ $N, V(offset => r15) * $tree->width;                           # Select offset
+  PopR;
+
+  $r
+ }
+
+sub Nasm::X86::Tree::nextNode($$$)                                              # Return as a variable the next node block offset after the specified one in the specified zmm
+ {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, offset, key zmm, node zmm
+  @_ == 4 or confess "Four parameters";
+  $tree->relativeNode($offset, +1, $K, $N);
+ }
+
+sub Nasm::X86::Tree::prevNode($$$)                                              # Return as a variable the previous node block offset after the specified one in the specified zmm
+ {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, offset, key zmm, node zmm
+  @_ == 4 or confess "Four parameters";
+  $tree->relativeNode($offset, -1, $K, $N);
  }
 
 #latest:
@@ -16629,18 +16670,17 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
     If $t->lengthFromKeys($LK) == $t->lengthMin,                                # Has the the bare minimum so must merge or steal
     Then
      {my $r = V r => 0;
-      my $q = $t->indexEq($t->key, $PK);                                        # The position of the previous node known to exist because we are currently on the last child
       If $l == $t->lastNode($PK, $PD, $PN),
       Then                                                                      # Last child and needs merging
        {Vmovdqu64 zmm $RK, $LK;                                                 # Copy the current left node into the right node
         Vmovdqu64 zmm $RD, $LD;
         Vmovdqu64 zmm $RN, $LN;
         $r->copy($l);                                                           # Current left offset becomes offset of right sibling
-        $l->copy($q->dFromPointInZ($PK));                                       # Offset of left sibling
+        $l->copy($t->prevNode($r, $PK, $PN));                                   # The position of the previous node known to exist because we are currently on the last child
         $t->getBlock($l, $LK, $LD, $LN);                                        # Get the parent keys/data/nodes
        },
       Else
-       {$r->copy(($q << K(one=>1))->dFromPointInZ($PN));                        # Right hand will be next sibling
+       {$r->copy($t->nextNode($l, $PK, $PN));                                   # Right hand will be next sibling
         $t->getBlock($r, $RK, $RD, $RN);                                        # Get next sibling
        };
 
@@ -16661,11 +16701,11 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
     PopR;
    } parameters=>[qw(offset changed)],
      structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::find($$tree{length})";
+     name => "Nasm::X86::Tree::mergeOrSteal($$tree{length})";
 
   $s->call(structures=>
    {tree       =>  $tree},
-    parameters => {offset => $offset, changed => V changed => 0});
+    parameters => {offset=> $offset, , changed => V changed => 0});
  } # mergeOrSteal
 
 
@@ -17166,7 +17206,89 @@ end
 END
  }
 
-latest:
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::nextNode #TNasm::X86::Tree::prevNode
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 13);
+
+  K(loop => 66)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $t->put($index, 2 * $index);
+   });
+  $t->getBlock(K(offset=>0x200), 31, 30, 29);
+  $t->nextNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
+  $t->prevNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
+
+  ok Assemble eq => <<END;
+500
+380
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::mergeOrSteal
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  $t->put(   K(k=>1), K(d=>11));
+  $t->put(   K(k=>2), K(d=>22));
+  $t->put(   K(k=>3), K(d=>33));
+  $t->put(   K(k=>4), K(d=>44));
+  $t->put(   K(k=>5), K(d=>55));
+  $t->put(   K(k=>6), K(d=>56));
+
+  $t->getBlock(K(o=>0x2C0), 31, 30, 29);
+  $t->lengthIntoKeys(31, K 1 => 1);
+  $t->putBlock(K(o=>0x2C0), 31, 30, 29);
+  $t->dump("6");
+
+  $t->key->copy(K k => 4);
+  $t->mergeOrSteal(K o => 0x140);
+  $t->dump("5");
+
+  ok Assemble eq => <<END;
+6
+At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0    1
+  Keys :    2    4
+  Data :   22   44
+  Nodes:   80  140  2C0
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :   11
+    end
+    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    3
+      Data :   33
+    end
+    At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    5
+      Data :   55
+    end
+end
+5
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :   22
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :   11
+    end
+    At:  140                length:    3,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0    1    2
+      Keys :    3    4    5
+      Data :   33   44   55
+    end
+end
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::mergeOrSteal
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
