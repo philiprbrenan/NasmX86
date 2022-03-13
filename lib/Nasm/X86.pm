@@ -17175,9 +17175,10 @@ sub Nasm::X86::Tree::delete($$)                                                 
      };
 
     $t->getBlock($root, $K, $D, $N);                                            # Load root block
-    If $t->leafFromNodes($N),                                                   # Element must be in the root as the root is a leaf
+    If $t->leafFromNodes($N) > 0,                                               # Element must be in the root as the root is a leaf and we know the key can be found
     Then
-     {$t->extract($t->found, $K, $D, $N);                                       # Extract from root
+     {my $eq = $t->indexEq($k, $K);                                             # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
+      $t->extract($eq, $K, $D, $N);                                             # Extract from root
       $t->decSizeInFirst($F);
       $t->firstIntoMemory($F);
       $t->putBlock($root, $K, $D, $N);
@@ -17209,7 +17210,8 @@ sub Nasm::X86::Tree::delete($$)                                                 
 
     If $t->leafFromNodes($N) > 0,                                               # We found the item in a leaf so it can be deleted immediately
     Then
-     {$t->extract($t->found, $K, $D, $N);                                       # Remove from block
+     {my $eq = $t->indexEq($k, $K);                                             # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
+      $t->extract($eq, $K, $D, $N);                                             # Remove from block
       $t->putBlock($P, $K, $D, $N);                                             # Save block
       $t->decSizeInFirst($F);                                                   # Decrease size of tree
       $t->firstIntoMemory($F);                                                  # Save first block describing tree back into memory
@@ -17230,9 +17232,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
         my $data    = dFromZ($D, 0);
         my $subTree = $t->getTreeBit($K, K one => 1);
         PopR;
-PrintErrStringNL "AAAA111";
         $sub->call(structures=>{tree=>$t}, parameters=>{key=>$key});            # Delete leaf
-PrintErrStringNL "AAAA222";
 
         $t->key    ->copy($key);
         $t->data   ->copy($data);
@@ -17261,7 +17261,7 @@ PrintErrStringNL "AAAA222";
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # delete
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -17292,7 +17292,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -17357,6 +17357,75 @@ At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   4
   Data :   44
 end
 4
+- empty
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  $t->put(   K(k=>1), K(d=>11));
+  $t->put(   K(k=>2), K(d=>22));
+  $t->put(   K(k=>3), K(d=>33));
+  $t->put(   K(k=>4), K(d=>44));
+  $t->dump("0");
+  $t->delete(K k=>3);
+  $t->dump("3");
+  $t->delete(K k=>4);
+  $t->dump("4");
+  $t->delete(K k=>2);
+  $t->dump("2");
+  $t->delete(K k=>1);
+  $t->dump("1");
+  ok Assemble eq => <<END;
+0
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :   22
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :   11
+    end
+    At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0    1
+      Keys :    3    4
+      Data :   33   44
+    end
+end
+3
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :   22
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :   11
+    end
+    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    4
+      Data :   44
+    end
+end
+4
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    1    2
+  Data :   11   22
+end
+2
+At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0
+  Keys :    1
+  Data :   11
+end
+1
 - empty
 END
  }
