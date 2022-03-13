@@ -7222,6 +7222,17 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
   $tree->sizeIntoFirst($s-1, $zmm);
  }
 
+sub Nasm::X86::Tree::size($)                                                    # Return in a variable the number of elements currently in the tree.
+ {my ($tree) = @_;                                                              # Tree descriptor
+  @_ == 1 or confess "One parameter";
+  my $F = 31;
+  PushR $F;
+  $tree->firstFromMemory($F);
+  my $s = $tree->sizeFromFirst($F);
+  PopR;
+  $s
+ }
+
 sub Nasm::X86::Tree::allocBlock($$$$)                                           #P Allocate a keys/data/node block and place it in the numbered zmm registers.
  {my ($tree, $K, $D, $N) = @_;                                                  # Tree descriptor, numbered zmm for keys, numbered zmm for data, numbered zmm for children
   @_ == 4 or confess "4 parameters";
@@ -15732,7 +15743,7 @@ sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 
       $t->setOrClearTreeBitToMatchContent($PK, $pip, $rb);                      # Right tree bit into parent
       $pk->dIntoZ($LK, $t->middleOffset);                                       # Parent key into left
       $pd->dIntoZ($LD, $t->middleOffset);                                       # Parent data into left
-      $rn->dIntoZ($LN, $t->middleOffset);                                       # Right node into left
+      $rn->dIntoZ($LN, $t->rightOffset);                                        # Right node into left
 
       $t->insertIntoTreeBits($LK, K(position => 1 << $t->lengthLeft), $pb);     # Parent tree bit into left
 
@@ -17147,7 +17158,6 @@ sub Nasm::X86::Tree::delete($$)                                                 
     my $F = 31; my $K = 30; my $D = 29; my $N = 28;
 
     my $startDescent = SetLabel();                                              # Start descent at root
-
     $t->firstFromMemory         ($F);                                           # Load first block
     my $root = $t->rootFromFirst($F);                                           # Start the search from the root to locate the  key to be deleted
     If $root == 0, Then{Jmp $success};                                          # Empty tree so we have not found the key and nothing needs to be done
@@ -17414,6 +17424,62 @@ At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   4
 end
 1
 - empty
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $N = K max => 100;
+
+  $N->for(sub                                                                   # Load tree
+   {my ($index, $start, $next, $end) = @_;
+    $t->put($index, 2 * $index);
+    If $t->size != $index + 1,
+    Then
+     {PrintOutStringNL "SSSS"; $index->outNL; Exit(0);
+     };
+   });
+
+  $N->for(sub                                                                   # Check elements
+   {my ($i) = @_;
+    $t->find($i);
+    If $t->found == 0,
+    Then
+     {PrintOutStringNL "AAAA"; $i->outNL; Exit(0);
+     };
+   });
+
+  $N->for(sub                                                                   # Delete elements
+   {my ($i) = @_;
+    $t->delete($i);
+
+    If $t->size != $N - $i - 1,
+    Then
+     {PrintOutStringNL "TTTT"; $i->outNL; Exit(0);
+     };
+
+    $N->for(sub                                                                 # Check elements
+     {my ($j) = @_;
+      $t->find($j);
+      If $t->found == 0,
+      Then
+       {If $j > $i,
+        Then
+         {PrintOutStringNL "BBBBB"; $j->outNL; Exit(0);                         # Not deleted yet so it should be findable
+         };
+       },
+      Else
+       {If $j <= $i,
+        Then
+         {PrintOutStringNL "CCCCC"; $j->outNL; Exit(0);                         # Deleted so should not be findable
+         };
+       };
+     });
+   });
+
+  ok Assemble eq => <<END;
 END
  }
 
