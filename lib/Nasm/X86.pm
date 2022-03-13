@@ -15720,20 +15720,20 @@ sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 
       my $rd  = $pir->dFromPointInZ($RD);                                       # Right data to rotate left
       my $rn  = $pir->dFromPointInZ($RN);                                       # Right node to rotate left
 
-      my $pip = $t->insertionPoint($rk, $PK);                                   # Point of parent key to merge in
-      my $pk  = $pip->dFromPointInZ($PK);                                       # Parent key to rotate left
-      my $pd  = $pip->dFromPointInZ($PD);                                       # Parent data to rotate left
+      my $pip = $t->insertionPoint($rk, $PK);                                   # Point of parent key to insert
+      my $pip1= $pip >> K(one=>1);                                              # Point of parent key to merge in
+      my $pk  = $pip1->dFromPointInZ($PK);                                       # Parent key to rotate left
+      my $pd  = $pip1->dFromPointInZ($PD);                                       # Parent data to rotate left
 
       my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
       my $rb  = $t->getTreeBit($RK, K one => 1);                                # First right tree bit
-
-      $pip->dIntoPointInZ($PK, $rk);                                            # Right key into parent
-      $pip->dIntoPointInZ($PD, $rd);                                            # Right data into parent
+      $pip1->dIntoPointInZ($PK, $rk);                                            # Right key into parent
+      $pip1->dIntoPointInZ($PD, $rd);                                            # Right data into parent
       $t->setOrClearTreeBitToMatchContent($PK, $pip, $rb);                      # Right tree bit into parent
-
       $pk->dIntoZ($LK, $t->middleOffset);                                       # Parent key into left
       $pd->dIntoZ($LD, $t->middleOffset);                                       # Parent data into left
       $rn->dIntoZ($LN, $t->middleOffset);                                       # Right node into left
+
       $t->insertIntoTreeBits($LK, K(position => 1 << $t->lengthLeft), $pb);     # Parent tree bit into left
 
       LoadConstantIntoMaskRegister                                              # Nodes area
@@ -15965,81 +15965,6 @@ sub Nasm::X86::Tree::deleteFirstKeyAndData($$$$)                                
   $s->call(structures => {tree => $tree});
 
   $tree                                                                         # Chain tree - actual data is in key, data,  subTree, found variables
- }
-
-#latest:
-if (1) {
-  my $a = CreateArena;
-  my $t = $a->CreateTree(length => 13);
-
-  my ($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = reverse 23..31;            # Zmm names
-
-  K(PK => Rd(map {0x100+$_}  1..16))->loadZmm($PK);
-  K(PD => Rd(map {0x100+$_} 17..32))->loadZmm($PD);
-  K(PN => Rd(map {0x100+$_} 33..48))->loadZmm($PN);
-
-  K(LK => Rd(map {0x200+$_}  1..16))->loadZmm($LK);
-  K(LD => Rd(map {0x200+$_} 17..32))->loadZmm($LD);
-  K(LN => Rd(map {0x200+$_} 33..48))->loadZmm($LN);
-
-  K(RK => Rd(map {0x300+$_}  1..16))->loadZmm($RK);
-  K(RD => Rd(map {0x300+$_} 17..32))->loadZmm($RD);
-  K(RN => Rd(map {0x300+$_} 33..48))->loadZmm($RN);
-
-  $t->lengthIntoKeys($PK, K length => 6);
-  $t->lengthIntoKeys($LK, K length => 6);
-  $t->lengthIntoKeys($RK, K length => 7);
-
-  Mov r15, 0b0011001100;
-  $t->setTreeBits($PK, r15);
-  $t->setTreeBits($LK, r15);
-  $t->setTreeBits($RK, r15);
-
-  PrintOutStringNL "Start";
-  PrintOutRegisterInHex reverse 23..31;
-
-  $t->stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
-
-  PrintOutStringNL "From right to left";
-  PrintOutRegisterInHex reverse 23..31;
-
-  $t->stealFromLeft($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
-
-  PrintOutStringNL "From Left to right";
-  PrintOutRegisterInHex reverse 23..31;
-
-  ok Assemble eq => <<END;
-Start
- zmm31: 0000 0110 00CC 0106   0000 010E 0000 010D   0000 010C 0000 010B   0000 010A 0000 0109   0000 0108 0000 0107   0000 0106 0000 0105   0000 0104 0000 0103   0000 0102 0000 0101
- zmm30: 0000 0120 0000 011F   0000 011E 0000 011D   0000 011C 0000 011B   0000 011A 0000 0119   0000 0118 0000 0117   0000 0116 0000 0115   0000 0114 0000 0113   0000 0112 0000 0111
- zmm29: 0000 0130 0000 012F   0000 012E 0000 012D   0000 012C 0000 012B   0000 012A 0000 0129   0000 0128 0000 0127   0000 0126 0000 0125   0000 0124 0000 0123   0000 0122 0000 0121
- zmm28: 0000 0210 00CC 0206   0000 020E 0000 020D   0000 020C 0000 020B   0000 020A 0000 0209   0000 0208 0000 0207   0000 0206 0000 0205   0000 0204 0000 0203   0000 0202 0000 0201
- zmm27: 0000 0220 0000 021F   0000 021E 0000 021D   0000 021C 0000 021B   0000 021A 0000 0219   0000 0218 0000 0217   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
- zmm26: 0000 0230 0000 022F   0000 022E 0000 022D   0000 022C 0000 022B   0000 022A 0000 0229   0000 0228 0000 0227   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
- zmm25: 0000 0310 00CC 0307   0000 030E 0000 030D   0000 030C 0000 030B   0000 030A 0000 0309   0000 0308 0000 0307   0000 0306 0000 0305   0000 0304 0000 0303   0000 0302 0000 0301
- zmm24: 0000 0320 0000 031F   0000 031E 0000 031D   0000 031C 0000 031B   0000 031A 0000 0319   0000 0318 0000 0317   0000 0316 0000 0315   0000 0314 0000 0313   0000 0312 0000 0311
- zmm23: 0000 0330 0000 032F   0000 032E 0000 032D   0000 032C 0000 032B   0000 032A 0000 0329   0000 0328 0000 0327   0000 0326 0000 0325   0000 0324 0000 0323   0000 0322 0000 0321
-From right to left
- zmm31: 0000 0110 008C 0106   0000 010E 0000 010D   0000 010C 0000 010B   0000 010A 0000 0109   0000 0108 0000 0301   0000 0106 0000 0105   0000 0104 0000 0103   0000 0102 0000 0101
- zmm30: 0000 0120 0000 011F   0000 011E 0000 011D   0000 011C 0000 011B   0000 011A 0000 0119   0000 0118 0000 0311   0000 0116 0000 0115   0000 0114 0000 0113   0000 0112 0000 0111
- zmm29: 0000 0130 0000 012F   0000 012E 0000 012D   0000 012C 0000 012B   0000 012A 0000 0129   0000 0128 0000 0127   0000 0126 0000 0125   0000 0124 0000 0123   0000 0122 0000 0121
- zmm28: 0000 0210 01CC 0207   0000 020E 0000 020D   0000 020C 0000 020B   0000 020A 0000 0209   0000 0208 0000 0107   0000 0206 0000 0205   0000 0204 0000 0203   0000 0202 0000 0201
- zmm27: 0000 0220 0000 021F   0000 021E 0000 021D   0000 021C 0000 021B   0000 021A 0000 0219   0000 0218 0000 0117   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
- zmm26: 0000 0230 0000 022F   0000 022E 0000 022D   0000 022C 0000 022B   0000 022A 0000 0229   0000 0228 0000 0321   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
- zmm25: 0000 0310 00CC 0306   0000 030E 0000 030E   0000 030D 0000 030C   0000 030B 0000 030A   0000 0309 0000 0308   0000 0307 0000 0306   0000 0305 0000 0304   0000 0303 0000 0302
- zmm24: 0000 0320 0000 031F   0000 031E 0000 031E   0000 031D 0000 031C   0000 031B 0000 031A   0000 0319 0000 0318   0000 0317 0000 0316   0000 0315 0000 0314   0000 0313 0000 0312
- zmm23: 0000 0330 0000 032F   0000 032F 0000 032E   0000 032D 0000 032C   0000 032B 0000 032A   0000 0329 0000 0328   0000 0327 0000 0326   0000 0325 0000 0324   0000 0323 0000 0322
-From Left to right
- zmm31: 0000 0110 00CC 0106   0000 010E 0000 010D   0000 010C 0000 010B   0000 010A 0000 0109   0000 0108 0000 0107   0000 0106 0000 0105   0000 0104 0000 0103   0000 0102 0000 0101
- zmm30: 0000 0120 0000 011F   0000 011E 0000 011D   0000 011C 0000 011B   0000 011A 0000 0119   0000 0118 0000 0117   0000 0116 0000 0115   0000 0114 0000 0113   0000 0112 0000 0111
- zmm29: 0000 0130 0000 012F   0000 012E 0000 012D   0000 012C 0000 012B   0000 012A 0000 0129   0000 0128 0000 0127   0000 0126 0000 0125   0000 0124 0000 0123   0000 0122 0000 0121
- zmm28: 0000 0210 01CC 0206   0000 020E 0000 020D   0000 020C 0000 020B   0000 020A 0000 0209   0000 0208 0000 0107   0000 0206 0000 0205   0000 0204 0000 0203   0000 0202 0000 0201
- zmm27: 0000 0220 0000 021F   0000 021E 0000 021D   0000 021C 0000 021B   0000 021A 0000 0219   0000 0218 0000 0117   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
- zmm26: 0000 0230 0000 022F   0000 022E 0000 022D   0000 022C 0000 022B   0000 022A 0000 0229   0000 0228 0000 0321   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
- zmm25: 0000 0310 0198 0307   0000 030E 0000 030D   0000 030C 0000 030B   0000 030A 0000 0309   0000 0308 0000 0307   0000 0306 0000 0305   0000 0304 0000 0303   0000 0302 0000 0301
- zmm24: 0000 0320 0000 031F   0000 031E 0000 031D   0000 031C 0000 031B   0000 031A 0000 0319   0000 0318 0000 0317   0000 0316 0000 0315   0000 0314 0000 0313   0000 0312 0000 0311
- zmm23: 0000 0330 0000 032F   0000 032E 0000 032D   0000 032C 0000 032B   0000 032A 0000 0329   0000 0328 0000 0327   0000 0326 0000 0325   0000 0324 0000 0323   0000 0322 0000 0321
-END
  }
 
 #latest:
@@ -16497,8 +16422,8 @@ sub Nasm::X86::Tree::expand($$)                                                 
        };
       $t->putBlock($L, $LK, $LD, $LN);                                          # Save non minimum left
 
-      $t->leafFromNodes($LN);                                                   # Whether the left block is a leaf
-      IfNe                                                                      # If the zero Flag is zero then this is not a leaf
+      my $l = $t->leafFromNodes($LN);                                           # Whether the left block is a leaf
+      If $l > 0,                                                                # If the zero Flag is zero then this is not a leaf
       Then
        {PushR $RK, $RD, $RN;                                                    # Save these zmm even though we are not going to need them any more
         ($t->lengthFromKeys($LK) + 1)->for(sub                                  # Reparent the children of the left hand side.  This is not efficient as we load all the children (if there are any) but it is effective.
@@ -16540,8 +16465,8 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t = $$s{tree};                                                          # Tree to search
-    $t->leafFromNodes($N);                                                      # Check for a leaf
-    IfNe                                                                        # If the zero Flag is zero then this is not a leaf
+    my $l = $t->leafFromNodes($N);                                              # Check for a leaf
+    If $l == 0,                                                                 # If the zero Flag is zero then this is not a leaf
     Then                                                                        # We can only perform this operation on a leaf
      {PrintErrTraceBack "Cannot extract from a non leaf node";
      };
@@ -16642,24 +16567,23 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
   $s->call(structures=>{tree => $tree});
  } # extractFirst
 
-sub Nasm::X86::Tree::mergeOrSteal($$$)                                           # Merge the block at the specified offset with its right sibling or steal from it. If there is no  right sibling then do the same thing but with the left sibling.  The supplied block must not be the root. The key we ae looking for must be in the tree key field.
+sub Nasm::X86::Tree::mergeOrSteal($$$)                                          # Merge the block at the specified offset with its right sibling or steal from it. If there is no  right sibling then do the same thing but with the left sibling.  The supplied block must not be the root. The key we ae looking for must be in the tree key field.
  {my ($tree, $offset) = @_;                                                     # Tree descriptor, offset of non root block that might need to merge or steal
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine2
    {my ($parameters, $structures, $sub) = @_;                                   # Parameters, structures, subroutine definition
 
-    my $t = $$structures{tree};                                                 # Tree to search
+    my $t  = $$structures{tree};                                                # Tree to search
+    my $F  = 31;
     my $PK = 30; my $PD = 29; my $PN = 28;
     my $LK = 27; my $LD = 26; my $LN = 25;
     my $RK = 24; my $RD = 23; my $RN = 22;
-    my $lengthMask = k6; my $testMask = k7;
 
-    PushR 22..30;
+    PushR 22..31;
 
     my $l = $$parameters{offset};                                               # Offset of node that might need merging
     $t->getBlock($l, $LK, $LD, $LN);                                            # Get the keys/data/nodes
-
     my $p = $t->upFromData($LD);                                                # Parent offset
     If $p == 0,
     Then
@@ -16688,6 +16612,13 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
       Then                                                                      # Merge left and right siblings because we now know they are both minimal
        {$t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
         #$t->freeBlock($r, $RK, $RD, $RN);                                      # Free right
+        my $L = $t->lengthFromKeys($PK);
+        If $t->lengthFromKeys($PK) == 0,
+        Then                                                                    # We just merged in the root so make the left sibling the root
+         {$t->firstFromMemory($F);
+          $t->rootIntoFirst($F, $l);
+          $t->firstIntoMemory($F);
+         };
        },
       Else                                                                      # Steal from second child
        {$t->stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);        # Steal
@@ -16705,157 +16636,10 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
 
   $s->call(structures=>
    {tree       =>  $tree},
-    parameters => {offset=> $offset, , changed => V changed => 0});
+    parameters => {offset=> $offset, changed => my $changed = V changed => 0});
+
+  $changed                                                                      # Whether we did a merge or steal
  } # mergeOrSteal
-
-
-sub Nasm::X86::Tree::delete($$)                                                 # Find a key in a tree and delete it
- {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to delete
-  @_ == 2 or confess "Two parameters";
-  ref($key) =~ m(Variable) or confess "Variable required";
-
-  my $s = Subroutine2
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
-
-    my $t = $$s{tree};                                                          # Tree to search
-    my $k = $$p{key};                                                           # Key to find
-
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
-    $t->key->copy($k);                                                          # Copy in key so we know what was searched for
-
-    $t->find($k);                                                               # See if we can find the key
-    If $t->found == 0, Then {Jmp $success};                                     # Key not present so we cannot delete
-
-    PushR 6..7, 8..15, 22..31;
-
-    my $F = 31;
-    my $PK = 30; my $PD = 29; my $PN = 28;
-    my $LK = 27; my $LD = 26; my $LN = 25;
-    my $RK = 24; my $RD = 23; my $RN = 22;
-    my $lengthMask = k6; my $testMask = k7;
-
-    my $lo; my $ro; my $po;                                                     # Offset of left, right nodes and parent node
-
-    $t->firstFromMemory         ($F);                                           # Load first block
-    my $root = $t->rootFromFirst($F);                                           # Start the search from the root to locate the  key to be deleted
-    If $root == 0, Then{Jmp $success};                                          # Empty tree so we have not found the key and nothing needs to be done
-    $po = $root->clone('current');
-
-    my $size = $t->sizeFromFirst($F);                                           # Size of tree
-    If $size == 1,                                                              # Delete the last element which must be the matching element
-    Then
-     {$t->sizeIntoFirst(K(z=>0), $F);
-      $t->rootIntoFirst($F, K zero => 0);                                       # Empty the tree
-      $t->firstIntoMemory($F);                                                  # The position of the key in the root node
-      Jmp $success
-     };
-
-    $t->getBlock($root, $PK, $PD, $PN);                                         # Load root block
-    If $size <= $t->length,                                                     # Element is in the root and the root is a leaf
-    Then
-     {$t->extract($t->found, $PK, $PD, $PN);                                    # Extract from root
-      $t->decSizeInFirst($F);
-      $t->firstIntoMemory($F);
-      $t->putBlock($root, $PK, $PD, $PN);
-      Jmp $success
-     };
-# Step down to key
-=pod
-    K(loop, 99)->for(sub                                                        # Step down through tree looking for the key
-     {my ($index, $start, $next, $end) = @_;
-      my $eq = $t->indexEq($k, $PK);                                            # The key might still be in the parent now known not be a leaf
-      If $eq > 0, Then {Jmp $end};                                              # We have found the key so now we need to find the next leaf unless this node is in fact a leaf
-
-      if (1)
-       {my $i = $t->insertionPoint($k, $PK);                                    # The insertion point if we were inserting is the next node to visit
-        my $n = $i->dFromPointInZ($PN);                                         # Get the corresponding data
-        $lo = $n->clone('left');                                                # Corresponding node assumed to be a left sibling for the moment
-       }
-
-      $t->getBlock($lo, $LK, $LD, $LN);                                         # Get the keys/data/nodes
-
-      my $ll = $t->lengthFromKeys($LK);                                         # Length of node
-
-      If $ll == $t->lengthMin,                                                  # Has the the bare minimum so must be merged.
-      Then
-       {If $lo == $t-> lastNode($PK, $PD, $PN),
-        Then                                                                    # Last child and needs merging
-         {my $lp = $t->indexEq($k, $PK) >> K(1=>1);                             # The position of the previous node known to exist because we are currently on the last node
-          Vmovdqu64 $RK, $LK;                                                   # Copy the current left node into the right node
-          Vmovdqu64 $RD, $LD;
-          Vmovdqu64 $RN, $LN;
-          $ro = $lo->clone('right');                                            # Current left offset becomes offset of right sibling
-          $lo->copy($lp->dFromPointInZ($PK));                                   # Offset of left sibling
-          $t->getBlock($lo, $LK, $LD, $LN);                                     # Get the parent keys/data/nodes
-         },
-        Else
-         {$ro->copy(dFromZ($PN, $t->width));                                    # Right hand will be next sibling
-          $t->getBlock($ro, $RK, $RD, $RN);                                     # Get next sibling
-         };
-
-        my $lr = $t->lengthFromKeys($RK);                                       # Length of right sibling
-        If $lr == $t->lengthMin,
-        Then                                                                    # Merge left and right siblings because we now know they are both minimal
-         {$t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);               # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
-          #$t->freeBlock($ro, $RK, $RD, $RN);                                    # Free right
-         },
-        Else                                                                    # Steal from second child
-         {$t->stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);      # Steal
-          $t->putBlock($ro, $RK, $RD, $RN);                                     # Save modified right
-         };
-        $t->putBlock($po, $PK, $PD, $PN);                                       # Save modified parent
-        $t->putBlock($lo, $LK, $LD, $LN);                                       # Save non minimum left
-
-        $po->copy($lo);                                                         # Step down to this block
-        $t->getBlock($po, $PK, $PD, $PN);                                       # Save modified parent
-       };
-     });
-=cut
-# At this point we have found the item in the left set because we know that it is there in the tree waiting to be found.  Did we find it on a leaf where we cans afely remove it or do we need to go to a leaf and find a replacement?
-
-    If $t->leafFromNodes($LN) > 0,                                              # We found the item in a
-    Then
-     {$t->extract($t->found, $LK, $LD, $LN);
-      Jmp $success;
-     };
-
-    my $Ro = ($t->found << K(1 => 1))->dFromPointInZ($LN);                       # Go right to the next level down
-    $t->getBlock($Ro, $RK, $RD, $RN);
-    my $Lo = $t->firstNode($RK, $RD, $RN);
-
-    K(loop, 99)->for(sub                                                        # Find the left most leaf
-     {my ($index, $start, $next, $end) = @_;
-      $t->getBlock($Lo, $RK, $RD, $RN);                                         # Code for next level down
-      If $t->leafFromNodes($RN) > 0,
-      Then                                                                      # Leaf containing next greater key
-       {$t->extractFirst($RK, $RD, $RN);
-        my $key     = $t->key    ->clone('key');
-        my $data    = $t->data   ->clone('data');
-        my $subTree = $t->subTree->clone('subTree');
-
-        #$sub->call(structures=>{tree=>$t}, parameters={key=>$key});             # Delete next greater leaf
-
-        $t->key    ->copy($key);
-        $t->data   ->copy($data);
-        $t->subTree->copy($subTree);
-
-        #$t->replace();
-       };
-     });
-    PrintErrTraceBack "Stuck in delete";                                        # We seem to be looping endlessly
-
-    SetLabel $success;                                                          # Find completed successfully
-    PopR;
-   } parameters=>[qw(key)],
-     structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::delete($$tree{length})";
-
-  $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
- } # delete
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::expand
@@ -17350,8 +17134,134 @@ At:  200                    length:    1,  data:  240,  nodes:  280,  first:   4
 end
 END
  }
+sub Nasm::X86::Tree::delete($$)                                                 # Find a key in a tree and delete it
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to delete
+  @_ == 2 or confess "Two parameters";
+  ref($key) =~ m(Variable) or confess "Variable required";
 
-#latest:
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+
+    my $t = $$s{tree};                                                          # Tree to search
+    my $k = $$p{key};                                                           # Key to find
+
+    $t->found  ->copy(0);                                                       # Key not found
+    $t->data   ->copy(0);                                                       # Data not yet found
+    $t->subTree->copy(0);                                                       # Not yet a sub tree
+    $t->offset ->copy(0);                                                       # Offset not known
+    $t->key->copy($k);                                                          # Copy in key so we know what was searched for
+
+    $t->find($k);                                                               # See if we can find the key
+    If $t->found == 0, Then {Jmp $success};                                     # Key not present so we cannot delete
+
+    PushR 28..31;
+
+    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
+
+    my $startDescent = SetLabel();                                              # Start descent at root
+
+    $t->firstFromMemory         ($F);                                           # Load first block
+    my $root = $t->rootFromFirst($F);                                           # Start the search from the root to locate the  key to be deleted
+    If $root == 0, Then{Jmp $success};                                          # Empty tree so we have not found the key and nothing needs to be done
+
+    my $size = $t->sizeFromFirst($F);                                           # Size of tree
+    If $size == 1,                                                              # Delete the last element which must be the matching element
+    Then
+     {$t->sizeIntoFirst(K(z=>0), $F);
+      $t->rootIntoFirst($F, K z=>0);                                            # Empty the tree
+      $t->firstIntoMemory($F);                                                  # The position of the key in the root node
+      Jmp $success
+     };
+
+    $t->getBlock($root, $K, $D, $N);                                            # Load root block
+    If $t->leafFromNodes($N),                                                   # Element must be in the root as the root is a leaf
+    Then
+     {$t->extract($t->found, $K, $D, $N);                                       # Extract from root
+      $t->decSizeInFirst($F);
+      $t->firstIntoMemory($F);
+      $t->putBlock($root, $K, $D, $N);
+      Jmp $success
+     };
+
+    my $P = $root->clone('position');                                           # Position in tree
+    K(loop, 99)->for(sub                                                        # Step down through tree looking for the key
+     {my ($index, $start, $next, $end) = @_;
+      my $eq = $t->indexEq($k, $K);                                             # The key might still be in the parent now known not be a leaf
+      If $eq > 0, Then {Jmp $end};                                              # We have found the key so now we need to find the next leaf unless this node is in fact a leaf
+
+      my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting is the next node to visit
+      $P->copy($i->dFromPointInZ($N));                                          # Get the corresponding data
+
+      $t->getBlock($P, $K, $D, $N);                                             # Get the keys/data/nodes
+
+      my $l = $t->lengthFromKeys($K);                                           # Length of node
+
+      If $l == $t->lengthMin,                                                   # Has the the bare minimum so must be merged.
+      Then
+       {$t->mergeOrSteal($P);                                                   # The position of the previous node known to exist because we are currently on the last node
+        Jmp $startDescent;                                                      # Restart descent with this block merged
+       };
+     });
+
+# The following code should be inserted above at eq
+# At this point we have found the item in the left set because we know that it is there in the tree waiting to be found.  Did we find it on a leaf where we cans afely remove it or do we need to go to a leaf and find a replacement?
+
+    If $t->leafFromNodes($N) > 0,                                               # We found the item in a leaf so it can be deleted immediately
+    Then
+     {$t->extract($t->found, $K, $D, $N);                                       # Remove from block
+      $t->putBlock($P, $K, $D, $N);                                             # Save block
+      $t->decSizeInFirst($F);                                                   # Decrease size of tree
+      $t->firstIntoMemory($F);                                                  # Save first block describing tree back into memory
+      Jmp $success;                                                             # Leaf removed
+     };
+
+    my $eq = $t->indexEq($k, $K);                                               # Location of key
+    my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                              # Go right to the next level down
+
+    PushR $K, $D, $N;
+    K(loop, 99)->for(sub                                                        # Find the left most leaf
+     {my ($index, $start, $next, $end) = @_;
+      If $tree->mergeOrSteal($Q) > 0, Then {Jmp $startDescent};                 # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+      $t->getBlock($Q, $K, $D, $N);                                             # Next block down
+      If $t->leafFromNodes($N) > 0,                                             # We must hit a leaf eventually
+      Then
+       {my $key     = dFromZ($K, 0);                                            # Record details of leaf
+        my $data    = dFromZ($D, 0);
+        my $subTree = $t->getTreeBit($K, K one => 1);
+        PopR;
+PrintErrStringNL "AAAA111";
+        $sub->call(structures=>{tree=>$t}, parameters=>{key=>$key});            # Delete leaf
+PrintErrStringNL "AAAA222";
+
+        $t->key    ->copy($key);
+        $t->data   ->copy($data);
+        $t->subTree->copy($subTree);
+
+        $t->replace($eq, $K, $D);
+        $t->putBlock($P, $K, $D, $N);                                           # Save block
+        $t->decSizeInFirst($F);                                                 # Decrease size of tree
+        $t->firstIntoMemory($F);                                                # Save first block describing tree back into memory
+        Jmp $success;
+       };
+
+      my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting is the next node to visit
+      $Q->copy($i->dFromPointInZ($N));                                          # Get the corresponding offset of the the next block down
+
+      $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
+     });
+    PrintErrTraceBack "Stuck looking for leaf";
+
+    SetLabel $success;                                                          # Find completed successfully
+    PopR;
+   } parameters=>[qw(key)],
+     structures=>{tree=>$tree},
+     name => "Nasm::X86::Tree::delete($$tree{length})";
+
+  $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
+ } # delete
+
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -17382,34 +17292,71 @@ end
 END
  }
 
-#latest:
-if (0) {                                                                        #TNasm::X86::Tree::delete
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
   $t->put(   K(k=>3), K(d=>33));
   $t->put(   K(k=>4), K(d=>44));
+  $t->dump("0");
   $t->delete(K k=>1);
   $t->dump("1");
-  $t->delete(K k=>3);
-  $t->dump("3");
   $t->delete(K k=>2);
   $t->dump("2");
+  $t->delete(K k=>3);
+  $t->dump("3");
+  $t->delete(K k=>4);
+  $t->dump("4");
   ok Assemble eq => <<END;
+0
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :   22
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :   11
+    end
+    At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0    1
+      Keys :    3    4
+      Data :   33   44
+    end
+end
 1
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    3
+  Data :   33
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    2
+      Data :   22
+    end
+    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    4
+      Data :   44
+    end
+end
+2
 At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
   Index:    0    1
-  Keys :    2    3
-  Data :   22   33
+  Keys :    3    4
+  Data :   33   44
 end
 3
 At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
   Index:    0
-  Keys :    2
-  Data :   22
+  Keys :    4
+  Data :   44
 end
-2
+4
 - empty
 END
  }
