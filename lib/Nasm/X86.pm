@@ -17617,6 +17617,65 @@ end
 END
  }
 
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $N = K loop => 20;
+  $N->for(sub                                                                   # Load tree
+   {my ($i) = @_;
+    $t->put($i, $i);
+   });
+  $t->size->outNL;
+
+                          $t->printInOrder("AA");
+  $t->delete(K k =>  0);  $t->printInOrder(" 0");
+  $t->delete(K k =>  9);  $t->printInOrder(" 9");
+  $t->delete(K k =>  1);  $t->printInOrder(" 1");
+  $t->delete(K k =>  8);  $t->printInOrder(" 8");
+  $t->delete(K k =>  2);  $t->printInOrder(" 2");
+  $t->delete(K k =>  7);  $t->printInOrder(" 7");
+  $t->delete(K k =>  3);  $t->printInOrder(" 3");
+  $t->delete(K k =>  6);  $t->printInOrder(" 6");
+  $t->delete(K k =>  4);  $t->printInOrder(" 4");
+  $t->delete(K k =>  5);  $t->printInOrder(" 5");
+  $t->delete(K k => 10);  $t->printInOrder("10");
+  $t->delete(K k => 19);  $t->printInOrder("19");
+  $t->delete(K k => 11);  $t->printInOrder("11");
+  $t->delete(K k => 18);  $t->printInOrder("18");
+  $t->delete(K k => 12);  $t->printInOrder("12");
+  $t->delete(K k => 17);  $t->printInOrder("17");
+  $t->delete(K k => 13);  $t->printInOrder("13");
+  $t->delete(K k => 16);  $t->printInOrder("16");
+  $t->delete(K k => 14);  $t->printInOrder("14");
+  $t->delete(K k => 15);  $t->printInOrder("15");
+
+  ok Assemble eq => <<END;
+d at offset 8 in zmm31: 0000 0000 0000 0014
+AA  20:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
+ 0  19:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
+ 9  18:    1   2   3   4   5   6   7   8   A   B   C   D   E   F  10  11  12  13
+ 1  17:    2   3   4   5   6   7   8   A   B   C   D   E   F  10  11  12  13
+ 8  16:    2   3   4   5   6   7   A   B   C   D   E   F  10  11  12  13
+ 2  15:    3   4   5   6   7   A   B   C   D   E   F  10  11  12  13
+ 7  14:    3   4   5   6   A   B   C   D   E   F  10  11  12  13
+ 3  13:    4   5   6   A   B   C   D   E   F  10  11  12  13
+ 6  12:    4   5   A   B   C   D   E   F  10  11  12  13
+ 4  11:    5   A   B   C   D   E   F  10  11  12  13
+ 5  10:    A   B   C   D   E   F  10  11  12  13
+10   9:    B   C   D   E   F  10  11  12  13
+19   8:    B   C   D   E   F  10  11  12
+11   7:    C   D   E   F  10  11  12
+18   6:    C   D   E   F  10  11
+12   5:    D   E   F  10  11
+17   4:    D   E   F  10
+13   3:    E   F  10
+16   2:    E   F
+14   1:    F
+15- empty
+END
+ }
+
 #latest:
 if (0) {                                                                        #
   ok Assemble eq => <<END;
