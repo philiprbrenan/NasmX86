@@ -15531,8 +15531,7 @@ if (1) {                                                                        
    });
 
   ok Assemble eq => <<END;
-AAAA
- 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512
    0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0
    1      10      80       2       1     200       4       1     500       8       1     B00      16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0
@@ -15685,8 +15684,7 @@ if (1) {                                                                        
   $t->printInOrder("AAAA");
 
   ok Assemble eq => <<END;
-AAAA
- 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 END
  }
 
@@ -15718,8 +15716,7 @@ if (1) {
   $t->printInOrder("AAAA");
 
   ok Assemble eq => <<END;
-AAAA
- 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 END
  }
 
@@ -16040,73 +16037,6 @@ sub Nasm::X86::Tree::deleteFirstKeyAndData($$$$)                                
   $s->call(structures => {tree => $tree});
 
   $tree                                                                         # Chain tree - actual data is in key, data,  subTree, found variables
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::merge
-  my $a = CreateArena;
-  my $t = $a->CreateTree(length => 13);
-
-  my ($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = reverse 23..31;
-
-  K(PK => Rd(map {16 * $_ }  1..16))->loadZmm($PK);
-  K(PD => Rd(map {0x100+$_} 17..32))->loadZmm($PD);
-  K(PN => Rd(map {0x100+$_} 33..48))->loadZmm($PN);
-
-  K(LK => Rd(map {48+ $_  }  1..16))->loadZmm($LK);
-  K(LD => Rd(map {0x200+$_} 17..32))->loadZmm($LD);
-  K(LN => Rd(map {0x200+$_} 33..48))->loadZmm($LN);
-
-  K(RK => Rd(map {64  + $_}  1..16))->loadZmm($RK);
-  K(RD => Rd(map {0x300+$_} 17..32))->loadZmm($RD);
-  K(RN => Rd(map {0x300+$_} 33..48))->loadZmm($RN);
-
-  $t->lengthIntoKeys($PK, K length => 6);
-  $t->lengthIntoKeys($LK, K length => 6);
-  $t->lengthIntoKeys($RK, K length => 6);
-
-  Mov r15, 0b11111111111111;
-  $t->setTreeBits($PK, r15);
-  Mov r15, 0;
-  $t->setTreeBits($LK, r15);
-  $t->setTreeBits($RK, r15);
-
-  PrintOutStringNL "Start parent";
-  PrintOutRegisterInHex reverse 29..31;
-  PrintOutStringNL "Start Left";
-  PrintOutRegisterInHex reverse 26..28;
-  PrintOutStringNL "Start Right";
-  PrintOutRegisterInHex reverse 23..25;
-
-  $t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
-
-  PrintOutStringNL "Finish parent";
-  PrintOutRegisterInHex reverse 29..31;
-  PrintOutStringNL "Finish Left";
-  PrintOutRegisterInHex reverse 26..28;
-
-  ok Assemble eq => <<END;
-Start parent
- zmm31: 0000 0100 3FFF 0006   0000 00E0 0000 00D0   0000 00C0 0000 00B0   0000 00A0 0000 0090   0000 0080 0000 0070   0000 0060 0000 0050   0000 0040 0000 0030   0000 0020 0000 0010
- zmm30: 0000 0120 0000 011F   0000 011E 0000 011D   0000 011C 0000 011B   0000 011A 0000 0119   0000 0118 0000 0117   0000 0116 0000 0115   0000 0114 0000 0113   0000 0112 0000 0111
- zmm29: 0000 0130 0000 012F   0000 012E 0000 012D   0000 012C 0000 012B   0000 012A 0000 0129   0000 0128 0000 0127   0000 0126 0000 0125   0000 0124 0000 0123   0000 0122 0000 0121
-Start Left
- zmm28: 0000 0040 0000 0006   0000 003E 0000 003D   0000 003C 0000 003B   0000 003A 0000 0039   0000 0038 0000 0037   0000 0036 0000 0035   0000 0034 0000 0033   0000 0032 0000 0031
- zmm27: 0000 0220 0000 021F   0000 021E 0000 021D   0000 021C 0000 021B   0000 021A 0000 0219   0000 0218 0000 0217   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
- zmm26: 0000 0230 0000 022F   0000 022E 0000 022D   0000 022C 0000 022B   0000 022A 0000 0229   0000 0228 0000 0227   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
-Start Right
- zmm25: 0000 0050 0000 0006   0000 004E 0000 004D   0000 004C 0000 004B   0000 004A 0000 0049   0000 0048 0000 0047   0000 0046 0000 0045   0000 0044 0000 0043   0000 0042 0000 0041
- zmm24: 0000 0320 0000 031F   0000 031E 0000 031D   0000 031C 0000 031B   0000 031A 0000 0319   0000 0318 0000 0317   0000 0316 0000 0315   0000 0314 0000 0313   0000 0312 0000 0311
- zmm23: 0000 0330 0000 032F   0000 032E 0000 032D   0000 032C 0000 032B   0000 032A 0000 0329   0000 0328 0000 0327   0000 0326 0000 0325   0000 0324 0000 0323   0000 0322 0000 0321
-Finish parent
- zmm31: 0000 0100 1FFF 0005   0000 00E0 0000 00E0   0000 00D0 0000 00C0   0000 00B0 0000 00A0   0000 0090 0000 0080   0000 0070 0000 0060   0000 0050 0000 0030   0000 0020 0000 0010
- zmm30: 0000 0120 0000 011F   0000 011E 0000 011E   0000 011D 0000 011C   0000 011B 0000 011A   0000 0119 0000 0118   0000 0117 0000 0116   0000 0115 0000 0113   0000 0112 0000 0111
- zmm29: 0000 0130 0000 0130   0000 012F 0000 012E   0000 012D 0000 012C   0000 012B 0000 012A   0000 0129 0000 0128   0000 0127 0000 0126   0000 0124 0000 0123   0000 0122 0000 0121
-Finish Left
- zmm28: 0000 0040 0040 000D   0000 003E 0000 0046   0000 0045 0000 0044   0000 0043 0000 0042   0000 0041 0000 0040   0000 0036 0000 0035   0000 0034 0000 0033   0000 0032 0000 0031
- zmm27: 0000 0220 0000 021F   0000 021E 0000 0316   0000 0315 0000 0314   0000 0313 0000 0312   0000 0311 0000 0114   0000 0216 0000 0215   0000 0214 0000 0213   0000 0212 0000 0211
- zmm26: 0000 0230 0000 022F   0000 0327 0000 0326   0000 0325 0000 0324   0000 0323 0000 0322   0000 0321 0000 0227   0000 0226 0000 0225   0000 0224 0000 0223   0000 0222 0000 0221
-END
  }
 
 #latest:
