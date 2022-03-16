@@ -15891,7 +15891,8 @@ sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  
   $s->call(structures => {tree   => $tree});
 
   $tree                                                                         # Chain
- }
+ } # stealFromLeft
+
 # Need to change up to point to new parent for merged in node children
 sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          # Merge a left and right node if they are at minimum size.
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
@@ -15996,13 +15997,13 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
     PopR;
    }
   name       =>
-  "Nasm::X86::Tree::stealFromLeft($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  "Nasm::X86::Tree::merge($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
   structures => {tree => $tree};
 
   $s->call(structures => {tree=> $tree});
 
   $tree                                                                         # Chain
- }
+ } # merge
 
 sub Nasm::X86::Tree::deleteFirstKeyAndData($$$$)                                # Delete the first element of a leaf mode returning its characteristics in the calling tree descriptor.
  {my ($tree, $K, $D) = @_;                                                      # Tree definition, keys zmm, data zmm
@@ -16789,11 +16790,11 @@ At:  200                    length:    2,  data:  240,  nodes:  280,  first:   4
     end
 end
 5
-At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0    1
-  Keys :    2    4
-  Data :   22   44
-  Nodes:   80  140  2C0
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :   22
+  Nodes:   80  140
     At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
       Index:    0
       Keys :    1
@@ -16803,11 +16804,6 @@ At:  200                    length:    2,  data:  240,  nodes:  280,  first:   4
       Index:    0    1    2
       Keys :    3    4    5
       Data :   33   44   55
-    end
-    At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    5
-      Data :   55
     end
 end
 END
@@ -16876,11 +16872,11 @@ At:  200                    length:    2,  data:  240,  nodes:  280,  first:   4
     end
 end
 5
-At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0    1
-  Keys :    2    4
-  Data :   22   44
-  Nodes:   80  140  2C0
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :   22
+  Nodes:   80  140
     At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
       Index:    0
       Keys :    1
@@ -16890,11 +16886,6 @@ At:  200                    length:    2,  data:  240,  nodes:  280,  first:   4
       Index:    0    1    2
       Keys :    3    4    5
       Data :   33   44   55
-    end
-    At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    5
-      Data :   55
     end
 end
 END
@@ -16944,20 +16935,15 @@ At:  200                    length:    2,  data:  240,  nodes:  280,  first:   4
     end
 end
 5
-At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0    1
-  Keys :    2    4
-  Data :   22   44
-  Nodes:   80  140  2C0
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    4
+  Data :   44
+  Nodes:   80  2C0
     At:   80                length:    3,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
       Index:    0    1    2
       Keys :    1    2    3
       Data :   11   22   33
-    end
-    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    3
-      Data :   33
     end
     At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
       Index:    0
@@ -17044,12 +17030,6 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
      {PrintErrTraceBack "Cannot extract first from a non leaf node";
      };
 
-#    my $l = $t->lengthFromKeys($K);                                             # Check for a minimal block
-#    If $l <= $t->lengthMin,
-#    Then                                                                        # Minimal block - extraction not possible
-#     {PrintErrTraceBack "Cannot extract first from a minimum block";
-#     };
-
     $t->key ->copy(dFromZ($K, 0));                                              # Save corresponding key  into tree data field
     $t->data->copy(dFromZ($D, 0));                                              # Save corresponding data into tree data field
 
@@ -17110,14 +17090,6 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
     If $ll == $t->lengthMin,                                                    # Need to merge or steal
     Then
      {$t->getBlock($p, $PK, $PD, $PN);                                          # Get the parent
-If $t->debug > 1,
-Then
- {PrintErrStringNL "BBBBB";
-  $l->d;
-  PrintErrRegisterInHex $PK, $PD, $PN;
-  PrintErrRegisterInHex $LK, $LD, $LN;
- };
-
       If $l != $t->lastNode($PK, $PD, $PN),
       Then                                                                      # Not the last node so we ca either steal or merge right
        {my $ll = $t->lengthFromKeys($LK);                                       # Length of left
@@ -17133,6 +17105,7 @@ Then
            {$t->firstFromMemory($F);
             $t->rootIntoFirst($F, $l);
             $t->firstIntoMemory($F);
+            $t->upIntoData(K(zero => 0), $LD);                                  # Zero the up pointer for the root
             #$t->freeBlock($p, $PK, $PD, $PN);                                  # Free parent as it is no longer needed
            },                                                                   # Else not required
           Else                                                                  # Steal from right sibling
@@ -17155,14 +17128,6 @@ Then
         my $l = $t->prevNode($r, $PK, $PN);                                     # Left block will be previous sibling
         $t->getBlock($l, $LK, $LD, $LN);                                        # Get the right keys/data/nodes
         my $ll = $t->lengthFromKeys($LK);                                       # Length of left
-PrintErrStringNL "LLLLLL";
-If $t->debug > 1,
-Then
- {PrintErrStringNL "LLLL@22";
-  PrintErrRegisterInHex $LK;
-  $l->d;
-Exit(0);
- };
         If $ll == $t->lengthMin,                                                # Has the the bare minimum so must merge or steal
         Then
          {$t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);               # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
@@ -17171,36 +17136,16 @@ Exit(0);
            {$t->firstFromMemory($F);
             $t->rootIntoFirst($F, $l);
             $t->firstIntoMemory($F);
+            $t->upIntoData(K(zero => 0), $LD);                                  # Zero the up pointer for the root
             #$t->freeBlock($p, $PK, $PD, $PN);                                  # Free parent as it is no longer needed
-If $t->debug > 1,
-Then
- {PrintErrStringNL "CCCCC";
-  PrintErrRegisterInHex $LK, $LD, $LN;
-  $l->d;
-Exit(0);
- };
-           };                                                                   # Else not required
+           },                                                                   # Else not required
           Else                                                                  # Steal from right sibling
            {$t->putBlock($p, $PK, $PD, $PN);                                    # Save modified parent
-If $t->debug > 1,
-Then
- {PrintErrStringNL "DDDCCC";
-  PrintErrRegisterInHex $LK, $LD, $LN;
-  $l->d;
-Exit(0);
- };
            };
            #$t->freeBlock($r, $RK, $RD, $RN);                                   # Save modified right
          },
         Else                                                                    # Steal from right sibling
          {$t->stealFromLeft($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);       # Steal
-If $t->debug > 1,
-Then
- {PrintErrStringNL "EEEE";
-  PrintErrRegisterInHex $LK, $LD, $LN;
-  $l->d;
-Exit(0);
- };
           $t->putBlock($p, $PK, $PD, $PN);                                      # Save modified parent
           $t->putBlock($r, $RK, $RD, $RN);                                      # Save modified right
          };
@@ -17208,7 +17153,6 @@ Exit(0);
         $$parameters{changed}->copy(1);                                         # Show that we changed the tree layout
        };
      };
-
     PopR;
    } parameters=>[qw(offset changed)],
      structures=>{tree=>$tree},
@@ -17252,7 +17196,13 @@ sub Nasm::X86::Tree::delete($$)                                                 
     $t->firstIntoMemory($F);
 
 # Need a block here
+    my $countRestarts = V restarts => 0;
     my $startDescent = SetLabel();                                              # Start descent at root
+    $countRestarts->copy($countRestarts + 1);
+    If $countRestarts > 10,
+    Then
+     {PrintErrTraceBack "Too many loop backs";
+     };
 
     $t->firstFromMemory         ($F);                                           # Load first block
     my $root = $t->rootFromFirst($F);                                           # Start the search from the root to locate the  key to be deleted
@@ -17295,6 +17245,8 @@ sub Nasm::X86::Tree::delete($$)                                                 
          };
        };
      });
+
+
 # The following code should be inserted above at eq
 # At this point we have found the item in the left set because we know that it is there in the tree waiting to be found.  Did we find it on a leaf where we cans afely remove it or do we need to go to a leaf and find a replacement?
 
@@ -17321,19 +17273,10 @@ sub Nasm::X86::Tree::delete($$)                                                 
     K(loop, 99)->for(sub                                                        # Find the left most leaf
      {my ($index, $start, $next, $end) = @_;
 
-
-If $t->debug > 0,
-Then
- {PrintErrStringNL "AAAA";
-  $t->getBlock($Q, $K, $D, $N);                                             # Next block down
-  PrintErrRegisterInHex $K, $D, $N;
-  $t->debug->copy(K d => 2);
- };
       If $t->mergeOrSteal($Q) > 0,                                              # Merge or steal if necessary
       Then                                                                      # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
        {Jmp $startDescent;
        };
-
       $t->getBlock($Q, $K, $D, $N);                                             # Next block down
       If $t->leafFromNodes($N) > 0,                                             # We must hit a leaf eventually
       Then
@@ -17350,6 +17293,7 @@ Then
         $t->subTree->copy($subTree);
 
         my $l = $t->offset;                                                     # Offset of block containing key
+
         $t->getBlock($l, $K, $D, $N);                                           # Block containing key
         $t->replace ($t->found,  $K, $D);                                       # Replace ket to delete with leaf
         $t->putBlock($l, $K, $D, $N);                                           # Save block
@@ -17373,6 +17317,295 @@ Then
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # delete
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $i1 = V  k =>  0; $t->put($i1, $i1);
+  my $i2 = V  k => 11; $t->put($i2, $i2);
+  my $i3 = V  k => 13; $t->put($i3, $i3);
+  my $i4 = V  k => 15; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $a->dump("AAA", K blocks => 12); $t->delete($i2);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END;
+   4
+1
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    B
+  Data :   11
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    0
+      Data :    0
+    end
+    At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0    1
+      Keys :    D    F
+      Data :   13   15
+    end
+end
+AAA
+Arena     Size:     4096    Used:      704
+0000 0000 0000 0000 | __10 ____ ____ ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | __02 ____ ____ ____  04__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 0140 | 0D__ ____ 0F__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ 8001 ____
+0000 0000 0000 0180 | 0D__ ____ 0F__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 0200 | 0B__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
+0000 0000 0000 0240 | 0B__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 02C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   3
+X
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    D
+  Data :   13
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    0
+      Data :    0
+    end
+    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    F
+      Data :   15
+    end
+end
+X   3:    0   D   F
+END
+ }
+
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $a->dump("AAA", K blocks => 12); $t->delete($i1);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END;
+   4
+1
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :    2
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :    1
+    end
+    At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0    1
+      Keys :    3    4
+      Data :    3    4
+    end
+end
+AAA
+Arena     Size:     4096    Used:      704
+0000 0000 0000 0000 | __10 ____ ____ ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | __02 ____ ____ ____  04__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+0000 0000 0000 00C0 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 0140 | 03__ ____ 04__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ 8001 ____
+0000 0000 0000 0180 | 03__ ____ 04__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 0200 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
+0000 0000 0000 0240 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+0000 0000 0000 02C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   3
+X
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    3
+  Data :    3
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    2
+      Data :    2
+    end
+    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    4
+      Data :    4
+    end
+end
+X   3:    2   3   4
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i2);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END;
+   4
+2
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :    2
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :    1
+    end
+    At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0    1
+      Keys :    3    4
+      Data :    3    4
+    end
+end
+   3
+X
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    3
+  Data :    3
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :    1
+    end
+    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    4
+      Data :    4
+    end
+end
+X   3:    1   3   4
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i3);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END;
+   4
+3
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :    2
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :    1
+    end
+    At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0    1
+      Keys :    3    4
+      Data :    3    4
+    end
+end
+   3
+X
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :    2
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :    1
+    end
+    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    4
+      Data :    4
+    end
+end
+X   3:    1   2   4
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END;
+   4
+4
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :    2
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :    1
+    end
+    At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0    1
+      Keys :    3    4
+      Data :    3    4
+    end
+end
+   3
+X
+At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+  Index:    0
+  Keys :    2
+  Data :    2
+  Nodes:   80  140
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    1
+      Data :    1
+    end
+    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+      Index:    0
+      Keys :    3
+      Data :    3
+    end
+end
+X   3:    1   2   3
+END
+ }
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
@@ -17452,12 +17685,9 @@ if (1) {                                                                        
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
   $t->put(   K(k=>3), K(d=>33));
-  $t->delete(K k=>1);
-  $t->dump("1");
-  $t->delete(K k=>3);
-  $t->dump("3");
-  $t->delete(K k=>2);
-  $t->dump("2");
+  $t->delete(K k=>1);  $t->dump("1");
+  $t->delete(K k=>3);  $t->dump("3");
+  $t->delete(K k=>2);  $t->dump("2");
   ok Assemble eq => <<END;
 1
 At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -17798,7 +18028,7 @@ X
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -17813,25 +18043,21 @@ if (1) {                                                                        
   $t->delete(K k =>  1);  $t->printInOrder(" 1");
   $t->delete(K k =>  8);  $t->printInOrder(" 8");
   $t->delete(K k =>  2);  $t->printInOrder(" 2");
- $t->printInOrder(" 7");
-$t->dump("7");
-$t->debug->copy(K on => 1);
-$t->delete(K k =>  7);
-#$t->dump("7");
-#  $t->delete(K k =>  3);  $t->printInOrder(" 3");
-#  $t->delete(K k =>  6);  $t->printInOrder(" 6");
-#  $t->delete(K k =>  4);  $t->printInOrder(" 4");
-#  $t->delete(K k =>  5);  $t->printInOrder(" 5");
-#  $t->delete(K k => 10);  $t->printInOrder("10");
-#  $t->delete(K k => 19);  $t->printInOrder("19");
-#  $t->delete(K k => 11);  $t->printInOrder("11");
-#  $t->delete(K k => 18);  $t->printInOrder("18");
-#  $t->delete(K k => 12);  $t->printInOrder("12");
-#  $t->delete(K k => 17);  $t->printInOrder("17");
-#  $t->delete(K k => 13);  $t->printInOrder("13");
-#  $t->delete(K k => 16);  $t->printInOrder("16");
-#  $t->delete(K k => 14);  $t->printInOrder("14");
-#  $t->delete(K k => 15);  $t->printInOrder("15");
+  $t->delete(K k =>  7);  $t->printInOrder(" 7");
+  $t->delete(K k =>  3);  $t->printInOrder(" 3");
+  $t->delete(K k =>  6);  $t->printInOrder(" 6");
+  $t->delete(K k =>  4);  $t->printInOrder(" 4");
+  $t->delete(K k =>  5);  $t->printInOrder(" 5");
+  $t->delete(K k => 10);  $t->printInOrder("10");
+  $t->delete(K k => 19);  $t->printInOrder("19");
+  $t->delete(K k => 11);  $t->printInOrder("11");
+  $t->delete(K k => 18);  $t->printInOrder("18");
+  $t->delete(K k => 12);  $t->printInOrder("12");
+  $t->delete(K k => 17);  $t->printInOrder("17");
+  $t->delete(K k => 13);  $t->printInOrder("13");
+  $t->delete(K k => 16);  $t->printInOrder("16");
+  $t->delete(K k => 14);  $t->printInOrder("14");
+  $t->delete(K k => 15);  $t->printInOrder("15");
 
   ok Assemble eq => <<END;
 d at offset 8 in zmm31: 0000 0000 0000 0014
@@ -17857,10 +18083,9 @@ AA  20:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11
 14   1:    F
 15- empty
 END
-exit;
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -17869,6 +18094,7 @@ if (1) {                                                                        
    {my ($i) = @_;
     $t->put($i, $i);
    });
+  $t->printInOrder(" 0");
   $t->printInOrder(" 0"); $t->delete(K k =>  0);
   $t->printInOrder(" 2"); $t->delete(K k =>  2);
   $t->printInOrder(" 4"); $t->delete(K k =>  4);
@@ -17888,6 +18114,24 @@ if (1) {                                                                        
   $t->printInOrder("XX");
 
   ok Assemble eq => <<END;
+ 0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 2  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 4  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 6  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
+ 8  12:    1   3   5   7   8   9   A   B   C   D   E   F
+10  11:    1   3   5   7   9   A   B   C   D   E   F
+12  10:    1   3   5   7   9   B   C   D   E   F
+14   9:    1   3   5   7   5   B   D   E   F
+ 1   8:    1   3   5   7   5   B   D   F
+ 3   7:    3   5   7   5   B   D   F
+ 5   6:    5   7   5   B   D   F
+ 7   5:    7   0   B   D   F
+ 9   4:    0   B   D   F
+11   4:    0   B   D   F
+13   3:    0   D   F
+15   2:    0   F
+XX   1:    0
 END
  }
 
@@ -17958,7 +18202,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18014,7 +18258,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18036,6 +18280,82 @@ if (1) {                                                                        
   $t->printInOrder("CCCC");
 
   ok Assemble eq => <<END;
+AAAA  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+AAAA  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+AAAA  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
+AAAA  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
+AAAA  12:    1   3   5   7   8   9   A   B   C   D   E   F
+AAAA  11:    1   3   5   7   9   A   B   C   D   E   F
+AAAA  10:    1   3   5   7   9   B   C   D   E   F
+AAAA   9:    1   3   5   7   5   B   D   E   F
+BBBB   8:    1   3   5   7   5   B   D   F
+BBBB   7:    3   5   7   5   B   D   F
+BBBB   6:    5   7   5   B   D   F
+BBBB   5:    7   0   B   D   F
+BBBB   4:    0   B   D   F
+BBBB   4:    0   B   D   F
+BBBB   3:    0   D   F
+BBBB   2:    0   F
+CCCC   1:    0
+END
+ }
+
+#latest:
+if (0) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $N = K loop => 36;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, $i);
+   });
+  my $M = $N  / 5;
+  ($M)->for(sub
+   {my ($i) = @_;
+    $t->printInOrder("AAAA");
+    $t->delete($i * 5);
+   });
+  ($M)->for(sub
+   {my ($i) = @_;
+    $t->printInOrder("BBBB");
+    $t->delete($i * 5 + 1);
+    ($i * 5 + 1)->outNL;  If $i == 0, Then {$t->dump("2")};
+   });
+  ($M)->for(sub
+   {my ($i) = @_;
+    $t->printInOrder("CCCC");
+    $t->delete($i * 5 + 2);
+   });
+  ($M)->for(sub
+   {my ($i) = @_;
+    $t->printInOrder("DDDD");
+    $t->delete($i * 5 + 3);
+   });
+  ($M)->for(sub
+   {my ($i) = @_;
+    $t->printInOrder("EEEE");
+    $t->delete($i * 5 + 4);
+   });
+  $t->printInOrder("XXXX");
+
+  ok Assemble eq => <<END;
+AAAA  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+AAAA  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+AAAA  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
+AAAA  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
+AAAA  12:    1   3   5   7   8   9   A   B   C   D   E   F
+AAAA  11:    1   3   5   7   9   A   B   C   D   E   F
+AAAA  10:    1   3   5   7   9   B   C   D   E   F
+AAAA   9:    1   3   5   7   5   B   D   E   F
+BBBB   8:    1   3   5   7   5   B   D   F
+BBBB   7:    3   5   7   5   B   D   F
+BBBB   6:    5   7   5   B   D   F
+BBBB   5:    7   0   B   D   F
+BBBB   4:    0   B   D   F
+BBBB   4:    0   B   D   F
+BBBB   3:    0   D   F
+BBBB   2:    0   F
+CCCC   1:    0
 END
  }
 
