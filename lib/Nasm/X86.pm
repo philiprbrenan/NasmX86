@@ -15836,8 +15836,8 @@ sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  
       my $pil = $pir << ($ll - 1);                                              # Point of left key
 
       my $lk  = $pil->dFromPointInZ($LK);                                       # Left key to rotate right
-      my $ld  = $pil->dFromPointInZ($LD);                                       # Left key to rotate right
-      my $ln  = $pil->dFromPointInZ($LN);                                       # Left key to rotate right
+      my $ld  = $pil->dFromPointInZ($LD);                                       # Left data to rotate right
+      my $ln  = ($pil << K(key => 1))->dFromPointInZ($LN);                      # Left node to rotate right
 
       my $lb  = $t->getTreeBit($LK, $pil);                                      # Left tree bit to rotate right
 
@@ -17318,14 +17318,13 @@ sub Nasm::X86::Tree::delete($$)                                                 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # delete
 
-
-sub Nasm::X86::Tree::firstElement($)                                            # Find the first key in a tree
+sub Nasm::X86::Tree::firstElement($)                                            # Find the first element in a tree
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
   my $s = Subroutine2
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    my $success = Label;                                                        # Successfully completed
 
     my $t = $$s{tree};                                                          # Tree to search
 
@@ -17376,8 +17375,68 @@ sub Nasm::X86::Tree::firstElement($)                                            
   $s->call(structures=>{tree => $tree});
  } # firstElement
 
-latest:
-if (1) {                                                                        #TNasm::X86::Tree::delete
+sub Nasm::X86::Tree::lastElement($)                                             # Find the last key in a tree
+ {my ($tree) = @_;                                                              # Tree descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $success = Label;                                                        # Successfully completed
+
+    my $t = $$s{tree};                                                          # Tree to search
+
+    $t->found  ->copy(0);                                                       # Key not found
+    $t->data   ->copy(0);                                                       # Data not yet found
+    $t->subTree->copy(0);                                                       # Not yet a sub tree
+    $t->offset ->copy(0);                                                       # Offset not known
+
+    PushR 28..31;
+
+    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
+
+    $t->firstFromMemory($F);                                                    # Update the size of the tree
+    my $size = $t->sizeFromFirst($F);                                           # Size of tree
+
+    If $size == 0,                                                              # Empty tree
+    Then
+     {Jmp $success
+     };
+
+    my $root = $t->rootFromFirst($F);                                           # Root of tree
+    $t->getBlock($root, $K, $D, $N);                                            # Load root
+
+    K(loop => 99)->for(sub                                                      # Step down through the tree a reasonable number of times
+     {my ($i, $start, $next, $end) = @_;
+      my $l = $t->lengthFromKeys($K);
+      my $o  = ($l - 1) * $t->width;
+      my $O  = ($l + 0) * $t->width;
+      my $k = dFromZ($K, $o);
+      my $d = dFromZ($D, $o);
+      my $n = dFromZ($N, $O);
+      my $b = $t->getTreeBit($K, $l);
+
+      If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
+      Then
+       {$t->key    ->copy($k);
+        $t->data   ->copy($d);
+        $t->subTree->copy($b);
+        Jmp $success
+       };
+
+      $t->getBlock($n, $K, $D, $N);
+     });
+    PrintErrTraceBack "Stuck looking for last";
+
+    SetLabel $success;                                                          # Find completed successfully
+    PopR;
+   } structures=>{tree=>$tree},
+     name => "Nasm::X86::Tree::lastElement($$tree{length})";
+
+  $s->call(structures=>{tree => $tree});
+ } # lastElement
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::firstElement
   my $N = K(key => 32);
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -17394,12 +17453,12 @@ if (1) {                                                                        
 
     If $t->key != $i,
     Then
-     {PrintOutTraceBack "Queued first failed at: "; $i->outNL;
+     {PrintOutTraceBack "Reverse queue first failed at: "; $i->outNL;
      };
     $t->delete($i);
     If $t->size != $N,
     Then
-     {PrintOutTraceBack "Queued size failed at: "; $i->outNL;
+     {PrintOutTraceBack "Reverse queue size failed at: "; $i->outNL;
      };
     $t->printInOrder("A");
    });
@@ -17437,6 +17496,67 @@ A  32:   1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E 
 A  32:   1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D
 A  32:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
 A  32:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F
+END
+ }
+
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::lastElement
+  my $N = K(key => 32);
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $t->put($N + $i, $N + $i);
+   });
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $t->put($N - $i, $N - $i);
+    $t->lastElement;
+
+    $t->delete($t->key);
+     If $t->size != $N - 1,
+     Then
+      {PrintOutTraceBack "Queued size failed at: "; $i->outNL;
+      };
+    $t->printInOrder("A");
+   });
+
+  ok Assemble eq => <<END;
+A  31:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
+A  31:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D
+A  31:   1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C
+A  31:   1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B
+A  31:   1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A
+A  31:   1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39
+A  31:   1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38
+A  31:   19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37
+A  31:   18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36
+A  31:   17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35
+A  31:   16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34
+A  31:   15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33
+A  31:   14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32
+A  31:   13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31
+A  31:   12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30
+A  31:   11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F
+A  31:   10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E
+A  31:    F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D
+A  31:    E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C
+A  31:    D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B
+A  31:    C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A
+A  31:    B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29
+A  31:    A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28
+A  31:    9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27
+A  31:    8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26
+A  31:    7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25
+A  31:    6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24
+A  31:    5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+A  31:    4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
+A  31:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
+A  31:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
+A  31:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F
 END
  }
 
@@ -17533,7 +17653,7 @@ X   3:    1   2   3
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18384,7 +18504,7 @@ AA  20:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18393,7 +18513,6 @@ if (1) {                                                                        
    {my ($i) = @_;
     $t->put($i, $i);
    });
-  $t->printInOrder(" 0");
   $t->printInOrder(" 0"); $t->delete(K k =>  0);
   $t->printInOrder(" 2"); $t->delete(K k =>  2);
   $t->printInOrder(" 4"); $t->delete(K k =>  4);
@@ -18414,23 +18533,22 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END;
  0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
- 0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
  2  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
  4  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
  6  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
  8  12:    1   3   5   7   8   9   A   B   C   D   E   F
 10  11:    1   3   5   7   9   A   B   C   D   E   F
 12  10:    1   3   5   7   9   B   C   D   E   F
-14   9:    1   3   5   7   5   B   D   E   F
- 1   8:    1   3   5   7   5   B   D   F
- 3   7:    3   5   7   5   B   D   F
- 5   6:    5   7   5   B   D   F
- 7   5:    7   0   B   D   F
- 9   4:    0   B   D   F
-11   4:    0   B   D   F
-13   3:    0   D   F
-15   2:    0   F
-XX   1:    0
+14   9:    1   3   5   7   9   B   D   E   F
+ 1   8:    1   3   5   7   9   B   D   F
+ 3   7:    3   5   7   9   B   D   F
+ 5   6:    5   7   9   B   D   F
+ 7   5:    7   9   B   D   F
+ 9   4:    9   B   D   F
+11   3:    B   D   F
+13   2:    D   F
+15   1:    F
+XX- empty
 END
  }
 
@@ -18586,20 +18704,20 @@ AAAA  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
 AAAA  12:    1   3   5   7   8   9   A   B   C   D   E   F
 AAAA  11:    1   3   5   7   9   A   B   C   D   E   F
 AAAA  10:    1   3   5   7   9   B   C   D   E   F
-AAAA   9:    1   3   5   7   5   B   D   E   F
-BBBB   8:    1   3   5   7   5   B   D   F
-BBBB   7:    3   5   7   5   B   D   F
-BBBB   6:    5   7   5   B   D   F
-BBBB   5:    7   0   B   D   F
-BBBB   4:    0   B   D   F
-BBBB   4:    0   B   D   F
-BBBB   3:    0   D   F
-BBBB   2:    0   F
-CCCC   1:    0
+AAAA   9:    1   3   5   7   9   B   D   E   F
+BBBB   8:    1   3   5   7   9   B   D   F
+BBBB   7:    3   5   7   9   B   D   F
+BBBB   6:    5   7   9   B   D   F
+BBBB   5:    7   9   B   D   F
+BBBB   4:    9   B   D   F
+BBBB   3:    B   D   F
+BBBB   2:    D   F
+BBBB   1:    F
+CCCC- empty
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18608,74 +18726,84 @@ if (1) {                                                                        
    {my ($i) = @_;
     $t->put($i, $i);
    });
-  $t->delete(K 1 =>  0);
-  $t->delete(K 1 =>  5);
-  $t->delete(K 1 => 10);
-  $t->delete(K 1 => 15);
-  $t->delete(K 1 => 20);
-$t->dump("25d"); $t->printInOrder("AA");
-  $t->delete(K 1 => 25);
-$t->dump("30d"); $t->printInOrder("AA");
-Exit(0);
-  $t->delete(K 1 => 30);
-  $t->delete(K 1 => 35);
+  $t->delete(K 1 =>  0); $t->printInOrder(" 0");
+  $t->delete(K 1 =>  5); $t->printInOrder(" 5");
+  $t->delete(K 1 => 10); $t->printInOrder("10");
+  $t->delete(K 1 => 15); $t->printInOrder("15");
+  $t->delete(K 1 => 20); $t->printInOrder("20");
+  $t->delete(K 1 => 25); $t->printInOrder("25");
+  $t->delete(K 1 => 30); $t->printInOrder("30");
+  $t->delete(K 1 => 35); $t->printInOrder("35");
 
-  $t->delete(K 1 =>  1);
-  $t->delete(K 1 =>  6);
-  $t->delete(K 1 => 11);
-  $t->delete(K 1 => 16);
-  $t->delete(K 1 => 21);
-  $t->delete(K 1 => 26);
-  $t->delete(K 1 => 31);
-  $t->delete(K 1 => 36);
-#
-  $t->delete(K 1 =>  2);
-  $t->delete(K 1 =>  7);
-  $t->delete(K 1 => 12);
-  $t->delete(K 1 => 17);
-  $t->delete(K 1 => 22);
-  $t->delete(K 1 => 27);
-  $t->delete(K 1 => 32);
-  $t->delete(K 1 => 37);
+  $t->delete(K 1 =>  1); $t->printInOrder(" 1");
+  $t->delete(K 1 =>  6); $t->printInOrder(" 6");
+  $t->delete(K 1 => 11); $t->printInOrder("11");
+  $t->delete(K 1 => 16); $t->printInOrder("16");
+  $t->delete(K 1 => 21); $t->printInOrder("21");
+  $t->delete(K 1 => 26); $t->printInOrder("26");
+  $t->delete(K 1 => 31); $t->printInOrder("31");
 
-  $t->delete(K 1 =>  3);
-  $t->delete(K 1 =>  8);
-$t->dump("13d");
-  $t->delete(K 1 => 13);
-Exit(0);
-  $t->delete(K 1 => 18);
-  $t->delete(K 1 => 23);
-  $t->delete(K 1 => 28);
-  $t->delete(K 1 => 33);
-  $t->delete(K 1 => 38);
+  $t->delete(K 1 =>  2); $t->printInOrder(" 2");
+  $t->delete(K 1 =>  7); $t->printInOrder(" 7");
+  $t->delete(K 1 => 12); $t->printInOrder("12");
+  $t->delete(K 1 => 17); $t->printInOrder("17");
+  $t->delete(K 1 => 22); $t->printInOrder("22");
+  $t->delete(K 1 => 27); $t->printInOrder("27");
+  $t->delete(K 1 => 32); $t->printInOrder("32");
 
-  $t->delete(K 1 =>  4);
-  $t->delete(K 1 =>  9);
-  $t->delete(K 1 => 14);
-  $t->delete(K 1 => 19);
-  $t->delete(K 1 => 24);
-  $t->delete(K 1 => 29);
-  $t->delete(K 1 => 34);
-  $t->delete(K 1 => 39);
+  $t->delete(K 1 =>  3); $t->printInOrder(" 3");
+  $t->delete(K 1 =>  8); $t->printInOrder(" 8");
+  $t->delete(K 1 => 13); $t->printInOrder("13");
+  $t->delete(K 1 => 18); $t->printInOrder("18");
+  $t->delete(K 1 => 23); $t->printInOrder("23");
+  $t->delete(K 1 => 28); $t->printInOrder("28");
+  $t->delete(K 1 => 33); $t->printInOrder("33");
+
+  $t->delete(K 1 =>  4); $t->printInOrder(" 4");
+  $t->delete(K 1 =>  9); $t->printInOrder(" 9");
+  $t->delete(K 1 => 14); $t->printInOrder("14");
+  $t->delete(K 1 => 19); $t->printInOrder("19");
+  $t->delete(K 1 => 24); $t->printInOrder("24");
+  $t->delete(K 1 => 29); $t->printInOrder("29");
+  $t->delete(K 1 => 34); $t->printInOrder("34");
 
   ok Assemble eq => <<END;
-AAAA  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-AAAA  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-AAAA  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
-AAAA  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
-AAAA  12:    1   3   5   7   8   9   A   B   C   D   E   F
-AAAA  11:    1   3   5   7   9   A   B   C   D   E   F
-AAAA  10:    1   3   5   7   9   B   C   D   E   F
-AAAA   9:    1   3   5   7   5   B   D   E   F
-BBBB   8:    1   3   5   7   5   B   D   F
-BBBB   7:    3   5   7   5   B   D   F
-BBBB   6:    5   7   5   B   D   F
-BBBB   5:    7   0   B   D   F
-BBBB   4:    0   B   D   F
-BBBB   4:    0   B   D   F
-BBBB   3:    0   D   F
-BBBB   2:    0   F
-CCCC   1:    0
+ 0  35:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+ 5  34:    1   2   3   4   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+10  33:    1   2   3   4   6   7   8   9   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+15  32:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+20  31:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+25  30:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1E  1F  20  21  22  23
+30  29:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22  23
+35  28:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+ 1  27:    2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+ 6  26:    2   3   4   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+11  25:    2   3   4   7   8   9   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+16  24:    2   3   4   7   8   9   C   D   E  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+21  23:    2   3   4   7   8   9   C   D   E  11  12  13  16  17  18  1A  1B  1C  1D  1F  20  21  22
+26  22:    2   3   4   7   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  1F  20  21  22
+31  21:    2   3   4   7   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+ 2  20:    3   4   7   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+ 7  19:    3   4   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+12  18:    3   4   8   9   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+17  17:    3   4   8   9   D   E  12  13  16  17  18  1B  1C  1D  20  21  22
+22  16:    3   4   8   9   D   E  12  13  17  18  1B  1C  1D  20  21  22
+27  15:    3   4   8   9   D   E  12  13  17  18  1C  1D  20  21  22
+32  14:    3   4   8   9   D   E  12  13  17  18  1C  1D  21  22
+ 3  13:    4   8   9   D   E  12  13  17  18  1C  1D  21  22
+ 8  12:    4   9   D   E  12  13  17  18  1C  1D  21  22
+13  11:    4   9   E  12  13  17  18  1C  1D  21  22
+18  10:    4   9   E  13  17  18  1C  1D  21  22
+23   9:    4   9   E  13  18  1C  1D  21  22
+28   8:    4   9   E  13  18  1D  21  22
+33   7:    4   9   E  13  18  1D  22
+ 4   6:    9   E  13  18  1D  22
+ 9   5:    E  13  18  1D  22
+14   4:   13  18  1D  22
+19   3:   18  1D  22
+24   2:   1D  22
+29   1:   22
+34- empty
 END
  }
 
