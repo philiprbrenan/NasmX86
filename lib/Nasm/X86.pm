@@ -17561,47 +17561,6 @@ END
  }
 
 #latest:
-if (0) {                                                                        #TNasm::X86::Tree::delete
-  my $N = 40;
-  for my $n(1..$N)
-   {for my $o(1..$N)
-     {next if $o == $n;
-      PrintOutStringNL "$n $o";
-      my $a = CreateArena;
-      my $t = $a->CreateTree(length => 3);
-      my $L = K(loop => $N);
-      $L->for(sub
-       {my ($i, $start, $next, $end) = @_;
-        my $j = $L - $i;
-        $t->put($i, $i);
-        $t->put($j, $j);
-       });
-      If $t->size != $N + 1,      Then {$t->size->d; PrintErrTraceBack "Failed on size $n $o"};
-      $t->delete(K(key => $n));
-      $t->delete(K(key => $o));
-      If $t->size != $N - 1,      Then {PrintErrTraceBack "Failed on size after delete $n $o"};
-
-      $t->find(K(key => $n)); If $t->found == 1, Then {PrintErrTraceBack "Found $n in $n $o"};
-      $t->find(K(key => $o)); If $t->found == 1, Then {PrintErrTraceBack "Found $o in $n $o"};
-
-      $L->for(sub                                                               # Test results
-       {my ($i, $start, $next, $end) = @_;
-
-        If $i == $n, Then {Jmp $end};
-        If $i == $o, Then {Jmp $end};
-        $t->find($i); If $t->found == 0, Then {PrintErrTraceBack "Did not find $i in $n $o"};
-       });
-
-      ok Assemble eq => <<END;
-$n $o
-END
-     }
-   }
-  done_testing;
-  exit;
- }
-
-#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
