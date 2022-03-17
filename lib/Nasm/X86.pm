@@ -17297,15 +17297,11 @@ sub Nasm::X86::Tree::delete($$)                                                 
         $t->getBlock($l, $K, $D, $N);                                           # Block containing key
         $t->replace ($t->found,  $K, $D);                                       # Replace key to delete with leaf
         $t->putBlock($l, $K, $D, $N);                                           # Save block
-#        $t->incSize;                                                           # Increase size of key because we are reinserting an element we just deleted
-#        $t->firstIntoMemory($F);                                               # Save first block describing tree back into memory
         Jmp $success;
        };
 
       my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting is the next node to visit
       $Q->copy($i->dFromPointInZ($N));                                          # Get the corresponding offset of the the next block down
-
-#     $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
      });
     PrintErrTraceBack "Stuck looking for leaf";
 
