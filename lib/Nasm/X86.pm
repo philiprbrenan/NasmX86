@@ -17318,8 +17318,130 @@ sub Nasm::X86::Tree::delete($$)                                                 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # delete
 
+
+sub Nasm::X86::Tree::firstElement($)                                            # Find the first key in a tree
+ {my ($tree) = @_;                                                              # Tree descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+
+    my $t = $$s{tree};                                                          # Tree to search
+
+    $t->found  ->copy(0);                                                       # Key not found
+    $t->data   ->copy(0);                                                       # Data not yet found
+    $t->subTree->copy(0);                                                       # Not yet a sub tree
+    $t->offset ->copy(0);                                                       # Offset not known
+
+    PushR 28..31;
+
+    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
+
+    $t->firstFromMemory($F);                                                    # Update the size of the tree
+    my $size = $t->sizeFromFirst($F);                                           # Size of tree
+
+    If $size == 0,                                                              # Empty tree
+    Then
+     {Jmp $success
+     };
+
+    my $root = $t->rootFromFirst($F);                                           # Root of tree
+    $t->getBlock($root, $K, $D, $N);                                            # Load root
+
+    K(loop => 99)->for(sub                                                      # Step down through the tree a reasonable number of times
+     {my ($i, $start, $next, $end) = @_;
+      my $k = dFromZ($K, 0);
+      my $d = dFromZ($D, 0);
+      my $n = dFromZ($N, 0);
+      my $b = $t->getTreeBit($K, K key => 1);
+
+      If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
+      Then
+       {$t->key    ->copy($k);
+        $t->data   ->copy($d);
+        $t->subTree->copy($b);
+        Jmp $success
+       };
+
+      $t->getBlock($n, $K, $D, $N);
+     });
+    PrintErrTraceBack "Stuck looking for first";
+
+    SetLabel $success;                                                          # Find completed successfully
+    PopR;
+   } structures=>{tree=>$tree},
+     name => "Nasm::X86::Tree::firstElement($$tree{length})";
+
+  $s->call(structures=>{tree => $tree});
+ } # firstElement
+
 latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $N = K(key => 32);
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $t->put($i, $i);
+   });
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $t->put($N + $i, $N + $i);
+    $t->firstElement;
+
+    If $t->key != $i,
+    Then
+     {PrintOutTraceBack "Queued first failed at: "; $i->outNL;
+     };
+    $t->delete($i);
+    If $t->size != $N,
+    Then
+     {PrintOutTraceBack "Queued size failed at: "; $i->outNL;
+     };
+    $t->printInOrder("A");
+   });
+
+  ok Assemble eq => <<END;
+A  32:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
+A  32:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
+A  32:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
+A  32:    4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+A  32:    5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24
+A  32:    6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25
+A  32:    7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26
+A  32:    8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27
+A  32:    9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28
+A  32:    A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29
+A  32:    B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A
+A  32:    C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B
+A  32:    D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C
+A  32:    E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D
+A  32:    F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E
+A  32:   10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F
+A  32:   11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30
+A  32:   12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31
+A  32:   13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32
+A  32:   14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33
+A  32:   15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34
+A  32:   16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35
+A  32:   17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36
+A  32:   18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37
+A  32:   19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38
+A  32:   1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39
+A  32:   1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A
+A  32:   1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B
+A  32:   1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C
+A  32:   1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D
+A  32:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
+A  32:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F
+END
+ }
+
+#latest:
+if (0) {                                                                        #TNasm::X86::Tree::delete
   my $N = 40;
   for my $n(1..$N)
    {for my $o(1..$N)
@@ -17355,8 +17477,8 @@ $n $o
 END
      }
    }
-done_testing;
-exit;
+  done_testing;
+  exit;
  }
 
 #latest:
