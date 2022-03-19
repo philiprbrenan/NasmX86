@@ -8001,8 +8001,8 @@ sub Nasm::X86::Tree::findNext($$)                                               
      {Jmp $success;                                                             # Return
      };
 
-    my $lnro = V(key => 0);                                                     # Offset of last not right tells us where to continue the search -
-    my $lnri = V(key => 0);                                                     # Insertion point of last non right
+    my $li = V(key => 0);                                                       # Offset of last not right tells us where to continue the search -
+    my $lQ = V(key => 0);                                                       # Insertion point of last non right
 
     K(loop, 99)->for(sub                                                        # Step down through tree
      {my ($index, $start, $next, $end) = @_;
@@ -8014,9 +8014,9 @@ sub Nasm::X86::Tree::findNext($$)                                               
       Then                                                                      # On a leaf
        {If $i == $lp,
         Then                                                                    # Last in leaf so reposition on last not right
-         {If $lnro == 0, Then {Jmp $success};                                   # Greater than all keys
-          $t->getBlock($lnro, $K, $D, $N);
-          $i->copy($lnri);
+         {If $li == 0, Then {Jmp $success};                                     # Greater than all keys
+          $t->getBlock($li, $K, $D, $N);
+          $i->copy($lQ);
          };
         $t->found  ->copy($i);                                                  # Key found at this point
         $t->key    ->copy($i->dFromPointInZ($K));                               # Save key
@@ -8029,12 +8029,12 @@ sub Nasm::X86::Tree::findNext($$)                                               
       my $n = $i->dFromPointInZ($N);                                            # Get the corresponding data
       If $i != $lp,
       Then                                                                      # Not descending through the last right
-       {$lnro->copy($Q);
-        $lnri->copy($i);
+       {$li->copy($Q);
+        $lQ->copy($i);
        };
       $Q->copy($n);                                                             # Corresponding node
      });
-    PrintErrTraceBack "Stuck in find next";                                          # We seem to be looping endlessly
+    PrintErrTraceBack "Stuck in find next";                                     # We seem to be looping endlessly
 
     SetLabel $success;                                                          # Find completed successfully
     PopR;
@@ -8071,8 +8071,8 @@ sub Nasm::X86::Tree::findPrev($$)                                               
     my $Q = $t->rootFromFirst($F);                                              # Start the search from the root
     If $Q == 0, Then {Jmp $success};                                            # Empty tree so we have successfully not found the key
 
-    my $lnro = V key => 0;                                                      # Offset of last not right tells us where to continue the search -
-    my $lnri = V key => 0;                                                      # Insertion point of last non right
+    my $li = V key => 0;                                                        # Offset of last not right tells us where to continue the search -
+    my $lQ = V key => 0;                                                        # Insertion point of last non right
 
     K(loop, 99)->for(sub                                                        # Step down through tree
      {my ($index, $start, $next, $end) = @_;
@@ -8091,9 +8091,9 @@ sub Nasm::X86::Tree::findPrev($$)                                               
       Then                                                                      # On a leaf
        {If $i == 1,
         Then                                                                    # First in leaf so reposition on last not left
-         {If $lnro == 0, Then {Jmp $success};                                   # Greater than all keys
-          $t->getBlock($lnro, $K, $D, $N);
-          $i->copy($lnri);
+         {If $li == 0, Then {Jmp $success};                                     # Greater than all keys
+          $t->getBlock($li, $K, $D, $N);
+          $i->copy($lQ);
          };
         $i->copy($i >> K(one => 1));
         $t->found  ->copy($i);                                                  # Key found at this point
@@ -8107,8 +8107,8 @@ sub Nasm::X86::Tree::findPrev($$)                                               
       my $n = $i->dFromPointInZ($N);                                            # Get the corresponding data
       If $i != 1,
       Then                                                                      # Not descending through the first left
-       {$lnro->copy($Q);
-        $lnri->copy($i);
+       {$li->copy($Q);
+        $lQ->copy($i);
        };
       $Q->copy($n);                                                             # Corresponding node
      });
@@ -18916,7 +18916,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::findNext
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
