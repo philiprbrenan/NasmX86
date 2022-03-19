@@ -8846,7 +8846,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # delete
 
-sub Nasm::X86::Tree::firstElement($)                                            # Find the first element in a tree
+sub Nasm::X86::Tree::findFirst($)                                            # Find the first element in a tree
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
@@ -8899,12 +8899,12 @@ sub Nasm::X86::Tree::firstElement($)                                            
     SetLabel $success;                                                          # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::firstElement($$tree{length})";
+     name => "Nasm::X86::Tree::findFirst($$tree{length})";
 
   $s->call(structures=>{tree => $tree});
- } # firstElement
+ } # findFirst
 
-sub Nasm::X86::Tree::lastElement($)                                             # Find the last key in a tree
+sub Nasm::X86::Tree::findLast($)                                             # Find the last key in a tree
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
@@ -8960,10 +8960,10 @@ sub Nasm::X86::Tree::lastElement($)                                             
     SetLabel $success;                                                          # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::lastElement($$tree{length})";
+     name => "Nasm::X86::Tree::findLast($$tree{length})";
 
   $s->call(structures=>{tree => $tree});
- } # lastElement
+ } # findLast
 
 #D2 Print                                                                       # Print a tree
 
@@ -9416,7 +9416,7 @@ sub Nasm::X86::Tree::by($&)                                                     
  {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
   @_ == 2 or confess "Two parameters required";
 
-  $tree->firstElement;                                                          # First element
+  $tree->findFirst;                                                          # First element
   my $end   = Label;                                                            # End of processing
   my $next  = Label;                                                            # Next iteration
   my $start = SetLabel;                                                         # Start of this iteration
@@ -9432,7 +9432,7 @@ sub Nasm::X86::Tree::yb($&)                                                     
  {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
   @_ == 2 or confess "Two parameters required";
 
-  $tree->lastElement;                                                           # Last element
+  $tree->findLast;                                                           # Last element
   my $end   = Label;                                                            # End of processing
   my $prev  = Label;                                                            # Next iteration
   my $start = SetLabel;                                                         # Start of this iteration
@@ -17620,7 +17620,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::firstElement
+if (1) {                                                                        #TNasm::X86::Tree::findFirst
   my $N = K(key => 32);
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -17633,7 +17633,7 @@ if (1) {                                                                        
   $N->for(sub
    {my ($i, $start, $next, $end) = @_;
     $t->put($N + $i, $N + $i);
-    $t->firstElement;
+    $t->findFirst;
 
     If $t->key != $i,
     Then
@@ -17685,7 +17685,7 @@ END
 
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::lastElement
+if (1) {                                                                        #TNasm::X86::Tree::findLast
   my $N = K(key => 32);
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -17698,7 +17698,7 @@ if (1) {                                                                        
   $N->for(sub
    {my ($i, $start, $next, $end) = @_;
     $t->put($N - $i, $N - $i);
-    $t->lastElement;
+    $t->findLast;
 
     $t->delete($t->key);
      If $t->size != $N - 1,
