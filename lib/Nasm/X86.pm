@@ -5243,11 +5243,10 @@ sub Nasm::X86::Arena::allocate($$)                                              
   @_ == 2 or confess "Two parameters";
 
   SaveFirstFour;
-  my $offset = V("offset");                                                     # Variable to hold offset of allocation
   $arena->updateSpace($size);                                                   # Update space if needed
   $arena->address->setReg(rax);
   Mov rsi, "[rax+$$arena{used}]";                                               # Currently used
-  $offset->getReg(rsi);
+  my $offset = V(offset => rsi);                                                # Variable to hold offset of allocation
   $size  ->setReg(rdi);
   Add rsi, rdi;
   Mov "[rax+$$arena{used}]", rsi;                                               # Update currently used
