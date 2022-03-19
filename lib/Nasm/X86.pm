@@ -301,7 +301,6 @@ sub CheckMaskRegisterNumber($);                                                 
 sub ClearRegisters(@);                                                          # Clear registers by setting them to zero.
 sub Comment(@);                                                                 # Insert a comment into the assembly code.
 sub DComment(@);                                                                # Insert a comment into the data section.
-sub PeekR($);                                                                   # Peek at the register on top of the stack.
 sub PopR(@);                                                                    # Pop a list of registers off the stack.
 sub PopRR(@);                                                                   # Pop a list of registers off the stack without tracking.
 sub PrintErrRegisterInHex(@);                                                   # Print a register on stderr
@@ -3542,27 +3541,6 @@ sub Nasm::X86::Variable::qIntoZ($$$)                                            
   $content->putBwdqIntoMm('q', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
-#D2 Stack                                                                       # Push and pop variables to and from the stack
-
-#sub Nasm::X86::Variable::push($)                                                # Push a variable onto the stack.
-# {my ($variable) = @_;                                                          # Variable
-#  PushR rax; Push rax;                                                          # Make a slot on the stack and save rax
-#  $variable->setReg(rax);                                                       # Variable to rax
-#  my $s = RegisterSize rax;                                                     # Size of rax
-#  Mov "[rsp+$s]", rax;                                                          # Move variable to slot
-#  PopR rax;                                                                     # Remove rax to leave variable on top of the stack
-# }
-#
-#sub Nasm::X86::Variable::pop($)                                                 # Pop a variable from the stack.
-# {my ($variable) = @_;                                                          # Variable
-#  PushR rax;                                                                    # Liberate a register
-#  my $s = RegisterSize rax;                                                     # Size of rax
-#  Mov rax, "[rsp+$s]";                                                          # Load from stack
-#  $variable->getReg(rax);                                                       # Variable to rax
-#  PopR rax;                                                                     # Remove rax to leave variable on top of the stack
-#  Add rsp, $s;                                                                  # Remove variable from stack
-# }
-
 #D2 Memory                                                                      # Actions on memory described by variables
 
 sub Nasm::X86::Variable::clearMemory($$)                                        # Clear the memory described in this variable.
@@ -3573,17 +3551,12 @@ sub Nasm::X86::Variable::clearMemory($$)                                        
 sub Nasm::X86::Variable::copyMemory($$$)                                        # Copy from one block of memory to another.
  {my ($target, $source, $size) = @_;                                            # Address of target, address of source, length to copy
   @_ == 3 or confess "Three parameters";
-#  $target->name eq q(target) or confess "Need target";
-#  $source->name eq q(source) or confess "Need source";
-#  $size  ->name eq q(size)   or confess "Need size";
   &CopyMemory(target => $target, source => $source, size => $size);             # Copy the memory
  }
 
 sub Nasm::X86::Variable::printMemoryInHexNL($$$)                                # Write, in hexadecimal, the memory addressed by a variable to stdout or stderr.
  {my ($address, $channel, $size) = @_;                                          # Address of memory, channel to print on, number of bytes to print
   @_ == 3 or confess "Three parameters";
-#  $address->name eq q(address) or confess "Need address";
-#  $size   ->name eq q(size)    or confess "Need size";
   PushR (rax, rdi);
   $address->setReg(rax);
   $size->setReg(rdi);
@@ -3710,18 +3683,6 @@ sub PopEax()                                                                    
  {my $l = RegisterSize eax;                                                     # Eax is half rax
   Mov eax, "[rsp]";
   Add rsp, RegisterSize eax;
- }
-
-sub PeekR($)                                                                    # Peek at register on stack.
- {my ($r) = @_;                                                                 # Register
-  my $w = RegisterSize rax;
-  my $size = RegisterSize $r;
-  if    ($size > $w)                                                            # X|y|zmm*
-   {Vmovdqu32 $r, "[rsp]";
-   }
-  else                                                                          # General purpose 8 byte register
-   {Mov $r, "[rsp]";
-   }
  }
 
 my @PushZmm;                                                                    # Zmm pushes
