@@ -477,27 +477,6 @@ sub ChooseRegisters($@)                                                         
   sort keys %r
  }
 
-sub CheckGeneralPurposeRegister($)                                              # Check that a register is in fact a general purpose register.
- {my ($reg) = @_;                                                               # Register to check
-  @_ == 1 or confess "One parameter";
-  $Registers{$reg} && $reg =~ m(\Ar) or
-    confess "Not a general purpose register: $reg";
- }
-
-sub ChooseZmmRegisterNotIn(@)                                                   # Choose a zmm register different from any in the list.
- {my (@zmm) = @_;                                                               # Zmm number to exclude
-  my %z = map {$_=>1} 0..31;
-  delete $z{$_} for @zmm;
-  my ($z) = sort {$a <=> $b}  keys %z;
-  $z
- }
-
-sub CheckNumberedGeneralPurposeRegister($)                                      # Check that a register is in fact a numbered general purpose register.
- {my ($reg) = @_;                                                               # Register to check
-  @_ == 1 or confess "One parameter";
-  $Registers{$reg} && $reg =~ m(\Ar\d{1,2}\Z);
- }
-
 sub InsertZeroIntoRegisterAtPoint($$)                                           # Insert a zero into the specified register at the point indicated by another general purpose or mask register moving the higher bits one position to the left.
  {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
 
@@ -8295,7 +8274,7 @@ sub Nasm::X86::Tree::getTreeBit($$$)                                            
 sub Nasm::X86::Tree::setOrClearTreeBit($$$$)                                    #P Set or clear the tree bit selected by the specified point in the numbered zmm register holding the keys of a node to indicate that the data element indicated by the specified register is an offset to a sub tree in the containing arena.
  {my ($t, $set, $point, $zmm) = @_;                                             # Tree descriptor, set if true else clear, register holding point to set, numbered zmm register holding the keys for a node in the tree
   @_ == 4 or confess "Four parameters";
-  CheckGeneralPurposeRegister($point);
+  #CheckGeneralPurposeRegister($point);
   my $z = registerNameFromNumber $zmm;                                          # Full name of zmm register
   my $o = $t->treeBits;                                                         # Tree bits to end of zmm
   my $r = registerNameFromNumber $point;
