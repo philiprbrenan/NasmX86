@@ -1209,7 +1209,7 @@ sub cr(&@)                                                                      
   UnReorderSyscallRegisters @registers;
  }
 
-# Second subroutine version
+# Subroutine                                                                    # Define and call subroutines
 
 sub copyStructureMinusVariables($)                                              # Copy a non recursive structure ignoring variables
  {my ($s) = @_;                                                                 # Structure to copy
