@@ -17,6 +17,7 @@
 # WHat is the differenfe between variable clone and variable copy?
 # Standardize w1 = r8, w2 = r9 so we do need to pass them around - rdi, rsi are always general purpose except in system calls
 # Make sure that we are using bts and bzhi as much as possible in mask situations
+# Subroutine2->subroutine and readd final label paramter so we do not have to c=keep delaring ands placing it
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -7915,15 +7916,13 @@ sub Nasm::X86::Tree::find($$)                                                   
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR 6..7, 8..15, 28..31;
+    PushR 28..31;
 
     my $t = $$s{tree};                                                          # Tree to search
     my $k = $$p{key};                                                           # Key to find
     $t->key->copy($k);                                                          # Copy in key so we know what was searched for
 
     my $F = 31; my $K = 30; my $D = 29; my $N = 28;
-    my $lengthMask = k6; my $testMask = k7;
-    my $W1 = r8;  my $W2 = r9;                                                  # Work registers
 
     $t->found  ->copy(0);                                                       # Key not found
     $t->data   ->copy(0);                                                       # Data not yet found
@@ -7972,6 +7971,79 @@ sub Nasm::X86::Tree::find($$)                                                   
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # find
+
+sub Nasm::X86::Tree::findNext($$)                                               # Find the next key greater than the one specified.
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, key
+  @_ == 2 or confess "Two parameters";
+  ref($key) =~ m(Variable) or confess "Variable required";
+
+  my $s = Subroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+
+    PushR 28..31;
+    my $t = $$s{tree};                                                          # Tree to search
+    my $k = $$p{key};                                                           # Key to find
+    $t->key->copy($k);                                                          # Copy in key so we know what was searched for
+
+    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
+    my $lengthMask = k6; my $testMask = k7;
+
+    $t->found  ->copy(0);                                                       # Key not found
+    $t->data   ->copy(0);                                                       # Data not yet found
+    $t->subTree->copy(0);                                                       # Not yet a sub tree
+    $t->offset ->copy(0);                                                       # Offset not known
+
+    $t->firstFromMemory      ($F);                                              # Load first block
+    my $Q = $t->rootFromFirst($F);                                              # Start the search from the root
+    If $Q == 0,
+    Then                                                                        # Empty tree so we have successfully not found the key
+     {Jmp $success;                                                             # Return
+     };
+
+    my $lnro = V(key => 0);                                                     # Offset of last not right tells us where to continue the search -
+    my $lnri = V(key => 0);                                                     # Insertion point of last non right
+
+    K(loop, 99)->for(sub                                                        # Step down through tree
+     {my ($index, $start, $next, $end) = @_;
+
+      $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
+      my $lp   = K(key => 1) << $t->lengthFromKeys($K);                         # Point to last node in nodes area
+      my $i = $t->insertionPoint($k, $K);                                       # The insertion point
+      If $t->leafFromNodes($N) > 0,
+      Then                                                                      # On a leaf
+       {If $i == $lp,
+        Then                                                                    # Last in leaf so reposition on last not right
+         {If $lnro == 0, Then {Jmp $success};                                   # Greater than all keys
+          $t->getBlock($lnro, $K, $D, $N);
+          $i->copy($lnri);
+         };
+        $t->found  ->copy($i);                                                  # Key found at this point
+        $t->key    ->copy($i->dFromPointInZ($K));                               # Save key
+        $t->data   ->copy($i->dFromPointInZ($D));                               # Save data
+        $t->subTree->copy($t->getTreeBit   ($K, $i));                           # Save sub tree
+        $t->offset ->copy($Q);                                                  # Save offset
+        Jmp $success;                                                           # Return
+       };
+
+      my $n = $i->dFromPointInZ($N);                                            # Get the corresponding data
+      If $i != $lp,
+      Then                                                                      # Not descending through the last right
+       {$lnro->copy($Q);
+        $lnri->copy($i);
+       };
+      $Q->copy($n);                                                             # Corresponding node
+     });
+    PrintErrTraceBack "Stuck in find next";                                          # We seem to be looping endlessly
+
+    SetLabel $success;                                                          # Find completed successfully
+    PopR;
+   } parameters=>[qw(key)],
+     structures=>{tree=>$tree},
+     name => 'Nasm::X86::Tree::findNext';
+
+  $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
+ } # findNext
 
 sub Nasm::X86::Tree::findAndReload($$)                                          # Find a key in the specified tree and clone it is it is a sub tree.
  {my ($t, $key) = @_;                                                           # Tree descriptor, key as a dword
@@ -18463,7 +18535,7 @@ AA  20:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18763,6 +18835,45 @@ if (1) {                                                                        
 24   2:   1D  22
 29   1:   22
 34- empty
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::findNext
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $N = K loop => 8;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put(2*$i, 2*$i);
+   });
+
+  (2*$N)->for(sub
+   {my ($i) = @_;
+    $i->outRightInDec(K(key => 4)); PrintOutString " -> ";
+    $t->findNext($i);
+    $t->found->out("f: ", " ");
+    If $t->found > 0, Then {$t->key->out};
+    PrintOutStringNL '.';
+   });
+
+  ok Assemble eq => <<END;
+   0 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0002
+   1 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0002
+   2 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0004
+   3 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0004
+   4 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0006
+   5 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0006
+   6 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0008
+   7 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0008
+   8 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000A
+   9 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000A
+  10 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000C
+  11 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000C
+  12 -> f: 0000 0000 0000 0002 key: 0000 0000 0000 000E
+  13 -> f: 0000 0000 0000 0002 key: 0000 0000 0000 000E
+  14 -> f: 0000 0000 0000 0000
+  15 -> f: 0000 0000 0000 0000
 END
  }
 
