@@ -5287,7 +5287,7 @@ sub Nasm::X86::Arena::checkYggdrasilCreated($)                                  
   PushR rax;
   $arena->address->setReg(rax);                                                 #P Address underlying arena
   Mov rax, "[rax+$$arena{tree}]";                                               # Address Yggdrasil
-  my $v = V('Yggdrasil', rax);                                                  # Offset to Yggdrasil if Yggdrasil exists else zero
+  my $v = V('Yggdrasil', rax);                                                  # Offset to Yggdrasil if it exists else zero
   Cmp rax, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
   Then                                                                          # Yggdrasil has been created so we can address it
