@@ -3783,74 +3783,6 @@ sub All8Structure($)                                                            
   ($s, @f)                                                                      # Structure, fields
  }
 
-#D3 Stack Frame                                                                 # Declare local variables in a frame on the stack
-
-sub LocalData22()                                                               # Map local data.
- {@_ == 0 or confess;
-  my $local = genHash(__PACKAGE__."::LocalData",
-    size      => 0,
-    variables => [],
-   );
- }
-
-sub Nasm::X86::LocalData::start22($)                                            # Start a local data area on the stack.
- {my ($local) = @_;                                                             # Local data descriptor
-  @_ == 1 or confess "One parameter";
-  my $size = $local->size;                                                      # Size of local data
-  Push rbp;
-  Mov rbp,rsp;
-  Sub rsp, $size;
- }
-
-sub Nasm::X86::LocalData::free22($)                                             # Free a local data area on the stack.
- {my ($local) = @_;                                                             # Local data descriptor
-  @_ == 1 or confess "One parameter";
-  Mov rsp, rbp;
-  Pop rbp;
- }
-
-sub Nasm::X86::LocalData::variable22($$;$)                                      # Add a local variable.
- {my ($local, $length, $comment) = @_;                                          # Local data descriptor, length of data, optional comment
-  @_ >= 2 or confess;
-  my $variable = genHash(__PACKAGE__."::LocalVariable",
-    loc        => $local->size,
-    size       => $length,
-    comment    => $comment
-   );
-  $local->size += $length;                                                      # Update size of local data
-  $variable
- }
-
-sub Nasm::X86::LocalVariable::stack22($)                                        # Address a local variable on the stack.
- {my ($variable) = @_;                                                          # Variable
-  @_ == 1 or confess "One parameter";
-  my $l = $variable->loc;                                                       # Location of variable on stack
-  my $S = $variable->size;
-  my $s = $S == 8 ? 'qword' : $S == 4 ? 'dword' : $S == 2 ? 'word' : 'byte';    # Variable size
-  "${s}[rbp-$l]"                                                                # Address variable - offsets are negative per Tino
- }
-
-sub Nasm::X86::LocalData::allocate8($@)                                         # Add some 8 byte local variables and return an array of variable definitions.
- {my ($local, @comments) = @_;                                                  # Local data descriptor, optional comment
-  my @v;
-  for my $c(@comments)
-   {push @v, Nasm::X86::LocalData::variable($local, 8, $c);
-   }
-  wantarray ? @v : $v[-1];                                                      # Avoid returning the number of elements accidently
- }
-
-sub AllocateAll8OnStack22($)                                                    # Create a local data descriptor consisting of the specified number of 8 byte local variables and return an array: (local data descriptor,  variable definitions...).
- {my ($N) = @_;                                                                 # Number of variables required
-  my $local = LocalData22;                                                      # Create local data descriptor
-  my @v;
-  for(1..$N)                                                                    # Create the variables
-   {my $v = $local->variable(RegisterSize(rax));
-    push @v, $v->stack;
-   }
-  $local->start;                                                                # Create the local data area on the stack
-  ($local, @v)
- }
-
 #D1 Operating system                                                            # Interacting with the operating system.
 
 #D2 Processes                                                                   # Create and manage processes
@@ -4218,127 +4150,6 @@ sub ClearMemory($$)                                                             
 
   $s->call(parameters => {address => $address, size => $size});
  }
-
-#sub MaskMemory22(@)                                                             # Write the specified byte into locations in the target mask that correspond to the locations in the source that contain the specified byte.
-# {my (@variables) = @_;                                                         # Variables
-#  @_ >= 2 or confess;
-#  Comment "Clear memory";
-#
-#  my $size = RegisterSize zmm0;
-#
-#  my $s = Subroutine33
-#   {my ($p) = @_;                                                               # Parameters
-#    PushR (k6, k7, rax, rdi, rsi, rdx, r8, r9, r10, zmm0, zmm1, zmm2);
-#    $$p{source}->setReg(rax);
-#    $$p{mask}  ->setReg(rdx);
-#    $$p{match} ->setReg(rsi);
-#    $$p{set}   ->setReg(rdi);
-#    $$p{size}  ->setReg(r8);
-#    Lea r9, "[rax+r8]";                                                         # Address of upper limit of source
-#
-#    Vpbroadcastb zmm1, rsi;                                                     # Character to match
-#    Vpbroadcastb zmm2, rdi;                                                     # Character to write into mask
-#
-#    Mov r10, r8;                                                                # Modulus the size of zmm
-#    And r10, 0x3f;
-#    Test r10, r10;
-#    IfNz sub                                                                    # Need to align so that the rest of the clear can be done in full zmm blocks
-#     {V(align, r10)->setMaskFirst(k7);                                          # Set mask bits
-#      Vmovdqu8 "zmm0\{k7}", "[rax]";                                            # Load first incomplete block of source
-#      Vpcmpub  "k6{k7}", zmm0, zmm1, 0;                                         # Characters in source that match
-#      Vmovdqu8 "[rdx]{k6}", zmm2;                                               # Write set byte into mask at match points
-#      Add rax, r10;                                                             # Update point to mask from
-#      Add rdx, r10;                                                             # Update point to mask to
-#      Sub  r8, r10;                                                             # Reduce mask length
-#     };
-#
-#    For                                                                         # Clear remaining memory in full zmm blocks
-#     {Vmovdqu8 zmm0, "[rax]";                                                   # Load complete block of source
-#      Vpcmpub  "k7", zmm0, zmm1, 0;                                             # Characters in source that match
-#      Vmovdqu8 "[rdx]{k7}", zmm2;                                               # Write set byte into mask at match points
-#      Add rdx, $size;                                                           # Update point to mask to
-#     } rax, r9, $size;
-#
-#    PopR;
-#   } [qw(size source mask match set)];                                          # Match is the character to match on in the source, set is the character to write into the mask at the corresponding position.
-#
-#  $s->call(@variables);
-# }
-
-#sub MaskMemoryInRange4_22(@)                                                    # Write the specified byte into locations in the target mask that correspond to the locations in the source that contain 4 bytes in the specified range.
-# {my (@variables) = @_;                                                         # Variables
-#  @_ >= 6 or confess;
-#  Comment "Clear memory";
-#
-#  my $size = RegisterSize zmm0;
-#
-#  my $s = Subroutine33
-#   {my ($p) = @_;                                                               # Parameters
-#    PushR (k4, k5, k6, k7, zmm(0..9), map{"r$_"} qw(ax di si dx), 8..15);
-#    $$p{source}->setReg(rax);
-#    $$p{mask}  ->setReg(rdx);
-#    $$p{low}   ->setReg(r10);
-#    $$p{high}  ->setReg(r11);
-#    $$p{set}   ->setReg(rdi);
-#    $$p{size}  ->setReg(rsi);
-#
-#    Vpbroadcastb zmm1, rdi;                                                     # Character to write into mask
-#                Vpbroadcastb zmm2, r10;                                         # Character 1 low
-#    Shr r10, 8; Vpbroadcastb zmm3, r10;                                         # Character 2 low
-#    Shr r10, 8; Vpbroadcastb zmm4, r10;                                         # Character 3 low
-#    Shr r10, 8; Vpbroadcastb zmm5, r10;                                         # Character 4 low
-#                Vpbroadcastb zmm6, r11;                                         # Character 1 high
-#    Shr r11, 8; Vpbroadcastb zmm7, r11;                                         # Character 2 high
-#    Shr r11, 8; Vpbroadcastb zmm8, r11;                                         # Character 3 high
-#    Shr r11, 8; Vpbroadcastb zmm9, r11;                                         # Character 4 high
-#    Lea r8, "[rax+rsi]";                                                        # Address of upper limit of source
-#
-#    my sub check($$)                                                            # Check a character
-#     {my ($z, $f) = @_;                                                         # First zmm, finished label
-#      my $Z = $z + 4;
-#      Vpcmpub  "k6{k7}", zmm0, "zmm$z", 5;                                      # Greater than or equal
-#      Vpcmpub  "k7{k6}", zmm0, "zmm$Z", 2;                                      # Less than or equal
-#      Ktestq k7, k7;
-#      Jz $f;                                                                    # No match
-#      Kshiftlq k7, k7, 1;                                                       # Match - move up to next character
-#     };
-#
-#    my sub last4()                                                              # Expand each set bit four times
-#     {Kshiftlq k6, k7, 1;  Kandq k7, k6, k7;                                    # We have found a character in the specified range
-#      Kshiftlq k6, k7, 2;  Kandq k7, k6, k7;                                    # Last four
-#     };
-#
-#    For                                                                         # Mask remaining memory in full zmm blocks
-#     {my $finished = Label;                                                     # Point where we have finished the initial comparisons
-#      Vmovdqu8 zmm0, "[rax]";                                                   # Load complete block of source
-#      Kxnorq k7, k7, k7;                                                        # Complete block - sets register to all ones
-#      check($_, $finished) for 2..5;  last4;                                    # Check a range
-#
-#      Vmovdqu8 "[rdx]{k7}", zmm1;                                               # Write set byte into mask at match points
-#      Add rdx, $size;                                                           # Update point to mask to
-#      SetLabel $finished;
-#     } rax, r8, $size;
-#
-#
-#    Mov r10, rsi; And r10, 0x3f;                                                # Modulus the size of zmm
-#    Test r10, r10;
-#    IfNz sub                                                                    # Need to align so that the rest of the mask can be done in full zmm blocks
-#     {my $finished = Label;                                                     # Point where we have finished the initial comparisons
-#      V(align, r10)->setMaskFirst(k7);                                          # Set mask bits
-#      Vmovdqu8 "zmm0\{k7}", "[rax]";                                            # Load first incomplete block of source
-#      check($_, $finished) for 2..5;  last4;                                    # Check a range
-#      Vmovdqu8 "[rdx]{k7}", zmm1;                                               # Write set byte into mask at match points
-#      Add rax, r10;                                                             # Update point to mask from
-#      Add rdx, r10;                                                             # Update point to mask to
-#      Sub  r8, r10;                                                             # Reduce mask length
-#      SetLabel $finished;
-#     };
-#
-#    PopR;
-#   } [qw(size source mask set low high)];
-#
-#  $s->call(@variables);
-# } # MaskMemoryInRange4
 
 sub CopyMemory($$$)                                                             # Copy memory.
  {my ($source, $target, $size) = @_;                                            # Source address variable, target address variable, length variable
@@ -4944,7 +4755,7 @@ sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   
            classification=>$classification});
  } # ClassifyWithInRangeAndSaveWordOffset
 
-#D1 Short Strings                                                               # Operations on Short Strings
+#D1 Short Strings                                                               # A short string is no more than 63 ascii characters held in a zmm register
 
 sub CreateShortString($)                                                        # Create a description of a short string.
  {my ($zmm) = @_;                                                               # Numbered zmm containing the string
