@@ -8885,8 +8885,9 @@ sub Nasm::X86::Tree::firstElement($)                                            
 
       If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
       Then
-       {$t->key    ->copy($k);
-        $t->data   ->copy($d);
+       {$t->found   ->copy(1);
+        $t->key     ->copy($k);
+        $t->data    ->copy($d);
         $t->subTree->copy($b);
         Jmp $success
        };
@@ -8945,7 +8946,8 @@ sub Nasm::X86::Tree::lastElement($)                                             
 
       If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
       Then
-       {$t->key    ->copy($k);
+       {$t->found   ->copy(1);
+        $t->key    ->copy($k);
         $t->data   ->copy($d);
         $t->subTree->copy($b);
         Jmp $success
@@ -9410,7 +9412,39 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
   $iterator                                                                     # Return the iterator
  }
 
-sub Nasm::X86::Tree::by($&)                                                     # Call the specified block with each (key, data) from the specified tree in order.
+sub Nasm::X86::Tree::by($&)                                                     # Call the specified block with each element of the specified tree in ascending order.
+ {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
+  @_ == 2 or confess "Two parameters required";
+
+  $tree->firstElement;                                                          # First element
+  my $end   = Label;                                                            # End of processing
+  my $next  = Label;                                                            # Next iteration
+  my $start = SetLabel;                                                         # Start of this iteration
+  If $tree->found == 0, Then {Jmp $end};
+  &$block($tree, $start, $next, $end);                                          # Perform the specified block
+  SetLabel $next;
+  $tree->findNext($tree->key);
+  Jmp $start;
+  SetLabel $end;
+ }
+
+sub Nasm::X86::Tree::yb($&)                                                     # Call the specified block with each element of the specified tree in descending order.
+ {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
+  @_ == 2 or confess "Two parameters required";
+
+  $tree->lastElement;                                                           # Last element
+  my $end   = Label;                                                            # End of processing
+  my $prev  = Label;                                                            # Next iteration
+  my $start = SetLabel;                                                         # Start of this iteration
+  If $tree->found == 0, Then {Jmp $end};
+  &$block($tree, $start, $prev, $end);                                          # Perform the specified block
+  SetLabel $prev;
+  $tree->findPrev($tree->key);
+  Jmp $start;
+  SetLabel $end;
+ }
+
+sub Nasm::X86::Tree::by22($&)                                                     # Call the specified block with each (key, data) from the specified tree in order.
  {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
   @_ == 2 or confess "Two parameters required";
 
@@ -18916,7 +18950,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::findNext
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18955,7 +18989,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::findPrev
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18991,6 +19025,76 @@ if (1) {                                                                        
   13 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000C.
   14 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000C.
   15 -> f: 0000 0000 0000 0002 key: 0000 0000 0000 000E.
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::by
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, 2 * $i);
+   });
+
+  $t->by(sub
+   {my ($tree, $start, $next, $end) = @_;
+    $tree->key->out("");  $tree->data->outNL(" ");
+   });
+
+  ok Assemble eq => <<END;
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0001 0000 0000 0000 0002
+0000 0000 0000 0002 0000 0000 0000 0004
+0000 0000 0000 0003 0000 0000 0000 0006
+0000 0000 0000 0004 0000 0000 0000 0008
+0000 0000 0000 0005 0000 0000 0000 000A
+0000 0000 0000 0006 0000 0000 0000 000C
+0000 0000 0000 0007 0000 0000 0000 000E
+0000 0000 0000 0008 0000 0000 0000 0010
+0000 0000 0000 0009 0000 0000 0000 0012
+0000 0000 0000 000A 0000 0000 0000 0014
+0000 0000 0000 000B 0000 0000 0000 0016
+0000 0000 0000 000C 0000 0000 0000 0018
+0000 0000 0000 000D 0000 0000 0000 001A
+0000 0000 0000 000E 0000 0000 0000 001C
+0000 0000 0000 000F 0000 0000 0000 001E
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::yb
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, 2* $i);
+   });
+
+  $t->yb(sub
+   {my ($tree, $start, $prev, $end) = @_;
+    $tree->key->out("");  $tree->data->outNL(" ");
+   });
+
+  ok Assemble eq => <<END;
+0000 0000 0000 000F 0000 0000 0000 001E
+0000 0000 0000 000E 0000 0000 0000 001C
+0000 0000 0000 000D 0000 0000 0000 001A
+0000 0000 0000 000C 0000 0000 0000 0018
+0000 0000 0000 000B 0000 0000 0000 0016
+0000 0000 0000 000A 0000 0000 0000 0014
+0000 0000 0000 0009 0000 0000 0000 0012
+0000 0000 0000 0008 0000 0000 0000 0010
+0000 0000 0000 0007 0000 0000 0000 000E
+0000 0000 0000 0006 0000 0000 0000 000C
+0000 0000 0000 0005 0000 0000 0000 000A
+0000 0000 0000 0004 0000 0000 0000 0008
+0000 0000 0000 0003 0000 0000 0000 0006
+0000 0000 0000 0002 0000 0000 0000 0004
+0000 0000 0000 0001 0000 0000 0000 0002
+0000 0000 0000 0000 0000 0000 0000 0000
 END
  }
 
