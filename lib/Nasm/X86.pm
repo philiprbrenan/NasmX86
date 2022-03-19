@@ -564,18 +564,6 @@ sub RestoreFirstSevenExceptRaxAndRdi()                                          
   Add rsp, 2*RegisterSize(rax);                                                 # Skip rdi and rax
  }
 
-sub ReorderSyscallRegisters(@)                                                  # Map the list of registers provided to the 64 bit system call sequence.
- {my (@registers) = @_;                                                         # Registers
-  PushRR @syscallSequence[0..$#registers];
-  PushRR @registers;
-  PopRR  @syscallSequence[0..$#registers];
- }
-
-sub UnReorderSyscallRegisters(@)                                                # Recover the initial values in registers that were reordered.
- {my (@registers) = @_;                                                         # Registers
-  PopRR  @syscallSequence[0..$#registers];
- }
-
 sub RegisterSize($)                                                             # Return the size of a register.
  {my ($r) = @_;                                                                 # Register
   $r = registerNameFromNumber $r;
@@ -1200,13 +1188,6 @@ sub OnSegv()                                                                    
    } [], name=>"on segv";
 
   $s->call;
- }
-
-sub cr(&@)                                                                      # Call a subroutine with a reordering of the registers.
- {my ($block, @registers) = @_;                                                 # Code to execute with reordered registers, registers to reorder
-  ReorderSyscallRegisters   @registers;
-  &$block;
-  UnReorderSyscallRegisters @registers;
  }
 
 # Subroutine                                                                    # Define and call subroutines
@@ -11609,21 +11590,6 @@ Arena     Size:     4096    Used:      384
 0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
 0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 80__ ____
 END
- }
-
-if (1) {                                                                        #TReorderSyscallRegisters #TUnReorderSyscallRegisters
-  Mov rax, 1;  Mov rdi, 2;  Mov rsi,  3;  Mov rdx,  4;
-  Mov r8,  8;  Mov r9,  9;  Mov r10, 10;  Mov r11, 11;
-
-  ReorderSyscallRegisters   r8,r9;                                              # Reorder the registers for syscall
-  PrintOutRegisterInHex rax;
-  PrintOutRegisterInHex rdi;
-
-  UnReorderSyscallRegisters r8,r9;                                              # Unreorder the registers to recover their original values
-  PrintOutRegisterInHex rax;
-  PrintOutRegisterInHex rdi;
-
-  ok Assemble =~ m(rax:.*08.*rdi:.*9.*rax:.*1.*rdi:.*2.*)s;
  }
 
 if (1) {                                                                        # Mask register instructions #TClearRegisters
