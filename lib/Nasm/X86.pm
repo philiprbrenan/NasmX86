@@ -17,7 +17,7 @@
 # WHat is the differenfe between variable clone and variable copy?
 # Standardize w1 = r8, w2 = r9 so we do need to pass them around - rdi, rsi are always general purpose except in system calls
 # Make sure that we are using bts and bzhi as much as possible in mask situations
-# Subroutine2->subroutine and readd final label paramter so we do not have to c=keep delaring ands placing it
+# Subroutine->subroutine and readd final label paramter so we do not have to c=keep delaring ands placing it
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -314,7 +314,7 @@ sub PushR(@);                                                                   
 sub PushRR(@);                                                                  # Push a list of registers onto the stack without tracking.
 sub RComment(@);                                                                # Insert a comment into the read only data section.
 sub StringLength($);                                                            # Length of a zero terminated string.
-sub Subroutine2(&%);                                                            # Create a subroutine that can be called in assembler code.
+sub Subroutine(&%);                                                            # Create a subroutine that can be called in assembler code.
 sub Syscall();                                                                  # System call in linux 64 format.
 
 #D1 Data                                                                        # Layout data
@@ -991,70 +991,6 @@ sub SubroutineStartStack()                                                      
  {push @VariableStack, 1;                                                       # Counts the number of variables on the stack in each invocation of L<Subroutine>.  The first quad provides the traceback.
  }
 
-sub Subroutine(&$%)                                                             # Create a subroutine that can be called in assembler code.
- {my ($block, $parameters, %options) = @_;                                      # Block, [parameters  names], options.
-  @_ >= 2 or confess;
-  !$parameters or ref($parameters) =~ m(array)i or
-    confess "Reference to array of parameter names required";
-
-  if (1)                                                                        # Check for duplicate parameters
-   {my %c;
-    $c{$_}++ && confess "Duplicate parameter $_" for @$parameters;
-    if (my $with = $options{with})                                              # Copy the argument list of the caller if requested
-     {for my $p($with->parameters->@*)
-       {$c{$p}++ and confess "Duplicate copied parameter $p";
-       }
-      @$parameters = sort keys %c;
-     }
-   }
-
-  my $name    = $options{name};                                                 # Subroutine name
-  $name or confess "Name required for subroutine, use [], name=>";
-
-  if ($name and my $n = $subroutines{$name}) {return $n}                        # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
-
-  SubroutineStartStack;                                                         # Open new stack layout with references to parameters
-  my %p; $p{$_} = R($_) for @$parameters;                                       # Create a reference each parameter.
-
-  my %structureVariables;                                                       # Variables needed by structures provided as parameters
-  if (my $structures = $options{structures})
-   {
-   }
-
-  my $end   =    Label; Jmp $end;                                               # End label.  Subroutines are only ever called - they are not executed in-line so we jump over the implementation of the subroutine.  This can cause several forward jumps in a row if a number of subroutines are defined together.
-  my $start = SetLabel;                                                         # Start label
-
-  my $s = $subroutines{$name} = genHash(__PACKAGE__."::Sub",                    # Subroutine definition
-    start      => $start,                                                       # Start label for this subroutine which includes the enter instruction used to create a new stack frame
-    end        => $start,                                                       # End label for this subroutine
-    name       => $name,                                                        # Name of the subroutine from which the entry label is located
-    args       => {map {$_=>1} @$parameters},                                   # Hash of {argument name, argument variable}
-    variables  => {%p},                                                         # Argument variables which show up as the first parameter in the called sub so that it knows what its parameters are.
-    options    => \%options,                                                    # Options used by the author of the subroutine
-    parameters => $parameters,                                                  # Parameters definitions supplied by the author of the subroutine which get mapped in to parameter variables.
-    vars       => $VariableStack[-1],                                           # Number of variables in subroutine
-    nameString => Rs($name),                                                    # Name of the sub as a string constant in read only storage
-   );
-
-  my $E = @text;                                                                # Code entry that will contain the Enter instruction
-  Enter 0, 0;                                                                   # The Enter instruction is 4 bytes long
-  &$block({%p}, $s);                                                            # Code with parameters
-
-  my $V = pop @VariableStack;                                                   # Number of variables
-  my $P = @$parameters;                                                         # Number of parameters supplied
-  my $N = $P + $V;                                                              # Size of stack frame
-
-  Leave if $N;                                                                  # Remove frame if there was one
-  Ret;                                                                          # Return from the sub
-  SetLabel $end;                                                                # The end point of the sub where we return to normal code
-  my $w = RegisterSize rax;
-  $text[$E] = $N ? <<END : '';                                                  # Rewrite enter instruction now that we know how much stack space we need
-  Enter $N*$w, 0
-END
-
-  $s                                                                            # Subroutine definition
- }
-
 sub Nasm::X86::Sub::callTo($$$@)                                                #P Call a sub passing it some parameters.
  {my ($sub, $mode, $label, @parameters) = @_;                                   # Subroutine descriptor, mode 0 - direct call or 1 - indirect call, label of sub, parameter variables
 
@@ -1162,7 +1098,7 @@ sub Nasm::X86::Sub::dispatchV($)                                                
 sub PrintTraceBack($)                                                           # Trace the call stack.
  {my ($channel) = @_;                                                           # Channel to write on
 
-  Subroutine2
+  Subroutine
    {PushR my @save = (rax, rdi, r9, r10, r8, r12, r13, r14, r15);
     my $stack     = r15;
     my $count     = r14;
@@ -1309,7 +1245,7 @@ sub copyStructureMinusVariables($)                                              
   bless \%s, ref $s;                                                            # Return a copy of the structure
  }
 
-sub Subroutine2(&%)                                                             # Create a subroutine that can be called in assembler code.
+sub Subroutine(&%)                                                             # Create a subroutine that can be called in assembler code.
  {my ($block, %options) = @_;                                                   # Block of code as a sub, options
   @_ >= 1 or confess "Subroutine requires at least a block";
 
@@ -1582,7 +1518,7 @@ sub PrintNL($)                                                                  
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
-  Subroutine2
+  Subroutine
    {SaveFirstFour;
     Mov rax, 1;
     Mov rdi, $channel;                                                          # Write below stack
@@ -1613,7 +1549,7 @@ sub PrintString($@)                                                             
   my $l = length($c);
   my $a = Rs($c);
 
-  Subroutine2
+  Subroutine
    {SaveFirstFour;
     Mov rax, 1;
     Mov rdi, $channel;
@@ -1701,7 +1637,7 @@ sub PrintRaxInHex($;$)                                                          
   my $hexTranslateTable = hexTranslateTable;
   $end //= 7;                                                                   # Default end byte
 
-  Subroutine2
+  Subroutine
    {SaveFirstFour rax;                                                          # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
@@ -1749,7 +1685,7 @@ sub PrintRax_InHex($;$)                                                         
   my $hexTranslateTable = hexTranslateTable;
   $end //= 7;                                                                   # Default end byte
 
-  Subroutine2
+  Subroutine
    {SaveFirstFour rax;                                                          # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
@@ -1811,7 +1747,7 @@ sub PrintOneRegisterInHex($$)                                                   
  {my ($channel, $r) = @_;                                                       # Channel to print on, register to print
   @_ == 2 or confess "Two parameters";
 
-  Subroutine2
+  Subroutine
    {if   ($r =~ m(\Ar))                                                         # General purpose register
      {if ($r =~ m(\Arax\Z))
        {PrintRaxInHex($channel);
@@ -1899,7 +1835,7 @@ sub PrintOutRegisterInHex(@)                                                    
 sub PrintOutRipInHex                                                            #P Print the instruction pointer in hex.
  {@_ == 0 or confess;
   my @regs = qw(rax);
-  Subroutine2
+  Subroutine
    {PushR @regs;
     my $l = Label;
     push @text, <<END;
@@ -1917,7 +1853,7 @@ sub PrintOutRflagsInHex                                                         
  {@_ == 0 or confess;
   my @regs = qw(rax);
 
-  Subroutine2
+  Subroutine
    {PushR @regs;
     Pushfq;
     Pop rax;
@@ -1931,7 +1867,7 @@ sub PrintOutRflagsInHex                                                         
 sub PrintOutRegistersInHex                                                      # Print the general purpose registers in hex.
  {@_ == 0 or confess "No parameters required";
 
-  Subroutine2
+  Subroutine
    {PrintOutRipInHex;
     PrintOutRflagsInHex;
 
@@ -1980,7 +1916,7 @@ sub PrintRightInHex($$$)                                                        
   ref($number) =~ m(variable)i or confess "number must be a variable";
   ref($width)  =~ m(variable)i or confess "width must be a variable";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     PushR rax, rdi, r14, r15, xmm0;
@@ -2064,7 +2000,7 @@ sub PrintRightInBin($$$)                                                        
   ref($number) =~ m(variable)i or confess "number must be a variable";
   ref($width)  =~ m(variable)i or confess "width must be a variable";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     PushR rax, rdi, rsi, r14, r15;
@@ -2146,7 +2082,7 @@ sub PrintOutRightInBinNL($$)                                                    
 sub PrintUtf8Char($)                                                            # Print the utf-8 character addressed by rax to the specified channel. The character must be in little endian form.
  {my ($channel) = @_;                                                           # Channel
 
-  Subroutine2
+  Subroutine
    {my ($p, $s) = @_;                                                           # Parameters
     PushR rax, rdi, r15;
     Mov r15d, "[rax]";                                                          # Load character - this assumes that each utf8 character sits by itself, right adjusted, in a block of 4 bytes
@@ -2171,7 +2107,7 @@ sub PrintUtf32($$$)                                                             
  {my ($channel, $size, $address) = @_;                                          # Channel, variable: number of characters to print, variable: address of memory
   @_ == 3 or confess "Three parameters";
 
-  Subroutine2
+  Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, subroutine description
 
     PushR (rax, r14, r15);
@@ -2222,7 +2158,7 @@ sub PrintRaxInDec($)                                                            
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
-  Subroutine2
+  Subroutine
    {PushR rax, rdi, rdx, r9, r10;
     Mov r9, 0;                                                                  # Number of decimal digits
     Mov r10, 10;                                                                # Base of number system
@@ -2269,7 +2205,7 @@ sub PrintErrRaxInDecNL                                                          
 sub PrintRaxRightInDec($$)                                                      # Print rax in decimal right justified in a field of the specified width on the specified channel.
  {my ($width, $channel) = @_;                                                   # Width, channel
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     PushR rax, rdi, rdx, r9, r10;
     Mov r9, 0;                                                                  # Number of decimal digits
@@ -4018,7 +3954,7 @@ sub GetPidInHex()                                                               
   Comment "Get Pid";
   my $hexTranslateTable = hexTranslateTable;
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {SaveFirstFour;
     Mov rax, 39;                                                                # Get pid
     Syscall;
@@ -4062,7 +3998,7 @@ sub WaitPid()                                                                   
  {@_ == 0 or confess;
   Comment "WaitPid - wait for the pid in rax";
 
-    my $s = Subroutine2
+    my $s = Subroutine
    {SaveFirstSeven;
     Mov rdi,rax;
     Mov rax, 61;
@@ -4079,7 +4015,7 @@ sub WaitPid()                                                                   
 sub ReadTimeStampCounter()                                                      # Read the time stamp counter and return the time in nanoseconds in rax.
  {@_ == 0 or confess;
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {Comment "Read Time-Stamp Counter";
     PushR rdx;
     ClearRegisters rax;
@@ -4100,7 +4036,7 @@ sub PrintMemoryInHex($)                                                         
   @_ == 1 or confess "One parameter";
   Comment "Print out memory in hex on channel: $channel";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my $size = RegisterSize rax;
     SaveFirstFour;
 
@@ -4158,7 +4094,7 @@ sub PrintMemory_InHex($)                                                        
   @_ == 1 or confess "One parameter";
   Comment "Print out memory in hex on channel: $channel";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my $size = RegisterSize rax;
     SaveFirstFour;
 
@@ -4215,7 +4151,7 @@ sub PrintMemory($)                                                              
  {my ($channel) = @_;                                                           # Channel
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {Comment "Print memory on channel: $channel";
     SaveFirstFour rax, rdi;
     Mov rsi, rax;
@@ -4262,7 +4198,7 @@ sub AllocateMemory(@)                                                           
  {my ($size) = @_;                                                              # Size as a variable
   @_ == 1 or confess "Size required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     Comment "Allocate memory";
     SaveFirstSeven;
@@ -4313,7 +4249,7 @@ sub FreeMemory(@)                                                               
  {my ($address, $size) = @_;                                                    # Variable address of memory, variable size of memory
   @_ == 2 or confess "Address, size to free";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     SaveFirstFour;
     Mov rax, 11;                                                                # Munmap
@@ -4331,7 +4267,7 @@ sub ClearMemory($$)                                                             
   @_ == 2 or confess "address, size required";
   Comment "Clear memory";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     PushR (zmm0, rax, rdi, rsi, rdx);
     $$p{address}->setReg(rax);
@@ -4369,7 +4305,7 @@ sub ClearMemory($$)                                                             
 #
 #  my $size = RegisterSize zmm0;
 #
-#  my $s = Subroutine
+#  my $s = Subroutine33
 #   {my ($p) = @_;                                                               # Parameters
 #    PushR (k6, k7, rax, rdi, rsi, rdx, r8, r9, r10, zmm0, zmm1, zmm2);
 #    $$p{source}->setReg(rax);
@@ -4415,7 +4351,7 @@ sub ClearMemory($$)                                                             
 #
 #  my $size = RegisterSize zmm0;
 #
-#  my $s = Subroutine
+#  my $s = Subroutine33
 #   {my ($p) = @_;                                                               # Parameters
 #    PushR (k4, k5, k6, k7, zmm(0..9), map{"r$_"} qw(ax di si dx), 8..15);
 #    $$p{source}->setReg(rax);
@@ -4487,7 +4423,7 @@ sub CopyMemory($$$)                                                             
  {my ($source, $target, $size) = @_;                                            # Source address variable, target address variable, length variable
   @_ == 3 or confess "Source, target, size required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     SaveFirstSeven;
     $$p{source}->setReg(rsi);
@@ -4509,7 +4445,7 @@ sub CopyMemory($$$)                                                             
 sub OpenRead()                                                                  # Open a file, whose name is addressed by rax, for read and return the file descriptor in rax.
  {@_ == 0 or confess "Zero parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my %s = getSystemConstantsFromIncludeFile  "fcntl.h", qw(O_RDONLY);         # Constants for reading a file
 
     SaveFirstFour;
@@ -4527,7 +4463,7 @@ sub OpenRead()                                                                  
 sub OpenWrite()                                                                 # Create the file named by the terminated string addressed by rax for write.
  {@_ == 0 or confess "Zero parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my %s = getSystemConstantsFromIncludeFile                                   # Constants for creating a file
       "fcntl.h", qw(O_CREAT O_WRONLY);
     my $write = $s{O_WRONLY} | $s{O_CREAT};
@@ -4548,7 +4484,7 @@ sub OpenWrite()                                                                 
 sub CloseFile()                                                                 # Close the file whose descriptor is in rax.
  {@_ == 0 or confess "Zero parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {Comment "Close a file";
     SaveFirstFour;
     Mov rdi, rax;
@@ -4567,7 +4503,7 @@ sub StatSize()                                                                  
   my $Size = getStructureSizeFromIncludeFile $F, $S;
   my $off  = getFieldOffsetInStructureFromIncludeFile $F, $S, q(st_size);
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {Comment "Stat a file for size";
     SaveFirstFour rax;
     Mov rdi, rax;                                                               # File name
@@ -4583,7 +4519,7 @@ sub StatSize()                                                                  
 
 sub ReadChar()                                                                  # Read a character from stdin and return it in rax else return -1 in rax if no character was read.
  {@_ == 0 or confess "Zero parameters";
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;
     SaveFirstFour;                                                              # Generated code
 
@@ -4610,7 +4546,7 @@ sub ReadChar()                                                                  
 
 sub ReadLine()                                                                  # Reads up to 8 characters followed by a terminating return and place them into rax.
  {@_ == 0 or confess "Zero parameters";
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;
     PushR rcx, r14, r15;
     ClearRegisters rax, rcx, r14, r15;
@@ -4639,7 +4575,7 @@ sub ReadLine()                                                                  
 
 sub ReadInteger()                                                               # Reads an integer in decimal and returns it in rax.
  {@_ == 0 or confess "Zero parameters";
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;
     PushR r15;
     ClearRegisters rax, r15;
@@ -4668,7 +4604,7 @@ sub ReadFile(@)                                                                 
  {my ($File) = @_;                                                              # Variable addressing a zero terminated string naming the file
   @_ == 1 or confess "One parameter required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;
     Comment "Read a file into memory";
     SaveFirstSeven;                                                             # Generated code
@@ -4715,7 +4651,7 @@ sub executeFileViaBash($)                                                       
  {my ($file) = @_;                                                              # File variable
   @_ == 1 or confess "File required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     SaveFirstFour;
     Fork;                                                                       # Fork
@@ -4743,7 +4679,7 @@ sub unlinkFile(@)                                                               
  {my ($file) = @_;                                                              # File variable
   @_ == 1 or confess "File required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     SaveFirstFour;
     $$p{file}->setReg(rdi);
@@ -4760,7 +4696,7 @@ sub unlinkFile(@)                                                               
 sub Hash()                                                                      # Hash a string addressed by rax with length held in rdi and return the hash code in r15.
  {@_ == 0 or confess;
 
-  my $s = Subroutine2                                                           # Read file
+  my $s = Subroutine                                                           # Read file
    {Comment "Hash";
 
     PushR my @regs = (rax, rdi, k1, zmm0, zmm1);                                # Save registers
@@ -4823,7 +4759,7 @@ sub GetNextUtf8CharAsUtf32($$$$)                                                
  {my ($in, $out, $size, $fail) = @_;                                            # Address of character variable, output character variable, output size of input, output error  if any
   @_ == 4 or confess "In, out, size, fail required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
 
     PushR (r11, r12, r13, r14, r15);
@@ -4906,7 +4842,7 @@ sub ConvertUtf8ToUtf32(@)                                                       
  {my ($u8, $size8, $u32, $size32, $count) = @_;                                 # utf8 string address variable, utf8 length variable, utf32 string address variable, utf32 length variable, number of utf8 characters converteed
   @_ == 5 or confess "Five parameters required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     PushR (r10, r11, r12, r13, r14, r15);
 
@@ -4959,7 +4895,7 @@ sub ClassifyRange($$$)                                                          
  {my ($recordOffsetInRange, $address, $size) = @_;                              # Record offset in classification in high byte if 1 else in classification if 2, variable address of utf32 string to classify, variable length of utf32 string to classify
   @_ == 3 or confess "Three parameters required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     my $finish = Label;
 
@@ -5051,7 +4987,7 @@ sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   
  {my ($address, $size, $classification) = @_;                                   # Variable address of string of utf32 characters, variable size of string in utf32 characters, variable one byte classification code for this range
   @_ == 3 or confess "Three parameters required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     my $finish = Label;
 
@@ -5246,7 +5182,7 @@ sub Nasm::X86::ShortString::append($$)                                          
   my $w  = $left->lengthWidth;                                                  # The length of the initial field followed by the data
   my $m  = $left->maximumLength;                                                # Maximum width of a short string
 
-  my $s = Subroutine2                                                           # Append two short strings
+  my $s = Subroutine                                                           # Append two short strings
    {PushR (k7, rcx, r14, r15);
     Pextrb r15, $rx, 0;                                                         # Length of right hand string
     Mov   r14, -1;                                                              # Expand mask
@@ -5283,7 +5219,7 @@ sub Nasm::X86::ShortString::appendByte($$)                                      
   my $x = $string->x;                                                           # Corresponding xmm
   my $w = $string->lengthWidth;                                                 # The length of the initial field followed by the data
 
-  my $s = Subroutine2                                                           # Append byte to short string
+  my $s = Subroutine                                                           # Append byte to short string
    {my ($p) = @_;                                                               # Parameters
     PushR r14, r15;
     Pextrb r15, $x, 0;                                                          # Length of string
@@ -5342,7 +5278,7 @@ sub Nasm::X86::ShortString::appendVar($$)                                       
 sub Cstrlen()                                                                   #P Length of the C style string addressed by rax returning the length in r15.
  {@_ == 0 or confess "Deprecated in favor of StringLength";
 
-  my $s = Subroutine2                                                           # Create arena
+  my $s = Subroutine                                                           # Create arena
    {PushR my @regs = (rax, rdi, rcx);
     Mov rdi, rax;
     Mov rcx, -1;
@@ -5363,7 +5299,7 @@ sub StringLength($)                                                             
  {my ($string) = @_;                                                            # String
   @_ == 1 or confess "One parameter: zero terminated string";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     PushR rax, rdi, rcx;
     $$p{string}->setReg(rax);                                                   # Address string
@@ -5419,7 +5355,7 @@ sub CreateArena(%)                                                              
   my $data  = $arena->data;
   my $size  = $arena->size;
 
-  my $s = Subroutine2                                                           # Allocate arena
+  my $s = Subroutine                                                           # Allocate arena
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $arena = AllocateMemory K size=> $N;                                     # Allocate memory and save its location in a variable
@@ -5481,7 +5417,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
  {my ($arena, $size) = @_;                                                      # Arena descriptor, variable size needed
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, structures
     PushR (rax, r11, r12, r13, r14, r15);
     my $base     = rax;                                                         # Base of arena
@@ -5533,7 +5469,7 @@ sub Nasm::X86::Arena::makeReadOnly($)                                           
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     Comment "Make an arena readable";
     SaveFirstFour;
@@ -5554,7 +5490,7 @@ sub Nasm::X86::Arena::makeWriteable($)                                          
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     Comment "Make an arena writable";
     SaveFirstFour;
@@ -5771,7 +5707,7 @@ sub Nasm::X86::Arena::m($$$)                                                    
 
   my $used = "[rax+$$arena{used}]";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     SaveFirstFour;
     my $arena = $$s{arena};
@@ -5850,7 +5786,7 @@ sub Nasm::X86::Arena::clear($)                                                  
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     PushR (rax, rdi);
     $$p{address}->setReg(rax);
@@ -5866,7 +5802,7 @@ sub Nasm::X86::Arena::write($$)                                                 
  {my ($arena, $file) = @_;                                                      # Arena descriptor, variable addressing file name
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     SaveFirstFour;
 
@@ -5895,7 +5831,7 @@ sub Nasm::X86::Arena::read($@)                                                  
  {my ($arena, $file) = @_;                                                      # Arena descriptor, variable addressing file name
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     Comment "Read an arena";
     my ($address, $size) = ReadFile $$p{file};
@@ -5913,7 +5849,7 @@ sub Nasm::X86::Arena::out($)                                                    
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     SaveFirstFour;
     $$p{address}->setReg(rax);
@@ -5941,7 +5877,7 @@ sub Nasm::X86::Arena::dump($$;$)                                                
   @_ == 2 or @_ == 3 or confess "Two or three parameters";
   my $blockSize = 64;                                                           # Print in blocks of this size
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     PushR rax, rdi;
@@ -6113,7 +6049,7 @@ sub Nasm::X86::String::dump($)                                                  
  {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, structures
     PushR zmm31;
     my $string = $$s{string};
@@ -6154,7 +6090,7 @@ sub Nasm::X86::String::len($)                                                   
  {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, structures
     Comment "Length of a string";
     PushR zmm31;
@@ -6186,7 +6122,7 @@ sub Nasm::X86::String::concatenate($$)                                          
  {my ($target, $source) = @_;                                                   # Target string, source string
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, structures
     Comment "Concatenate strings";
     PushZmm 29..31;
@@ -6237,7 +6173,7 @@ sub Nasm::X86::String::insertChar($$$)                                          
  {my ($string, $character, $position) = @_;                                     # String, variable character, variable position
   @_ == 3 or confess "Three parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     PushR (k7, r14, r15, zmm30, zmm31);
     my $c = $$p{character};                                                     # The character to insert
@@ -6333,7 +6269,7 @@ sub Nasm::X86::String::deleteChar($$)                                           
  {my ($string, $position) = @_;                                                 # String, variable position in string
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     PushR k7, zmm31;
@@ -6384,7 +6320,7 @@ sub Nasm::X86::String::getCharacter($$)                                         
  {my ($string, $position) = @_;                                                 # String, variable position
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     PushR r15, zmm31;
@@ -6434,7 +6370,7 @@ sub Nasm::X86::String::append($$$)                                              
  {my ($string, $source, $size) = @_;                                            # String descriptor, variable source address, variable length
   @_ >= 3 or confess;
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $Z       = K(zero, 0);                                                   # Zero
@@ -6524,7 +6460,7 @@ sub Nasm::X86::String::saveToShortString($$;$)                                  
   @_ == 2 or confess "Two parameters";
   my $z = $short->z; $z eq zmm31 and confess "Cannot use zmm31";                # Zmm register in short string to load must not be zmm31
 
-  my $s = Subroutine2       ### At the moment we only read the first block - we need to read more data out of the string if necessary
+  my $s = Subroutine       ### At the moment we only read the first block - we need to read more data out of the string if necessary
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     PushR k7, zmm31, r14, r15;
 
@@ -6552,7 +6488,7 @@ sub Nasm::X86::String::getQ1($)                                                 
  {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $string = $$s{string};                                                   # String
@@ -6577,7 +6513,7 @@ sub Nasm::X86::String::clear($)                                                 
  {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $string = $$s{string};                                                   # String
@@ -6623,7 +6559,7 @@ sub Nasm::X86::String::free($)                                                  
  {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $string = $$s{string};                                                   # String
@@ -6695,7 +6631,7 @@ sub Nasm::X86::Array::dump($)                                                   
   my $n = $array->slots1;                                                       # The number of slots per block
   my $N = $array->slots2;                                                       # The number of slots per block
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $array = $$s{array};                                                     # Array
     my $F     = $array->first;                                                  # First
@@ -6745,7 +6681,7 @@ sub Nasm::X86::Array::push($$)                                                  
   my $n = $array->slots1;                                                       # The number of slots per block
   my $N = $array->slots2;                                                       # The number of slots per block
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -6829,7 +6765,7 @@ sub Nasm::X86::Array::pop($)                                                    
   my $n = $array->slots1;                                                       # The number of slots per block
   my $N = $array->slots2;                                                       # The number of slots per block
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -6917,7 +6853,7 @@ sub Nasm::X86::Array::size($)                                                   
  {my ($array) = @_;                                                             # Array
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -6948,7 +6884,7 @@ sub Nasm::X86::Array::get($$)                                                   
   my $n = $array->slots1;                                                       # The number of slots in the first block
   my $N = $array->slots2;                                                       # The number of slots in the secondary blocks
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -7004,7 +6940,7 @@ sub Nasm::X86::Array::put($$$)                                                  
   my $n = $array->slots1;                                                       # The number of slots in the first block
   my $N = $array->slots2;                                                       # The number of slots in the secondary blocks
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -7121,7 +7057,7 @@ sub Nasm::X86::Arena::CreateTree($%)                                            
 
   my $tree = $arena->DescribeTree(%options);                                    # Return a descriptor for a tree in the specified arena
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $tree  = $$s{tree};                                                      # Tree
@@ -7258,7 +7194,7 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
  {my ($tree, $K, $D, $N) = @_;                                                  # Tree descriptor, numbered zmm for keys, numbered zmm for data, numbered zmm for children
   @_ == 4 or confess "4 parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
@@ -7413,7 +7349,7 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
 
   @_ == 7 or confess "Seven parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $success = Label;                                                        # End label
@@ -7489,7 +7425,7 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
 
   @_ == 8 or confess "Eight parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $success = Label;                                                        # End label
@@ -7538,7 +7474,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
   my $RK = 25; my $RD = 24; my $RN = 23;
   my $F  = 22;
                                                                                 # First block of this tree
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -7632,7 +7568,7 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
   my $transferW = r8w;                                                          # Transfer register as a  word
   my $work      = r9;                                                           # Work register as a dword
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     PushR $transfer, $work, 1..7;
 
@@ -7767,7 +7703,7 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
   my $transferD = r8d;                                                          # Transfer register as a dword
   my $transferW = r8w;                                                          # Transfer register as a  word
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
 
     my $mask = sub                                                              # Set k7 to a specified bit mask
@@ -7828,7 +7764,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
  {my ($tree, $key, $data) = @_;                                                 # Tree definition, key as a variable, data as a variable or a tree descriptor
   @_ == 3 or confess "Three parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $success = Label;                                                        # End label
@@ -7912,7 +7848,7 @@ sub Nasm::X86::Tree::find($$)                                                   
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -7977,7 +7913,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -8050,7 +7986,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -8141,7 +8077,7 @@ sub Nasm::X86::Tree::findShortString($$)                                        
   my $w = $tree->width;                                                         # Size of a key on the tree
   my $z = $string->z;                                                           # The zmm containing the short string
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $L = $string->len;                                                       # Length of the short string
     my $t = $$s{tree};                                                          # Tree
@@ -8186,7 +8122,7 @@ sub Nasm::X86::Tree::insertShortString($$$)                                     
   my $w = $tree->width;                                                         # Size of a key on the tree
   my $z = $string->z;                                                           # The zmm containing the short string
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $L = $string->len;                                                       # Length of the short string
 
@@ -8227,7 +8163,7 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
  {my ($tree, $dir, $node, $offset) = @_;                                        # Tree descriptor, direction: left = 0 or right = 1, start node,  offset of located node
   @_ == 4 or confess "Four parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -8293,7 +8229,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
  {my ($tree, $node) = @_;                                                       # Tree descriptor, node
   @_ == 2 or confess "Two parameters required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -8492,7 +8428,7 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
  {my ($tree, $point, $K, $D, $N) = @_;                                          # Tree descriptor, point at which to extract, keys zmm, data zmm, node zmm
   @_ == 5 or confess "Five parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -8553,7 +8489,7 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
  {my ($tree, $K, $D, $N) = @_;                                                  # Tree descriptor, keys zmm, data zmm, node zmm
   @_ == 4 or confess "Four parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -8597,7 +8533,7 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
  {my ($tree, $offset) = @_;                                                     # Tree descriptor, offset of non root block that might need to merge or steal
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($parameters, $structures, $sub) = @_;                                   # Parameters, structures, subroutine definition
 
     my $t  = $$structures{tree};                                                # Tree to search
@@ -8704,7 +8640,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -8850,7 +8786,7 @@ sub Nasm::X86::Tree::findFirst($)                                            # F
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Successfully completed
 
@@ -8908,7 +8844,7 @@ sub Nasm::X86::Tree::findLast($)                                             # F
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Successfully completed
 
@@ -8971,7 +8907,7 @@ sub Nasm::X86::Tree::print($)                                                   
  {my ($tree) = @_;                                                              # Tree
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2                                                           # Print a tree
+  my $s = Subroutine                                                           # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
@@ -9004,7 +8940,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
 
   PushR my ($W1, $W2, $F) = (r8, r9, 31);
 
-  my $s = Subroutine2                                                           # Print a tree
+  my $s = Subroutine                                                           # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
@@ -9184,7 +9120,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
 
   PushR my ($W1, $W2, $F) = (r8, r9, 31);
 
-  my $s = Subroutine2                                                           # Print a tree
+  my $s = Subroutine                                                           # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
@@ -9276,7 +9212,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
  {my ($iterator) = @_;                                                          # Iterator
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -9416,7 +9352,7 @@ sub Nasm::X86::Tree::by($&)                                                     
  {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
   @_ == 2 or confess "Two parameters required";
 
-  $tree->findFirst;                                                          # First element
+  $tree->findFirst;                                                             # First element
   my $end   = Label;                                                            # End of processing
   my $next  = Label;                                                            # Next iteration
   my $start = SetLabel;                                                         # Start of this iteration
@@ -9432,7 +9368,7 @@ sub Nasm::X86::Tree::yb($&)                                                     
  {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
   @_ == 2 or confess "Two parameters required";
 
-  $tree->findLast;                                                           # Last element
+  $tree->findLast;                                                              # Last element
   my $end   = Label;                                                            # End of processing
   my $prev  = Label;                                                            # Next iteration
   my $start = SetLabel;                                                         # Start of this iteration
@@ -9444,11 +9380,11 @@ sub Nasm::X86::Tree::yb($&)                                                     
   SetLabel $end;
  }
 
-sub Nasm::X86::Tree::by22($&)                                                     # Call the specified block with each (key, data) from the specified tree in order.
+sub Nasm::X86::Tree::by22($&)                                                   # Call the specified block with each (key, data) from the specified tree in order.
  {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
   @_ == 2 or confess "Two parameters required";
 
-  my $iter  = $tree->iterator;                                                     # Create an iterator
+  my $iter  = $tree->iterator;                                                  # Create an iterator
   my $start = SetLabel Label; my $end = Label;                                  # Start and end of loop
   If $iter->more == 0, sub {Jmp $end};                                          # Jump to end if there are no more elements to process
   &$block($iter, $end);                                                         # Perform the block parameterized by the iterator and the end label
@@ -9875,12 +9811,12 @@ sub Exit(;$)                                                                    
   $c //= 0;
   my $s = Subroutine
    {Comment "Exit code: $c";
-    PushR (rax, rdi);
+    PushR rax, rdi;
     Mov rdi, $c;
     Mov rax, 60;
     Syscall;
     PopR;
-   } [], name => "Exit_$c";
+   } name => "Exit_$c";
 
   $s->call;
  }
@@ -10729,7 +10665,7 @@ value.
 
   my $d = V depth => 3;                                                         # Create a variable on the stack
 
-  my $s = Subroutine
+  my $s = Subroutine33
    {my ($p, $s) = @_;                                                           # Parameters, subroutine descriptor
     PrintOutTraceBack;
 
@@ -11491,7 +11427,7 @@ if (1) {
   Mov rax, 0x44332211;
   PrintOutRegisterInHex rax;
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {PrintOutRegisterInHex rax;
     Inc rax;
     PrintOutRegisterInHex rax;
@@ -12017,12 +11953,12 @@ if (1) {                                                                        
   my $s = Subroutine
    {my ($p) = @_;
     $$p{v}->copy($$p{v} + $$p{k} + $$p{g} + 1);
-   } [qw(v k g)], name => 'add';
+   } name => 'add', parameters=>[qw(v k g)];
 
   my $v = V(v, 1);
   my $k = K(k, 2);
   my $g = V(g, 3);
-  $s->call($v, $k, $g);
+  $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
   $v->outNL;
 
   ok Assemble(debug => 0, eq => <<END);
@@ -12036,14 +11972,14 @@ if (1) {                                                                        
   my $s = Subroutine
    {my ($p) = @_;
     $$p{g}->copy(K value, 1);
-   } [qw(g)], name => 'ref2';
+   } name => 'ref2', parameters=>[qw(g)];
 
   my $t = Subroutine
    {my ($p) = @_;
-    $s->call($$p{g});
-   } [qw(g)], name => 'ref';
+    $s->call(parameters=>{g=>$$p{g}});
+   } name => 'ref', parameters=>[qw(g)];
 
-  $t->call($g);
+  $t->call(parameters=>{g=>$g});
   $g->outNL;
 
   ok Assemble(debug => 0, eq => <<END);
@@ -12054,7 +11990,7 @@ END
 #latest:
 if (1) {                                                                        #TSubroutine
   my $g = V g => 3;
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;
     my $g = $$p{g};
     $g->copy($g - 1);
@@ -12078,7 +12014,7 @@ END
 if (0) {                                                                        #TPrintOutTraceBack
   my $d = V depth => 3;                                                         # Create a variable on the stack
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine descriptor
 
     my $d = $$p{depth}->copy($$p{depth} - 1);                                   # Modify the variable referenced by the parameter
@@ -12105,16 +12041,16 @@ END
 #latest:
 if (0) {                                                                        #TSubroutine
   my $g = V g, 2;
-  my $u = Subroutine
+  my $u = Subroutine33
    {my ($p, $s) = @_;
     $$p{g}->copy(K gg, 1);
     PrintOutTraceBack '';
    } [qw(g)], name => 'uuuu';
-  my $t = Subroutine
+  my $t = Subroutine33
    {my ($p, $s) = @_;
     $u->call($$p{g});
    } [qw(g)], name => 'tttt';
-  my $s = Subroutine
+  my $s = Subroutine33
    {my ($p, $s) = @_;
     $t->call($$p{g});
    } [qw(g)], name => 'ssss';
@@ -12135,18 +12071,18 @@ END
 if (0) {                                                                        #TSubroutine
   my $r = V r, 2;
 
-  my $u = Subroutine
+  my $u = Subroutine33
    {my ($p, $s) = @_;
     $$p{u}->copy(K gg, 1);
     PrintOutTraceBack '';
    } [qw(u)], name => 'uuuu';
 
-  my $t = Subroutine
+  my $t = Subroutine33
    {my ($p, $s) = @_;
     $u->call(u => $$p{t});
    } [qw(t)], name => 'tttt';
 
-  my $s = Subroutine
+  my $s = Subroutine33
    {my ($p, $s) = @_;
    $t->call(t => $$p{s});
    } [qw(s)], name => 'ssss';
@@ -12990,7 +12926,7 @@ if (0) {                                                                        
 
   my $push = sub                                                                # Push an element onto an array
    {my ($array, $element) = @_;                                                 # Array, Element
-    my $s = Subroutine2
+    my $s = Subroutine
      {my ($p, $s, $sub) = @_;                                                   # Parameters, structures, subroutine definition
       $$s{array}->push($$p{element});
      } parameters=>[qw(element)], structures=>{array=>$array}, name=>"push";
@@ -13000,7 +12936,7 @@ if (0) {                                                                        
 
   my $pop = sub                                                                 # Push an element onto an array
    {my ($array) = @_;                                                           # Array, Element
-    my $s = Subroutine2
+    my $s = Subroutine
      {my ($p, $s, $sub) = @_;                                                   # Parameters, structures, subroutine definition
       $$p{element}->copy($$s{array}->pop);
      } parameters=>[qw(element)], structures=>{array=>$b}, name=>"pop";
@@ -14233,11 +14169,11 @@ END
 
 #latest:
 if (0) {                                                                        #TNasm::X86::Quarks::quarkFromSub #TNasm::X86::Quarks::subFromQuark #TNasm::X86::Quarks::loadConstantString
-  my $s1 = Subroutine
+  my $s1 = Subroutine33
    {PrintOutStringNL "11111";
    } [], name => 'test1';
 
-  my $s2 = Subroutine
+  my $s2 = Subroutine33
    {PrintOutStringNL "22222";
    } [], name => 'test2';
 
@@ -14286,43 +14222,22 @@ if (1) {                                                                        
   my $s = Subroutine
    {my ($p) = @_;
     $$p{p}->outNL;
-   } [qw(p)], name => 'test';
+   } parameters=>[qw(p)], name => 'test';
 
-  $s->call(p => 221);
+  $s->call(parameters=>{p => K key => 221});
+  $s->call(parameters=>{p => V key => 222});
   Mov r15, 0xcc;
-  $s->call(p => r15);
+  $s->call(parameters=>{p => V(key => r15)});
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
 p: 0000 0000 0000 00DD
+p: 0000 0000 0000 00DE
 p: 0000 0000 0000 00CC
 END
  }
 
 #latest:
-if (1) {                                                                        # Consolidated parameter lists
-  my $s = Subroutine
-   {my ($p, $s) = @_;
-
-    my $t = Subroutine
-     {my ($p) = @_;
-      $$p{p}->outNL;
-      $$p{q}->outNL;
-     } [], name => 'tttt', with => $s;
-
-    $t->call(q => 0xcc);
-
-   } [qw(p q)], name => 'ssss';
-
-  $s->call(p => 0xee, q => 0xdd);
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-p: 0000 0000 0000 00EE
-q: 0000 0000 0000 00CC
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Sub::dispatch
+if (0) {                                                                        #TNasm::X86::Sub::dispatch
   my $p = Subroutine                                                            # Prototype subroutine to establish parameter list
    {} [qw(p)], name => 'prototype';
 
@@ -14346,7 +14261,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Sub::dispatchV
+if (0) {                                                                        #TNasm::X86::Sub::dispatchV
   my $s = Subroutine                                                            # Containing sub
    {my ($parameters, $sub) = @_;
 
@@ -14379,14 +14294,14 @@ END
 
 #latest:
 if (0) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put #TNasm::X86::Quarks::putSub #TNasm::X86::Quarks::dump #TNasm::X86::Quarks::subFromQuarkViaQuarks #TNasm::X86::Quarks::subFromQuarkNumber #TNasm::X86::Quarks::subFromShortString #TNasm::X86::Quarks::callSubFromShortString
-  my $s = Subroutine
+  my $s = Subroutine33
    {my ($p, $s) = @_;
     PrintOutString "SSSS";
     $$p{p}->setReg(r15);
     PrintOutRegisterInHex r15;
    } [qw(p)], name => 'ssss';
 
-  my $t = Subroutine
+  my $t = Subroutine33
    {my ($p, $s) = @_;
     PrintOutString "TTTT";
     $$p{p}->setReg(r15);
@@ -14983,7 +14898,7 @@ if (1) {                                                                        
 
   my $t = OuterStructure::new(42, 4);
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($parameters, $structures, $sub) = @_;                                   # Variable parameters, structure variables, structure copies, subroutine description
 
     $$structures{test}->value->setReg(rax);
@@ -15019,7 +14934,7 @@ END
 
 #latest:
 if (1) {
-  my $s = Subroutine2                                                           #TSubroutine2
+  my $s = Subroutine                                                           #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     $$s{var}->setReg(rax);
     Dec rax;
@@ -15042,7 +14957,7 @@ if (1) {
   my $N = 256;
   my $t = V struct => 33;
 
-  my $s = Subroutine2                                                           #TSubroutine2
+  my $s = Subroutine                                                           #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     SaveFirstFour;
     my $v = V var => 0;
@@ -15386,7 +15301,7 @@ sub Nasm::X86::Tree::copyNonLoopArea($$$$$$$)                                   
 
   my $transfer  = r8;                                                           # Transfer register
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
 
     my $transfer  = r8;                                                         # Transfer register
@@ -16392,7 +16307,7 @@ sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     my $t  = $$s{tree};
     my $ll = $t->lengthFromKeys($LK);
@@ -16480,7 +16395,7 @@ sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     my $t  = $$s{tree};
     my $ll = $t->lengthFromKeys($LK);
@@ -16563,7 +16478,7 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     my $t  = $$s{tree};
     my $ll = $t->lengthFromKeys($LK);
@@ -16674,7 +16589,7 @@ sub Nasm::X86::Tree::deleteFirstKeyAndData($$$$)                                
  {my ($tree, $K, $D) = @_;                                                      # Tree definition, keys zmm, data zmm
   @_ == 3 or confess "Three parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     my $t = $$s{tree};
     my $l = $t->lengthFromKeys($K);
@@ -17026,7 +16941,7 @@ sub Nasm::X86::Tree::expand($$)                                                 
  {my ($tree, $offset) = @_;                                                     # Tree descriptor, offset of node block to expand
   @_ == 2 or confess "Two parameters";
 
-  my $s = Subroutine2
+  my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -19028,7 +18943,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::by
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -19063,7 +18978,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::yb
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
