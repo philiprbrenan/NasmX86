@@ -5105,7 +5105,7 @@ sub CreateArena(%)                                                              
   $arena
  }
 
-sub Nasm::X86::Arena::chain($$@)                                                #P Return a variable with the end point of a chain of double words in the arena starting at the specified variable.
+sub Nasm::X86::Arena::chain222($$@)                                                #P Return a variable with the end point of a chain of double words in the arena starting at the specified variable.
  {my ($arena, $variable, @offsets) = @_;                                        # Arena descriptor, start variable,  offsets chain
   @_ >= 2 or confess "Two or more parameters";
 
