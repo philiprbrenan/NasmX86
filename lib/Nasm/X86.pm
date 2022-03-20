@@ -14166,76 +14166,6 @@ Final Right
 END
  }
 
-sub Nasm::X86::Tree::copyNonLoopArea($$$$$$$)                                   # Copy the non loop area of one tree block into another
- {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN) = @_;                                # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
-  @_ == 7 or confess "Seven parameters required";
-
-  my $transfer  = r8;                                                           # Transfer register
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
-
-    my $transfer  = r8;                                                         # Transfer register
-
-    PushR $transfer, 7;
-    LoadBitsIntoMaskRegister(7, '0', $tree->maxNodesZ);                         # Move non loop area
-    Vmovdqu32 zmmM($LK, 7),  zmm($PK);
-    Vmovdqu32 zmmM($LD, 7),  zmm($PD);
-    Vmovdqu32 zmmM($LN, 7),  zmm($PN);
-    PopR;
-   }
-  name => "Nasm::X86::Tree::copyNonLoopArea($PK, $PD, $PN, $LK, $LD, $LN)";
-
-  $s->call;
- }
-
-#latest:
-if (1) {                                                                        # Move non loop bytes from one tree block to another
-  my $tree = DescribeTree(length=>3);
-  my ($RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 23..31;                    # Zmm names
-
-  K(PK => Rd(map {($_<<28) +0x9999999} 0..15))->loadZmm($PK);
-  K(PD => Rd(map {($_<<28) +0x7777777} 0..15))->loadZmm($PD);
-  K(PN => Rd(map {($_<<28) +0x8888888} 0..15))->loadZmm($PN);
-
-  K(LK => Rd(map {($_<<28) +0x6666666} 0..15))->loadZmm($LK);
-  K(LD => Rd(map {($_<<28) +0x4444444} 0..15))->loadZmm($LD);
-  K(LN => Rd(map {($_<<28) +0x5555555} 0..15))->loadZmm($LN);
-
-  PrintOutStringNL "Initial Parent";
-  PrintOutRegisterInHex zmm reverse 29..31;
-
-  PrintOutStringNL "Initial Left";
-  PrintOutRegisterInHex zmm reverse 26..28;
-
-  $tree->copyNonLoopArea($PK, $PD, $PN, $LK, $LD, $LN);
-
-  PrintOutStringNL "Final Parent";
-  PrintOutRegisterInHex zmm reverse 29..31;
-
-  PrintOutStringNL "Final Left";
-  PrintOutRegisterInHex zmm reverse 26..28;
-
-  ok Assemble eq => <<END;
-Initial Parent
- zmm31: F999 9999 E999 9999   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   5999 9999 4999 9999   3999 9999 2999 9999   1999 9999 0999 9999
- zmm30: F777 7777 E777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   5777 7777 4777 7777   3777 7777 2777 7777   1777 7777 0777 7777
- zmm29: F888 8888 E888 8888   D888 8888 C888 8888   B888 8888 A888 8888   9888 8888 8888 8888   7888 8888 6888 8888   5888 8888 4888 8888   3888 8888 2888 8888   1888 8888 0888 8888
-Initial Left
- zmm28: F666 6666 E666 6666   D666 6666 C666 6666   B666 6666 A666 6666   9666 6666 8666 6666   7666 6666 6666 6666   5666 6666 4666 6666   3666 6666 2666 6666   1666 6666 0666 6666
- zmm27: F444 4444 E444 4444   D444 4444 C444 4444   B444 4444 A444 4444   9444 4444 8444 4444   7444 4444 6444 4444   5444 4444 4444 4444   3444 4444 2444 4444   1444 4444 0444 4444
- zmm26: F555 5555 E555 5555   D555 5555 C555 5555   B555 5555 A555 5555   9555 5555 8555 5555   7555 5555 6555 5555   5555 5555 4555 5555   3555 5555 2555 5555   1555 5555 0555 5555
-Final Parent
- zmm31: F999 9999 E999 9999   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   5999 9999 4999 9999   3999 9999 2999 9999   1999 9999 0999 9999
- zmm30: F777 7777 E777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   5777 7777 4777 7777   3777 7777 2777 7777   1777 7777 0777 7777
- zmm29: F888 8888 E888 8888   D888 8888 C888 8888   B888 8888 A888 8888   9888 8888 8888 8888   7888 8888 6888 8888   5888 8888 4888 8888   3888 8888 2888 8888   1888 8888 0888 8888
-Final Left
- zmm28: F666 6666 E999 9999   D999 9999 C999 9999   B999 9999 A999 9999   9999 9999 8999 9999   7999 9999 6999 9999   5999 9999 4999 9999   3999 9999 2999 9999   1999 9999 0999 9999
- zmm27: F444 4444 E777 7777   D777 7777 C777 7777   B777 7777 A777 7777   9777 7777 8777 7777   7777 7777 6777 7777   5777 7777 4777 7777   3777 7777 2777 7777   1777 7777 0777 7777
- zmm26: F555 5555 E888 8888   D888 8888 C888 8888   B888 8888 A888 8888   9888 8888 8888 8888   7888 8888 6888 8888   5888 8888 4888 8888   3888 8888 2888 8888   1888 8888 0888 8888
-END
- }
-
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::setTree  #TNasm::X86::Tree::clearTree #TNasm::X86::Tree::insertZeroIntoTreeBits #TNasm::X86::Tree::insertOneIntoTreeBits #TNasm::X86::Tree::getTreeBits #TNasm::X86::Tree::setTreeBits #TNasm::X86::Tree::isTree
 
@@ -15808,7 +15738,7 @@ sub Nasm::X86::Tree::indexNode($$$$)                                            
   $r                                                                            # Point of key if non zero, else no match
  }
 
-sub Nasm::X86::Tree::expand($$)                                                 # Expand the node at the specified offset in the specified tree if it needs to be expanded and is not the root node (which cannot be expanded because it has no siblings to take substance from whereas as all other nodes do).  Set tree.found to the offset of the left sibling if the node at the specified offset was merged into it and freed else set tree.found to zero.
+sub Nasm::X86::Tree::expand($$)                                                 #P Expand the node at the specified offset in the specified tree if it needs to be expanded and is not the root node (which cannot be expanded because it has no siblings to take substance from whereas as all other nodes do).  Set tree.found to the offset of the left sibling if the node at the specified offset was merged into it and freed else set tree.found to zero.
  {my ($tree, $offset) = @_;                                                     # Tree descriptor, offset of node block to expand
   @_ == 2 or confess "Two parameters";
 
