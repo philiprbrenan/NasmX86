@@ -3682,32 +3682,6 @@ sub PopEax()                                                                    
   Add rsp, RegisterSize eax;
  }
 
-my @PushZmm;                                                                    # Zmm pushes
-
-sub PushZmm(@)                                                                  # Push several zmm registers.
- {my (@Z) = @_;                                                                 # Zmm register numbers
-  if (@Z)
-   {my @z = zmm @Z;
-    my $w = RegisterSize zmm0;
-    Sub rsp, @z * $w;
-    for my $i(keys @z)
-     {Vmovdqu64 "[rsp+$w*$i]", $z[$i];
-     }
-    push @PushZmm, [@Z];
-   }
- }
-
-sub PopZmm                                                                      # Pop zmm registers.
- {@PushZmm or confess "No Zmm registers saved";
-  my $z = pop @PushZmm;
-  my @z = zmm @$z;
-  my $w = RegisterSize zmm0;
-  for my $i(keys @z)
-   {Vmovdqu64 $z[$i], "[rsp+$w*$i]";
-   }
-  Add rsp, @z * $w;
- }
-
 my @PushMask;                                                                   # Mask pushes
 
 sub PushMask(@)                                                                 # Push several Mask registers.
@@ -7481,8 +7455,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
     my $success = Label;                                                        # End label
 
-    PushR my ($W1, $W2) = (r8, r9);
-    PushZmm my ($F, $K, $D, $N) = reverse 28..31;
+    PushR my ($F, $K, $D, $N) = reverse 28..31;
 
     my $t = $$s{tree};
     my $k = $$p{key};
@@ -7542,7 +7515,6 @@ sub Nasm::X86::Tree::put($$$)                                                   
     Jmp $descend;                                                               # Descend to the next level
 
     SetLabel $success;
-    PopZmm;
     PopR;
    } name => "Nasm::X86::Tree::put",
      structures => {tree=>$tree},
@@ -8998,7 +8970,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
       my $zmmNK = 31; my $zmmPK = 28; my $zmmTest = 25;
       my $zmmND = 30; my $zmmPD = 27;
       my $zmmNN = 29; my $zmmPN = 26;
-      PushR k7, r8, r9, r14, r15; PushZmm 25..31;
+      PushR 7, 8, 9, 14, 15, 25..31;
       my $t = $iter->tree;
 
       ForEver                                                                   # Up through the tree
@@ -9024,7 +8996,6 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
        };
       &$done;                                                                   # No nodes not visited
       SetLabel $top;
-      PopZmm;
       PopR;
      };
 
@@ -9512,7 +9483,7 @@ sub Link(@)                                                                     
 
 sub Start()                                                                     # Initialize the assembler.
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
-  @PushR = @PushZmm = @PushMask = @extern = @link = @VariableStack = ();
+  @PushR = @PushMask = @extern = @link = @VariableStack = ();
 # @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});               # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
   SubroutineStartStack;                                                         # Number of variables at each lexical level
   $Labels = 0;
