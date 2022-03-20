@@ -4990,7 +4990,7 @@ END
 
 our $AreaFreeChain = 0;                                                         # The key of the Yggdrasil tree entry in the area recording the start of the free chain
 
-sub DescribeArea(%)                                                            # Describe a relocatable area.
+sub DescribeArea(%)                                                             # Describe a relocatable area.
  {my (%options) = @_;                                                           # Optional variable addressing the start of the area
   my $N = 4096;                                                                 # Initial size of area
   my $w = RegisterSize 31;
@@ -5002,7 +5002,7 @@ sub DescribeArea(%)                                                            #
   my $tree = $free + $quad;                                                     # Start of Yggdrasil,
   my $data = $w;                                                                # Data starts in the next zmm block
 
-  genHash(__PACKAGE__."::Area",                                                # Definition of area
+  genHash(__PACKAGE__."::Area",                                                 # Definition of area
     N          => $N,                                                           # Initial allocation
     sizeOffset => $size,                                                        # Size field offset
     usedOffset => $used,                                                        # Used field offset
@@ -5015,9 +5015,9 @@ sub DescribeArea(%)                                                            #
    );
  }
 
-sub CreateArena(%)                                                              # Create an relocatable area and returns its address in rax. We add a chain header so that 64 byte blocks of memory can be freed and reused within the area.
+sub CreateArea(%)                                                               # Create an relocatable area and returns its address in rax. We add a chain header so that 64 byte blocks of memory can be freed and reused within the area.
  {my (%options) = @_;                                                           # Free=>1 adds a free chain.
-  my $area = DescribeArea;                                                    # Describe an area
+  my $area = DescribeArea;                                                      # Describe an area
   my $N     = $area->N;
   my $used  = $area->usedOffset;
   my $data  = $area->dataOffset;
@@ -5026,54 +5026,54 @@ sub CreateArena(%)                                                              
   my $s = Subroutine                                                            # Allocate area
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $area = AllocateMemory K size=> $N;                                     # Allocate memory and save its location in a variable
+    my $area = AllocateMemory K size=> $N;                                      # Allocate memory and save its location in a variable
 
     PushR rax;
-    $$s{area}->address->copy($area);                                          # Save address of area
+    $$s{area}->address->copy($area);                                            # Save address of area
     $area->setReg(rax);
     Mov "dword[rax+$used]", $data;                                              # Initially used space
     Mov "dword[rax+$size]", $N;                                                 # Size
     PopR;
-   } structures=>{area=>$area}, name => 'CreateArena';
+   } structures=>{area=>$area}, name => 'CreateArea';
 
-  $s->call(structures=>{area=>$area});                                        # Variable that holds the reference to the area which is updated when the area is reallocated
+  $s->call(structures=>{area=>$area});                                          # Variable that holds the reference to the area which is updated when the area is reallocated
 
   $area
  }
 
-sub Nasm::X86::Area::free($)                                                   # Free an area
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::free($)                                                    # Free an area
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
   FreeMemory($area->address, $area->size)
  }
 
-sub Nasm::X86::Area::used($)                                                   # Return the currently used size of an area as a variable.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::used($)                                                    # Return the currently used size of an area as a variable.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
   SaveFirstFour;
-  $area->address->setReg(rax);                                                 # Address area
-  Mov rdx, "[rax+$$area{usedOffset}]";                                         # Used
-  Sub rdx, $area->dataOffset;                                                  # Subtract size of header so we get the actual amount in use
-  my $size = V 'area used up' => rdx;                                             # Save length in a variable
+  $area->address->setReg(rax);                                                  # Address area
+  Mov rdx, "[rax+$$area{usedOffset}]";                                          # Used
+  Sub rdx, $area->dataOffset;                                                   # Subtract size of header so we get the actual amount in use
+  my $size = V 'area used up' => rdx;                                           # Save length in a variable
   RestoreFirstFour;
   $size                                                                         # Return variable length
  }
 
-sub Nasm::X86::Area::size($)                                                   # Get the size of an area as a variab;e.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::size($)                                                    # Get the size of an area as a variab;e.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
   PushR rax;
-  $area->address->setReg(rax);                                                 # Address area
-  Mov rax, "[rax+$$area{sizeOffset}]";                                         # Get size
-  my $size = V 'size of area' => rax;                                          # Save size in a variable
+  $area->address->setReg(rax);                                                  # Address area
+  Mov rax, "[rax+$$area{sizeOffset}]";                                          # Get size
+  my $size = V 'size of area' => rax;                                           # Save size in a variable
   PopR;
   $size                                                                         # Return size
  }
 
-sub Nasm::X86::Area::updateSpace($$)                                           #P Make sure that the variable addressed area has enough space to accommodate content of the variable size.
- {my ($area, $size) = @_;                                                      # Area descriptor, variable size needed
+sub Nasm::X86::Area::updateSpace($$)                                            #P Make sure that the variable addressed area has enough space to accommodate content of the variable size.
+ {my ($area, $size) = @_;                                                       # Area descriptor, variable size needed
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine
@@ -5086,8 +5086,8 @@ sub Nasm::X86::Area::updateSpace($$)                                           #
     my $newSize  = r12;                                                         # New size needed
     my $proposed = r11;                                                         # Proposed size
 
-    my $area = $$s{area};                                                     # Address area
-    $area->address->setReg($base);                                             # Address area
+    my $area = $$s{area};                                                       # Address area
+    $area->address->setReg($base);                                              # Address area
     $$p{size}->setReg($request);                                                # Requested space
 
     Mov $size, "[$base+$$area{sizeOffset}]";
@@ -5108,12 +5108,12 @@ sub Nasm::X86::Area::updateSpace($$)                                           #
       my $oldSize = V(size, $size);                                             # The old size of the area
       my $newSize = V(size, $proposed);                                         # The old size of the area
       my $address = AllocateMemory($newSize);                                   # Create new area
-      CopyMemory($area->address, $address, $oldSize);                          # Copy old area into new area
-      FreeMemory $area->address, $oldSize;                                     # Free previous memory previously occupied area
-      $area->address->copy($address);                                          # Save new area address
+      CopyMemory($area->address, $address, $oldSize);                           # Copy old area into new area
+      FreeMemory $area->address, $oldSize;                                      # Free previous memory previously occupied area
+      $area->address->copy($address);                                           # Save new area address
 
-      $area->address->setReg($base);                                           # Address area
-      Mov "[$base+$$area{sizeOffset}]", $proposed;                             # Save the new size in the area
+      $area->address->setReg($base);                                            # Address area
+      Mov "[$base+$$area{sizeOffset}]", $proposed;                              # Save the new size in the area
      };
 
     PopR;
@@ -5124,8 +5124,8 @@ sub Nasm::X86::Area::updateSpace($$)                                           #
   $s->call(parameters=>{size => $size}, structures=>{area => $area});
  } # updateSpace
 
-sub Nasm::X86::Area::makeReadOnly($)                                           # Make an area read only.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::makeReadOnly($)                                            # Make an area read only.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
   my $s = Subroutine
@@ -5134,7 +5134,7 @@ sub Nasm::X86::Area::makeReadOnly($)                                           #
     SaveFirstFour;
     $$p{address}->setReg(rax);
     Mov rdi, rax;                                                               # Address of area
-    Mov rsi, "[rax+$$area{sizeOffset}]";                                       # Size of area
+    Mov rsi, "[rax+$$area{sizeOffset}]";                                        # Size of area
 
     Mov rdx, 1;                                                                 # Read only access
     Mov rax, 10;
@@ -5145,8 +5145,8 @@ sub Nasm::X86::Area::makeReadOnly($)                                           #
   $s->call(parameters=>{address => $area->address});
  }
 
-sub Nasm::X86::Area::makeWriteable($)                                          # Make an area writable.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::makeWriteable($)                                           # Make an area writable.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
   my $s = Subroutine
@@ -5155,7 +5155,7 @@ sub Nasm::X86::Area::makeWriteable($)                                          #
     SaveFirstFour;
     $$p{address}->setReg(rax);
     Mov rdi, rax;                                                               # Address of area
-    Mov rsi, "[rax+$$area{sizeOffset}]";                                       # Size of area
+    Mov rsi, "[rax+$$area{sizeOffset}]";                                        # Size of area
     Mov rdx, 3;                                                                 # Read only access
     Mov rax, 10;
     Syscall;
@@ -5167,44 +5167,44 @@ sub Nasm::X86::Area::makeWriteable($)                                          #
 
 #D2 Alloc/Free                                                                  # Allocate and free memory in an area, either once only but in variable size blocks or reusably in zmm sized blocks via the free block chain.
 
-sub Nasm::X86::Area::allocate($$)                                              # Allocate the variable amount of space in the variable addressed area and return the offset of the allocation in the area as a variable.
- {my ($area, $size) = @_;                                                      # Area descriptor, variable amount of allocation
+sub Nasm::X86::Area::allocate($$)                                               # Allocate the variable amount of space in the variable addressed area and return the offset of the allocation in the area as a variable.
+ {my ($area, $size) = @_;                                                       # Area descriptor, variable amount of allocation
   @_ == 2 or confess "Two parameters";
 
   SaveFirstFour;
-  $area->updateSpace($size);                                                   # Update space if needed
+  $area->updateSpace($size);                                                    # Update space if needed
   $area->address->setReg(rax);
-  Mov rsi, "[rax+$$area{usedOffset}]";                                         # Currently used
+  Mov rsi, "[rax+$$area{usedOffset}]";                                          # Currently used
   my $offset = V(offset => rsi);                                                # Variable to hold offset of allocation
   $size  ->setReg(rdi);
   Add rsi, rdi;
-  Mov "[rax+$$area{usedOffset}]", rsi;                                         # Update currently used
+  Mov "[rax+$$area{usedOffset}]", rsi;                                          # Update currently used
   RestoreFirstFour;
   $offset
  }
 
-sub Nasm::X86::Area::allocZmmBlock($)                                          # Allocate a block to hold a zmm register in the specified area and return the offset of the block as a variable.
- {my ($area) = @_;                                                             # Area
+sub Nasm::X86::Area::allocZmmBlock($)                                           # Allocate a block to hold a zmm register in the specified area and return the offset of the block as a variable.
+ {my ($area) = @_;                                                              # Area
   @_ == 1 or confess "One parameter";
   my $offset = V(offset => 0);                                                  # Variable to hold offset of allocation
 
   PushR rax, my $first = r14, my $second = r15, 31;
   my $firstD = $first.'d'; my $secondD = $second.'d';
 
-  $area->address->setReg(rax);                                                 # Address of area
-  Mov $firstD, "[rax+$$area{freeOffset}]";                                     # Offset of first block in free chain if such a block exists
+  $area->address->setReg(rax);                                                  # Address of area
+  Mov $firstD, "[rax+$$area{freeOffset}]";                                      # Offset of first block in free chain if such a block exists
   Cmp $first, 0;
   IfGt
   Then                                                                          # Free block available
-   {$area->getZmmBlock(V (offset => $first), 31);                              # Load the first block on the free chain
+   {$area->getZmmBlock(V (offset => $first), 31);                               # Load the first block on the free chain
     dFromZ(31, 0)->setReg($second);                                             # The location of the second block if any
-    Mov "[rax+$$area{freeOffset}]", $secondD;                                  # Offset of first block in free chain if such a block exists
+    Mov "[rax+$$area{freeOffset}]", $secondD;                                   # Offset of first block in free chain if such a block exists
     ClearRegisters 31;                                                          # Clear the zmm block - possibly this only needs to be done if we are reusing a block
     $offset->getReg($first);                                                    # First block is the allocated block
     $area->putZmmBlock($offset, 31);
    },
   Else                                                                          # Cannot reuse a free block so allocate
-   {$offset->copy($area->allocate(K size => $area->zmmBlock));                # Copy offset of allocation
+   {$offset->copy($area->allocate(K size => $area->zmmBlock));                  # Copy offset of allocation
    };
   PopR;
 
@@ -5212,37 +5212,37 @@ sub Nasm::X86::Area::allocZmmBlock($)                                          #
   $offset                                                                       # Return offset of allocated block
  }
 
-sub Nasm::X86::Area::freeZmmBlock($$)                                          #P Free a block in an area by placing it on the free chain.
- {my ($area, $offset) = @_;                                                    # Area descriptor, offset of zmm block to be freed
+sub Nasm::X86::Area::freeZmmBlock($$)                                           #P Free a block in an area by placing it on the free chain.
+ {my ($area, $offset) = @_;                                                     # Area descriptor, offset of zmm block to be freed
   @_ == 2 or confess "Two parameters";
 
   PushR rax, my $first = r14, my $second = r15, zmm7;
   my $firstD = $first.'d'; my $secondD = $second.'d';
-  $area->address->setReg(rax);                                                 # Address of area
-  Mov $secondD, "[rax+$$area{freeOffset}]";                                    # Offset of first block in free chain if such a block exists
+  $area->address->setReg(rax);                                                  # Address of area
+  Mov $secondD, "[rax+$$area{freeOffset}]";                                     # Offset of first block in free chain if such a block exists
   ClearRegisters zmm7;
   Movd xmm7, $secondD;
   $area->putZmmBlock($offset, 7);
   $offset->setReg($first);                                                      # Offset if what will soon be the first block on the free chain
-  Mov "[rax+$$area{freeOffset}]", $firstD;                                     # Offset of first block in free chain if such a block exists
+  Mov "[rax+$$area{freeOffset}]", $firstD;                                      # Offset of first block in free chain if such a block exists
   PopR;
  }
 
-sub Nasm::X86::Area::freeChainSpace($)                                         # Count the number of blocks available on the free chain
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::freeChainSpace($)                                          # Count the number of blocks available on the free chain
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameters";
   my $count = V('free chain blocks' => 0);
 
   PushR rax, my $first = r15, 31;
   my $firstD = $first.'d';
 
-  $area->address->setReg(rax);                                                 # Address of area
-  Mov $firstD, "[rax+$$area{freeOffset}]";                                     # Offset of first block in free chain if such a block exists
+  $area->address->setReg(rax);                                                  # Address of area
+  Mov $firstD, "[rax+$$area{freeOffset}]";                                      # Offset of first block in free chain if such a block exists
   V( loop => 99)->for(sub                                                       # Loop through free block chain
    {my ($index, $start, $next, $end) = @_;
     Cmp $first, 0;
-    IfEq Then{Jmp $end};                                                            # No more free blocks
-    $area->getZmmBlock(V(offset => $first), 31);                               # Load the first block on the free chain
+    IfEq Then{Jmp $end};                                                        # No more free blocks
+    $area->getZmmBlock(V(offset => $first), 31);                                # Load the first block on the free chain
     dFromZ(31, 0)->setReg($first);                                              # The location of the second block if any
     $count->copy($count + 1);                                                   # Increment count of number of  blocks on the free chain
    });
@@ -5250,14 +5250,14 @@ sub Nasm::X86::Area::freeChainSpace($)                                         #
   $count * RegisterSize 31;
  }
 
-sub Nasm::X86::Area::getZmmBlock($$$)                                          #P Get the block with the specified offset in the specified string and return it in the numbered zmm.
- {my ($area, $block, $zmm) = @_;                                               # Area descriptor, offset of the block as a variable, number of zmm register to contain block
+sub Nasm::X86::Area::getZmmBlock($$$)                                           #P Get the block with the specified offset in the specified string and return it in the numbered zmm.
+ {my ($area, $block, $zmm) = @_;                                                # Area descriptor, offset of the block as a variable, number of zmm register to contain block
   @_ == 3 or confess "Three parameters";
 
   my $a = rdi;                                                                  # Work registers
   my $o = rsi;
 
-  $area->address->setReg($a);                                                  # Area address
+  $area->address->setReg($a);                                                   # Area address
   $block->setReg($o);                                                           # Offset of block in area
 
   Cmp $o, $area->dataOffset;
@@ -5269,14 +5269,14 @@ sub Nasm::X86::Area::getZmmBlock($$$)                                          #
   Vmovdqu64 "zmm$zmm", "[$a+$o]";                                               # Read from memory
  }
 
-sub Nasm::X86::Area::putZmmBlock($$$)                                          #P Write the numbered zmm to the block at the specified offset in the specified area.
- {my ($area, $block, $zmm) = @_;                                               # Area descriptor, offset of the block as a variable, number of zmm register to contain block, first optional work register, second optional work register
+sub Nasm::X86::Area::putZmmBlock($$$)                                           #P Write the numbered zmm to the block at the specified offset in the specified area.
+ {my ($area, $block, $zmm) = @_;                                                # Area descriptor, offset of the block as a variable, number of zmm register to contain block, first optional work register, second optional work register
   @_ == 3 or confess "Three parameters";
 
   my $a = rdi;                                                                  # Work registers
   my $o = rsi;
 
-  $area->address->setReg($a);                                                  # Area address
+  $area->address->setReg($a);                                                   # Area address
   $block->setReg($o);                                                           # Offset of block in area
 
   Cmp $o, $area->dataOffset;
@@ -5288,8 +5288,8 @@ sub Nasm::X86::Area::putZmmBlock($$$)                                          #
   Vmovdqu64 "[$a+$o]", "zmm$zmm";                                               # Read from memory
  }
 
-sub Nasm::X86::Area::clearZmmBlock($$)                                         #P Clear the zmm block at the specified offset in the area
- {my ($area, $offset) = @_;                                                    # Area descriptor, offset of the block as a variable
+sub Nasm::X86::Area::clearZmmBlock($$)                                          #P Clear the zmm block at the specified offset in the area
+ {my ($area, $offset) = @_;                                                     # Area descriptor, offset of the block as a variable
   @_ == 2 or confess "Two parameters";
 
   PushR 31;                                                                     # Clear a zmm block
@@ -5300,14 +5300,14 @@ sub Nasm::X86::Area::clearZmmBlock($$)                                         #
 
 #D2 Yggdrasil                                                                   # The world tree from which we can address so many other things
 
-sub Nasm::X86::Area::checkYggdrasilCreated($)                                  #P Return a tree descriptor to the Yggdrasil world tree for an area.  If Yggdrasil has not been created the B<found> variable will be zero else one.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::checkYggdrasilCreated($)                                   #P Return a tree descriptor to the Yggdrasil world tree for an area.  If Yggdrasil has not been created the B<found> variable will be zero else one.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
-  my $t = $area->DescribeTree;                                                 # Tree descriptor for Yggdrasil
+  my $t = $area->DescribeTree;                                                  # Tree descriptor for Yggdrasil
   PushR rax;
-  $area->address->setReg(rax);                                                 #P Address underlying area
-  Mov rax, "[rax+$$area{treeOffset}]";                                         # Address Yggdrasil
+  $area->address->setReg(rax);                                                  #P Address underlying area
+  Mov rax, "[rax+$$area{treeOffset}]";                                          # Address Yggdrasil
   my $v = V('Yggdrasil', rax);                                                  # Offset to Yggdrasil if it exists else zero
   Cmp rax, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
@@ -5323,14 +5323,14 @@ sub Nasm::X86::Area::checkYggdrasilCreated($)                                  #
   $t
  }
 
-sub Nasm::X86::Area::establishYggdrasil($)                                     #P Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::establishYggdrasil($)                                      #P Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
-  my $t = $area->DescribeTree;                                                 # Tree descriptor for Yggdrasil
+  my $t = $area->DescribeTree;                                                  # Tree descriptor for Yggdrasil
   PushR rax, rdi;
-  $area->address->setReg(rax);                                                 #P Address underlying area
-  Mov rdi, "[rax+$$area{treeOffset}]";                                         # Address Yggdrasil
+  $area->address->setReg(rax);                                                  #P Address underlying area
+  Mov rdi, "[rax+$$area{treeOffset}]";                                          # Address Yggdrasil
   Cmp rdi, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
   Then                                                                          # Yggdrasil has already been created so we can address it
@@ -5340,16 +5340,16 @@ sub Nasm::X86::Area::establishYggdrasil($)                                     #
    {my $T = $area->CreateTree();
     $T->first->setReg(rdi);
     $t->first->copy(rdi);
-    Mov "[rax+$$area{treeOffset}]", rdi;                                       # Save offset of Yggdrasil
+    Mov "[rax+$$area{treeOffset}]", rdi;                                        # Save offset of Yggdrasil
    };
   PopR;
   $t
  }
 
-#D2 Area as a String                                                           # Use the memory supplied by the area as a string - however, in general, this is too slow unless coupled with another slow operation such as executing a command, mapping a file or writing to a file.
+#D2 Area as a String                                                            # Use the memory supplied by the area as a string - however, in general, this is too slow unless coupled with another slow operation such as executing a command, mapping a file or writing to a file.
 
-sub Nasm::X86::Area::m($$$)                                                    # Append the variable addressed content of variable size to the specified area.
- {my ($area, $address, $size) = @_;                                            # Area descriptor, variable address of content, variable length of content
+sub Nasm::X86::Area::m($$$)                                                     # Append the variable addressed content of variable size to the specified area.
+ {my ($area, $address, $size) = @_;                                             # Area descriptor, variable address of content, variable length of content
   @_ == 3 or confess "Three parameters";
 
   my $used = "[rax+$$area{usedOffset}]";
@@ -5360,14 +5360,14 @@ sub Nasm::X86::Area::m($$$)                                                    #
     my $area = $$s{area};
     $area->address->setReg(rax);
     my $oldUsed = V("used", $used);
-    $area->updateSpace($$p{size});                                             # Update space if needed
+    $area->updateSpace($$p{size});                                              # Update space if needed
 
     my $target  = $oldUsed + $area->address;
     CopyMemory($$p{address}, $target, $$p{size});                               # Copy data into the area
 
     my $newUsed = $oldUsed + $$p{size};
 
-    $area->address->setReg(rax);                                               # Update used field
+    $area->address->setReg(rax);                                                # Update used field
     $newUsed->setReg(rdi);
     Mov $used, rdi;
 
@@ -5380,16 +5380,16 @@ sub Nasm::X86::Area::m($$$)                                                    #
            parameters => {address => $address, size => $size});
  }
 
-sub Nasm::X86::Area::q($$)                                                     # Append a constant string to the area.
- {my ($area, $string) = @_;                                                    # Area descriptor, string
+sub Nasm::X86::Area::q($$)                                                      # Append a constant string to the area.
+ {my ($area, $string) = @_;                                                     # Area descriptor, string
   @_ == 2 or confess "Two parameters";
 
   my $s = Rs($string);
   $area->m(V('address', $s), V('size', length($string)));
  }
 
-sub Nasm::X86::Area::ql($$)                                                    # Append a quoted string containing new line characters to the specified area.
- {my ($area, $const) = @_;                                                     # Area, constant
+sub Nasm::X86::Area::ql($$)                                                     # Append a quoted string containing new line characters to the specified area.
+ {my ($area, $const) = @_;                                                      # Area, constant
   @_ == 2 or confess "Two parameters";
   for my $l(split /\s*\n/, $const)
    {$area->q($l);
@@ -5397,26 +5397,26 @@ sub Nasm::X86::Area::ql($$)                                                    #
    }
  }
 
-sub Nasm::X86::Area::char($$)                                                  # Append a character expressed as a decimal number to the specified area.
- {my ($area, $char) = @_;                                                      # Area descriptor, number of character to be appended
+sub Nasm::X86::Area::char($$)                                                   # Append a character expressed as a decimal number to the specified area.
+ {my ($area, $char) = @_;                                                       # Area descriptor, number of character to be appended
   @_ == 2 or confess "Two parameters";
   my $s = Rb(ord($char));
-  $area->m(V(address, $s), V(size, 1));                                        # Move data
+  $area->m(V(address, $s), V(size, 1));                                         # Move data
  }
 
-sub Nasm::X86::Area::nl($)                                                     # Append a new line to the area addressed by rax.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::nl($)                                                      # Append a new line to the area addressed by rax.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
   $area->char("\n");
  }
 
-sub Nasm::X86::Area::z($)                                                      # Append a trailing zero to the area addressed by rax.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::z($)                                                       # Append a trailing zero to the area addressed by rax.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
   $area->char("\0");
  }
 
-sub Nasm::X86::Area::append($@)                                                # Append one area to another.
+sub Nasm::X86::Area::append($@)                                                 # Append one area to another.
  {my ($target, $source) = @_;                                                   # Target area descriptor, source area descriptor
   @_ == 2 or confess "Two parameters";
 
@@ -5429,8 +5429,8 @@ sub Nasm::X86::Area::append($@)                                                #
   RestoreFirstFour;
  }
 
-sub Nasm::X86::Area::clear($)                                                  # Clear an area
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::clear($)                                                   # Clear an area
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
   my $s = Subroutine
@@ -5448,8 +5448,8 @@ sub Nasm::X86::Area::clear($)                                                  #
   $s->call(parameters=>{address => $area->address});
  }
 
-sub Nasm::X86::Area::write($$)                                                 # Write the content of the specified area to a file specified by a zero terminated string.
- {my ($area, $file) = @_;                                                      # Area descriptor, variable addressing file name
+sub Nasm::X86::Area::write($$)                                                  # Write the content of the specified area to a file specified by a zero terminated string.
+ {my ($area, $file) = @_;                                                       # Area descriptor, variable addressing file name
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine
@@ -5477,8 +5477,8 @@ sub Nasm::X86::Area::write($$)                                                 #
   $s->call(parameters=>{address => $area->address, file => $file});
  }
 
-sub Nasm::X86::Area::read($@)                                                  # Read a file specified by a variable addressed zero terminated string and place the contents of the file into the named area.
- {my ($area, $file) = @_;                                                      # Area descriptor, variable addressing file name
+sub Nasm::X86::Area::read($@)                                                   # Read a file specified by a variable addressed zero terminated string and place the contents of the file into the named area.
+ {my ($area, $file) = @_;                                                       # Area descriptor, variable addressing file name
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine
@@ -5486,7 +5486,7 @@ sub Nasm::X86::Area::read($@)                                                  #
     Comment "Read an area";
     my ($address, $size) = ReadFile $$p{file};
     my $area = $$s{area};
-    $area->m($address, $size);                                                 # Move data into area
+    $area->m($address, $size);                                                  # Move data into area
     FreeMemory($size, $address);                                                # Free memory allocated by read
    } structures => {area=>$area},
      parameters => [qw(file)],
@@ -5495,8 +5495,8 @@ sub Nasm::X86::Area::read($@)                                                  #
   $s->call(structures => {area => $area}, parameters => {file => $file});
  }
 
-sub Nasm::X86::Area::out($)                                                    # Print the specified area on sysout.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::out($)                                                     # Print the specified area on sysout.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
   my $s = Subroutine
@@ -5504,9 +5504,9 @@ sub Nasm::X86::Area::out($)                                                    #
     SaveFirstFour;
     $$p{address}->setReg(rax);
 
-    Mov rdi, "[rax+$$area{usedOffset}]";                                       # Length to print
-    Sub rdi, $area->dataOffset;                                                # Length to print
-    Lea rax, "[rax+$$area{dataOffset}]";                                       # Address of data field
+    Mov rdi, "[rax+$$area{usedOffset}]";                                        # Length to print
+    Sub rdi, $area->dataOffset;                                                 # Length to print
+    Lea rax, "[rax+$$area{dataOffset}]";                                        # Address of data field
     PrintOutMemory;
     RestoreFirstFour;
    } parameters=>[qw(address)], name => 'Nasm::X86::Area::out';
@@ -5514,16 +5514,16 @@ sub Nasm::X86::Area::out($)                                                    #
   $s->call(parameters=>{address => $area->address});
  }
 
-sub Nasm::X86::Area::outNL($)                                                  # Print the specified area on sysout followed by a new line.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::outNL($)                                                   # Print the specified area on sysout followed by a new line.
+ {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
   $area->out;
   PrintOutNL;
  }
 
-sub Nasm::X86::Area::dump($$;$)                                                # Dump details of an area.
- {my ($area, $title, $depth) = @_;                                             # Area descriptor, title string, optional variable number of 64 byte blocks to dump
+sub Nasm::X86::Area::dump($$;$)                                                 # Dump details of an area.
+ {my ($area, $title, $depth) = @_;                                              # Area descriptor, title string, optional variable number of 64 byte blocks to dump
   @_ == 2 or @_ == 3 or confess "Two or three parameters";
   my $blockSize = 64;                                                           # Print in blocks of this size
 
@@ -5532,7 +5532,7 @@ sub Nasm::X86::Area::dump($$;$)                                                #
 
     PushR rax, rdi;
     my $area = $$s{area};
-    $area->address->setReg(rax);                                               # Get address of area
+    $area->address->setReg(rax);                                                # Get address of area
     PrintOutString("Area   ");
 
     PushR rax;                                                                  # Print size
@@ -5553,7 +5553,7 @@ sub Nasm::X86::Area::dump($$;$)                                                #
      {my ($index, $start, $next, $end) = @_;
       Mov rdi, $blockSize;                                                      # Length of each print
       ($index*RegisterSize(zmm31))->out('', ' | ');
-      my $address = $area->address + $index * $blockSize;                      # Address of block to print
+      my $address = $area->address + $index * $blockSize;                       # Address of block to print
       $address->setReg(rax);
       PrintOutMemory_InHexNL;
      });
@@ -5577,7 +5577,7 @@ sub DescribeString(%)                                                           
   my $l = 1;                                                                    # Length of the per block length field
 
   genHash(__PACKAGE__."::String",                                               # String definition
-    area       => $options{area},                                             # Area
+    area       => $options{area},                                               # Area
     links       => $b - 2 * $o,                                                 # Location of links in bytes in zmm
     next        => $b - 1 * $o,                                                 # Location of next offset in block in bytes
     prev        => $b - 2 * $o,                                                 # Location of prev offset in block in bytes
@@ -5587,16 +5587,16 @@ sub DescribeString(%)                                                           
    );
  }
 
-sub Nasm::X86::Area::DescribeString($%)                                        # Describe a string and optionally set its first block .
- {my ($area, %options) = @_;                                                   # Area description, area options
+sub Nasm::X86::Area::DescribeString($%)                                         # Describe a string and optionally set its first block .
+ {my ($area, %options) = @_;                                                    # Area description, area options
   DescribeString(area=>$area, %options);
  }
 
-sub Nasm::X86::Area::CreateString($)                                           # Create a string from a doubly link linked list of 64 byte blocks linked via 4 byte offsets in an area and return its descriptor.
- {my ($area) = @_;                                                             # Area description
+sub Nasm::X86::Area::CreateString($)                                            # Create a string from a doubly link linked list of 64 byte blocks linked via 4 byte offsets in an area and return its descriptor.
+ {my ($area) = @_;                                                              # Area description
   @_ == 1 or confess "One parameter";
 
-  my $s = $area->DescribeString;                                               # String descriptor
+  my $s = $area->DescribeString;                                                # String descriptor
   my $first = $s->allocBlock;                                                   # Allocate first block
   $s->first->copy($first);                                                      # Record offset of first block
 
@@ -5622,7 +5622,7 @@ sub Nasm::X86::Area::CreateString($)                                           #
 sub Nasm::X86::String::allocBlock($)                                            #P Allocate a block to hold a zmm register in the specified area and return the offset of the block in a variable.
  {my ($string) = @_;                                                            # String descriptor
   @_ == 1 or confess "One parameters";
-  $string->area->allocZmmBlock;                                                # Allocate block and return its offset as a variable
+  $string->area->allocZmmBlock;                                                 # Allocate block and return its offset as a variable
  }
 
 sub Nasm::X86::String::getBlockLength($$)                                       #P Get the block length of the numbered zmm and return it in a variable.
@@ -6144,7 +6144,7 @@ sub Nasm::X86::String::getQ1($)                                                 
     my $string = $$s{string};                                                   # String
 
     PushR 8, 9, zmm0;
-    $string->area->getZmmBlock($string->first, 0, r8, r9);                     # Load the first block on the free chain
+    $string->area->getZmmBlock($string->first, 0, r8, r9);                      # Load the first block on the free chain
     Psrldq xmm0, $string->lengthWidth;                                          # Shift off the length field of the long string block
     Pextrq r8, xmm0, 0;                                                         # Extract first quad word
     $$p{q1}->getReg(r8);                                                        # Return first quad word  as a variable
@@ -6179,7 +6179,7 @@ sub Nasm::X86::String::clear($)                                                 
 
     If $last != $first,
     Then                                                                        # Two or more blocks on the chain
-     {my $ffb = $string->area->firstFreeBlock;                                 # First free block
+     {my $ffb = $string->area->firstFreeBlock;                                  # First free block
 
       If $second == $last,
       Then                                                                      # Two blocks on the chain
@@ -6196,7 +6196,7 @@ sub Nasm::X86::String::clear($)                                                 
         $string->putZmmBlock($second, 30);                                      # Put the second block
         $string->putZmmBlock($last, 31);                                        # Put the last block
        };
-      $string->area->setFirstFreeBlock($second);                               # The second block becomes the head of the free chain
+      $string->area->setFirstFreeBlock($second);                                # The second block becomes the head of the free chain
      };
 
     PopR;
@@ -6220,10 +6220,10 @@ sub Nasm::X86::String::free($)                                                  
     $string->getZmmBlock($first,  30);                                          # Get the first block
     my ($second, $last) = $string->getNextAndPrevBlockOffsetFromZmm(30);        # Get the offsets of the second and last blocks
 
-    my $ffb = $string->area->firstFreeBlock;                                   # First free block
+    my $ffb = $string->area->firstFreeBlock;                                    # First free block
     $string->getZmmBlock($last,   31);                                          # Get the last block
     $string->putNextandPrevBlockOffsetIntoZmm(31, $ffb, undef);                 # Reset next pointer in last block to remainder of free chain
-    $string->area->setFirstFreeBlock($first);                                  # The first block becomes the head of the free chain
+    $string->area->setFirstFreeBlock($first);                                   # The first block becomes the head of the free chain
     $string->putZmmBlock($first,  30);                                          # Put the second block
     $string->putZmmBlock($last,   31);                                          # Put the last block
 
@@ -6250,7 +6250,7 @@ sub DescribeTree(%)                                                             
   my $l2 = int($length/2);                                                      # Minimum length of length after splitting
 
   genHash(__PACKAGE__."::Tree",                                                 # Tree
-    area        => ($options{area} // DescribeArea),                         # Area definition.
+    area        => ($options{area} // DescribeArea),                            # Area definition.
     length       => $length,                                                    # Number of keys in a maximal block
     lengthLeft   => $l2,                                                        # Left minimal number of keys
     lengthMiddle => $l2 + 1,                                                    # Number of splitting key counting from 1
@@ -6290,24 +6290,24 @@ sub DescribeTree(%)                                                             
    )
  }
 
-sub Nasm::X86::Area::DescribeTree($%)                                          #P Return a descriptor for a tree in the specified area with the specified options.
- {my ($area, %options) = @_;                                                   # Area descriptor, options for tree
+sub Nasm::X86::Area::DescribeTree($%)                                           #P Return a descriptor for a tree in the specified area with the specified options.
+ {my ($area, %options) = @_;                                                    # Area descriptor, options for tree
   @_ >= 1 or confess;
 
   DescribeTree(area=>$area, %options)
  }
 
-sub Nasm::X86::Area::CreateTree($%)                                            # Create a tree in an area.
- {my ($area, %options) = @_;                                                   # Area description, tree options
+sub Nasm::X86::Area::CreateTree($%)                                             # Create a tree in an area.
+ {my ($area, %options) = @_;                                                    # Area description, tree options
   @_ % 2 == 1 or confess "Odd number of parameters required";
 
-  my $tree = $area->DescribeTree(%options);                                    # Return a descriptor for a tree in the specified area
+  my $tree = $area->DescribeTree(%options);                                     # Return a descriptor for a tree in the specified area
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $tree  = $$s{tree};                                                      # Tree
-    $tree->first->copy($tree->area->allocZmmBlock);                            # Allocate header
+    $tree->first->copy($tree->area->allocZmmBlock);                             # Allocate header
 
    } structures=>{area => $area, tree => $tree},
      name => 'Nasm::X86::Area::CreateTree';
@@ -6321,7 +6321,7 @@ sub Nasm::X86::Tree::describeTree($%)                                           
  {my ($tree, %options) = @_;                                                    # Tree descriptor, {first=>first node of tree if not the existing first node; area=>area used by tree if not the existing area}
   @_ >= 1 or confess "At least one parameter";
 
-  $tree->area->DescribeTree(%options);                                         # Return a descriptor for a tree
+  $tree->area->DescribeTree(%options);                                          # Return a descriptor for a tree
  }
 
 sub Nasm::X86::Tree::copyDescription($)                                         #P Make a copy of a tree descriptor
@@ -6445,10 +6445,10 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
-    my $area = $t->area;                                                      # Area
-    my $k = $area->allocZmmBlock;                                              # Keys
-    my $d = $area->allocZmmBlock;                                              # Data
-    my $n = $area->allocZmmBlock;                                              # Children
+    my $area = $t->area;                                                        # Area
+    my $k = $area->allocZmmBlock;                                               # Keys
+    my $d = $area->allocZmmBlock;                                               # Data
+    my $n = $area->allocZmmBlock;                                               # Children
 
     PushR 8;
     $t->putLoop($d, $K);                                                        # Set the link from key to data
@@ -6472,7 +6472,7 @@ sub Nasm::X86::Tree::freeBlock($$$$$)                                           
   @_ == 5 or confess "Five parameters";
   my $d = $tree->getLoop($K);
   my $n = $tree->getLoop($D);
-  $tree->area->freeZmmBlock($_) for $k, $d, $n;                                # Free the component zmm blocks
+  $tree->area->freeZmmBlock($_) for $k, $d, $n;                                 # Free the component zmm blocks
  } # freeBlock
 
 sub Nasm::X86::Tree::upFromData($$)                                             #P Up from the data zmm in a block in a tree
@@ -6580,7 +6580,7 @@ sub Nasm::X86::Tree::maskForFullNodesArea                                       
 sub Nasm::X86::Tree::getBlock($$$$$)                                            #P Get the keys, data and child nodes for a tree node from the specified offset in the area for the tree.
  {my ($t, $offset, $K, $D, $N) = @_;                                            # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
   @_ == 5 or confess "Five parameters";
-  my $a = $t->area;                                                            # Underlying area
+  my $a = $t->area;                                                             # Underlying area
   $a->getZmmBlock($offset, $K);                                                 # Get the keys block
   my $data = $t->getLoop(  $K);                                                 # Get the offset of the corresponding data block
   $a->getZmmBlock($data,   $D);                                                 # Get the data block
@@ -6591,7 +6591,7 @@ sub Nasm::X86::Tree::getBlock($$$$$)                                            
 sub Nasm::X86::Tree::putBlock($$$$$$)                                           #P Put a tree block held in three zmm registers back into the area holding the tree at the specified offset.
  {my ($t, $offset, $K, $D, $N) = @_;                                            # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
   @_ == 5 or confess "Five parameters";
-  my $a    = $t->area;                                                         # Area for tree
+  my $a    = $t->area;                                                          # Area for tree
   my $data = $t->getLoop(  $K);                                                 # Get the offset of the corresponding data block
   my $node = $t->getLoop(  $D);                                                 # Get the offset of the corresponding node block
   $a->putZmmBlock($offset, $K);                                                 # Put the keys block
@@ -6928,7 +6928,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t     = $$s{tree};                                                      # Tree
-    my $area = $t->area;                                                      # Area
+    my $area = $t->area;                                                        # Area
 
     PushR 22...31;
     ClearRegisters 22..31;                                                      # Otherwise we get left over junk
@@ -7282,7 +7282,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
-  if (ref($data) !~ m(Tree))                                                     # Whether we are a putting a sub tree
+  if (ref($data) !~ m(Tree))                                                    # Whether we are a putting a sub tree
    {$s->call(structures => {tree    => $tree},
              parameters => {key     => $key,
                             data    => $data,
@@ -7726,7 +7726,7 @@ sub Nasm::X86::Tree::insertShortString($$$)                                     
      parameters => [qw(data)],
      name       => "Nasm::X86::Tree::insertinsertShortString_$z";
 
-  my $t = $tree->area->DescribeTree();                                         # Use a copy of the tree descriptor so that we can modify its first field
+  my $t = $tree->area->DescribeTree();                                          # Use a copy of the tree descriptor so that we can modify its first field
      $t->first->copy($tree->first);
   $s->call(structures => {tree => $t}, parameters => {data => $data});          # Insert the data at the end of the short string key
  } # insertShortString
@@ -7741,7 +7741,7 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
 
     my $t        = $$s{tree};                                                   # Tree
        $t->first->copy(my $F = $$p{node});                                      # First block
-    my $area = $t->area;                                                      # Area
+    my $area = $t->area;                                                        # Area
     PushR rax, 8, 9, 29..31;
 
     K(loopLimit, 9)->for(sub                                                    # Loop a reasonable number of times
@@ -7798,7 +7798,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t = $$s{tree};                                                          # Tree
-    my $area = $tree->area;                                                   # Area
+    my $area = $tree->area;                                                     # Area
     my $N = $$p{node};                                                          # Starting node
 
     PushR 8, 9, 14, 15, 30, 31;
@@ -8679,7 +8679,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
 
     my $t = $$s{tree};                                                          # Tree
     my $I = $$p{indentation};                                                   # Indentation to apply to the start of each new line
-    my $area = $t->area;                                                      # Area
+    my $area = $t->area;                                                        # Area
 
     PushR my ($W1, $W2, $treeBitsR, $treeBitsIndexR, $K, $D, $N) =
            (r8, r9, r10, r11, 30, 29, 28);
@@ -8858,7 +8858,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
-    my $area = $t->area;                                                      # Area
+    my $area = $t->area;                                                        # Area
 
     PushR my ($W1, $W2, $treeBitsR, $treeBitsIndexR, $K, $D, $N) =
            (r8, r9, r10, r11, 30, 29, 28);
@@ -8929,7 +8929,7 @@ sub Nasm::X86::Tree::clear($)                                                   
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
-    my $area = $t->area;                                                      # Area
+    my $area = $t->area;                                                        # Area
 
     PushR my $K = 31, my $D = 30, my $N = 29;
 
@@ -9057,22 +9057,22 @@ sub DescribeQuarks(%)                                                           
  {my (%options) = @_;                                                           # Options
 
   genHash(__PACKAGE__."::Quarks",                                               # Quarks
-    area            => ($options{area} // DescribeArea),                     # The area containing the quarks
+    area            => ($options{area} // DescribeArea),                        # The area containing the quarks
     stringsToNumbers => ($options{stringsToNumbers} // DescribeTree),           # A tree mapping strings to numbers
     numbersToStrings => ($options{numbersToStrings} // DescribeArray),          # Array mapping numbers to strings
    );
  }
 
-sub Nasm::X86::Area::DescribeQuarks($)                                         # Return a descriptor for a tree in the specified area.
- {my ($area) = @_;                                                             # Area descriptor
+sub Nasm::X86::Area::DescribeQuarks($)                                          # Return a descriptor for a tree in the specified area.
+ {my ($area) = @_;                                                              # Area descriptor
   DescribeQuarks(area=>$area)
  }
 
-sub Nasm::X86::Area::CreateQuarks($)                                           # Create quarks in a specified area.  A quark maps a  string to a number and provides a way to recover the string given the number. The string is stored in the area if it is not already present and its offset is stored as the value of the numbers array associated with the quarks. The string tree is separated first by the string length, then the string contents in 4 byte blocks until the string is exhausted.  The index of the element in the numbers array i stored in the last sub tree reached by the string. The quark number is used to index the numbers array to get the value of the offset of the string in the area.
- {my ($area) = @_;                                                             # Area description optional area address
+sub Nasm::X86::Area::CreateQuarks($)                                            # Create quarks in a specified area.  A quark maps a  string to a number and provides a way to recover the string given the number. The string is stored in the area if it is not already present and its offset is stored as the value of the numbers array associated with the quarks. The string tree is separated first by the string length, then the string contents in 4 byte blocks until the string is exhausted.  The index of the element in the numbers array i stored in the last sub tree reached by the string. The quark number is used to index the numbers array to get the value of the offset of the string in the area.
+ {my ($area) = @_;                                                              # Area description optional area address
   @_ == 1 or confess "1 parameter";
 
-  my $q = $area->DescribeQuarks;                                               # Return a descriptor for a tree at the specified offset in the specified area
+  my $q = $area->DescribeQuarks;                                                # Return a descriptor for a tree at the specified offset in the specified area
   $q->stringsToNumbers = $area->CreateTree;
   $q->numbersToStrings = $area->CreateArray;
 
@@ -9119,7 +9119,7 @@ sub Nasm::X86::Quarks::quarkFromShortString($$)                                 
    }
   Fail
    {my $N = $q->numbersToStrings->size;                                         # Get the number of quarks
-    my $S = $q->area->CreateString;                                            # Create a string in the area to hold the quark name
+    my $S = $q->area->CreateString;                                             # Create a string in the area to hold the quark name
        $S->appendShortString($string);                                          # Append the short string to the string
     my $T = $q->stringsToNumbers->copyDescription;                              # Reload strings to numbers tree descriptor
     $T->insertTreeAndReload($l);                                                # Classify strings by length
@@ -9167,7 +9167,7 @@ sub Nasm::X86::Quarks::shortStringFromQuark($$$)                                
     If $number >= $N, Then {Jmp $fail};                                         # Quark number too big to be valid
     my $e = $q->numbersToStrings->get($number);                                 # Get long string indexed by quark
 
-    my $S = $q->numbersToStrings->area->DescribeString(first=>$e);             # Long string descriptor
+    my $S = $q->numbersToStrings->area->DescribeString(first=>$e);              # Long string descriptor
     $S->saveToShortString($string);                                             # Load long string into short string
     $f->copy(1);                                                                # Show short string is valid
    }
@@ -9215,7 +9215,7 @@ sub Nasm::X86::Quarks::quarkFromSub($$$)                                        
   PushR zmm0;
   my $N = $q->quarkFromShortString($name);                                      # Create quark
   my $e = $q->numbersToStrings->get($N);                                        # Get the long string associated with the sub
-  my $l = $q->area->DescribeString(first => $e);                               # Create a definition for the string addressed by the quark
+  my $l = $q->area->DescribeString(first => $e);                                # Create a definition for the string addressed by the quark
   $l->clear;                                                                    # Empty the string
   $l->appendVar($sub);                                                          # Append the subroutine address saving the full address in the first 8 bytes of the long string
   $l->appendShortString($name);                                                 # Append the subroutine name to the string
@@ -9245,7 +9245,7 @@ sub Nasm::X86::Quarks::subFromQuark($$)                                         
     my $N = $q->numbersToStrings->size;                                         # Get the number of quarks
     If $number >= $N, Then {Jmp $fail};                                         # Quark number too big to be valid
     my $e = $q->numbersToStrings->get($number);                                 # Get the offset of the long string describing the sub
-    my $l = $q->area->DescribeString(first => $e);                             # Create a definition for the string addressed by the quark
+    my $l = $q->area->DescribeString(first => $e);                              # Create a definition for the string addressed by the quark
     $s->copy($l->getQ1);                                                        # Load first quad word in string
    }
   Fail                                                                          # Quark too big
@@ -9266,7 +9266,7 @@ sub Nasm::X86::Quarks::call($$)                                                 
     my $N = $q->numbersToStrings->size;                                         # Get the number of quarks
     If $number >= $N, Then {Jmp $fail};                                         # Quark number too big to be valid
     my $e = $q->numbersToStrings->get($number);                                 # Get subroutine indexed by quark
-    my $l = $q->area->DescribeString(first => $e);                             # Create a definition for the string addressed by the quark
+    my $l = $q->area->DescribeString(first => $e);                              # Create a definition for the string addressed by the quark
 
     PushR 15;
     $l->getQ1->setReg(15);                                                      # Load first quad word in string
@@ -9334,7 +9334,7 @@ sub Nasm::X86::Quarks::subFromQuarkViaQuarks($$$)                               
   If $Q >= 0,                                                                   # Quark found
   Then
    {my $e = $q->numbersToStrings->get($Q);                                      # Get subroutine indexed by quark
-    my $l = $q->area->DescribeString(first => $e);                             # Create a definition for the string addressed by the quark
+    my $l = $q->area->DescribeString(first => $e);                              # Create a definition for the string addressed by the quark
     $r->copy($l->getQ1);                                                        # Subroutine address
    };
   $r                                                                            # Return sub routine offset
@@ -9352,7 +9352,7 @@ sub Nasm::X86::Quarks::subFromShortString($$)                                   
   If $number > -1,                                                              # We found the quark number
   Then
    {my $e = $q->numbersToStrings->get($number);                                 # Get subroutine indexed by quark
-    my $l = $q->area->DescribeString(first => $e);                             # Create a definition for the string addressed by the quark
+    my $l = $q->area->DescribeString(first => $e);                              # Create a definition for the string addressed by the quark
     $r->copy($l->getQ1);                                                        # Subroutine address
    };
   $r                                                                            # Return sub routine offset
@@ -9394,7 +9394,7 @@ sub Nasm::X86::Quarks::subFromQuarkNumber($$)                                   
   If $number < $l,                                                              # Quark found
   Then
    {my $e = $q->numbersToStrings->get($number);                                 # Get subroutine indexed by quark
-    my $l = $q->area->DescribeString(first => $e);                             # Create a definition for the string addressed by the quark
+    my $l = $q->area->DescribeString(first => $e);                              # Create a definition for the string addressed by the quark
     $r->copy($l->getQ1);                                                        # Subroutine address
    };
 
@@ -9881,7 +9881,7 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 
 @ISA          = qw(Exporter);
 @EXPORT       = qw();
-@EXPORT_OK    = qw(Add Align All8Structure AllocateMemory And AndBlock Andn AreaFreeChain Assemble Block Bswap Bt Btc Btr Bts Bzhi Call CallC CheckIfMaskRegisterNumber CheckMaskRegister CheckMaskRegisterNumber ChooseRegisters ClassifyInRange ClassifyRange ClassifyWithInRange ClassifyWithInRangeAndSaveOffset ClassifyWithInRangeAndSaveWordOffset ClearMemory ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmp Comment CommentWithTraceBack ConvertUtf8ToUtf32 CopyMemory Cpuid CreateArena CreateLibrary CreateShortString Cstrlen DComment Db Dbwdq Dd Dec DescribeArea DescribeArray DescribeQuarks DescribeString DescribeTree Div Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash ISA Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNs IfNz IfS IfZ Imul Imul3 Inc InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Isa Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Label Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadRegFromMm LoadZmm LocateIntelEmulator Loop Lzcnt Mov Movdqa Mulpd Neg Not OnSegv OpenRead OpenWrite Optimize Or OrBlock Pass Pextrb Pextrd Pextrq Pextrw Pi32 Pi64 Pinsrb Pinsrd Pinsrq Pinsrw Pop PopR PopRR Popcnt Popfq PrintCString PrintCStringNL PrintErrMemory PrintErrMemoryInHex PrintErrMemoryInHexNL PrintErrMemoryNL PrintErrMemory_InHex PrintErrMemory_InHexNL PrintErrNL PrintErrOneRegisterInHex PrintErrOneRegisterInHexNL PrintErrRaxAsChar PrintErrRaxAsCharNL PrintErrRaxAsText PrintErrRaxAsTextNL PrintErrRaxInDec PrintErrRaxInDecNL PrintErrRaxInHex PrintErrRaxInHexNL PrintErrRaxRightInDec PrintErrRaxRightInDecNL PrintErrRax_InHex PrintErrRax_InHexNL PrintErrRegisterInHex PrintErrRightInBin PrintErrRightInBinNL PrintErrRightInHex PrintErrRightInHexNL PrintErrSpace PrintErrString PrintErrStringNL PrintErrTraceBack PrintErrUtf32 PrintErrUtf8Char PrintErrZF PrintMemory PrintMemoryInHex PrintMemoryNL PrintMemory_InHex PrintNL PrintOneRegisterInHex PrintOutMemory PrintOutMemoryInHex PrintOutMemoryInHexNL PrintOutMemoryNL PrintOutMemory_InHex PrintOutMemory_InHexNL PrintOutNL PrintOutOneRegisterInHex PrintOutOneRegisterInHexNL PrintOutRaxAsChar PrintOutRaxAsCharNL PrintOutRaxAsText PrintOutRaxAsTextNL PrintOutRaxInDec PrintOutRaxInDecNL PrintOutRaxInHex PrintOutRaxInHexNL PrintOutRaxInReverseInHex PrintOutRaxRightInDec PrintOutRaxRightInDecNL PrintOutRax_InHex PrintOutRax_InHexNL PrintOutRegisterInHex PrintOutRegistersInHex PrintOutRflagsInHex PrintOutRightInBin PrintOutRightInBinNL PrintOutRightInHex PrintOutRightInHexNL PrintOutRipInHex PrintOutSpace PrintOutString PrintOutStringNL PrintOutTraceBack PrintOutUtf32 PrintOutUtf8Char PrintOutZF PrintRaxAsChar PrintRaxAsText PrintRaxInDec PrintRaxInHex PrintRaxRightInDec PrintRax_InHex PrintRegisterInHex PrintRightInBin PrintRightInHex PrintSpace PrintString PrintStringNL PrintTraceBack PrintUtf32 PrintUtf8Char Pslldq Psrldq Push PushR PushRR Pushfq R RComment Rb Rbwdq Rd Rdtsc ReadChar ReadFile ReadInteger ReadLine ReadTimeStampCounter RegisterSize RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstFourExceptRaxAndRdi RestoreFirstSeven RestoreFirstSevenExceptRax RestoreFirstSevenExceptRaxAndRdi Ret Rq Rs Rutf8 Rw Sal Sar SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength Structure Sub Subroutine SubroutineStartStack Syscall TODO Test Then Tzcnt V VERSION Vaddd Vaddpd Valignb Valignd Valignq Valignw Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetmantps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmovb2m Vpmovd2m Vpmovm2b Vpmovm2d Vpmovm2q Vpmovm2w Vpmovq2m Vpmovw2m Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bh bl bp bpl bx ch cl cs cx dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp fs gs k0 k1 k2 k3 k4 k5 k6 k7 mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9);
+@EXPORT_OK    = qw(Add Align All8Structure AllocateMemory And AndBlock Andn AreaFreeChain Assemble Block Bswap Bt Btc Btr Bts Bzhi Call CallC CheckIfMaskRegisterNumber CheckMaskRegister CheckMaskRegisterNumber ChooseRegisters ClassifyInRange ClassifyRange ClassifyWithInRange ClassifyWithInRangeAndSaveOffset ClassifyWithInRangeAndSaveWordOffset ClearMemory ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmp Comment CommentWithTraceBack ConvertUtf8ToUtf32 CopyMemory Cpuid CreateArea CreateLibrary CreateShortString Cstrlen DComment Db Dbwdq Dd Dec DescribeArea DescribeArray DescribeQuarks DescribeString DescribeTree Div Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash ISA Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNs IfNz IfS IfZ Imul Imul3 Inc InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Isa Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Label Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadRegFromMm LoadZmm LocateIntelEmulator Loop Lzcnt Mov Movdqa Mulpd Neg Not OnSegv OpenRead OpenWrite Optimize Or OrBlock Pass Pextrb Pextrd Pextrq Pextrw Pi32 Pi64 Pinsrb Pinsrd Pinsrq Pinsrw Pop PopR PopRR Popcnt Popfq PrintCString PrintCStringNL PrintErrMemory PrintErrMemoryInHex PrintErrMemoryInHexNL PrintErrMemoryNL PrintErrMemory_InHex PrintErrMemory_InHexNL PrintErrNL PrintErrOneRegisterInHex PrintErrOneRegisterInHexNL PrintErrRaxAsChar PrintErrRaxAsCharNL PrintErrRaxAsText PrintErrRaxAsTextNL PrintErrRaxInDec PrintErrRaxInDecNL PrintErrRaxInHex PrintErrRaxInHexNL PrintErrRaxRightInDec PrintErrRaxRightInDecNL PrintErrRax_InHex PrintErrRax_InHexNL PrintErrRegisterInHex PrintErrRightInBin PrintErrRightInBinNL PrintErrRightInHex PrintErrRightInHexNL PrintErrSpace PrintErrString PrintErrStringNL PrintErrTraceBack PrintErrUtf32 PrintErrUtf8Char PrintErrZF PrintMemory PrintMemoryInHex PrintMemoryNL PrintMemory_InHex PrintNL PrintOneRegisterInHex PrintOutMemory PrintOutMemoryInHex PrintOutMemoryInHexNL PrintOutMemoryNL PrintOutMemory_InHex PrintOutMemory_InHexNL PrintOutNL PrintOutOneRegisterInHex PrintOutOneRegisterInHexNL PrintOutRaxAsChar PrintOutRaxAsCharNL PrintOutRaxAsText PrintOutRaxAsTextNL PrintOutRaxInDec PrintOutRaxInDecNL PrintOutRaxInHex PrintOutRaxInHexNL PrintOutRaxInReverseInHex PrintOutRaxRightInDec PrintOutRaxRightInDecNL PrintOutRax_InHex PrintOutRax_InHexNL PrintOutRegisterInHex PrintOutRegistersInHex PrintOutRflagsInHex PrintOutRightInBin PrintOutRightInBinNL PrintOutRightInHex PrintOutRightInHexNL PrintOutRipInHex PrintOutSpace PrintOutString PrintOutStringNL PrintOutTraceBack PrintOutUtf32 PrintOutUtf8Char PrintOutZF PrintRaxAsChar PrintRaxAsText PrintRaxInDec PrintRaxInHex PrintRaxRightInDec PrintRax_InHex PrintRegisterInHex PrintRightInBin PrintRightInHex PrintSpace PrintString PrintStringNL PrintTraceBack PrintUtf32 PrintUtf8Char Pslldq Psrldq Push PushR PushRR Pushfq R RComment Rb Rbwdq Rd Rdtsc ReadChar ReadFile ReadInteger ReadLine ReadTimeStampCounter RegisterSize RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstFourExceptRaxAndRdi RestoreFirstSeven RestoreFirstSevenExceptRax RestoreFirstSevenExceptRaxAndRdi Ret Rq Rs Rutf8 Rw Sal Sar SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength Structure Sub Subroutine SubroutineStartStack Syscall TODO Test Then Tzcnt V VERSION Vaddd Vaddpd Valignb Valignd Valignq Valignw Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetmantps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmovb2m Vpmovd2m Vpmovm2b Vpmovm2d Vpmovm2q Vpmovm2w Vpmovq2m Vpmovw2m Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bh bl bp bpl bx ch cl cs cx dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp fs gs k0 k1 k2 k3 k4 k5 k6 k7 mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9);
 %EXPORT_TAGS  = (all => [@EXPORT, @EXPORT_OK]);
 
 # podDocumentation
@@ -10114,9 +10114,9 @@ containing each area.
 Create two dynamic arenas, add some content to them, write each area to
 stdout:
 
-  my $a = CreateArena;
+  my $a = CreateArea;
 
-  my $b = CreateArena;
+  my $b = CreateArea;
   $a->q('aa');
   $b->q('bb');
   $a->q('AA');
@@ -10138,7 +10138,7 @@ END
 Create a dynamic string within an area and add some content to it:
 
   my $s = Rb(0..255);
-  my $A = CreateArena;
+  my $A = CreateArea;
   my $S = $A->CreateString;
 
   $S->append(V(source, $s), K(size, 256));
@@ -10164,7 +10164,7 @@ Create a dynamic array within an area, push some content on to it then pop it
 off again:
 
   my $N = 15;
-  my $A = CreateArena;
+  my $A = CreateArea;
   my $a = $A->CreateArray;
 
   $a->push(V(element, $_)) for 1..$N;
@@ -10201,7 +10201,7 @@ Create a multiway tree as in L<Tree::Multi> using B<Avx512> instructions and
 iterate through it:
 
   my $N = 12;
-  my $b = CreateArena;                   # Resizable memory block
+  my $b = CreateArea;                   # Resizable memory block
   my $t = $b->CreateTree;        # Multi way tree in memory block
 
   K(count, $N)->for(sub                      # Add some entries to the tree
@@ -10266,7 +10266,7 @@ that is best and brightest in dynamic trees, arrays, strings and short
 strings, all written in X86 assembler, all generated by Perl:
 
   my $N = 5;
-  my $a = CreateArena;                      # Area containing quarks
+  my $a = CreateArea;                      # Area containing quarks
   my $Q = $a->CreateQuarks;                 # Quarks
 
   my $s = CreateShortString(0);             # Short string used to load and unload quarks
@@ -11114,7 +11114,7 @@ if (1) {                                                                        
 
 #latest:;
 if (1) {                                                                        #TCreateArena #TArena::clear #TArena::outNL #TArena::copy #TArena::nl
-  my $a = CreateArena;
+  my $a = CreateArea;
   $a->q('aa');
   $a->outNL;
   ok Assemble(debug => 0, eq => <<END);
@@ -11124,8 +11124,8 @@ END
 
 #latest:
 if (1) {                                                                        #TArena::dump
-  my $a = CreateArena;
-  my $b = CreateArena;
+  my $a = CreateArea;
+  my $b = CreateArea;
   $a->q("aaaa");
   $a->dump("aaaaa");
   $b->q("bbbb");
@@ -11148,8 +11148,8 @@ END
  }
 
 if (1) {                                                                        #TCreateArena #TArena::clear #TArena::out #TArena::copy #TArena::nl
-  my $a = CreateArena;
-  my $b = CreateArena;
+  my $a = CreateArea;
+  my $b = CreateArea;
   $a->q('aa');
   $b->q('bb');
   $a->out;
@@ -11163,8 +11163,8 @@ END
  }
 
 if (1) {                                                                        #TCreateArena #TArena::clear #TArena::out #TArena::copy #TArena::nl
-  my $a = CreateArena;
-  my $b = CreateArena;
+  my $a = CreateArea;
+  my $b = CreateArea;
   $a->q('aa');
   $a->q('AA');
   $a->out;
@@ -11175,8 +11175,8 @@ END
  }
 
 if (1) {                                                                        #TCreateArena #TArena::clear #TArena::out #TArena::copy #TArena::nl
-  my $a = CreateArena;
-  my $b = CreateArena;
+  my $a = CreateArea;
+  my $b = CreateArea;
   $a->q('aa');
   $b->q('bb');
   $a->q('AA');
@@ -11193,9 +11193,9 @@ END
 
 #latest:
 if (1) {                                                                        #TCreateArena #TArena::length  #TArena::clear #TArena::out #TArena::copy #TArena::nl
-  my $a = CreateArena;
+  my $a = CreateArea;
   $a->q('ab');
-  my $b = CreateArena;
+  my $b = CreateArea;
   $b->append($a);
   $b->append($a);
   $a->append($b);
@@ -11257,7 +11257,7 @@ if (1) {                                                                        
 
 #latest:;
 if (1) {                                                                        #TArena::nl
-  my $s = CreateArena;
+  my $s = CreateArea;
   $s->q("A");
   $s->nl;
   $s->q("B");
@@ -11272,7 +11272,7 @@ END
 
 #latest:;
 if (1) {                                                                        # Print this file  #TArena::read #TArena::z #TArena::q
-  my $s = CreateArena;                                                          # Create a string
+  my $s = CreateArea;                                                           # Create a string
   $s->read(K(file, Rs($0)));
   $s->out;
 
@@ -11290,7 +11290,7 @@ if (1) {                                                                        
 
 #latest:;
 if (1) {                                                                        # Execute the content of an area #TexecuteFileViaBash #TArena::write #TArena::out #TunlinkFile #TArena::ql
-  my $s = CreateArena;                                                          # Create a string
+  my $s = CreateArea;                                                           # Create a string
   $s->ql(<<END);                                                                # Write code to execute
 #!/usr/bin/bash
 whoami
@@ -11307,7 +11307,7 @@ END
 
 #latest:;
 if (1) {                                                                        # Make an area readonly
-  my $s = CreateArena;                                                          # Create an area
+  my $s = CreateArea;                                                           # Create an area
   $s->q("Hello");                                                               # Write code to area
   $s->makeReadOnly;                                                             # Make area read only
   $s->q(" World");                                                              # Try to write to area
@@ -11317,7 +11317,7 @@ if (1) {                                                                        
 
 #latest:;
 if (1) {                                                                        # Make a read only area writable  #TArena::makeReadOnly #TArena::makeWriteable
-  my $s = CreateArena;                                                          # Create an area
+  my $s = CreateArea;                                                           # Create an area
   $s->q("Hello");                                                               # Write data to area
   $s->makeReadOnly;                                                             # Make area read only - tested above
   $s->makeWriteable;                                                            # Make area writable again
@@ -11329,7 +11329,7 @@ if (1) {                                                                        
 
 #latest:;
 if (1) {                                                                        # Allocate some space in area #TArena::allocate
-  my $s = CreateArena;                                                          # Create an area
+  my $s = CreateArea;                                                           # Create an area
   my $o1 = $s->allocate(V(size, 0x20));                                         # Allocate space wanted
   my $o2 = $s->allocate(V(size, 0x30));
   my $o3 = $s->allocate(V(size, 0x10));
@@ -11346,7 +11346,7 @@ END
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Area::checkYggdrasilCreated #TNasm::X86::Area::establishYggdrasil
-  my $A = CreateArena;
+  my $A = CreateArea;
   my $t = $A->checkYggdrasilCreated;
      $t->found->outNL;
   my $y = $A->establishYggdrasil;
@@ -12064,7 +12064,7 @@ END
 #latest:;
 if (1) {                                                                        #TCreateString
   my $s = Rb(0..255);
-  my $a =     CreateArena;
+  my $a =     CreateArea;
   my $b = $a->CreateString;
   $b->append(V(source, $s), V(size,  3)); $b->dump;
   $b->append(V(source, $s), V(size,  4)); $b->dump;
@@ -12091,7 +12091,7 @@ END
 #latest:;
 if (1) {
   my $s = Rb(0..255);
-  my $a =     CreateArena;
+  my $a =     CreateArea;
   my $b = $a->CreateString;
   $b->append(V(source, $s), V(size, 165)); $b->dump;
   $b->append(V(source, $s), V(size,   2)); $b->dump;
@@ -12114,7 +12114,7 @@ END
 #latest:;
 if (1) {
   my $s = Rb(0..255);
-  my $B =     CreateArena;
+  my $B =     CreateArea;
   my $b = $B->CreateString;
   $b->append(V(source, $s), V(size,  56)); $b->dump;
   $b->append(V(source, $s), V(size,   4)); $b->dump;
@@ -12152,7 +12152,7 @@ END
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Area::used #TNasm::X86::Area::clear #TNasm::X86::Area::size  #TNasm::X86::Area::free
-  my $a = CreateArena;
+  my $a = CreateArea;
 
   $a->q("a" x 256);
   $a->used->outNL;
@@ -12185,7 +12185,7 @@ END
 #latest:;
 if (0) {                                                                        #TNasm::X86::Area::free
   my $t = Rb(0..255);
-  my $a = CreateArena;
+  my $a = CreateArea;
 
   V(loop => 5)->for(sub
    {my $s = $a->CreateString;
@@ -12206,8 +12206,8 @@ END
 #latest:;
 if (1) {                                                                        #TNasm::X86::String::concatenate
   my $c = Rb(0..255);
-  my $S = CreateArena;   my $s = $S->CreateString;
-  my $T = CreateArena;   my $t = $T->CreateString;
+  my $S = CreateArea;   my $s = $S->CreateString;
+  my $T = CreateArea;   my $t = $T->CreateString;
 
   $s->append(V(source => $c), K size => 256);
   $t->concatenate($s);
@@ -12229,8 +12229,8 @@ END
 if (1) {                                                                        # Strings doubled
   my $s1 = Rb(0..63);
   my $s2 = Rb(64..127);
-  my $S = CreateArena;   my $s = $S->CreateString;
-  my $T = CreateArena;   my $t = $T->CreateString;
+  my $S = CreateArea;   my $s = $S->CreateString;
+  my $T = CreateArea;   my $t = $T->CreateString;
 
   $s->append(V(source => $s1), K size => 64);
   $t->append(V(source => $s2), K size => 64);
@@ -12257,7 +12257,7 @@ END
 #latest:;
 if (1) {                                                                        # Insert char in a string
   my $c = Rb(0..255);
-  my $S = CreateArena;
+  my $S = CreateArea;
   my $s = $S->CreateString;
 
   $s->append     (V(source => $c),   K size => 3); $s->dump;
@@ -12280,7 +12280,7 @@ END
 #latest:;
 if (1) {                                                                        # Insert char in a multi string at position 22
   my $c = Rb(0..255);
-  my $S = CreateArena;   my $s = $S->CreateString;
+  my $S = CreateArea;   my $s = $S->CreateString;
 
   $s->append    (V(source => $c),       K size     => 58);  $s->dump;
   $s->insertChar(V(character  => 0x44), K position => 22);  $s->dump;
@@ -12307,7 +12307,7 @@ END
 #latest:;
 if (1) {                                                                        #TNasm::X86::String::insertChar
   my $c = Rb(0..255);
-  my $S = CreateArena;
+  my $S = CreateArea;
   my $s = $S->CreateString;
 
   $s->append    (V(source => $c),      K size     => 54);  $s->dump;
@@ -12370,7 +12370,7 @@ END
 #latest:;
 if (1) {
   my $c = Rb(0..255);
-  my $S = CreateArena;   my $s = $S->CreateString;
+  my $S = CreateArea;   my $s = $S->CreateString;
 
   $s->append    (V(source    => $c),   K size     => 4); $s->dump;
   $s->insertChar(V(character => 0xFF), K position => 4); $s->dump;
@@ -12394,7 +12394,7 @@ END
 #latest:;
 if (1) {                                                                        #TNasm::X86::String::deleteChar #TNasm::X86::String::len
   my $c = Rb(0..255);
-  my $S = CreateArena;   my $s = $S->CreateString;
+  my $S = CreateArea;   my $s = $S->CreateString;
 
   $s->append    (V(source   => $c),  K size => 165); $s->dump;
   $s->deleteChar(V(position => 0x44));               $s->dump;
@@ -12418,7 +12418,7 @@ END
 #latest:;
 if (1) {                                                                        #TNasm::X86::String::getChar
   my $c = Rb(0..255);
-  my $S = CreateArena;   my $s = $S->CreateString;
+  my $S = CreateArea;   my $s = $S->CreateString;
 
   $s->append      (V(source => $c),  K size => 110); $s->dump;
   $s->getCharacter(K position => 0x44)->outNL;
@@ -12435,7 +12435,7 @@ END
 #latest:;
 if (1) {                                                                        #TNasm::X86::String::appendVar
   my $c = Rb(0..255);
-  my $a = CreateArena;   my $s = $a->CreateString;
+  my $a = CreateArea;   my $s = $a->CreateString;
 
   $s->append(V(source => Rb(1)), V(size => 1));
   Mov r15, -1;  $s->appendVar(V value => r15);
@@ -12485,7 +12485,7 @@ END
 #latest:;
 if (0) {                                                                        #TNasm::X86::Array::size
   my $N = 15;
-  my $A = CreateArena;
+  my $A = CreateArea;
   my $a = $A->CreateArray;
 
   $a->push(V(element, 1));  $a->pop()->outInDecNL;
@@ -12502,7 +12502,7 @@ END
 #latest:;
 if (0) {                                                                        #TNasm::X86::Array::size
   my $N = 15;
-  my $A = CreateArena;
+  my $A = CreateArea;
   my $a = $A->CreateArray;
   my $b = $A->CreateArray;
 
@@ -12557,7 +12557,7 @@ END
 #latest:;
 if (0) {                                                                        #TNasm::X86::Array::size
   my $N = 15;
-  my $A = CreateArena;
+  my $A = CreateArea;
   my $a = $A->CreateArray;
 
   $a->push(V(element, $_)) for 1..$N;
@@ -12594,8 +12594,8 @@ END
 
 #latest:;
 if (0) {                                                                        # Arrays doubled
-  my $A = CreateArena;  my $a = $A->CreateArray;
-  my $B = CreateArena;  my $b = $B->CreateArray;
+  my $A = CreateArea;  my $a = $A->CreateArray;
+  my $B = CreateArea;  my $b = $B->CreateArray;
 
   $a->push(V(element, $_)), $b->push(K element, $_ + 0x11) for 1..15;
   $a->push(V(element, $_)), $b->push(K element, $_ + 0x11) for 0xff;
@@ -12629,7 +12629,7 @@ END
 #latest:;
 if (0) {                                                                        #TNasm::X86::Array::push #TNasm::X86::Array::pop #TNasm::X86::Array::put #TNasm::X86::Array::get
   my $c = Rb(0..255);
-  my $A = CreateArena;  my $a = $A->CreateArray;
+  my $A = CreateArea;  my $a = $A->CreateArray;
   my $l = V(limit, 15);
   my $L = $l + 5;
 
@@ -12817,7 +12817,7 @@ END
 
 if (0) {                                                                        #TNasm::X86::Array::push
   my $c = Rb(0..255);
-  my $A = CreateArena;  my $a = $A->CreateArray;
+  my $A = CreateArea;  my $a = $A->CreateArray;
 
   my sub put
    {my ($e) = @_;
@@ -13010,7 +13010,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::setOrClearTreeBits
-  my $b = CreateArena;
+  my $b = CreateArea;
   my $t = $b->CreateTree;
 
   Mov r15, 8;
@@ -13036,7 +13036,7 @@ END
 #latest:
 if (00) {                                                                       #TNasm::X86::Tree::insertTreeAndReload #TNasm::X86::Tree::Reload  #TNasm::X86::Tree::findAndReload
   my $L = K(loop, 4);
-  my $b = CreateArena;
+  my $b = CreateArea;
   my $T = $b->CreateTree;
   my $t = $T->describeTreereload;
 
@@ -13072,7 +13072,7 @@ END
 
 #latest:
 if (1) {                                                                        # Print empty tree
-  my $b = CreateArena;
+  my $b = CreateArea;
   my $t = $b->CreateTree;
   $t->dump("AAAA");
 
@@ -13393,7 +13393,7 @@ END
 
 #latest:
 if (0) {                                                                        #TNasm::X86::String::appendShortString
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $S = $a->CreateString;
 
   my $s = CreateShortString(0);
@@ -13414,7 +13414,7 @@ END
 
 #latest:
 if (0) {                                                                        #TNasm::X86::Tree::insertShortString
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree;
 
   my $s = CreateShortString(0);
@@ -13450,7 +13450,7 @@ END
 #latest:
 if (0) {                                                                        #TNasm::X86::Area::CreateQuarks #TNasm::X86::Quarks::quarkFromShortString #TNasm::X86::Quarks::shortStringFromQuark
   my $N = 5;
-  my $a = CreateArena;                                                          # Area containing quarks
+  my $a = CreateArea;                                                           # Area containing quarks
   my $Q = $a->CreateQuarks;                                                     # Quarks
 
   my $s = CreateShortString(0);                                                 # Short string used to load and unload quarks
@@ -13504,7 +13504,7 @@ END
 #latest:
 if (0) {                                                                        #TNasm::X86::Area::CreateQuarks #TNasm::X86::Quarks::quarkFromShortString #TNasm::X86::Quarks::shortStringFromQuark
   my $N  = 5;
-  my $a  = CreateArena;                                                         # Area containing quarks
+  my $a  = CreateArea;                                                          # Area containing quarks
   my $Q1 = $a->CreateQuarks;                                                    # Quarks
   my $Q2 = $a->CreateQuarks;                                                    # Quarks
 
@@ -13622,7 +13622,7 @@ END
 
 #latest:
 if (0) {                                                                        #TNasm::X86::String::getQ1
-  my $a  = CreateArena;
+  my $a  = CreateArea;
 
   my $s = $a->CreateString;
   my $i = Rb(0..255);
@@ -13652,7 +13652,7 @@ if (0) {                                                                        
 
   my $s  = CreateShortString(0);
 
-  my $a  = CreateArena;
+  my $a  = CreateArea;
   my $q  = $a->CreateQuarks;
 
   $s->loadConstantString("add");
@@ -13781,7 +13781,7 @@ if (0) {                                                                        
     PrintOutRegisterInHex r15;
    } [], name => 'tttt', with => $s;
 
-  my $A = CreateArena;
+  my $A = CreateArea;
 
   my $Q  = $A->CreateQuarks;
            $Q->put('aaaa');
@@ -14839,7 +14839,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::allocBlock #TNasm::X86::Tree::putBlock #TNasm::X86::Tree::getBlock #TNasm::X86::Tree::root
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree;
   my $b = $t->allocBlock(31, 30, 29);
   K(data => 0x33)->dIntoZ(31, 4);
@@ -15059,7 +15059,7 @@ END
 
 #latest:
 if (1) {
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $a->dump("0000", K depth => 6);
@@ -15169,7 +15169,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $t->put(K(key=>1), K(data=>0x11));
@@ -15215,7 +15215,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $t->put(K(key=>1), K(data=>0x11));
@@ -15244,7 +15244,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $t->put(K(key=>1), K(data=>0x11));
@@ -15277,7 +15277,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $t->put(K(key=>1), K(data=>0x11));
@@ -15310,7 +15310,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $t->put(K(key=>1), K(data=>0x11));
@@ -15344,7 +15344,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $t->put(K(key=>1), K(data=>0x11));
@@ -15402,7 +15402,7 @@ END
 
 #latest:
 if (1) {
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $t->put(K(key=>2), K(data=>0x22));
@@ -15421,7 +15421,7 @@ END
 
 #latest:
 if (1) {
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $t->put(K(key=>8), K(data=>0x88));
@@ -15479,7 +15479,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put #TNasm::X86::Tree::find
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K count => 128;
 
@@ -15652,7 +15652,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::printInOrder
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K count => 128;
 
@@ -15676,7 +15676,7 @@ END
 
 #latest:
 if (1) {
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K count => 128;
 
@@ -15709,7 +15709,7 @@ END
 #latest:
 if (1) {
   my $N = 13;
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => $N);
 
   my ($K, $D) = (31, 30);
@@ -15883,7 +15883,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::firstNode #TNasm::X86::Tree::lastNode
   my $L = 13;
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => $L);
 
   my ($K, $D, $N) = (31, 30, 29);
@@ -15910,7 +15910,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::firstNode #TNasm::X86::Tree::lastNode
   my $L = 13;
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => $L);
 
   my ($K, $D, $N) = (31, 30, 29);
@@ -15936,7 +15936,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::expand
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   my ($PK, $PD, $PN) = (31, 30, 29);
@@ -16035,7 +16035,7 @@ if (1) {                                                                        
   PrintOutStringNL "Start";
   PrintOutRegisterInHex $K, $D;
 
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 13);
 
   K(loop => 14)->for(sub
@@ -16108,7 +16108,7 @@ if (1) {                                                                        
   K(K => Rd( 1..16))       ->loadZmm($D);
   K(K => Rd(map {0} 1..16))->loadZmm($N);
 
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 13);
 
   my $p = K(one => 1) << K three => 3;
@@ -16180,7 +16180,7 @@ if (1) {                                                                        
   K(K => Rd( 1..16))->loadZmm($D);
   K(K => Rd(map {0} 1..16))->loadZmm($N);
 
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 13);
 
   my $p = K(one => 1) << K three => 3;
@@ -16209,7 +16209,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::mergeOrSteal
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
@@ -16272,7 +16272,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::nextNode #TNasm::X86::Tree::prevNode
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 13);
 
   K(loop => 66)->for(sub
@@ -16291,7 +16291,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::mergeOrSteal
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
@@ -16354,7 +16354,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::mergeOrSteal
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
@@ -16418,7 +16418,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::findFirst
   my $N = K(key => 32);
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $N->for(sub
@@ -16483,7 +16483,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::findLast
   my $N = K(key => 32);
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
   $N->for(sub
@@ -16542,7 +16542,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
@@ -16594,7 +16594,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $i20 = V  k => 20; $t->put($i20, $i20);
   my $i30 = V  k => 30; $t->put($i30, $i30);
@@ -16678,7 +16678,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $i1 = V  k =>  0; $t->put($i1, $i1);
   my $i2 = V  k => 11; $t->put($i2, $i2);
@@ -16748,7 +16748,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
@@ -16814,7 +16814,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
@@ -16866,7 +16866,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
@@ -16918,7 +16918,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
@@ -16970,7 +16970,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i1 = V  k => 1; $t->put($i1, $i1);
@@ -17041,7 +17041,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
@@ -17069,7 +17069,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
@@ -17138,7 +17138,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
@@ -17207,7 +17207,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
@@ -17391,7 +17391,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 20;
   $N->for(sub                                                                   # Load tree
@@ -17448,7 +17448,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 16;
   $N->for(sub
@@ -17496,7 +17496,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K max => 8;
 
@@ -17563,7 +17563,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K max => 100;
 
@@ -17619,7 +17619,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 16;
   $N->for(sub
@@ -17661,7 +17661,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 36;
   $N->for(sub
@@ -17751,7 +17751,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::findNext
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 8;
   $N->for(sub
@@ -17790,7 +17790,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::findPrev
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 8;
   $N->for(sub
@@ -17829,7 +17829,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::by
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 16;
   $N->for(sub
@@ -17864,7 +17864,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::yb
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 16;
   $N->for(sub
@@ -17899,7 +17899,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 16;
   $N->for(sub
@@ -17941,7 +17941,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::clear #TNasm::X86::Tree::free #TNasm::X86::Area::freeChainSpace  #TNasm::X86::Area::clear
-  my $a = CreateArena;
+  my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 16;
 
@@ -17990,7 +17990,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Area::allocZmmBlock #TNasm::X86::Area::freeZmmBlock #TNasm::X86::Area::getZmmBlock #TNasm::X86::Area::putZmmBlock #TNasm::X86::Area::clearZmmBlock #TNasm::X86::Area::dump
-  my $a = CreateArena;
+  my $a = CreateArea;
 
   my $m = $a->allocZmmBlock;
   K(K => Rd(1..16))->loadZmm(31);
@@ -18020,7 +18020,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Area::allocZmmBlock #TNasm::X86::Area::freeZmmBlock #TNasm::X86::Area::getZmmBlock #TNasm::X86::Area::putZmmBlock  #TNasm::X86::Area::dump
-  my $a = CreateArena;
+  my $a = CreateArea;
 
   K(loop => 3)->for(sub
    {my ($i, $start, $next, $end) = @_;
