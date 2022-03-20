@@ -5105,22 +5105,7 @@ sub CreateArena(%)                                                              
   $arena
  }
 
-sub Nasm::X86::Arena::chain222($$@)                                                #P Return a variable with the end point of a chain of double words in the arena starting at the specified variable.
- {my ($arena, $variable, @offsets) = @_;                                        # Arena descriptor, start variable,  offsets chain
-  @_ >= 2 or confess "Two or more parameters";
-
-  PushR (r14, r15);                                                             # Register 14 is the arena address, 15 the current offset in the arena
-  $arena->address->setReg(r14);
-  $variable->setReg(r15);
-  for my $o(@offsets)                                                           # Each offset
-   {Mov r15d, "dword[r14+r15+$o]";                                              # Step through each offset
-   }
-  my $r = V join (' ', @offsets), r15;                                          # Create a variable with the result
-  PopR;
-  $r
- }
-
-sub Nasm::X86::Arena::length($)                                                 # Get the currently used length of an arena.
+sub Nasm::X86::Arena::sizeUsed($)                                               # Get the currently used size of an arena.
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
@@ -11281,11 +11266,11 @@ if (1) {                                                                        
 
   $a->out;   PrintOutNL;
   $b->out;   PrintOutNL;
-  my $sa = $a->length; $sa->outNL;
-  my $sb = $b->length; $sb->outNL;
+  my $sa = $a->sizeUsed; $sa->outNL;
+  my $sb = $b->sizeUsed; $sb->outNL;
   $a->clear;
-  my $sA = $a->length; $sA->outNL;
-  my $sB = $b->length; $sB->outNL;
+  my $sA = $a->sizeUsed; $sA->outNL;
+  my $sB = $b->sizeUsed; $sB->outNL;
 
   ok Assemble(debug => 0, eq => <<END);
 abababababababab
