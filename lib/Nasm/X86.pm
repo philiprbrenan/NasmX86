@@ -7466,7 +7466,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
-  if (ref($data) =~ m(Tree))                                                     # Whether we are a putting a sub tree
+  if (ref($data) !~ m(Tree))                                                     # Whether we are a putting a sub tree
    {$s->call(structures => {tree    => $tree},
              parameters => {key     => $key,
                             data    => $data,
@@ -17064,7 +17064,7 @@ X   5:    A  14  1E  1F  20
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -17072,7 +17072,10 @@ if (1) {                                                                        
   my $i2 = V  k => 11; $t->put($i2, $i2);
   my $i3 = V  k => 13; $t->put($i3, $i3);
   my $i4 = V  k => 15; $t->put($i4, $i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $a->dump("AAA", K blocks => 12); $t->delete($i2);
+  $t->size->outRightInDecNL(K width => 4);
+  $t->dump("1");
+  $a->dump("AAA", K blocks => 12);
+  $t->delete($i2);
   $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
 
   ok Assemble eq => <<END;
@@ -18282,7 +18285,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::pop
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
