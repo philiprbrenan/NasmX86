@@ -5055,7 +5055,7 @@ sub Nasm::X86::Arena::used($)                                                   
   $arena->address->setReg(rax);                                                 # Address arena
   Mov rdx, "[rax+$$arena{usedOffset}]";                                         # Used
   Sub rdx, $arena->dataOffset;                                                  # Subtract size of header so we get the actual amount in use
-  my $size = V size => rdx;                                                     # Save length in a variable
+  my $size = V 'arena used up' => rdx;                                             # Save length in a variable
   RestoreFirstFour;
   $size                                                                         # Return variable length
  }
@@ -5067,7 +5067,7 @@ sub Nasm::X86::Arena::size($)                                                   
   PushR rax;
   $arena->address->setReg(rax);                                                 # Address arena
   Mov rax, "[rax+$$arena{sizeOffset}]";                                         # Get size
-  my $size = V size => rax;                                                     # Save size in a variable
+  my $size = V 'size of arena' => rax;                                          # Save size in a variable
   PopR;
   $size                                                                         # Return size
  }
@@ -5226,6 +5226,28 @@ sub Nasm::X86::Arena::freeZmmBlock($$)                                          
   $offset->setReg($first);                                                      # Offset if what will soon be the first block on the free chain
   Mov "[rax+$$arena{freeOffset}]", $firstD;                                     # Offset of first block in free chain if such a block exists
   PopR;
+ }
+
+sub Nasm::X86::Arena::freeChainSpace($)                                         # Count the number of blocks available on the free chain
+ {my ($arena) = @_;                                                             # Arena descriptor
+  @_ == 1 or confess "One parameters";
+  my $count = V('free chain blocks' => 0);
+
+  PushR rax, my $first = r15, 31;
+  my $firstD = $first.'d';
+
+  $arena->address->setReg(rax);                                                 # Address of arena
+  Mov $firstD, "[rax+$$arena{freeOffset}]";                                     # Offset of first block in free chain if such a block exists
+  V( loop => 99)->for(sub                                                       # Loop through free block chain
+   {my ($index, $start, $next, $end) = @_;
+    Cmp $first, 0;
+    IfEq Then{Jmp $end};                                                            # No more free blocks
+    $arena->getZmmBlock(V(offset => $first), 31);                               # Load the first block on the free chain
+    dFromZ(31, 0)->setReg($first);                                              # The location of the second block if any
+    $count->copy($count + 1);                                                   # Increment count of number of  blocks on the free chain
+   });
+  PopR;
+  $count * RegisterSize 31;
  }
 
 sub Nasm::X86::Arena::getZmmBlock($$$)                                          #P Get the block with the specified offset in the specified string and return it in the numbered zmm.
@@ -5413,10 +5435,13 @@ sub Nasm::X86::Arena::clear($)                                                  
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
-    PushR (rax, rdi);
+    PushR rax, rdi;
     $$p{address}->setReg(rax);
     Mov rdi, $arena->dataOffset;
     Mov "[rax+$$arena{usedOffset}]", rdi;
+    ClearRegisters rdi;
+    Mov "[rax+$$arena{freeOffset}]", rdi;
+    Mov "[rax+$$arena{treeOffset}]", rdi;
     PopR;
    } parameters=>[qw(address)], name => 'Nasm::X86::Arena::clear';
 
@@ -6357,7 +6382,7 @@ sub Nasm::X86::Tree::sizeFromFirst($$$)                                         
  }
 
 sub Nasm::X86::Tree::sizeIntoFirst($$$)                                         #P Put the contents of a variable into the size field of the first block of a tree  when the first block is held in a zmm register.
- {my ($tree, $value, $zmm) = @_;                                                # Tree descriptor, variable containing value to put, number of zmm containing first block
+ {my ($tree, $zmm, $value) = @_;                                                # Tree descriptor, number of zmm containing first block, variable containing value to put
   @_ == 3 or confess "Three parameters";
   $value->dIntoZ($zmm, $tree->sizeOffset);
  }
@@ -6366,7 +6391,7 @@ sub Nasm::X86::Tree::incSizeInFirst($$)                                         
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   my $s = dFromZ $zmm, $tree->sizeOffset;
-  $tree->sizeIntoFirst($s+1, $zmm);
+  $tree->sizeIntoFirst($zmm, $s+1);
  }
 
 sub Nasm::X86::Tree::incSize($)                                                 #P Increment the size of a tree
@@ -6387,7 +6412,7 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
   Then
    {PrintErrTraceBack "Cannot decrement zero length tree";
    };
-  $tree->sizeIntoFirst($s-1, $zmm);
+  $tree->sizeIntoFirst($zmm, $s-1);
  }
 
 sub Nasm::X86::Tree::decSize($)                                                 #P Decrement the size of a tree
@@ -8896,6 +8921,62 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
   PopR;
  }
 
+sub Nasm::X86::Tree::clear($)                                                   # Delete everything in the tree recording the memory so liberated to the free chain for reuse by other trees.
+ {my ($tree) = @_;                                                              # Tree
+  @_ == 1 or confess "One parameter";
+
+  my $s = Subroutine                                                            # Delete all the sub blocks of a block and then free the block as well
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $t = $$s{tree};                                                          # Tree
+    my $arena = $t->arena;                                                      # Arena
+
+    PushR my $K = 31, my $D = 30, my $N = 29;
+
+    Block                                                                       # Free sub blocks then free block
+     {my ($end, $start) = @_;
+
+      $t->getBlock($$p{offset}, $K, $D, $N);                                    # Load block
+
+      If $t->leafFromNodes($N) == 0,
+      Then                                                                      # Not a leaf so free the sub blocks
+       {my $l = $t->lengthFromKeys($K);                                         # Number of nodes
+        ($l+1)->for(sub                                                         # Free sub blocks
+         {my ($i) = @_;
+          $sub->call(parameters => {offset => dFromZ $N, $i * $t->width},       # Recurse
+                     structures => {tree   => $t});
+         });
+       };
+
+      $t->freeBlock($$p{offset}, $K, $D, $N);                                   # Free this block
+     };
+
+    PopR;
+   } parameters => [qw(offset)],
+     structures => {tree => $tree},
+     name       => "Nasm::X86::Tree::clear";
+
+  PushR my $F = 31;
+  $tree->firstFromMemory($F);
+  my $root = $tree->rootFromFirst($F);                                          # Root block if any
+
+  If $root > 0,                                                                 # Non empty tree
+  Then
+   {$s->call(structures => {tree  => $tree}, parameters => {offset => $root});  # Free from root node
+    $tree->rootIntoFirst($F, K root => 0);
+    $tree->sizeIntoFirst($F, K size => 0);
+    $tree->firstIntoMemory($F);
+   };
+
+  PopR;
+ }
+
+sub Nasm::X86::Tree::free($)                                                    # Free all the memory used by a tree
+ {my ($tree) = @_;                                                              # Tree
+  @_ == 1 or confess "One parameter";
+  $tree->clear;                                                                 # Clear the tree
+ }
+
 #D2 Iteration                                                                   # Iterate through a tree non recursively
 
 sub Nasm::X86::Tree::by($&)                                                     # Call the specified block with each element of the specified tree in ascending order.
@@ -11137,10 +11218,10 @@ if (1) {                                                                        
   ok Assemble(debug => 0, eq => <<END);
 abababababababab
 ababababababababababababababababababababababababababababababababababababab
-size: 0000 0000 0000 0010
-size: 0000 0000 0000 004A
-size: 0000 0000 0000 0000
-size: 0000 0000 0000 004A
+arena used up: 0000 0000 0000 0010
+arena used up: 0000 0000 0000 004A
+arena used up: 0000 0000 0000 0000
+arena used up: 0000 0000 0000 004A
 END
  }
 
@@ -12090,14 +12171,14 @@ if (1) {                                                                        
   $a->free;
 
   ok Assemble(debug => 0, eq => <<END);
-size: 0000 0000 0000 0100
-size: 0000 0000 0000 1000
-size: 0000 0000 0000 0000
-size: 0000 0000 0000 1000
-size: 0000 0000 0000 1388
-size: 0000 0000 0000 2000
-size: 0000 0000 0000 0000
-size: 0000 0000 0000 2000
+arena used up: 0000 0000 0000 0100
+size of arena: 0000 0000 0000 1000
+arena used up: 0000 0000 0000 0000
+size of arena: 0000 0000 0000 1000
+arena used up: 0000 0000 0000 1388
+size of arena: 0000 0000 0000 2000
+arena used up: 0000 0000 0000 0000
+size of arena: 0000 0000 0000 2000
 END
  }
 
@@ -15891,7 +15972,7 @@ if (1) {                                                                        
 
   $t->firstFromMemory($F);
   $t->rootIntoFirst($F, $P);
-  $t->sizeIntoFirst(K(size => 3), $F);
+  $t->sizeIntoFirst($F, K size => 3);
 
   $t->firstIntoMemory($F);
   $t->putBlock($P, $PK, $PD, $PN);
@@ -17855,6 +17936,55 @@ f: 0000 0000 0000 0001 i: 0000 0000 0000 0003 data: 0000 0000 0000 0003
 f: 0000 0000 0000 0001 i: 0000 0000 0000 0002 data: 0000 0000 0000 0002
 f: 0000 0000 0000 0001 i: 0000 0000 0000 0001 data: 0000 0000 0000 0001
 f: 0000 0000 0000 0000
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::clear #TNasm::X86::Tree::free #TNasm::X86::Arena::freeChainSpace  #TNasm::X86::Arena::clear
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $N = K loop => 16;
+
+  $N->for(sub {my ($i) = @_; $t->push($i+1)});
+  $t->size->out("t: ", " ");
+  $a->used->out("u: ", " ");
+  $a->freeChainSpace->out("f: ", " ");
+  $a->size->outNL;
+  $t->clear;
+  $t->size->out("t: ", " ");
+  $a->used->out("u: ", " ");
+  $a->freeChainSpace->out("f: ", " ");
+  $a->size->outNL;
+
+  $N->for(sub {my ($i) = @_; $t->push($i+1)});
+  $t->size->out("t: ", " ");
+  $a->used->out("u: ", " ");
+  $a->freeChainSpace->out("f: ", " ");
+  $a->size->outNL;
+  $t->clear;
+  $t->size->out("t: ", " ");
+  $a->used->out("u: ", " ");
+  $a->freeChainSpace->out("f: ", " ");
+  $a->size->outNL;
+
+  $N->for(sub {my ($i) = @_; $t->push($i+1)});
+  $t->free;
+  $a->used->out("Clear tree:            u: ");
+  $a->freeChainSpace->out(" f: ", " ");
+  $a->size->outNL;
+
+  $a->clear;
+  $a->used->out("Clear arena:           u: ");
+  $a->freeChainSpace->out(" f: ", " ");
+  $a->size->outNL;
+
+  ok Assemble eq => <<END;
+t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of arena: 0000 0000 0000 1000
+t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of arena: 0000 0000 0000 1000
+t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of arena: 0000 0000 0000 1000
+t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of arena: 0000 0000 0000 1000
+Clear tree:            u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of arena: 0000 0000 0000 1000
+Clear arena:           u: 0000 0000 0000 0000 f: 0000 0000 0000 0000 size of arena: 0000 0000 0000 1000
 END
  }
 
