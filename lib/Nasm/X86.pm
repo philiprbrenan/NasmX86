@@ -6574,6 +6574,200 @@ sub Nasm::X86::Tree::putBlock($$$$$$)                                           
   $a->putZmmBlock($node,   $N);                                                 # Put the node block
  }
 
+sub Nasm::X86::Tree::firstNode($$$$)                                            #P Return as a variable the last node block in the specified tree node held in a zmm
+ {my ($tree, $K, $D, $N) = @_;                                                  # Tree definition, key zmm, data zmm, node zmm for a node block
+  @_ == 4 or confess "Four parameters";
+
+  dFromZ($N, 0)
+ }
+
+sub Nasm::X86::Tree::lastNode($$$$)                                             #P Return as a variable the last node block in the specified tree node held in a zmm
+ {my ($tree, $K, $D, $N) = @_;                                                  # Tree definition, key zmm, data zmm, node zmm for a node block
+  @_ == 4 or confess "Four parameters";
+
+  dFromZ($N, $tree->lengthFromKeys($K) * $tree->width)
+ }
+
+sub Nasm::X86::Tree::relativeNode($$$$)                                         #P Return as a variable a node offset relative (specified as ac constant) to another offset in the same node in the specified zmm
+ {my ($tree, $offset, $relative, $K, $N) = @_;                                  # Tree definition, offset, relative location, key zmm, node zmm
+  @_ == 5 or confess "Five parameters";
+
+  abs($relative) == 1 or confess "Relative must be +1 or -1";
+
+  my $l = $tree->lengthFromKeys($K);                                            # Length of block
+  PushR $K, 7, 15;                                                              # Reuse keys for comparison value
+  $offset->setReg(15);
+  Vpbroadcastd zmm($K), r15d;                                                   # Load offset to test
+  Vpcmpud k7, zmm($N, $K), $Vpcmp->eq;                                          # Check for nodes equal to offset
+  Kmovq r15, k7;
+  Tzcnt r15, r15;                                                               # Index of offset
+  if ($relative < 0)
+   {Cmp r15, 0;
+    IfEq Then{PrintErrTraceBack "Cannot get offset before first offset"};
+    Sub r15, 1;
+   }
+  if ($relative > 0)
+   {Cmp r15, $tree->length;
+    IfGt Then{PrintErrTraceBack "Cannot get offset beyond last offset"};
+    Add r15, 1;
+   }
+  my $r = dFromZ $N, V(offset => r15) * $tree->width;                           # Select offset
+  PopR;
+
+  $r
+ }
+
+sub Nasm::X86::Tree::nextNode($$$)                                              #P Return as a variable the next node block offset after the specified one in the specified zmm
+ {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, offset, key zmm, node zmm
+  @_ == 4 or confess "Four parameters";
+  $tree->relativeNode($offset, +1, $K, $N);
+ }
+
+sub Nasm::X86::Tree::prevNode($$$)                                              #P Return as a variable the previous node block offset after the specified one in the specified zmm
+ {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, offset, key zmm, node zmm
+  @_ == 4 or confess "Four parameters";
+  $tree->relativeNode($offset, -1, $K, $N);
+ }
+
+sub Nasm::X86::Tree::indexNode($$$$)                                            #P Return, as a variable, the point mask obtained by testing the nodes in a block for specified offset. We have to supply the keys as well so that we can find the number of nodes. We need the number of nodes so that we only search the valid area not all possible node positions in the zmm.
+ {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>
+  @_ == 4 or confess "Four parameters";
+
+  my $A = $K == 17 ? 18 : 17;                                                   # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
+  PushR rcx, 14, 15, 7, $A;                                                     # Registers
+
+  $offset->setReg(14);                                                          # The offset we are looking for
+  Vpbroadcastd zmm($A), r14d;                                                   # Load offset to test
+  Vpcmpud k7, zmm($N, $A), $Vpcmp->eq;                                          # Check for nodes equal to offset
+  my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
+  $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
+  Mov   r15, 2;                                                                 # A one in position two because the number of nodes is always one more than the number of keys
+  Shl   r15, cl;                                                                # Position the one at end of nodes block
+  Dec   r15;                                                                    # Reduce to fill block with ones
+  Kmovq r14, k7;                                                                # Matching nodes
+  And   r15, r14;                                                               # Matching nodes in mask area
+  my $r = V index => r15;                                                       # Save result as a variable
+  PopR;
+
+  $r                                                                            # Point of key if non zero, else no match
+ }
+
+sub Nasm::X86::Tree::expand($$)                                                 #P Expand the node at the specified offset in the specified tree if it needs to be expanded and is not the root node (which cannot be expanded because it has no siblings to take substance from whereas as all other nodes do).  Set tree.found to the offset of the left sibling if the node at the specified offset was merged into it and freed else set tree.found to zero.
+ {my ($tree, $offset) = @_;                                                     # Tree descriptor, offset of node block to expand
+  @_ == 2 or confess "Two parameters";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+
+    PushR 8..15, 22..31;
+
+    my $t = $$s{tree};                                                          # Tree to search
+    my $L = $$p{offset};                                                        # Offset of node to expand is currently regarded as left
+    my $F = 31;
+    my $PK = 30; my $PD = 29; my $PN = 28;
+    my $LK = 27; my $LD = 26; my $LN = 25;
+    my $RK = 24; my $RD = 23; my $RN = 22;
+
+    $t->found->copy(0);                                                         # Assume the left node will not be freed by the expansion
+    $t->firstFromMemory($F);                                                    # Load first block
+    my $root = $t->rootFromFirst($F);                                           # Root node block offset
+    If $root == 0 || $root == $L, Then {Jmp $success};                          # Empty tree or on root so nothing to do
+
+    Block                                                                       # If not on the root and node has the minimum number of keys then either steal left or steal right or merge left or merge right
+     {my ($end, $start) = @_;                                                   # Code with labels supplied
+      $t->getBlock($L, $LK, $LD, $LN);                                          # Load node from memory
+      my $ll = $t->lengthFromKeys($LK);                                         # Length of node
+      If $ll > $t->lengthMin, Then {Jmp $end};                                  # Has more than the bare minimum so does not need to be expanded
+
+      my $P = $t->upFromData($LD);                                              # Parent offset
+      $t->getBlock($P, $PK, $PD, $PN);                                          # Get the parent keys/data/nodes
+      my $fn = $t->firstNode($PK, $PD, $PN);                                    # Parent first node
+      my $ln = $t-> lastNode($PK, $PD, $PN);                                    # Parent last node
+
+      my $R = V right => 0;                                                     # The node on the right
+      my $plp = $t->indexNode($L, $PK, $PN);                                    # Position of the left node in the parent
+
+      If $plp == 0,                                                             # Zero implies that the left child is not registered in its parent
+      Then
+       {PrintErrTraceBack "Cannot find left node in parent";
+       };
+
+      If $L == $ln,                                                             # If necessary step one to the let and record the fact that we did is that we can restart the search at the top
+      Then                                                                      # Last child and needs merging
+       {Vmovdqu64 zmm $RK, $LK;                                                 # Copy the current left node into the right node
+        Vmovdqu64 zmm $RD, $LD;
+        Vmovdqu64 zmm $RN, $LN;
+        $R->copy($L);                                                           # Left becomes right node because it is last
+        my $l = $plp >> K(one => 1);                                            # The position of the previous node known to exist because we are currently on the last node
+        $L->copy($l->dFromPointInZ($PN));                                       # Load previous sibling as new left keeping old left in right so that left and right now form a pair of siblings
+        $t->getBlock($L, $LK, $LD, $LN);                                        # Load the new left
+        $t->found->copy($L);                                                    # Show that we created a new left
+       },
+      Else
+       {my $r = $plp << K(one => 1);                                            # The position of the node to tthe right known to exist because we are not currently on the last node
+        $R->copy($r->dFromPointInZ($PN));                                       # Load next sibling as right
+        $t->getBlock($R, $RK, $RD, $RN);                                        # Load the right sibling
+       };
+
+      my $lr = $t->lengthFromKeys($RK);                                         # Length of right
+      If $lr == $t->lengthMin,
+      Then                                                                      # Merge left and right into left as they are both at minimum size
+       {$t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+        # $t->freeBlock($R, $RK, $RD, $RN);                                     # The right is no longer required because it has been merged away
+
+        my $lp = $t->lengthFromKeys($PK);                                       # New length of parent
+        If $lp == 0,
+        Then                                                                    # Root now empty
+         {$t->rootIntoFirst($F, $L);                                            # Parent is now empty so the left block must be the new root
+          $t->firstIntoMemory($F);                                              # Save first block with updated root
+          #$t->freeBlock($P, $PK, $PD, $PN);                                    # The parent is no longer required because the left ir the new root
+         },
+        Else                                                                    # Root not empty
+         {$t->putBlock($P, $PK, $PD, $PN);                                      # Write parent back into memory
+         };
+       },
+      Else                                                                      # Steal from right as it is too big to merge and so must have some excess that we can steal
+       {$t->stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);        # Steal
+        $t->putBlock($P, $PK, $PD, $PN);                                        # Save modified parent
+        $t->putBlock($R, $RK, $RD, $RN);                                        # Save modified right
+       };
+      $t->putBlock($L, $LK, $LD, $LN);                                          # Save non minimum left
+
+      my $l = $t->leafFromNodes($LN);                                           # Whether the left block is a leaf
+      If $l > 0,                                                                # If the zero Flag is zero then this is not a leaf
+      Then
+       {PushR $RK, $RD, $RN;                                                    # Save these zmm even though we are not going to need them any more
+        ($t->lengthFromKeys($LK) + 1)->for(sub                                  # Reparent the children of the left hand side.  This is not efficient as we load all the children (if there are any) but it is effective.
+         {my ($index, $start, $next, $end) = @_;
+          my $R = dFromZ $LN, $index * $t->width;                               # Offset of node
+          $t->getBlock  ($R, $RK, $RD, $RN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+          $t->upIntoData($L,      $RD);                                         # Parent for child of right hand side
+          $t->putBlock  ($R, $RK, $RD, $RN);                                    # Save block into memory now that its parent pointer has been updated
+         });
+         PopR;
+       };
+     };  # Block
+
+    SetLabel $success;                                                          # Find completed successfully
+    PopR;
+   } parameters=>[qw(offset)],
+     structures=>{tree=>$tree},
+     name => 'Nasm::X86::Tree::expand';
+
+  $s->call(structures=>{tree => $tree}, parameters=>{offset => $offset});
+ } # expand
+
+sub Nasm::X86::Tree::replace($$$$)                                              #P Replace the key/data/subTree at the specified point in the specified zmm with the values found in the tree key/data/sub tree fields.
+ {my ($tree, $point, $K, $D) = @_;                                              # Tree descriptor, point at which to extract, keys zmm, data zmm
+  @_ == 4 or confess "Four parameters";
+
+  $point->dIntoPointInZ($K, $tree->key);                                        # Key
+  $point->dIntoPointInZ($D, $tree->data);                                       # Data at point
+
+  $tree->setOrClearTreeBitToMatchContent($K, $point, $tree->subTree);           # Replace tree bit
+ } # replace
+
 sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        #P Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
  {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Point at which to overwrite formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
 
@@ -15606,61 +15800,6 @@ if (1) {                                                                        
 END
  }
 
-sub Nasm::X86::Tree::firstNode($$$$)                                            # Return as a variable the last node block in the specified tree node held in a zmm
- {my ($tree, $K, $D, $N) = @_;                                                  # Tree definition, key zmm, data zmm, node zmm for a node block
-  @_ == 4 or confess "Four parameters";
-
-  dFromZ($N, 0)
- }
-
-sub Nasm::X86::Tree::lastNode($$$$)                                             # Return as a variable the last node block in the specified tree node held in a zmm
- {my ($tree, $K, $D, $N) = @_;                                                  # Tree definition, key zmm, data zmm, node zmm for a node block
-  @_ == 4 or confess "Four parameters";
-
-  dFromZ($N, $tree->lengthFromKeys($K) * $tree->width)
- }
-
-sub Nasm::X86::Tree::relativeNode($$$$)                                         # Return as a variable a node offset relative (specified as ac constant) to another offset in the same node in the specified zmm
- {my ($tree, $offset, $relative, $K, $N) = @_;                                  # Tree definition, offset, relative location, key zmm, node zmm
-  @_ == 5 or confess "Five parameters";
-
-  abs($relative) == 1 or confess "Relative must be +1 or -1";
-
-  my $l = $tree->lengthFromKeys($K);                                            # Length of block
-  PushR $K, 7, 15;                                                              # Reuse keys for comparison value
-  $offset->setReg(15);
-  Vpbroadcastd zmm($K), r15d;                                                   # Load offset to test
-  Vpcmpud k7, zmm($N, $K), $Vpcmp->eq;                                          # Check for nodes equal to offset
-  Kmovq r15, k7;
-  Tzcnt r15, r15;                                                               # Index of offset
-  if ($relative < 0)
-   {Cmp r15, 0;
-    IfEq Then{PrintErrTraceBack "Cannot get offset before first offset"};
-    Sub r15, 1;
-   }
-  if ($relative > 0)
-   {Cmp r15, $tree->length;
-    IfGt Then{PrintErrTraceBack "Cannot get offset beyond last offset"};
-    Add r15, 1;
-   }
-  my $r = dFromZ $N, V(offset => r15) * $tree->width;                           # Select offset
-  PopR;
-
-  $r
- }
-
-sub Nasm::X86::Tree::nextNode($$$)                                              # Return as a variable the next node block offset after the specified one in the specified zmm
- {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, offset, key zmm, node zmm
-  @_ == 4 or confess "Four parameters";
-  $tree->relativeNode($offset, +1, $K, $N);
- }
-
-sub Nasm::X86::Tree::prevNode($$$)                                              # Return as a variable the previous node block offset after the specified one in the specified zmm
- {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, offset, key zmm, node zmm
-  @_ == 4 or confess "Four parameters";
-  $tree->relativeNode($offset, -1, $K, $N);
- }
-
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::firstNode #TNasm::X86::Tree::lastNode
   my $L = 13;
@@ -15714,145 +15853,6 @@ d at offset 0 in zmm29: 0000 0000 0000 0001
 d at offset (b at offset 56 in zmm31 times 4) in zmm29: 0000 0000 0000 000E
 END
  }
-
-sub Nasm::X86::Tree::indexNode($$$$)                                            # Return, as a variable, the point mask obtained by testing the nodes in a block for specified offset. We have to supply the keys as well so that we can find the number of nodes. We need the number of nodes so that we only search the valid area not all possible node positions in the zmm.
- {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>
-  @_ == 4 or confess "Four parameters";
-
-  my $A = $K == 17 ? 18 : 17;                                                   # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
-  PushR rcx, 14, 15, 7, $A;                                                     # Registers
-
-  $offset->setReg(14);                                                          # The offset we are looking for
-  Vpbroadcastd zmm($A), r14d;                                                   # Load offset to test
-  Vpcmpud k7, zmm($N, $A), $Vpcmp->eq;                                          # Check for nodes equal to offset
-  my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
-  $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
-  Mov   r15, 2;                                                                 # A one in position two because the number of nodes is always one more than the number of keys
-  Shl   r15, cl;                                                                # Position the one at end of nodes block
-  Dec   r15;                                                                    # Reduce to fill block with ones
-  Kmovq r14, k7;                                                                # Matching nodes
-  And   r15, r14;                                                               # Matching nodes in mask area
-  my $r = V index => r15;                                                       # Save result as a variable
-  PopR;
-
-  $r                                                                            # Point of key if non zero, else no match
- }
-
-sub Nasm::X86::Tree::expand($$)                                                 #P Expand the node at the specified offset in the specified tree if it needs to be expanded and is not the root node (which cannot be expanded because it has no siblings to take substance from whereas as all other nodes do).  Set tree.found to the offset of the left sibling if the node at the specified offset was merged into it and freed else set tree.found to zero.
- {my ($tree, $offset) = @_;                                                     # Tree descriptor, offset of node block to expand
-  @_ == 2 or confess "Two parameters";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
-
-    PushR 8..15, 22..31;
-
-    my $t = $$s{tree};                                                          # Tree to search
-    my $L = $$p{offset};                                                        # Offset of node to expand is currently regarded as left
-    my $F = 31;
-    my $PK = 30; my $PD = 29; my $PN = 28;
-    my $LK = 27; my $LD = 26; my $LN = 25;
-    my $RK = 24; my $RD = 23; my $RN = 22;
-
-    $t->found->copy(0);                                                         # Assume the left node will not be freed by the expansion
-    $t->firstFromMemory($F);                                                    # Load first block
-    my $root = $t->rootFromFirst($F);                                           # Root node block offset
-    If $root == 0 || $root == $L, Then {Jmp $success};                          # Empty tree or on root so nothing to do
-
-    Block                                                                       # If not on the root and node has the minimum number of keys then either steal left or steal right or merge left or merge right
-     {my ($end, $start) = @_;                                                   # Code with labels supplied
-      $t->getBlock($L, $LK, $LD, $LN);                                          # Load node from memory
-      my $ll = $t->lengthFromKeys($LK);                                         # Length of node
-      If $ll > $t->lengthMin, Then {Jmp $end};                                  # Has more than the bare minimum so does not need to be expanded
-
-      my $P = $t->upFromData($LD);                                              # Parent offset
-      $t->getBlock($P, $PK, $PD, $PN);                                          # Get the parent keys/data/nodes
-      my $fn = $t->firstNode($PK, $PD, $PN);                                    # Parent first node
-      my $ln = $t-> lastNode($PK, $PD, $PN);                                    # Parent last node
-
-      my $R = V right => 0;                                                     # The node on the right
-      my $plp = $t->indexNode($L, $PK, $PN);                                    # Position of the left node in the parent
-
-      If $plp == 0,                                                             # Zero implies that the left child is not registered in its parent
-      Then
-       {PrintErrTraceBack "Cannot find left node in parent";
-       };
-
-      If $L == $ln,                                                             # If necessary step one to the let and record the fact that we did is that we can restart the search at the top
-      Then                                                                      # Last child and needs merging
-       {Vmovdqu64 zmm $RK, $LK;                                                 # Copy the current left node into the right node
-        Vmovdqu64 zmm $RD, $LD;
-        Vmovdqu64 zmm $RN, $LN;
-        $R->copy($L);                                                           # Left becomes right node because it is last
-        my $l = $plp >> K(one => 1);                                            # The position of the previous node known to exist because we are currently on the last node
-        $L->copy($l->dFromPointInZ($PN));                                       # Load previous sibling as new left keeping old left in right so that left and right now form a pair of siblings
-        $t->getBlock($L, $LK, $LD, $LN);                                        # Load the new left
-        $t->found->copy($L);                                                    # Show that we created a new left
-       },
-      Else
-       {my $r = $plp << K(one => 1);                                            # The position of the node to tthe right known to exist because we are not currently on the last node
-        $R->copy($r->dFromPointInZ($PN));                                       # Load next sibling as right
-        $t->getBlock($R, $RK, $RD, $RN);                                        # Load the right sibling
-       };
-
-      my $lr = $t->lengthFromKeys($RK);                                         # Length of right
-      If $lr == $t->lengthMin,
-      Then                                                                      # Merge left and right into left as they are both at minimum size
-       {$t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
-        # $t->freeBlock($R, $RK, $RD, $RN);                                     # The right is no longer required because it has been merged away
-
-        my $lp = $t->lengthFromKeys($PK);                                       # New length of parent
-        If $lp == 0,
-        Then                                                                    # Root now empty
-         {$t->rootIntoFirst($F, $L);                                            # Parent is now empty so the left block must be the new root
-          $t->firstIntoMemory($F);                                              # Save first block with updated root
-          #$t->freeBlock($P, $PK, $PD, $PN);                                    # The parent is no longer required because the left ir the new root
-         },
-        Else                                                                    # Root not empty
-         {$t->putBlock($P, $PK, $PD, $PN);                                      # Write parent back into memory
-         };
-       },
-      Else                                                                      # Steal from right as it is too big to merge and so must have some excess that we can steal
-       {$t->stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);        # Steal
-        $t->putBlock($P, $PK, $PD, $PN);                                        # Save modified parent
-        $t->putBlock($R, $RK, $RD, $RN);                                        # Save modified right
-       };
-      $t->putBlock($L, $LK, $LD, $LN);                                          # Save non minimum left
-
-      my $l = $t->leafFromNodes($LN);                                           # Whether the left block is a leaf
-      If $l > 0,                                                                # If the zero Flag is zero then this is not a leaf
-      Then
-       {PushR $RK, $RD, $RN;                                                    # Save these zmm even though we are not going to need them any more
-        ($t->lengthFromKeys($LK) + 1)->for(sub                                  # Reparent the children of the left hand side.  This is not efficient as we load all the children (if there are any) but it is effective.
-         {my ($index, $start, $next, $end) = @_;
-          my $R = dFromZ $LN, $index * $t->width;                               # Offset of node
-          $t->getBlock  ($R, $RK, $RD, $RN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
-          $t->upIntoData($L,      $RD);                                         # Parent for child of right hand side
-          $t->putBlock  ($R, $RK, $RD, $RN);                                    # Save block into memory now that its parent pointer has been updated
-         });
-         PopR;
-       };
-     };  # Block
-
-    SetLabel $success;                                                          # Find completed successfully
-    PopR;
-   } parameters=>[qw(offset)],
-     structures=>{tree=>$tree},
-     name => 'Nasm::X86::Tree::expand';
-
-  $s->call(structures=>{tree => $tree}, parameters=>{offset => $offset});
- } # expand
-
-sub Nasm::X86::Tree::replace($$$$)                                              # Replace the key/data/subTree at the specified point in the specified zmm with the values found in the tree key/data/sub tree fields.
- {my ($tree, $point, $K, $D) = @_;                                              # Tree descriptor, point at which to extract, keys zmm, data zmm
-  @_ == 4 or confess "Four parameters";
-
-  $point->dIntoPointInZ($K, $tree->key);                                        # Key
-  $point->dIntoPointInZ($D, $tree->data);                                       # Data at point
-
-  $tree->setOrClearTreeBitToMatchContent($K, $point, $tree->subTree);           # Replace tree bit
- } # replace
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::expand
