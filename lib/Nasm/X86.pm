@@ -8174,6 +8174,333 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
   $changed                                                                      # Whether we did a merge or steal
  } # mergeOrSteal
 
+sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 #P Steal one key from the node on the right where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else zero.
+ {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+  @_ == 10 or confess "Ten parameters required";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    my $t  = $$s{tree};
+    my $ll = $t->lengthFromKeys($LK);
+    my $lr = $t->lengthFromKeys($RK);
+
+    PushR 7;
+
+    $t->found->copy(0);                                                         # Assume we cannot steal
+
+    Block                                                                       # Check that it is possible to steal key a from the node on the right
+     {my ($end, $start) = @_;                                                   # Code with labels supplied
+      If $ll != $t->lengthLeft,
+      Then                                                                      # Left not minimal
+       {PrintErrStringNL "Left not minimal";
+        Jmp $end
+       };
+      If $lr == $t->lengthRight,                                                # Right minimal
+      Then
+       {PrintErrStringNL "Should merge not steal";
+        Jmp $end
+       };
+
+      $t->found->copy(1);                                                       # Proceed with the steal
+
+      my $pir = (K one => 1);                                                   # Point of right key to steal
+      my $pil = $pir << ($ll - 1);                                              # Point of left key to receive key
+
+      my $rk  = $pir->dFromPointInZ($RK);                                       # Right key to rotate left
+      my $rd  = $pir->dFromPointInZ($RD);                                       # Right data to rotate left
+      my $rn  = $pir->dFromPointInZ($RN);                                       # Right node to rotate left
+
+      If $t->leafFromNodes($LN) == 0,
+      Then                                                                      # Left is not a leaf so the right is not a leaf so we must upgrade first right child up pointer
+       {PushR $LK, $LD, $LN, $RK, $RD, $RN;
+        my $ln = dFromZ($LN, 0);                                                # First child of left
+        $t->getBlock($ln, $LK, $LD, $LN);                                       # Left grand child
+        $t->getBlock($rn, $RK, $RD, $RN);                                       # Right grand child
+        my $lcu = $t->upFromData($LD);                                          # Offset of left block
+        $t->upIntoData($lcu, $RD);                                              # Set up of right grand child to left block
+        $t->putBlock($rn, $RK, $RD, $RN);
+        PopR;
+       };
+
+      my $pip = $t->insertionPoint($rk, $PK);                                   # Point of parent key to insert
+      my $pip1= $pip >> K(one=>1);                                              # Point of parent key to merge in
+      my $pk  = $pip1->dFromPointInZ($PK);                                      # Parent key to rotate left
+      my $pd  = $pip1->dFromPointInZ($PD);                                      # Parent data to rotate left
+
+      my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
+      my $rb  = $t->getTreeBit($RK, K one => 1);                                # First right tree bit
+      $pip1->dIntoPointInZ($PK, $rk);                                           # Right key into parent
+      $pip1->dIntoPointInZ($PD, $rd);                                           # Right data into parent
+      $t->setOrClearTreeBitToMatchContent($PK, $pip, $rb);                      # Right tree bit into parent
+      $pk->dIntoZ($LK, $t->middleOffset);                                       # Parent key into left
+      $pd->dIntoZ($LD, $t->middleOffset);                                       # Parent data into left
+      $rn->dIntoZ($LN, $t->rightOffset);                                        # Right node into left
+
+      $t->insertIntoTreeBits($LK, K(position => 1 << $t->lengthLeft), $pb);     # Parent tree bit into left
+
+      LoadConstantIntoMaskRegister                                              # Nodes area
+       (7, createBitNumberFromAlternatingPattern '00', $t->maxKeysZ-1, -1);
+      Vpcompressd zmmM($RK, 7), zmm($RK);                                       # Compress right keys one slot left
+      Vpcompressd zmmM($RD, 7), zmm($RD);                                       # Compress right data one slot left
+
+      LoadConstantIntoMaskRegister                                              # Nodes area
+       (7, createBitNumberFromAlternatingPattern '0', $t->maxNodesZ-1, -1);
+      Vpcompressd zmmM($RN, 7), zmm($RN);                                       # Compress right nodes one slot left
+
+      $t->incLengthInKeys($LK);                                                 # Increment left hand length
+      $t->decLengthInKeys($RK);                                                 # Decrement right hand
+     };
+    PopR;
+   }
+  name       =>
+  "Nasm::X86::Tree::stealFromRight($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  structures => {tree => $tree},
+  parameters => [qw(result)];
+
+  $s->call(structures => {tree   => $tree});
+
+  $tree                                                                         # Chain
+ }
+
+sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  #P Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
+ {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+  @_ == 10 or confess "Ten parameters required";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    my $t  = $$s{tree};
+    my $ll = $t->lengthFromKeys($LK);
+    my $lr = $t->lengthFromKeys($RK);
+
+    PushR 7;
+
+    $t->found->copy(0);                                                         # Assume we cannot steal
+
+    Block                                                                       # Check that it is possible to steal a key from the node on the left
+     {my ($end, $start) = @_;                                                   # Code with labels supplied
+      If $lr != $t->lengthRight,  Then {Jmp $end};                              # Right not minimal
+      If $ll == $t->lengthLeft,   Then {Jmp $end};                              # Left minimal
+
+      $t->found->copy(1);                                                       # Proceed with the steal
+
+      my $pir = K(one => 1);                                                    # Point of right key
+      my $pil = $pir << ($ll - 1);                                              # Point of left key
+
+      my $lk  = $pil->dFromPointInZ($LK);                                       # Left key to rotate right
+      my $ld  = $pil->dFromPointInZ($LD);                                       # Left data to rotate right
+      my $ln  = ($pil << K(key => 1))->dFromPointInZ($LN);                      # Left node to rotate right
+
+      my $lb  = $t->getTreeBit($LK, $pil);                                      # Left tree bit to rotate right
+
+      my $pip = $t->insertionPoint($lk, $PK);                                   # Point of parent key to merge in
+
+      my $pk  = $pip->dFromPointInZ($PK);                                       # Parent key to rotate right
+      my $pd  = $pip->dFromPointInZ($PD);                                       # Parent data to rotate right
+      my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
+
+      LoadConstantIntoMaskRegister                                              # Nodes area
+       (7, createBitNumberFromAlternatingPattern '00', $t->maxKeysZ-1, -1);
+      Vpexpandd zmmM($RK, 7), zmm($RK);                                         # Expand right keys one slot right
+      Vpexpandd zmmM($RD, 7), zmm($RD);                                         # Expand right data one slot right
+
+      LoadConstantIntoMaskRegister                                              # Nodes area
+       (7, createBitNumberFromAlternatingPattern '0', $t->maxNodesZ-1, -1);
+      Vpexpandd zmmM($RN, 7), zmm($RN);                                         # Expand right nodes one slot right
+
+      $pip->dIntoPointInZ($PK, $lk);                                            # Left key into parent
+      $pip->dIntoPointInZ($PD, $ld);                                            # Left data into parent
+      $t->setOrClearTreeBitToMatchContent($PK, $pip, $lb);                      # Left tree bit into parent
+
+      $pir->dIntoPointInZ($RK, $pk);                                            # Parent key into right
+      $pir->dIntoPointInZ($RD, $pd);                                            # Parent data into right
+      $pir->dIntoPointInZ($RN, $ln);                                            # Left node into right
+      $t->insertIntoTreeBits($RK, $pir, $pb);                                   # Parent tree bit into right
+
+      $t->decLengthInKeys($LK);                                                 # Decrement left hand
+      $t->incLengthInKeys($RK);                                                 # Increment right hand
+
+      If $t->leafFromNodes($RN) == 0,
+      Then                                                                      # Right is not a leaf so we must upgrade the up pointer of the first child of right to match that of the second child of right
+       {PushR $LK, $LD, $LN, $RK, $RD, $RN;
+        my $r1 = dFromZ($RN, 0);                                                # First child of right
+        my $r2 = dFromZ($RN, 0);                                                # Second child of right
+        $t->getBlock($r1, $LK, $LD, $LN);                                       # Load first child of right
+        $t->getBlock($r2, $RK, $RD, $RN);                                       # Load second child of right
+        my $r2u = $t->upFromData($RD);                                          # Up from second child of right
+        $t->upIntoData($r2u, $LD);                                              # Set first child up to second child up
+        $t->putBlock($r1, $LK, $LD, $LN);
+        PopR;
+       };
+
+     };
+    PopR;
+   }
+  name       =>
+  "Nasm::X86::Tree::stealFromLeft($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  structures => {tree => $tree};
+
+  $s->call(structures => {tree   => $tree});
+
+  $tree                                                                         # Chain
+ } # stealFromLeft
+
+sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          #P Merge a left and right node if they are at minimum size.
+ {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+  @_ == 10 or confess "Ten parameters required";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    my $t  = $$s{tree};
+    my $ll = $t->lengthFromKeys($LK);
+    my $lr = $t->lengthFromKeys($RK);
+
+    PushR 7, 14, 15;
+
+    Block                                                                       # Check that it is possible to steal a key from the node on the left
+     {my ($end, $start) = @_;                                                   # Code with labels supplied
+      If $ll != $t->lengthLeft,  Then {Jmp $end};                               # Left not minimal
+      If $lr != $t->lengthRight, Then {Jmp $end};                               # Right not minimal
+
+      my $pil = K(one => 1);                                                    # Point of first left key
+      my $lk  = $pil->dFromPointInZ($LK);                                       # First left key
+      my $pip = $t->insertionPoint($lk, $PK);                                   # Point of parent key to merge in
+      my $pk  = $pip->dFromPointInZ($PK);                                       # Parent key to merge
+      my $pd  = $pip->dFromPointInZ($PD);                                       # Parent data to merge
+      my $pn  = $pip->dFromPointInZ($PN);                                       # Parent node to merge
+      my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
+
+      my $m = K(one => 1) << K( shift => $t->lengthLeft);                       # Position of parent key in left
+      $m->dIntoPointInZ($LK, $pk);                                              # Position parent key in left
+      $m->dIntoPointInZ($LD, $pd);                                              # Position parent data in left
+     #$m->dIntoPointInZ($LN, $pn);                                              # Position parent node in left - not needed because the left and right around teh aprent lkey are the left and right node offsets - we should use this fact to update the children of the right node so that their up pointers point to the left node
+      $t->insertIntoTreeBits($LK, $m, $pb);                                     # Tree bit for parent data
+      LoadConstantIntoMaskRegister                                              # Keys/Data area
+       (7, createBitNumberFromAlternatingPattern '00', $t->lengthRight,   -$t->lengthMiddle);
+      Vpexpandd zmmM($LK, 7), zmm($RK);                                         # Expand right keys into left
+      Vpexpandd zmmM($LD, 7), zmm($RD);                                         # Expand right data into left
+      LoadConstantIntoMaskRegister                                              # Nodes area
+       (7, createBitNumberFromAlternatingPattern '0',  $t->lengthRight+1, -$t->lengthMiddle);
+      Vpexpandd zmmM($LN, 7), zmm($RN);                                         # Expand right data into left
+
+      $pip->setReg(15);                                                         # Collapse mask for keys/data in parent
+      Not r15;
+      And r15, $t->treeBitsMask;
+      Kmovq k7, r15;
+      Vpcompressd zmmM($PK, 7), zmm($PK);                                       # Collapse parent keys
+      Vpcompressd zmmM($PD, 7), zmm($PD);                                       # Collapse data keys
+
+      my $one = K(one => 1);                                                    # Collapse mask for keys/data in parent
+#     my $np = (!$pip << $one) >> $one;
+      my $np = !$pip << $one;                                                   # Move the compression point up one to remove the matching node
+      $np->setReg(14);
+      Add r14, 1;                                                               # Fill hole left at position 0
+      Kmovq k7, r14;                                                            # Node squeeze mask
+      Vpcompressd zmmM($PN, 7), zmm($PN);                                       # Collapse nodes
+
+      my $z = $PK == 31 ? 30: 31;                                               # Collapse parent tree bits
+      PushR zmm $z;                                                             # Collapse parent tree bits
+      $t->getTreeBits($PK, r15);                                                # Get tree bits
+      Kmovq k7, r15;                                                            # Tree bits
+      Vpmovm2d zmm($z), k7;                                                     # Broadcast the bits into a zmm
+      $pip->setReg(15);                                                         # Parent insertion point
+      Kmovq k7, r15;
+      Knotq k7, k7;                                                             # Invert parent insertion point
+      Vpcompressd zmmM($z, 7), zmm($z);                                         # Compress
+      Vpmovd2m k7, zmm $z;                                                      # Recover bits
+      Kmovq r15, k7;
+      And r15, $t->treeBitsMask;                                                # Clear trailing bits beyond valid tree bits
+      $t->setTreeBits($PK, r15);
+      PopR;
+
+      $t->getTreeBits($LK, r15);                                                # Append right tree bits to the Left tree bits
+      $t->getTreeBits($RK, r14);                                                # Right tree bits
+      my $sl = RegisterSize(r15) * $bitsInByte / 4 - $tree->lengthMiddle;       # Clear bits right of the lower left bits
+      Shl r15w, $sl;
+      Shr r15w, $sl;
+
+      Shl r14, $tree->lengthMiddle;                                             # Move right tree bits into position
+      Or  r15, r14;                                                             # And in left tree bits
+      And r15, $t->treeBitsMask;                                                # Clear trailing bits beyond valid tree bits
+      $t->setTreeBits($LK, r15);                                                # Set tree bits
+
+      If $t->leafFromNodes($RN) == 0,
+      Then                                                                      # Right is not a leaf so we must upgrade the up offset of its children to the up pointer of the first left child
+       {PushR $LK, $LD, $LN;
+        my $l1 = dFromZ($LN, 0);                                                # First child of left
+        $t->getBlock($l1, $LK, $LD, $LN);                                       # Load first child of left
+        my $l2u = $t->upFromData($LD);                                          # Offset of left block
+        my $lr = 1 + $t->lengthFromKeys($RK);                                   # Number of right children
+        $lr->for(sub                                                            # Each child of right
+         {my ($i) = @_;
+          my $r = dFromZ($RN, $i * $tree->width);                               # Offset of child
+          $t->getBlock($r, $LK, $LD, $LN);                                      # Load child of right
+          $t->upIntoData ($l2u, $LD);                                           # Set parent
+          $t->putBlock($r, $LK, $LD, $LN);                                      # Write back into memory
+         });
+        PopR;
+       };
+
+      $t->decLengthInKeys($PK);                                                 # Parent now has one less
+      $t->lengthIntoKeys($LK, K length => $t->length);                          # Left is now full
+
+     };
+    PopR;
+   }
+  name       =>
+  "Nasm::X86::Tree::merge($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  structures => {tree => $tree};
+
+  $s->call(structures => {tree=> $tree});
+
+  $tree                                                                         # Chain
+ } # merge
+
+sub Nasm::X86::Tree::deleteFirstKeyAndData($$$$)                                #P Delete the first element of a leaf mode returning its characteristics in the calling tree descriptor.
+ {my ($tree, $K, $D) = @_;                                                      # Tree definition, keys zmm, data zmm
+  @_ == 3 or confess "Three parameters";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    my $t = $$s{tree};
+    my $l = $t->lengthFromKeys($K);
+
+    PushR 7, 14, 15;
+
+    $t->found->copy(0);                                                         # Assume not found
+
+    Block                                                                       # Check that it is possible to steal a key from the node on the left
+     {my ($end, $start) = @_;                                                   # Code with labels supplied
+      If $l == 0,  Then {Jmp $end};                                             # No elements left
+
+      $t->found->copy(1);                                                       # Show first key and data have been found
+
+      $t->key ->copy(dFromZ $K, 0);                                             # First key
+      $t->data->copy(dFromZ $D, 0);                                             # First data
+      $t->getTreeBits($K, r15);                                                 # First tree bit
+
+      Mov r14, r15;
+      Shr r14, 1;                                                               # Shift tree bits over by 1
+      $t->setTreeBits($K, r14);                                                 # Save new tree bits
+      And r15, 1;                                                               # Isolate first tree bit
+      $t->subTree->copy(r15);                                                   # Save first tree bit
+
+      my $m = (K(one => 1) << K(shift => $t->length)) - 2;                      # Compression mask to remove key/data
+      $m->setReg(7);
+      Vpcompressd zmmM($K, 7), zmm($K);                                         # Compress out first key
+      Vpcompressd zmmM($D, 7), zmm($D);                                         # Compress out first data
+
+      $t->decLengthInKeys($K);                                                  # Reduce length
+     };
+    PopR;
+   }
+  name       => "Nasm::X86::Tree::deleteFirstKeyAndData($K, $D)",
+  structures => {tree => $tree};
+
+  $s->call(structures => {tree => $tree});
+
+  $tree                                                                         # Chain tree - actual data is in key, data,  subTree, found variables
+ }
+
 sub Nasm::X86::Tree::delete($$)                                                 # Find a key in a tree and delete it
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to delete
   @_ == 2 or confess "Two parameters";
@@ -15296,333 +15623,6 @@ if (1) {
   ok Assemble eq => <<END;
 AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 END
- }
-
-sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 #P Steal one key from the node on the right where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else zero.
- {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
-  @_ == 10 or confess "Ten parameters required";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
-    my $t  = $$s{tree};
-    my $ll = $t->lengthFromKeys($LK);
-    my $lr = $t->lengthFromKeys($RK);
-
-    PushR 7;
-
-    $t->found->copy(0);                                                         # Assume we cannot steal
-
-    Block                                                                       # Check that it is possible to steal key a from the node on the right
-     {my ($end, $start) = @_;                                                   # Code with labels supplied
-      If $ll != $t->lengthLeft,
-      Then                                                                      # Left not minimal
-       {PrintErrStringNL "Left not minimal";
-        Jmp $end
-       };
-      If $lr == $t->lengthRight,                                                # Right minimal
-      Then
-       {PrintErrStringNL "Should merge not steal";
-        Jmp $end
-       };
-
-      $t->found->copy(1);                                                       # Proceed with the steal
-
-      my $pir = (K one => 1);                                                   # Point of right key to steal
-      my $pil = $pir << ($ll - 1);                                              # Point of left key to receive key
-
-      my $rk  = $pir->dFromPointInZ($RK);                                       # Right key to rotate left
-      my $rd  = $pir->dFromPointInZ($RD);                                       # Right data to rotate left
-      my $rn  = $pir->dFromPointInZ($RN);                                       # Right node to rotate left
-
-      If $t->leafFromNodes($LN) == 0,
-      Then                                                                      # Left is not a leaf so the right is not a leaf so we must upgrade first right child up pointer
-       {PushR $LK, $LD, $LN, $RK, $RD, $RN;
-        my $ln = dFromZ($LN, 0);                                                # First child of left
-        $t->getBlock($ln, $LK, $LD, $LN);                                       # Left grand child
-        $t->getBlock($rn, $RK, $RD, $RN);                                       # Right grand child
-        my $lcu = $t->upFromData($LD);                                          # Offset of left block
-        $t->upIntoData($lcu, $RD);                                              # Set up of right grand child to left block
-        $t->putBlock($rn, $RK, $RD, $RN);
-        PopR;
-       };
-
-      my $pip = $t->insertionPoint($rk, $PK);                                   # Point of parent key to insert
-      my $pip1= $pip >> K(one=>1);                                              # Point of parent key to merge in
-      my $pk  = $pip1->dFromPointInZ($PK);                                      # Parent key to rotate left
-      my $pd  = $pip1->dFromPointInZ($PD);                                      # Parent data to rotate left
-
-      my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
-      my $rb  = $t->getTreeBit($RK, K one => 1);                                # First right tree bit
-      $pip1->dIntoPointInZ($PK, $rk);                                           # Right key into parent
-      $pip1->dIntoPointInZ($PD, $rd);                                           # Right data into parent
-      $t->setOrClearTreeBitToMatchContent($PK, $pip, $rb);                      # Right tree bit into parent
-      $pk->dIntoZ($LK, $t->middleOffset);                                       # Parent key into left
-      $pd->dIntoZ($LD, $t->middleOffset);                                       # Parent data into left
-      $rn->dIntoZ($LN, $t->rightOffset);                                        # Right node into left
-
-      $t->insertIntoTreeBits($LK, K(position => 1 << $t->lengthLeft), $pb);     # Parent tree bit into left
-
-      LoadConstantIntoMaskRegister                                              # Nodes area
-       (7, createBitNumberFromAlternatingPattern '00', $t->maxKeysZ-1, -1);
-      Vpcompressd zmmM($RK, 7), zmm($RK);                                       # Compress right keys one slot left
-      Vpcompressd zmmM($RD, 7), zmm($RD);                                       # Compress right data one slot left
-
-      LoadConstantIntoMaskRegister                                              # Nodes area
-       (7, createBitNumberFromAlternatingPattern '0', $t->maxNodesZ-1, -1);
-      Vpcompressd zmmM($RN, 7), zmm($RN);                                       # Compress right nodes one slot left
-
-      $t->incLengthInKeys($LK);                                                 # Increment left hand length
-      $t->decLengthInKeys($RK);                                                 # Decrement right hand
-     };
-    PopR;
-   }
-  name       =>
-  "Nasm::X86::Tree::stealFromRight($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
-  structures => {tree => $tree},
-  parameters => [qw(result)];
-
-  $s->call(structures => {tree   => $tree});
-
-  $tree                                                                         # Chain
- }
-
-sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  #P Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
- {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
-  @_ == 10 or confess "Ten parameters required";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
-    my $t  = $$s{tree};
-    my $ll = $t->lengthFromKeys($LK);
-    my $lr = $t->lengthFromKeys($RK);
-
-    PushR 7;
-
-    $t->found->copy(0);                                                         # Assume we cannot steal
-
-    Block                                                                       # Check that it is possible to steal a key from the node on the left
-     {my ($end, $start) = @_;                                                   # Code with labels supplied
-      If $lr != $t->lengthRight,  Then {Jmp $end};                              # Right not minimal
-      If $ll == $t->lengthLeft,   Then {Jmp $end};                              # Left minimal
-
-      $t->found->copy(1);                                                       # Proceed with the steal
-
-      my $pir = K(one => 1);                                                    # Point of right key
-      my $pil = $pir << ($ll - 1);                                              # Point of left key
-
-      my $lk  = $pil->dFromPointInZ($LK);                                       # Left key to rotate right
-      my $ld  = $pil->dFromPointInZ($LD);                                       # Left data to rotate right
-      my $ln  = ($pil << K(key => 1))->dFromPointInZ($LN);                      # Left node to rotate right
-
-      my $lb  = $t->getTreeBit($LK, $pil);                                      # Left tree bit to rotate right
-
-      my $pip = $t->insertionPoint($lk, $PK);                                   # Point of parent key to merge in
-
-      my $pk  = $pip->dFromPointInZ($PK);                                       # Parent key to rotate right
-      my $pd  = $pip->dFromPointInZ($PD);                                       # Parent data to rotate right
-      my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
-
-      LoadConstantIntoMaskRegister                                              # Nodes area
-       (7, createBitNumberFromAlternatingPattern '00', $t->maxKeysZ-1, -1);
-      Vpexpandd zmmM($RK, 7), zmm($RK);                                         # Expand right keys one slot right
-      Vpexpandd zmmM($RD, 7), zmm($RD);                                         # Expand right data one slot right
-
-      LoadConstantIntoMaskRegister                                              # Nodes area
-       (7, createBitNumberFromAlternatingPattern '0', $t->maxNodesZ-1, -1);
-      Vpexpandd zmmM($RN, 7), zmm($RN);                                         # Expand right nodes one slot right
-
-      $pip->dIntoPointInZ($PK, $lk);                                            # Left key into parent
-      $pip->dIntoPointInZ($PD, $ld);                                            # Left data into parent
-      $t->setOrClearTreeBitToMatchContent($PK, $pip, $lb);                      # Left tree bit into parent
-
-      $pir->dIntoPointInZ($RK, $pk);                                            # Parent key into right
-      $pir->dIntoPointInZ($RD, $pd);                                            # Parent data into right
-      $pir->dIntoPointInZ($RN, $ln);                                            # Left node into right
-      $t->insertIntoTreeBits($RK, $pir, $pb);                                   # Parent tree bit into right
-
-      $t->decLengthInKeys($LK);                                                 # Decrement left hand
-      $t->incLengthInKeys($RK);                                                 # Increment right hand
-
-      If $t->leafFromNodes($RN) == 0,
-      Then                                                                      # Right is not a leaf so we must upgrade the up pointer of the first child of right to match that of the second child of right
-       {PushR $LK, $LD, $LN, $RK, $RD, $RN;
-        my $r1 = dFromZ($RN, 0);                                                # First child of right
-        my $r2 = dFromZ($RN, 0);                                                # Second child of right
-        $t->getBlock($r1, $LK, $LD, $LN);                                       # Load first child of right
-        $t->getBlock($r2, $RK, $RD, $RN);                                       # Load second child of right
-        my $r2u = $t->upFromData($RD);                                          # Up from second child of right
-        $t->upIntoData($r2u, $LD);                                              # Set first child up to second child up
-        $t->putBlock($r1, $LK, $LD, $LN);
-        PopR;
-       };
-
-     };
-    PopR;
-   }
-  name       =>
-  "Nasm::X86::Tree::stealFromLeft($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
-  structures => {tree => $tree};
-
-  $s->call(structures => {tree   => $tree});
-
-  $tree                                                                         # Chain
- } # stealFromLeft
-
-sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          #P Merge a left and right node if they are at minimum size.
- {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
-  @_ == 10 or confess "Ten parameters required";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
-    my $t  = $$s{tree};
-    my $ll = $t->lengthFromKeys($LK);
-    my $lr = $t->lengthFromKeys($RK);
-
-    PushR 7, 14, 15;
-
-    Block                                                                       # Check that it is possible to steal a key from the node on the left
-     {my ($end, $start) = @_;                                                   # Code with labels supplied
-      If $ll != $t->lengthLeft,  Then {Jmp $end};                               # Left not minimal
-      If $lr != $t->lengthRight, Then {Jmp $end};                               # Right not minimal
-
-      my $pil = K(one => 1);                                                    # Point of first left key
-      my $lk  = $pil->dFromPointInZ($LK);                                       # First left key
-      my $pip = $t->insertionPoint($lk, $PK);                                   # Point of parent key to merge in
-      my $pk  = $pip->dFromPointInZ($PK);                                       # Parent key to merge
-      my $pd  = $pip->dFromPointInZ($PD);                                       # Parent data to merge
-      my $pn  = $pip->dFromPointInZ($PN);                                       # Parent node to merge
-      my $pb  = $t->getTreeBit($PK, $pip);                                      # Parent tree bit
-
-      my $m = K(one => 1) << K( shift => $t->lengthLeft);                       # Position of parent key in left
-      $m->dIntoPointInZ($LK, $pk);                                              # Position parent key in left
-      $m->dIntoPointInZ($LD, $pd);                                              # Position parent data in left
-     #$m->dIntoPointInZ($LN, $pn);                                              # Position parent node in left - not needed because the left and right around teh aprent lkey are the left and right node offsets - we should use this fact to update the children of the right node so that their up pointers point to the left node
-      $t->insertIntoTreeBits($LK, $m, $pb);                                     # Tree bit for parent data
-      LoadConstantIntoMaskRegister                                              # Keys/Data area
-       (7, createBitNumberFromAlternatingPattern '00', $t->lengthRight,   -$t->lengthMiddle);
-      Vpexpandd zmmM($LK, 7), zmm($RK);                                         # Expand right keys into left
-      Vpexpandd zmmM($LD, 7), zmm($RD);                                         # Expand right data into left
-      LoadConstantIntoMaskRegister                                              # Nodes area
-       (7, createBitNumberFromAlternatingPattern '0',  $t->lengthRight+1, -$t->lengthMiddle);
-      Vpexpandd zmmM($LN, 7), zmm($RN);                                         # Expand right data into left
-
-      $pip->setReg(15);                                                         # Collapse mask for keys/data in parent
-      Not r15;
-      And r15, $t->treeBitsMask;
-      Kmovq k7, r15;
-      Vpcompressd zmmM($PK, 7), zmm($PK);                                       # Collapse parent keys
-      Vpcompressd zmmM($PD, 7), zmm($PD);                                       # Collapse data keys
-
-      my $one = K(one => 1);                                                    # Collapse mask for keys/data in parent
-#     my $np = (!$pip << $one) >> $one;
-      my $np = !$pip << $one;                                                   # Move the compression point up one to remove the matching node
-      $np->setReg(14);
-      Add r14, 1;                                                               # Fill hole left at position 0
-      Kmovq k7, r14;                                                            # Node squeeze mask
-      Vpcompressd zmmM($PN, 7), zmm($PN);                                       # Collapse nodes
-
-      my $z = $PK == 31 ? 30: 31;                                               # Collapse parent tree bits
-      PushR zmm $z;                                                             # Collapse parent tree bits
-      $t->getTreeBits($PK, r15);                                                # Get tree bits
-      Kmovq k7, r15;                                                            # Tree bits
-      Vpmovm2d zmm($z), k7;                                                     # Broadcast the bits into a zmm
-      $pip->setReg(15);                                                         # Parent insertion point
-      Kmovq k7, r15;
-      Knotq k7, k7;                                                             # Invert parent insertion point
-      Vpcompressd zmmM($z, 7), zmm($z);                                         # Compress
-      Vpmovd2m k7, zmm $z;                                                      # Recover bits
-      Kmovq r15, k7;
-      And r15, $t->treeBitsMask;                                                # Clear trailing bits beyond valid tree bits
-      $t->setTreeBits($PK, r15);
-      PopR;
-
-      $t->getTreeBits($LK, r15);                                                # Append right tree bits to the Left tree bits
-      $t->getTreeBits($RK, r14);                                                # Right tree bits
-      my $sl = RegisterSize(r15) * $bitsInByte / 4 - $tree->lengthMiddle;       # Clear bits right of the lower left bits
-      Shl r15w, $sl;
-      Shr r15w, $sl;
-
-      Shl r14, $tree->lengthMiddle;                                             # Move right tree bits into position
-      Or  r15, r14;                                                             # And in left tree bits
-      And r15, $t->treeBitsMask;                                                # Clear trailing bits beyond valid tree bits
-      $t->setTreeBits($LK, r15);                                                # Set tree bits
-
-      If $t->leafFromNodes($RN) == 0,
-      Then                                                                      # Right is not a leaf so we must upgrade the up offset of its children to the up pointer of the first left child
-       {PushR $LK, $LD, $LN;
-        my $l1 = dFromZ($LN, 0);                                                # First child of left
-        $t->getBlock($l1, $LK, $LD, $LN);                                       # Load first child of left
-        my $l2u = $t->upFromData($LD);                                          # Offset of left block
-        my $lr = 1 + $t->lengthFromKeys($RK);                                   # Number of right children
-        $lr->for(sub                                                            # Each child of right
-         {my ($i) = @_;
-          my $r = dFromZ($RN, $i * $tree->width);                               # Offset of child
-          $t->getBlock($r, $LK, $LD, $LN);                                      # Load child of right
-          $t->upIntoData ($l2u, $LD);                                           # Set parent
-          $t->putBlock($r, $LK, $LD, $LN);                                      # Write back into memory
-         });
-        PopR;
-       };
-
-      $t->decLengthInKeys($PK);                                                 # Parent now has one less
-      $t->lengthIntoKeys($LK, K length => $t->length);                          # Left is now full
-
-     };
-    PopR;
-   }
-  name       =>
-  "Nasm::X86::Tree::merge($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
-  structures => {tree => $tree};
-
-  $s->call(structures => {tree=> $tree});
-
-  $tree                                                                         # Chain
- } # merge
-
-sub Nasm::X86::Tree::deleteFirstKeyAndData($$$$)                                # Delete the first element of a leaf mode returning its characteristics in the calling tree descriptor.
- {my ($tree, $K, $D) = @_;                                                      # Tree definition, keys zmm, data zmm
-  @_ == 3 or confess "Three parameters";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
-    my $t = $$s{tree};
-    my $l = $t->lengthFromKeys($K);
-
-    PushR 7, 14, 15;
-
-    $t->found->copy(0);                                                         # Assume not found
-
-    Block                                                                       # Check that it is possible to steal a key from the node on the left
-     {my ($end, $start) = @_;                                                   # Code with labels supplied
-      If $l == 0,  Then {Jmp $end};                                             # No elements left
-
-      $t->found->copy(1);                                                       # Show first key and data have been found
-
-      $t->key ->copy(dFromZ $K, 0);                                             # First key
-      $t->data->copy(dFromZ $D, 0);                                             # First data
-      $t->getTreeBits($K, r15);                                                 # First tree bit
-
-      Mov r14, r15;
-      Shr r14, 1;                                                               # Shift tree bits over by 1
-      $t->setTreeBits($K, r14);                                                 # Save new tree bits
-      And r15, 1;                                                               # Isolate first tree bit
-      $t->subTree->copy(r15);                                                   # Save first tree bit
-
-      my $m = (K(one => 1) << K(shift => $t->length)) - 2;                      # Compression mask to remove key/data
-      $m->setReg(7);
-      Vpcompressd zmmM($K, 7), zmm($K);                                         # Compress out first key
-      Vpcompressd zmmM($D, 7), zmm($D);                                         # Compress out first data
-
-      $t->decLengthInKeys($K);                                                  # Reduce length
-     };
-    PopR;
-   }
-  name       => "Nasm::X86::Tree::deleteFirstKeyAndData($K, $D)",
-  structures => {tree => $tree};
-
-  $s->call(structures => {tree => $tree});
-
-  $tree                                                                         # Chain tree - actual data is in key, data,  subTree, found variables
  }
 
 #latest:
