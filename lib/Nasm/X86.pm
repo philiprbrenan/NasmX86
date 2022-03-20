@@ -6805,9 +6805,9 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
                           point => $point, subTree => $subTree});
  }
 
-#D2 Insert                                                                      #P Insert a key into the tree.
+#D2 Insert                                                                      # Insert a key into the tree.
 
-sub Nasm::X86::Tree::indexXX($$$$)                                              # Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
+sub Nasm::X86::Tree::indexXX($$$$)                                              #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
  {my ($tree, $key, $K, $cmp) = @_;                                              # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>
   @_ == 4 or confess "Four parameters";
 
@@ -15298,7 +15298,7 @@ AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  
 END
  }
 
-sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 # Steal one key from the node on the right where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else zero.
+sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 #P Steal one key from the node on the right where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else zero.
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
@@ -15386,7 +15386,7 @@ sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 
   $tree                                                                         # Chain
  }
 
-sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  # Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
+sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  #P Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
@@ -15468,8 +15468,7 @@ sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  
   $tree                                                                         # Chain
  } # stealFromLeft
 
-# Need to change up to point to new parent for merged in node children
-sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          # Merge a left and right node if they are at minimum size.
+sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          #P Merge a left and right node if they are at minimum size.
  {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
