@@ -8805,17 +8805,41 @@ sub Nasm::X86::Tree::yb($&)                                                     
   SetLabel $end;
  }
 
-sub Nasm::X86::Tree::by22($&)                                                   # Call the specified block with each (key, data) from the specified tree in order.
- {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
-  @_ == 2 or confess "Two parameters required";
+#D2 Push and Pop                                                                # Push elements on to a tree with the next available key. Pop the last element in a tree.
 
-  my $iter  = $tree->iterator;                                                  # Create an iterator
-  my $start = SetLabel Label; my $end = Label;                                  # Start and end of loop
-  If $iter->more == 0, sub {Jmp $end};                                          # Jump to end if there are no more elements to process
-  &$block($iter, $end);                                                         # Perform the block parameterized by the iterator and the end label
-  $iter->next;                                                                  # Next element
-  Jmp $start;                                                                   # Process next element
-  SetLabel $end;                                                                # End of the loop
+sub Nasm::X86::Tree::push($$;$)                                                 # Push a data value onto a tree, indicating whether the data represents the offset of a sub tree or not.
+ {my ($tree, $data, $subTree) = @_;                                             # Tree descriptor, variable data, variable sub tree boolean indicator
+  @_ == 2 or @_ == 3 or confess "Two or three parameters";
+  my $z = K(zero => 0);
+
+  $tree->findLast;                                                              # Last element
+  If $tree->found == 0,
+  Then                                                                          # Empty tree
+   {#$tree->put($z, $data, $subTree // $z);                                     # First element in tree
+    $tree->put($z, $data);                                                      # First element in tree
+   },
+  Else                                                                          # Non empty tree
+   {#$tree->insert($tree->key + 1, $data, $subTree // $z);                      # Last element in tree
+    $tree->put($tree->key + 1, $data);                                          # Last element in tree
+   };
+ }
+
+sub Nasm::X86::Tree::pop($)                                                     # Pop the last value out of a tree and return the key/data/subTree in the tree descriptor.
+ {my ($tree, $data, $subTree) = @_;                                             # Tree descriptor
+  @_ == 1 or confess "One parameter";
+
+  $tree->findLast;                                                              # Last element
+  If $tree->found > 0,
+  Then                                                                          # Empty tree
+   {my $k = $tree->key    ->clone('key');
+    my $d = $tree->data   ->clone('data');
+    my $s = $tree->subTree->clone('subTree');
+    $tree->delete($k);                                                          # Delete last key
+    $tree->key    ->copy($k);                                                   # Retrieved key
+    $tree->data   ->copy($d);                                                   # Retrieved data
+    $tree->subTree->copy($s);                                                   # Retrieved sub tree indicator
+    $tree->found  ->copy(1);                                                    # Indicate success
+   };
  }
 
 #D1 Quarks                                                                      # Quarks allow us to replace unique strings with unique numbers.  We can translate either from a string to its associated number or from a number to its associated string or from a quark in one set of quarks to the corresponding quark with the same string in another set of quarks.
@@ -18250,6 +18274,42 @@ if (1) {                                                                        
 0000 0000 0000 0001 0000 0000 0000 0002
 0000 0000 0000 0000 0000 0000 0000 0000
 END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::pop
+  my $a = CreateArena;
+  my $t = $a->CreateTree(length => 3);
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->push($i);
+   });
+
+  $N->for(sub
+   {my ($i) = @_;
+    $t->pop; $t->found->out("f: ", " "); $t->data->outNL;
+   });
+  $t->pop; $t->found->out("f: ");
+
+  ok Assemble eq => <<END;
+f: 0000 0000 0000 0001 data: 0000 0000 0000 000F
+f: 0000 0000 0000 0001 data: 0000 0000 0000 000E
+f: 0000 0000 0000 0001 data: 0000 0000 0000 000D
+f: 0000 0000 0000 0001 data: 0000 0000 0000 000C
+f: 0000 0000 0000 0001 data: 0000 0000 0000 000B
+f: 0000 0000 0000 0001 data: 0000 0000 0000 000A
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0009
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0008
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0007
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0006
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0005
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0004
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0003
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0002
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0001
+f: 0000 0000 0000 0001 data: 0000 0000 0000 0000
+f: 0000 0000 0000 0000END
  }
 
 #latest:
