@@ -6208,410 +6208,6 @@ sub Nasm::X86::String::free($)                                                  
   $s->call(structures=>{string => $string});
  }
 
-#D1 Array                                                                       # Array constructed as a set of blocks in an arena
-
-sub DescribeArray(%)                                                            # Describe a dynamic array held in an arena.
- {my (%options) = @_;                                                           # Array description
-  my $b = RegisterSize zmm0;                                                    # Size of a block == size of a zmm register
-  my $o = RegisterSize eax;                                                     # Size of a double word
-
-  my $a = genHash(__PACKAGE__."::Array",                                        # Array definition
-    arena  => ($options{arena} // DescribeArena),                               # Variable address of arena for array
-    width  => $o,                                                               # Width of each element
-    first  => ($options{first} // V('first')),                                  # Variable addressing first block in array
-    slots1 => $b / $o - 1,                                                      # Number of slots in first block
-    slots2 => $b / $o,                                                          # Number of slots in second and subsequent blocks
-   );
-
-  $a->slots2 == 16 or confess "Number of slots per block not 16";               # Slots per block check
-
-  $a                                                                            # Description of array
- }
-
-sub Nasm::X86::Arena::DescribeArray($%)                                         # Describe a dynamic array held in an arena.
- {my ($arena, %options) = @_;                                                   # Arena description, options
-  @_ >= 1 or confess "One or more parameters";
-  DescribeArray(arena => $arena, %options)
- }
-
-sub Nasm::X86::Arena::CreateArray($)                                            # Create a dynamic array held in an arena.
- {my ($arena) = @_;                                                             # Arena description
-  @_ == 1 or confess "One parameter";
-
-  $arena->DescribeArray(first => $arena->allocZmmBlock);                        # Describe array
- }
-
-sub Nasm::X86::Array::allocBlock($)                                             #P Allocate a block to hold a zmm register in the specified arena and return the offset of the block in a variable.
- {my ($array) = @_;                                                             # Array descriptor
-  @_ == 1 or confess "One parameter";
-
-  $array->arena->allocBlock;
- }
-
-sub Nasm::X86::Array::dump($)                                                   # Dump a array.
- {my ($array) = @_;                                                             # Array descriptor
-  @_ >= 1 or confess;
-  my $W = RegisterSize zmm0;                                                    # The size of a block
-  my $w = $array->width;                                                        # The size of an entry in a block
-  my $n = $array->slots1;                                                       # The number of slots per block
-  my $N = $array->slots2;                                                       # The number of slots per block
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $array = $$s{array};                                                     # Array
-    my $F     = $array->first;                                                  # First
-    my $arena = $array->arena;                                                  # Arena
-
-    PushR (r8, zmm30, zmm31);
-    $arena->getZmmBlock($F, 31);                                                # Get the first block
-    my $size = dFromZ 31, 0;                                                    # Size of array
-    PrintOutStringNL("array");
-    $size->out("Size: ", "  ");
-    PrintOutRegisterInHex zmm31;
-
-    If $size > $n,
-    Then                                                                        # Array has secondary blocks
-     {my $T = $size / $N;                                                       # Number of full blocks
-
-      $T->for(sub                                                               # Print out each block
-       {my ($index, $start, $next, $end) = @_;                                  # Execute block
-        my $S = dFromZ 31, ($index + 1) * $w;                                   # Address secondary block from first block
-        $arena->getZmmBlock($S, 30);                                            # Get the secondary block
-        $S->out("Full: ", "  ");
-        PrintOutRegisterInHex zmm30;
-       });
-
-      my $lastBlockCount = $size % $N;                                          # Number of elements in the last block
-      If $lastBlockCount > 0, sub                                               # Print non empty last block
-       {my $S = dFromZ 31, ($T + 1) * $w;                                       # Address secondary block from first block
-        $arena->getZmmBlock($S, 30);                                            # Get the secondary block
-        $S->out("Last: ", "  ");
-        PrintOutRegisterInHex zmm30;
-       };
-     };
-
-    PopR;
-   } structures => {array => $array},
-     name       => q(Nasm::X86::Array::dump);
-
-  $s->call(structures => {array => $array});
- }
-
-sub Nasm::X86::Array::push($$)                                                  # Push a variable element onto an array.
- {my ($array, $element) = @_;                                                   # Array descriptor, variable element to push
-  @_ == 2 or confess "Two parameters";
-
-  my $W = RegisterSize zmm0;                                                    # The size of a block
-  my $w = $array->width;                                                        # The size of an entry in a block
-  my $n = $array->slots1;                                                       # The number of slots per block
-  my $N = $array->slots2;                                                       # The number of slots per block
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
-
-    my $array = $$s{array};                                                     # Array
-    my $arena = $array->arena;                                                  # Arena
-    my $F = $array->first;                                                      # First block
-    my $E = $$s{element};                                                       # The element to be inserted
-
-    PushR 8, 31;
-    my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
-
-    $arena->getZmmBlock($F, 31);                                                # Get the first block
-    my $size = dFromZ 31, 0;                                                    # Size of array
-
-    If $size < $n,
-    Then                                                                        # Room in the first block
-     {$E       ->dIntoZ(31, ($size + 1) * $w);                                  # Place element
-      ($size+1)->dIntoZ(31, 0);                                                 # Update size
-      $arena   ->putZmmBlock($F, 31);                                           # Put the first block back into memory
-      Jmp $success;                                                             # Element successfully inserted in first block
-     };
-
-    If $size == $n,
-    Then                                                                        # Migrate the first block to the second block and fill in the last slot
-     {PushR (rax, k7, zmm30);
-      Mov rax, -2;                                                              # Load compression mask
-      Kmovq k7, rax;                                                            # Set  compression mask
-      Vpcompressd "zmm30{k7}{z}", zmm31;                                        # Compress first block into second block
-      ClearRegisters zmm31;                                                     # Clear first block
-      ($size+1)->dIntoZ(31, 0);                                                 # Save new size in first block
-      my $new = $arena->allocZmmBlock;                                          # Allocate new block
-      $new->dIntoZ(31, $w);                                                     # Save offset of second block in first block
-      $E  ->dIntoZ(30, $W - 1 * $w);                                            # Place new element
-      $arena->putZmmBlock($new, 30);                                            # Put the second block back into memory
-      $arena->putZmmBlock($F,   31);                                            # Put the first  block back into memory
-      PopR;
-      Jmp $success;                                                             # Element successfully inserted in second block
-     };
-
-    If $size <= $N * ($N - 1),
-    Then                                                                        # Still within two levels
-     {If $size % $N == 0,
-      Then                                                                      # New secondary block needed
-       {PushR (rax, zmm30);
-        my $new = $arena->allocZmmBlock;                                        # Allocate new block
-        $E       ->dIntoZ(30, 0);                                               # Place new element last in new second block
-        ($size+1)->dIntoZ(31, 0);                                               # Save new size in first block
-        $new     ->dIntoZ(31, ($size / $N + 1) * $w);                           # Address new second block from first block
-        $arena   ->putZmmBlock($new, 30);                                       # Put the second block back into memory
-        $arena   ->putZmmBlock($F,   31);                                       # Put the first  block back into memory
-        PopR;
-        Jmp $success;                                                           # Element successfully inserted in second block
-       };
-
-      if (1)                                                                    # Continue with existing secondary block
-       {PushR (rax, r14, zmm30);
-        my $S = dFromZ 31, ($size / $N + 1) * $w;                               # Offset of second block in first block
-        $arena   ->getZmmBlock($S, 30);                                         # Get the second block
-        $E       ->dIntoZ( 30, ($size % $N) * $w);                              # Place new element last in new second block
-        ($size+1)->dIntoZ( 31, 0);                                              # Save new size in first block
-        $arena   ->putZmmBlock($S, 30);                                         # Put the second block back into memory
-        $arena   ->putZmmBlock($F, 31);                                         # Put the first  block back into memory
-        PopR;
-        Jmp $success;                                                           # Element successfully inserted in second block
-       }
-     };
-
-    SetLabel $success;
-    PopR;
-   } structures => {array=>$array, element=>$element},
-     name       => 'Nasm::X86::Array::push';
-
-  $s->call(structures => {array=>$array, element=>$element});
- }
-
-sub Nasm::X86::Array::pop($)                                                    # Pop an element from an array and return it in a variable.
- {my ($array) = @_;                                                             # Array descriptor
-  @_ == 1 or confess "One parameter";
-  my $W = RegisterSize zmm0;                                                    # The size of a block
-  my $w = $array->width;                                                        # The size of an entry in a block
-  my $n = $array->slots1;                                                       # The number of slots per block
-  my $N = $array->slots2;                                                       # The number of slots per block
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
-
-    my $E = $$p{element};                                                       # The element being popped
-
-    my $array = $$s{array};                                                     # Array
-    my $arena = $array->arena;                                                  # Arena
-    my $F     = $array->first;                                                  # First block of array
-
-    PushR 8, 31;
-    my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
-    $arena->getZmmBlock($F, 31);                                                # Get the first block
-    my $size = dFromZ 31, 0;                                                    # Size of array
-
-    If $size > 0,
-    Then                                                                        # Array has elements
-     {If $size <= $n,
-      Then                                                                      # In the first block
-       {$E       ->dFromZ(31, $size * $w);                                      # Get element
-        ($size-1)->dIntoZ(31, 0);                                               # Update size
-        $arena   ->putZmmBlock($F, 31);                                         # Put the first block back into memory
-        Jmp $success;                                                           # Element successfully retrieved from secondary block
-       };
-
-      If $size == $N,
-      Then                                                                      # Migrate the second block to the first block now that the last slot is empty
-       {PushR (rax, k7, zmm30);
-        my $S = dFromZ 31, $w;                                                  # Offset of second block in first block
-        $arena->getZmmBlock($S, 30);                                            # Get the second block
-        $E->dFromZ(30, $n * $w);                                                # Get element from second block
-        Mov rax, -2;                                                            # Load expansion mask
-        Kmovq k7, rax;                                                          # Set  expansion mask
-        Vpexpandd "zmm31{k7}{z}", zmm30;                                        # Expand second block into first block
-        ($size-1)->dIntoZ(31, 0);                                               # Save new size in first block
-        $arena-> putZmmBlock($F, 31);                                           # Save the first block
-        $arena->freeZmmBlock($S);                                               # Free the now redundant second block
-        PopR;
-        Jmp $success;                                                           # Element successfully retrieved from secondary block
-       };
-
-      If $size <= $N * ($N - 1),
-      Then                                                                      # Still within two levels
-       {If $size % $N == 1,
-       Then                                                                     # Secondary block can be freed
-         {PushR (rax, zmm30);
-          my $S = dFromZ 31, ($size / $N + 1) * $w;                             # Address secondary block from first block
-          $arena    ->getZmmBlock($S, 30);                                      # Load secondary block
-          $E->dFromZ(30, 0);                                                    # Get first element from secondary block
-          V(zero, 0)->dIntoZ(31, ($size / $N + 1) * $w);                        # Zero at offset of secondary block in first block
-          ($size-1)->dIntoZ(31, 0);                                             # Save new size in first block
-          $arena->freeZmmBlock($S);                                             # Free the secondary block
-          $arena->putZmmBlock ($F, 31);                                         # Put the first  block back into memory
-          PopR;
-          Jmp $success;                                                         # Element successfully retrieved from secondary block
-         };
-
-        if (1)                                                                  # Continue with existing secondary block
-         {PushR (rax, r14, zmm30);
-          my $S = dFromZ 31, (($size-1) / $N + 1) * $w;                         # Offset of secondary block in first block
-          $arena   ->getZmmBlock($S, 30);                                       # Get the secondary block
-          $E       ->dFromZ(30, (($size - 1)  % $N) * $w);                      # Get element from secondary block
-          ($size-1)->dIntoZ(31, 0);                                             # Save new size in first block
-          $arena   ->putZmmBlock($S, 30);                                       # Put the secondary block back into memory
-          $arena   ->putZmmBlock($F, 31);                                       # Put the first  block back into memory
-          PopR;
-          Jmp $success;                                                         # Element successfully retrieved from secondary block
-         }
-       };
-     };
-
-    SetLabel $success;
-    PopR;
-   } parameters => [qw(element)],
-     structures => {array=>$array},
-     name       => 'Nasm::X86::Array::pop';
-
-  $s->call
-   (structures =>{array   => $array},
-    parameters =>{element => my $element = V element => 0});
-
-  $element
- }
-
-sub Nasm::X86::Array::size($)                                                   # Return the size of an array as a variable.
- {my ($array) = @_;                                                             # Array
-  @_ == 1 or confess "One parameter";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
-
-    my $array = $$s{array};                                                     # Array
-    my $arena = $array->arena;                                                  # Arena
-
-    PushR zmm31, my $transfer = r8;
-    $arena->getZmmBlock($array->first, 31);                                     # Get the first block
-    $$p{size}->copy(dFromZ(31, 0));                                             # Size of array
-
-    SetLabel $success;
-    PopR;
-   }  structures => {array=>$array},
-      parameters => [qw(size)],
-      name       => 'Nasm::X86::Array::size';
-
-  $s->call(structures => {array => $array},                                     # Get the size of the array
-           parameters => {size  => my $size = V(size => 0)});
-
-  $size                                                                         # Return size as a variable
- }
-
-sub Nasm::X86::Array::get($$)                                                   # Get an element from the array.
- {my ($array, $index) = @_;                                                     # Array descriptor, variables
-  @_ == 2 or confess "Two parameters";
-  my $W = RegisterSize zmm0;                                                    # The size of a block
-  my $w = $array->width;                                                        # The size of an entry in a block
-  my $n = $array->slots1;                                                       # The number of slots in the first block
-  my $N = $array->slots2;                                                       # The number of slots in the secondary blocks
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
-
-    my $E = $$p{element};                                                       # The element to be returned
-    my $I = $$p{index};                                                         # Index of the element to be returned
-
-    my $array = $$s{array};                                                     # Array
-    my $F     = $array->first;                                                  # First block of array
-    my $arena = $array->arena;                                                  # Arena
-
-    PushR (r8, zmm31);
-    my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
-    $arena->getZmmBlock($F, 31);                                                # Get the first block
-    my $size = dFromZ 31, 0;                                                    # Size of array
-    If $I < $size,
-    Then                                                                        # Index is in array
-     {If $size <= $n,
-      Then                                                                      # Element is in the first block
-       {$E->dFromZ(31, ($I + 1) * $w);                                          # Get element
-        Jmp $success;                                                           # Element successfully inserted in first block
-       };
-
-      If $size <= $N * ($N - 1),
-      Then                                                                      # Still within two levels
-       {my $S = dFromZ 31, ($I / $N + 1) * $w;                                  # Offset of second block in first block
-        $arena->getZmmBlock($S, 31);                                            # Get the second block
-        $E->dFromZ(31, ($I % $N) * $w);                                         # Offset of element in second block
-        Jmp $success;                                                           # Element successfully inserted in second block
-       };
-     };
-
-    PrintErrString "Index out of bounds on get from array, ";                   # Array index out of bounds
-    $I->err("Index: "); PrintErrString "  "; $size->errNL("Size: ");
-    Exit(1);
-
-    SetLabel $success;
-    PopR;
-   } parameters => [qw(index element)],
-     structures => {array => $array},
-     name       => 'Nasm::X86::Array::get';
-
-  $s->call(structures=>{array=>$array},
-           parameters=>{index=>$index, element => my $e = V element => 0});
-  $e
- }
-
-sub Nasm::X86::Array::put($$$)                                                  # Put an element into an array at the specified index as long as it is with in its limits established by pushing.
- {my ($array, $index, $element) = @_;                                           # Array descriptor, index as a variable, element as a variable - bu t only the lowest four bytes will be stored in the array
-  @_ == 3 or confess 'Three parameters';
-
-  my $W = RegisterSize zmm0;                                                    # The size of a block
-  my $w = $array->width;                                                        # The size of an entry in a block
-  my $n = $array->slots1;                                                       # The number of slots in the first block
-  my $N = $array->slots2;                                                       # The number of slots in the secondary blocks
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
-
-    my $E = $$p{element};                                                       # The element to be added
-    my $I = $$p{index};                                                         # Index of the element to be inserted
-
-    my $array = $$s{array};                                                     # Array
-    my $F     = $array->first;                                                  # First block of array
-    my $arena = $array->arena;                                                  # Arena
-
-    PushR (r8, zmm31);
-    my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
-    $arena->getZmmBlock($F, 31);                                                # Get the first block
-    my $size = dFromZ 31, 0;                                                    # Size of array
-    If $I < $size,
-    Then                                                                        # Index is in array
-     {If $size <= $n,
-       Then                                                                     # Element is in the first block
-       {$E->dIntoZ(31, ($I + 1) * $w);                                          # Put element
-        $arena->putZmmBlock($F, 31);                                            # Get the first block
-        Jmp $success;                                                           # Element successfully inserted in first block
-       };
-
-      If $size <= $N * ($N - 1),
-      Then                                                                      # Still within two levels
-       {my $S = dFromZ 31, ($I / $N + 1) * $w;                                  # Offset of second block in first block
-        $arena->getZmmBlock($S, 31);                                            # Get the second block
-        $E->dIntoZ(31, ($I % $N) * $w);                                         # Put the element into the second block in first block
-        $arena->putZmmBlock($S, 31);                                            # Get the first block
-        Jmp $success;                                                           # Element successfully inserted in second block
-       };
-     };
-
-    PrintErrString "Index out of bounds on put to array, ";                     # Array index out of bounds
-    $I->err("Index: "); PrintErrString "  "; $size->errNL("Size: ");
-    Exit(1);
-
-    SetLabel $success;
-    PopR;
-   } parameters=>[qw(index element)],
-     structures=>{array=>$array}, name => 'Nasm::X86::Array::put';
-
-  $s->call(parameters=>{index=>$index, element => $element},
-           structures=>{array=>$array});
- }
-
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an arena.
 
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
@@ -6811,6 +6407,7 @@ sub Nasm::X86::Tree::size($)                                                    
   PushR $F;
   $tree->firstFromMemory($F);
   my $s = $tree->sizeFromFirst($F);
+  $s->name = q(size of tree);
   PopR;
   $s
  }
@@ -8853,7 +8450,7 @@ sub Nasm::X86::Tree::get($$)                                                    
  }
 
 #D1 Quarks                                                                      # Quarks allow us to replace unique strings with unique numbers.  We can translate either from a string to its associated number or from a number to its associated string or from a quark in one set of quarks to the corresponding quark with the same string in another set of quarks.
-
+=pod
 sub DescribeQuarks(%)                                                           # Return a descriptor for a set of quarks.
  {my (%options) = @_;                                                           # Options
 
@@ -9209,6 +8806,7 @@ sub Nasm::X86::Quarks::callSubFromQuarkNumber($$$@)                             
   my $s = $q->subFromQuarkNumber($number);
   $sub->via($s, @parameters);
  }
+=cut
 
 #D1 Assemble                                                                    # Assemble generated code
 
@@ -17813,7 +17411,7 @@ if (1) {                                                                        
   $t->delete(K k => 15);  $t->printInOrder("15");
 
   ok Assemble eq => <<END;
-d at offset 8 in zmm31: 0000 0000 0000 0014
+size of tree: 0000 0000 0000 0014
 AA  20:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
  0  19:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
  9  18:    1   2   3   4   5   6   7   8   A   B   C   D   E   F  10  11  12  13
@@ -18289,7 +17887,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18299,6 +17897,7 @@ if (1) {                                                                        
     $t->push($i+1);
    });
 
+  $t->size->outNL;
   $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
 
   $N->for(sub
@@ -18308,6 +17907,7 @@ if (1) {                                                                        
   $t->pop; $t->found->outNL("f: ");
 
   ok Assemble eq => <<END;
+size of tree: 0000 0000 0000 0010
 f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
 f: 0000 0000 0000 0001 i: 0000 0000 0000 0010 data: 0000 0000 0000 0010
 f: 0000 0000 0000 0001 i: 0000 0000 0000 000F data: 0000 0000 0000 000F
