@@ -4418,7 +4418,99 @@ sub Hash()                                                                      
   $s->call;
  }
 
-#D1 Unicode                                                                     # Convert utf8 to utf32
+#D1 Unicode                                                                     # Convert between utf8 and utf32
+
+sub convert_rax_from_utf32_to_utf8                                              # Convert a utf32  character held in rax to a utf8 character held in rax
+ {@_ and confess "Zero parameters";
+
+=pod
+U+0000  U+007F   0xxxxxxx
+U+0080  U+07FF   110xxxxx  10xxxxxx
+U+0800  U+FFFF   1110xxxx  10xxxxxx  10xxxxxx
+U+10000 U+10FFFF 11110xxx  10xxxxxx  10xxxxxx  10xxxxxx
+=cut
+
+  my $s = Subroutine
+   {PushR 11, 12, 13, 14, 15;
+    my $success = Label;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
+    Cmp rax, 0x7f;                                                              # Ascii
+    IfLe Then {Jmp $success};
+
+    Cmp rax, 0x7ff;                                                             # Char size is: 2 bytes
+    IfLe
+    Then
+     {Mov r15, rax;
+      And r15, 0x1f;
+      Mov r14, rax;                                                             # Byte 2
+      Shr r14, 8;
+      And r14, 0x3f;
+      Shl r14, 5;
+      Or r15, r14;
+      Mov rax, r15;
+      Jmp $success;
+     };
+
+    Cmp rax, 0xffff;                                                            # Char size is: 3 bytes
+    IfLe
+    Then
+     {Mov r15, rax;
+      And r15, 0xf;
+
+      Mov r14, rax;                                                             # Byte 2
+      Shr r14, 8;
+      And r14, 0x3f;
+      Shl r14, 4;
+PrintErrStringNL "BBBB111";
+      PrintErrRegisterInHex rax, 14, 15;
+      Or r15, r14;
+
+      Mov r14, rax;                                                             # Byte 3
+      Shr r14, 16;
+      And r14, 0x3f;
+      Shl r14, 10;
+PrintErrStringNL "BBBB222";
+      PrintErrRegisterInHex rax, 14, 15;
+      Or  r15, r14;
+
+      Mov rax, r15;
+      Jmp $success;
+     };
+
+    Cmp rax, 0xffff;                                                            # Char size is: 4 bytes
+    IfLe
+    Then
+     {Mov r15, rax;
+      And r15, 0x7;
+
+      Mov r14, rax;                                                             # Byte 2
+      Shr r14, 8;
+      And r14, 0x3f;
+      Shl r14, 3;
+      Or  r15, r14;
+
+      Mov r14, rax;                                                             # Byte 3
+      Shr r14, 16;
+      And r14, 0x3f;
+      Shl r14, 9;
+      Or  r15, r14;
+
+      Mov r14, rax;                                                             # Byte 4
+      Shr r14, 24;
+      And r14, 0x3f;
+      Shl r14, 15;
+      Or  r15, r14;
+
+      Mov rax, r15;
+      Jmp $success;
+     };
+
+    SetLabel $success;
+
+    PopR;
+   } name => 'convert_rax_from_utf32_to_utf8';
+
+  $s->call;
+ } # convert_rax_from_utf32_to_utf8
 
 sub GetNextUtf8CharAsUtf32($$$$)                                                # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
  {my ($in, $out, $size, $fail) = @_;                                            # Address of character variable, output character variable, output size of input, output error  if any
@@ -9048,6 +9140,32 @@ sub Nasm::X86::Tree::get($$)                                                    
  {my ($tree, $key) = @_;                                                        # Tree descriptor, zero based index
   @_ == 2 or confess "Two parameters";
   $tree->find($key);
+ }
+
+#D2 Trees as Strings                                                            # Use trees as a strings. The characters of the string are stored as an array of characters.  The indices of the array run from 1 to the length of the string.
+
+sub Nasm::X86::Tree::append($$)                                                 # Append the second source tree to the first target tree renumbering the keys of the source tree to follow on from those of the target tree.  A string can safely be appended to itself.
+ {my ($tree, $append) = @_;                                                     # Tree descriptor of string to append to, tree to append from
+  @_ == 2 or confess "Two parameters";
+
+  my $lt = $tree->size;                                                         # Target tree size
+  my $ls = $append->size;                                                       # Source tree size
+  $ls->for(sub                                                                  # Look up each character
+   {my ($i, $start, $next, $end) = @_;
+    $tree->get($i);
+    $tree->put($lt+$i, $tree->key);
+   });
+  $tree                                                                         # Chain from the target tree
+ }
+
+sub Nasm::X86::Tree::outAsUtf8($)                                               # Print the data values of the specified string on stdout assuming each data value is one ascii character
+ {my ($tree) = @_;                                                              # Tree descriptor of string
+  @_ == 1 or confess "One parameter";
+
+  $tree->by(sub                                                                 # Each character
+   {my ($i, $start, $next, $end) = @_;
+   });
+  $tree                                                                         # Chain from the target tree
  }
 
 #D1 Quarks                                                                      # Quarks allow us to replace unique strings with unique numbers.  We can translate either from a string to its associated number or from a number to its associated string or from a quark in one set of quarks to the corresponding quark with the same string in another set of quarks.
@@ -18117,6 +18235,17 @@ Area     Size:     4096    Used:      192
 0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+latest:
+if (1) {                                                                        #
+
+  Mov rax, 0xCEB1; # 0x03B1
+  convert_rax_from_utf32_to_utf8;
+  PrintErrRegisterInHex rax;
+
+  ok Assemble eq => <<END;
 END
  }
 
