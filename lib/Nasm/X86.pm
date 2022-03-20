@@ -7480,9 +7480,9 @@ sub Nasm::X86::Tree::put($$$)                                                   
    }
  }
 
-#D2 Find                                                                        # Find a key in the tree
+#D2 Find                                                                        # Find a key in the tree. Trees have dword integer keys and so can act as arrays as well.
 
-sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and test whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
+sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and tests whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
@@ -7491,13 +7491,11 @@ sub Nasm::X86::Tree::find($$)                                                   
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR 28..31;
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;;
 
     my $t = $$s{tree};                                                          # Tree to search
     my $k = $$p{key};                                                           # Key to find
     $t->key->copy($k);                                                          # Copy in key so we know what was searched for
-
-    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
 
     $t->found  ->copy(0);                                                       # Key not found
     $t->data   ->copy(0);                                                       # Data not yet found
@@ -7586,9 +7584,9 @@ sub Nasm::X86::Tree::findFirst($)                                               
 
       If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
       Then
-       {$t->found   ->copy(1);
-        $t->key     ->copy($k);
-        $t->data    ->copy($d);
+       {$t->found  ->copy(1);
+        $t->key    ->copy($k);
+        $t->data   ->copy($d);
         $t->subTree->copy($b);
         Jmp $success
        };
@@ -8814,7 +8812,7 @@ sub Nasm::X86::Tree::yb($&)                                                     
   SetLabel $end;
  }
 
-#D2 Push and Pop                                                                # Push elements on to a tree with the next available key. Pop the last element in a tree.
+#D2 Push and Pop                                                                # Use a tree as a stack: Push elements on to a tree with the next available key; Pop the last element in a tree.
 
 sub Nasm::X86::Tree::push($$)                                                   #P Push a data value onto a tree. If teh data is a reference to a tree then the offset of the first block of the tree is pushed.
  {my ($tree, $data) = @_;                                                       # Tree descriptor, variable data
@@ -8846,6 +8844,12 @@ sub Nasm::X86::Tree::pop($)                                                     
     $tree->subTree->copy($s);                                                   # Retrieved sub tree indicator
     $tree->found  ->copy(1);                                                    # Indicate success
    };
+ }
+
+sub Nasm::X86::Tree::get($$)                                                    # Retrieves the element at the specified zero based index in the stack.
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, zero based index
+  @_ == 2 or confess "Two parameters";
+  $tree->find($key);
  }
 
 #D1 Quarks                                                                      # Quarks allow us to replace unique strings with unique numbers.  We can translate either from a string to its associated number or from a number to its associated string or from a quark in one set of quarks to the corresponding quark with the same string in another set of quarks.
@@ -17064,7 +17068,7 @@ X   5:    A  14  1E  1F  20
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
@@ -18285,39 +18289,42 @@ if (1) {                                                                        
 END
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::pop
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
   my $a = CreateArena;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 16;
   $N->for(sub
    {my ($i) = @_;
-    $t->push($i);
+    $t->push($i+1);
    });
+
+  $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
 
   $N->for(sub
    {my ($i) = @_;
-    $t->pop; $t->found->out("f: ", " "); $t->data->outNL;
+    $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
    });
   $t->pop; $t->found->outNL("f: ");
 
   ok Assemble eq => <<END;
-f: 0000 0000 0000 0001 data: 0000 0000 0000 000F
-f: 0000 0000 0000 0001 data: 0000 0000 0000 000E
-f: 0000 0000 0000 0001 data: 0000 0000 0000 000D
-f: 0000 0000 0000 0001 data: 0000 0000 0000 000C
-f: 0000 0000 0000 0001 data: 0000 0000 0000 000B
-f: 0000 0000 0000 0001 data: 0000 0000 0000 000A
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0009
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0008
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0007
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0006
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0005
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0004
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0003
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0002
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0001
-f: 0000 0000 0000 0001 data: 0000 0000 0000 0000
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0010 data: 0000 0000 0000 0010
+f: 0000 0000 0000 0001 i: 0000 0000 0000 000F data: 0000 0000 0000 000F
+f: 0000 0000 0000 0001 i: 0000 0000 0000 000E data: 0000 0000 0000 000E
+f: 0000 0000 0000 0001 i: 0000 0000 0000 000D data: 0000 0000 0000 000D
+f: 0000 0000 0000 0001 i: 0000 0000 0000 000C data: 0000 0000 0000 000C
+f: 0000 0000 0000 0001 i: 0000 0000 0000 000B data: 0000 0000 0000 000B
+f: 0000 0000 0000 0001 i: 0000 0000 0000 000A data: 0000 0000 0000 000A
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0009 data: 0000 0000 0000 0009
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0007 data: 0000 0000 0000 0007
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0006 data: 0000 0000 0000 0006
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0005 data: 0000 0000 0000 0005
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0004 data: 0000 0000 0000 0004
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0003 data: 0000 0000 0000 0003
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0002 data: 0000 0000 0000 0002
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0001 data: 0000 0000 0000 0001
 f: 0000 0000 0000 0000
 END
  }
