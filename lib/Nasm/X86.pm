@@ -5069,10 +5069,10 @@ sub DescribeArena(%)                                                            
 
   genHash(__PACKAGE__."::Arena",                                                # Definition of arena
     N          => $N,                                                           # Initial allocation
-    size       => $size,                                                        # Size field offset
-    used       => $used,                                                        # Used field offset
-    tree       => $tree,                                                        # Yggdrasil - a tree of global variables in this arena
-    data       => $data,                                                        # The start of the data
+    sizeOffset => $size,                                                        # Size field offset
+    usedOffset => $used,                                                        # Used field offset
+    treeOffset => $tree,                                                        # Yggdrasil - a tree of global variables in this arena
+    dataOffset => $data,                                                        # The start of the data
     address    => ($options{address} // V address => 0),                        # Variable that addresses the memory containing the arena
     zmmBlock   => $w,                                                           # Size of a zmm block - 64 bytes
     nextOffset => $w - RegisterSize(eax),                                       # Position of next offset on free chain
@@ -5083,9 +5083,9 @@ sub CreateArena(%)                                                              
  {my (%options) = @_;                                                           # Free=>1 adds a free chain.
   my $arena = DescribeArena;                                                    # Describe an arena
   my $N     = $arena->N;
-  my $used  = $arena->used;
-  my $data  = $arena->data;
-  my $size  = $arena->size;
+  my $used  = $arena->usedOffset;
+  my $data  = $arena->dataOffset;
+  my $size  = $arena->sizeOffset;
 
   my $s = Subroutine                                                           # Allocate arena
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -5111,8 +5111,8 @@ sub Nasm::X86::Arena::sizeUsed($)                                               
 
   SaveFirstFour;
   $arena->address->setReg(rax);                                                 # Address arena
-  Mov rdx, "[rax+$$arena{used}]";                                               # Used
-  Sub rdx, $arena->data;                                                        # Subtract size of header so we get the actual amount in use
+  Mov rdx, "[rax+$$arena{usedOffset}]";                                         # Used
+  Sub rdx, $arena->dataOffset;                                                  # Subtract size of header so we get the actual amount in use
   my $size = V size => rdx;                                                     # Save length in a variable
   RestoreFirstFour;
   $size                                                                         # Return variable length
@@ -5124,7 +5124,7 @@ sub Nasm::X86::Arena::arenaSize($)                                              
 
   PushR rax;
   $arena->address->setReg(rax);                                                 # Address arena
-  Mov rax, "[rax+$$arena{size}]";                                               # Get size
+  Mov rax, "[rax+$$arena{sizeOffset}]";                                         # Get size
   my $size = V size => rax;                                                     # Save size in a variable
   PopR;
   $size                                                                         # Return size
@@ -5148,8 +5148,8 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
     $arena->address->setReg($base);                                             # Address arena
     $$p{size}->setReg($request);                                                # Requested space
 
-    Mov $size, "[$base+$$arena{size}]";
-    Mov $used, "[$base+$$arena{used}]";
+    Mov $size, "[$base+$$arena{sizeOffset}]";
+    Mov $used, "[$base+$$arena{usedOffset}]";
     Mov $newSize, $used;
     Add $newSize, $request;
 
@@ -5171,7 +5171,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
       $arena->address->copy($address);                                          # Save new arena address
 
       $arena->address->setReg($base);                                           # Address arena
-      Mov "[$base+$$arena{size}]", $proposed;                                   # Save the new size in the arena
+      Mov "[$base+$$arena{sizeOffset}]", $proposed;                                   # Save the new size in the arena
      };
 
     PopR;
@@ -5192,7 +5192,7 @@ sub Nasm::X86::Arena::makeReadOnly($)                                           
     SaveFirstFour;
     $$p{address}->setReg(rax);
     Mov rdi, rax;                                                               # Address of arena
-    Mov rsi, "[rax+$$arena{size}]";                                             # Size of arena
+    Mov rsi, "[rax+$$arena{sizeOffset}]";                                             # Size of arena
 
     Mov rdx, 1;                                                                 # Read only access
     Mov rax, 10;
@@ -5213,7 +5213,7 @@ sub Nasm::X86::Arena::makeWriteable($)                                          
     SaveFirstFour;
     $$p{address}->setReg(rax);
     Mov rdi, rax;                                                               # Address of arena
-    Mov rsi, "[rax+$$arena{size}]";                                             # Size of arena
+    Mov rsi, "[rax+$$arena{sizeOffset}]";                                             # Size of arena
     Mov rdx, 3;                                                                 # Read only access
     Mov rax, 10;
     Syscall;
@@ -5230,11 +5230,11 @@ sub Nasm::X86::Arena::allocate($$)                                              
   SaveFirstFour;
   $arena->updateSpace($size);                                                   # Update space if needed
   $arena->address->setReg(rax);
-  Mov rsi, "[rax+$$arena{used}]";                                               # Currently used
+  Mov rsi, "[rax+$$arena{usedOffset}]";                                               # Currently used
   my $offset = V(offset => rsi);                                                # Variable to hold offset of allocation
   $size  ->setReg(rdi);
   Add rsi, rdi;
-  Mov "[rax+$$arena{used}]", rsi;                                               # Update currently used
+  Mov "[rax+$$arena{usedOffset}]", rsi;                                               # Update currently used
   RestoreFirstFour;
   $offset
  }
@@ -5271,7 +5271,7 @@ sub Nasm::X86::Arena::checkYggdrasilCreated($)                                  
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
   PushR rax;
   $arena->address->setReg(rax);                                                 #P Address underlying arena
-  Mov rax, "[rax+$$arena{tree}]";                                               # Address Yggdrasil
+  Mov rax, "[rax+$$arena{treeOffset}]";                                               # Address Yggdrasil
   my $v = V('Yggdrasil', rax);                                                  # Offset to Yggdrasil if it exists else zero
   Cmp rax, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
@@ -5295,7 +5295,7 @@ sub Nasm::X86::Arena::establishYggdrasil($)                                     
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
   PushR my @save = (rax, rdi);
   $arena->address->setReg(rax);                                                 #P Address underlying arena
-  Mov rdi, "[rax+$$arena{tree}]";                                               # Address Yggdrasil
+  Mov rdi, "[rax+$$arena{treeOffset}]";                                               # Address Yggdrasil
   Cmp rdi, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
   Then                                                                          # Yggdrasil has been created so we can address it
@@ -5305,7 +5305,7 @@ sub Nasm::X86::Arena::establishYggdrasil($)                                     
    {my $T = $arena->CreateTree();
     $T->first->setReg(rdi);
     $t->first->copy(rdi);
-    Mov "[rax+$$arena{tree}]", rdi;                                             # Save offset of Yggdrasil
+    Mov "[rax+$$arena{treeOffset}]", rdi;                                       # Save offset of Yggdrasil
    };
   PopR @save;
   $t
@@ -5366,7 +5366,7 @@ sub Nasm::X86::Arena::getZmmBlock($$$)                                          
   $arena->address->setReg($a);                                                  # Arena address
   $block->setReg($o);                                                           # Offset of block in arena
 
-  Cmp $o, $arena->data;
+  Cmp $o, $arena->dataOffset;
   IfLt                                                                          # We could have done this using variable arithmetic, but such arithmetic is expensive and so it is better to use register arithmetic if we can.
   Then
    {PrintErrTraceBack "Attempt to get block before start of arena";
@@ -5385,7 +5385,7 @@ sub Nasm::X86::Arena::putZmmBlock($$$)                                          
   $arena->address->setReg($a);                                                  # Arena address
   $block->setReg($o);                                                           # Offset of block in arena
 
-  Cmp $o, $arena->data;
+  Cmp $o, $arena->dataOffset;
   IfLt                                                                          # We could have done this using variable arithmetic, but such arithmetic is expensive and so it is better to use register arithmetic if we can.
   Then
    {PrintErrTraceBack "Attempt to put block before start of arena";
@@ -5421,7 +5421,7 @@ sub Nasm::X86::Arena::m($$$)                                                    
  {my ($arena, $address, $size) = @_;                                            # Arena descriptor, variable address of content, variable length of content
   @_ == 3 or confess "Three parameters";
 
-  my $used = "[rax+$$arena{used}]";
+  my $used = "[rax+$$arena{usedOffset}]";
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -5491,9 +5491,9 @@ sub Nasm::X86::Arena::append($@)                                                
 
   SaveFirstFour;
   $source->address->setReg(rax);
-  Mov rdi, "[rax+$$source{used}]";
-  Sub rdi, $source->data;
-  Lea rsi, "[rax+$$source{data}]";
+  Mov rdi, "[rax+$$source{usedOffset}]";
+  Sub rdi, $source->dataOffset;
+  Lea rsi, "[rax+$$source{dataOffset}]";
   $target->m(V(address, rsi), V(size, rdi));
   RestoreFirstFour;
  }
@@ -5506,8 +5506,8 @@ sub Nasm::X86::Arena::clear($)                                                  
    {my ($p) = @_;                                                               # Parameters
     PushR (rax, rdi);
     $$p{address}->setReg(rax);
-    Mov rdi, $arena->data;
-    Mov "[rax+$$arena{used}]", rdi;
+    Mov rdi, $arena->dataOffset;
+    Mov "[rax+$$arena{usedOffset}]", rdi;
     PopR;
    } parameters=>[qw(address)], name => 'Nasm::X86::Arena::clear';
 
@@ -5527,9 +5527,9 @@ sub Nasm::X86::Arena::write($$)                                                 
     my $file = V(fd => rax);                                                    # File descriptor
 
     $$p{address}->setReg(rax);                                                  # Write file
-    Lea rsi, "[rax+$$arena{data}]";
-    Mov rdx, "[rax+$$arena{used}]";
-    Sub rdx, $arena->data;
+    Lea rsi, "[rax+$$arena{dataOffset}]";
+    Mov rdx, "[rax+$$arena{usedOffset}]";
+    Sub rdx, $arena->dataOffset;
 
     Mov rax, 1;                                                                 # Write content to file
     $file->setReg(rdi);
@@ -5570,9 +5570,9 @@ sub Nasm::X86::Arena::out($)                                                    
     SaveFirstFour;
     $$p{address}->setReg(rax);
 
-    Mov rdi, "[rax+$$arena{used}]";                                             # Length to print
-    Sub rdi, $arena->data;                                                      # Length to print
-    Lea rax, "[rax+$$arena{data}]";                                             # Address of data field
+    Mov rdi, "[rax+$$arena{usedOffset}]";                                       # Length to print
+    Sub rdi, $arena->dataOffset;                                                # Length to print
+    Lea rax, "[rax+$$arena{dataOffset}]";                                       # Address of data field
     PrintOutMemory;
     RestoreFirstFour;
    } parameters=>[qw(address)], name => 'Nasm::X86::Arena::out';
@@ -5602,14 +5602,14 @@ sub Nasm::X86::Arena::dump($$;$)                                                
     PrintOutString("Arena   ");
 
     PushR rax;                                                                  # Print size
-    Mov rax, "[rax+$$arena{size}]";
+    Mov rax, "[rax+$$arena{sizeOffset}]";
     PrintOutString "  Size: ";
     PrintOutRaxRightInDec K width => 8;
     PrintOutString "  ";
     PopR rax;
 
     PushR rax;                                                                  # Print size
-    Mov rax, "[rax+$$arena{used}]";
+    Mov rax, "[rax+$$arena{usedOffset}]";
     PrintOutString("  Used: ");
     PrintOutRaxRightInDec  K width => 8;
     PrintOutNL;
@@ -12169,7 +12169,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #TgetDFromZmm #TNasm::X86::Variable::dIntoZ
   my $s = Rb(0..8);
   my $c = V("Content",   "[$s]");
