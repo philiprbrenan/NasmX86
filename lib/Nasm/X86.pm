@@ -6614,7 +6614,7 @@ sub Nasm::X86::Array::put($$$)                                                  
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an arena.
 
-sub DescribeTree(%)                                                             # Return a descriptor for a tree with the specified options.
+sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
  {my (%options) = @_;                                                           # Tree description options
 
   confess "Maximum keys must be less than or equal to 14"
@@ -6669,7 +6669,7 @@ sub DescribeTree(%)                                                             
    )
  }
 
-sub Nasm::X86::Arena::DescribeTree($%)                                          # Return a descriptor for a tree in the specified arena with the specified options.
+sub Nasm::X86::Arena::DescribeTree($%)                                          #P Return a descriptor for a tree in the specified arena with the specified options.
  {my ($arena, %options) = @_;                                                   # Arena descriptor, options for tree
   @_ >= 1 or confess;
 
@@ -6696,14 +6696,14 @@ sub Nasm::X86::Arena::CreateTree($%)                                            
   $tree                                                                         # Description of array
  }
 
-sub Nasm::X86::Tree::describeTree($%)                                           # Create a a description of a tree
+sub Nasm::X86::Tree::describeTree($%)                                           #P Create a a description of a tree
  {my ($tree, %options) = @_;                                                    # Tree descriptor, {first=>first node of tree if not the existing first node; arena=>arena used by tree if not the existing arena}
   @_ >= 1 or confess "At least one parameter";
 
   $tree->arena->DescribeTree(%options);                                         # Return a descriptor for a tree
  }
 
-sub Nasm::X86::Tree::copyDescription($)                                         # Make a copy of a tree descriptor
+sub Nasm::X86::Tree::copyDescription($)                                         #P Make a copy of a tree descriptor
  {my ($tree) = @_;                                                              # Tree descriptor
   my $t = $tree->describeTree;
 
@@ -6717,7 +6717,7 @@ sub Nasm::X86::Tree::copyDescription($)                                         
   $t                                                                            # Return new descriptor
  }
 
-sub Nasm::X86::Tree::firstFromMemory($$)                                        # Load the first block for a tree into the numbered zmm.
+sub Nasm::X86::Tree::firstFromMemory($$)                                        #P Load the first block for a tree into the numbered zmm.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm to contain first block
   @_ == 2 or confess "Two parameters";
   my $base = rdi; my $offset = rsi;
@@ -6726,7 +6726,7 @@ sub Nasm::X86::Tree::firstFromMemory($$)                                        
   Vmovdqu64 zmm($zmm), "[$base+$offset]";
  }
 
-sub Nasm::X86::Tree::firstIntoMemory($$)                                        # Save the first block of a tree in the numbered zmm back into memory.
+sub Nasm::X86::Tree::firstIntoMemory($$)                                        #P Save the first block of a tree in the numbered zmm back into memory.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   my $base = rdi; my $offset = rsi;
@@ -6735,45 +6735,45 @@ sub Nasm::X86::Tree::firstIntoMemory($$)                                        
   Vmovdqu64  "[$base+$offset]", zmm($zmm);
  }
 
-sub Nasm::X86::Tree::rootIntoFirst($$$)                                         # Put the contents of a variable into the root field of the first block of a tree when held in a zmm register.
+sub Nasm::X86::Tree::rootIntoFirst($$$)                                         #P Put the contents of a variable into the root field of the first block of a tree when held in a zmm register.
  {my ($tree, $zmm, $value) = @_;                                                # Tree descriptor, number of zmm containing first block, variable containing value to put
   @_ == 3 or confess "Three parameters";
   $value->dIntoZ($zmm, $tree->rootOffset);
  }
 
-sub Nasm::X86::Tree::rootFromFirst($$)                                          # Return a variable containing the offset of the root block of a tree from the first block when held in a zmm register.
+sub Nasm::X86::Tree::rootFromFirst($$)                                          #P Return a variable containing the offset of the root block of a tree from the first block when held in a zmm register.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, variable containing value to put, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   dFromZ $zmm, $tree->rootOffset;
  }
 
-sub Nasm::X86::Tree::root($$$)                                                  # Check whether the specified offset refers to the root of a tree when the first block is held in a zmm register. The result is returned by setting the zero flag to one if the offset is the root, else to zero.
+sub Nasm::X86::Tree::root($$$)                                                  #P Check whether the specified offset refers to the root of a tree when the first block is held in a zmm register. The result is returned by setting the zero flag to one if the offset is the root, else to zero.
  {my ($t, $F, $offset) = @_;                                                    # Tree descriptor, zmm register holding first block, offset of block as a variable
   @_ == 3 or confess "Three parameters";
   my $root = $t->rootFromFirst($F);                                             # Get the offset of the corresponding data block
   $root == $offset                                                              # Check whether the offset is in fact the root
  }
 
-sub Nasm::X86::Tree::sizeFromFirst($$$)                                         # Return a variable containing the number of keys in the specified tree when the first block is held in a zmm register..
+sub Nasm::X86::Tree::sizeFromFirst($$$)                                         #P Return a variable containing the number of keys in the specified tree when the first block is held in a zmm register..
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   dFromZ $zmm, $tree->sizeOffset;
  }
 
-sub Nasm::X86::Tree::sizeIntoFirst($$$)                                         # Put the contents of a variable into the size field of the first block of a tree  when the first block is held in a zmm register.
+sub Nasm::X86::Tree::sizeIntoFirst($$$)                                         #P Put the contents of a variable into the size field of the first block of a tree  when the first block is held in a zmm register.
  {my ($tree, $value, $zmm) = @_;                                                # Tree descriptor, variable containing value to put, number of zmm containing first block
   @_ == 3 or confess "Three parameters";
   $value->dIntoZ($zmm, $tree->sizeOffset);
  }
 
-sub Nasm::X86::Tree::incSizeInFirst($$)                                         # Increment the size field in the first block of a tree when the first block is held in a zmm register.
+sub Nasm::X86::Tree::incSizeInFirst($$)                                         #P Increment the size field in the first block of a tree when the first block is held in a zmm register.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   my $s = dFromZ $zmm, $tree->sizeOffset;
   $tree->sizeIntoFirst($s+1, $zmm);
  }
 
-sub Nasm::X86::Tree::incSize($)                                                 # Increment the size of a tree
+sub Nasm::X86::Tree::incSize($)                                                 #P Increment the size of a tree
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
   PushR 31;
@@ -6783,7 +6783,7 @@ sub Nasm::X86::Tree::incSize($)                                                 
   PopR;
  }
 
-sub Nasm::X86::Tree::decSizeInFirst($$)                                         # Decrement the size field in the first block of a tree when the first block is held in a zmm register.
+sub Nasm::X86::Tree::decSizeInFirst($$)                                         #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   my $s = dFromZ $zmm, $tree->sizeOffset;
@@ -6794,7 +6794,7 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
   $tree->sizeIntoFirst($s-1, $zmm);
  }
 
-sub Nasm::X86::Tree::decSize($)                                                 # Decrement the size of a tree
+sub Nasm::X86::Tree::decSize($)                                                 #P Decrement the size of a tree
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
   PushR 31;
@@ -6850,16 +6850,16 @@ sub Nasm::X86::Tree::freeBlock($$$$$)                                           
   @_ == 5 or confess "Five parameters";
   my $d = $tree->getLoop($K);
   my $n = $tree->getLoop($D);
-  $tree->arena->freeZmmBlock($_) for $k, $d, $n;                                   # Free the component zmm blocks
+  $tree->arena->freeZmmBlock($_) for $k, $d, $n;                                # Free the component zmm blocks
  } # freeBlock
 
-sub Nasm::X86::Tree::upFromData($$)                                             # Up from the data zmm in a block in a tree
+sub Nasm::X86::Tree::upFromData($$)                                             #P Up from the data zmm in a block in a tree
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing data block
   @_ == 2 or confess "Two parameters";
   dFromZ $zmm, $tree->up;
  }
 
-sub Nasm::X86::Tree::upIntoData($$)                                             # Up into the data zmm in a block in a tree
+sub Nasm::X86::Tree::upIntoData($$)                                             #P Up into the data zmm in a block in a tree
  {my ($tree, $value, $zmm) = @_;                                                # Tree descriptor, variable containing value to put, number of zmm containing first block
   @_ == 3 or confess "Three parameters";
   $value->dIntoZ($zmm, $tree->up);
@@ -6939,7 +6939,7 @@ sub Nasm::X86::Tree::putLoop($$$)                                               
   $value->dIntoZ($zmm, $t->loop);                                               # Put loop field as a variable
  }
 
-sub Nasm::X86::Tree::maskForFullKeyArea                                         # Place a mask for the full key area in the numbered mask register
+sub Nasm::X86::Tree::maskForFullKeyArea                                         #P Place a mask for the full key area in the numbered mask register
  {my ($tree, $maskRegister) = @_;                                               # Tree description, mask register
   my $m = registerNameFromNumber $maskRegister;
   ClearRegisters $m;                                                            # Zero register
@@ -6947,7 +6947,7 @@ sub Nasm::X86::Tree::maskForFullKeyArea                                         
   Kshiftrw $m, $m, 2;                                                           # Mask with ones in the full key area
  }
 
-sub Nasm::X86::Tree::maskForFullNodesArea                                       # Place a mask for the full nodes area in the numbered mask register
+sub Nasm::X86::Tree::maskForFullNodesArea                                       #P Place a mask for the full nodes area in the numbered mask register
  {my ($tree, $maskRegister) = @_;                                               # Tree description, mask register
   my $m = registerNameFromNumber $maskRegister;
   ClearRegisters $m;                                                            # Zero register
@@ -6977,7 +6977,7 @@ sub Nasm::X86::Tree::putBlock($$$$$$)                                           
   $a->putZmmBlock($node,   $N);                                                 # Put the node block
  }
 
-sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        # Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
+sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        #P Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
  {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Point at which to overwrite formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
 
   @_ == 7 or confess "Seven parameters";
@@ -7014,7 +7014,7 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
                           point => $point, subTree => $subTree});
  }
 
-#D2 Insert                                                                      # Insert a key into the tree.
+#D2 Insert                                                                      #P Insert a key into the tree.
 
 sub Nasm::X86::Tree::indexXX($$$$)                                              # Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
  {my ($tree, $key, $K, $cmp) = @_;                                              # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>
@@ -7039,21 +7039,21 @@ sub Nasm::X86::Tree::indexXX($$$$)                                              
   $r                                                                            # Point of key if non zero, else no match
  }
 
-sub Nasm::X86::Tree::indexEq($$$)                                               # Return the  position of a key in a zmm equal to the specified key as a point in a variable.
+sub Nasm::X86::Tree::indexEq($$$)                                               #P Return the  position of a key in a zmm equal to the specified key as a point in a variable.
  {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
   @_ == 3 or confess "Three parameters";
 
   $tree->indexXX($key, $K, $Vpcmp->eq);                                         # Check for equal keys from the broadcasted memory
  }
 
-sub Nasm::X86::Tree::insertionPoint($$$)                                        # Return the position at which a key should be inserted into a zmm as a point in a variable.
+sub Nasm::X86::Tree::insertionPoint($$$)                                        #P Return the position at which a key should be inserted into a zmm as a point in a variable.
  {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
   @_ == 3 or confess "Three parameters";
 
   $tree->indexXX($key, $K, $Vpcmp->le) + 1;                                     # Check for less than or equal keys
  }
 
-sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        # Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
+sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
  {my ($tree, $point, $F, $K, $D, $IK, $ID, $subTree) = @_;                      # Point at which to insert formatted as a one in a sea of zeros, first, key, data, insert key, insert data, sub tree if tree.
 
   @_ == 8 or confess "Eight parameters";
@@ -7180,7 +7180,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
   $p                                                                            # Return a variable containing one if the node was split else zero.
  } # splitNode
 
-sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  # Split a non root left node pushing its excess right and up.
+sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  #P Split a non root left node pushing its excess right and up.
  {my ($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;      # Tree definition, variable offset in arena of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 11 or confess "Eleven parameters required";
 
@@ -7317,7 +7317,7 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
     structures => {tree => $tree},
     parameters => {newRight => $newRight});
  }
-sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    # Split a non root node into left and right nodes with the left half left in the left node and splitting key/data pushed into the parent node with the remainder pushed into the new right node
+sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    #P Split a non root node into left and right nodes with the left half left in the left node and splitting key/data pushed into the parent node with the remainder pushed into the new right node
  {my ($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;# Tree definition, variable offset in arena of new left node block, variable offset in arena of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
   @_ == 12 or confess "Twelve parameters required";
 
@@ -7808,7 +7808,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # findPrev
 
-sub Nasm::X86::Tree::findAndReload($$)                                          # Find a key in the specified tree and clone it is it is a sub tree.
+sub Nasm::X86::Tree::findAndReload($$)                                          #P Find a key in the specified tree and clone it is it is a sub tree.
  {my ($t, $key) = @_;                                                           # Tree descriptor, key as a dword
   @_ == 2 or confess "Two parameters";
 
@@ -7908,7 +7908,7 @@ sub Nasm::X86::Tree::insertShortString($$$)                                     
   $s->call(structures => {tree => $t}, parameters => {data => $data});          # Insert the data at the end of the short string key
  } # insertShortString
 
-sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      # Return the offset of the left most or right most node.
+sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      #P Return the offset of the left most or right most node.
  {my ($tree, $dir, $node, $offset) = @_;                                        # Tree descriptor, direction: left = 0 or right = 1, start node,  offset of located node
   @_ == 4 or confess "Four parameters";
 
@@ -7954,13 +7954,13 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
            parameters => {node => $node, offset=>$offset});
  }
 
-sub Nasm::X86::Tree::leftMost($$$)                                              # Return the offset of the left most node from the specified node.
+sub Nasm::X86::Tree::leftMost($$$)                                              #P Return the offset of the left most node from the specified node.
  {my ($t, $node, $offset) = @_;                                                 # Tree descriptor, start node, returned offset
   @_ == 3 or confess "Three parameters";
   $t->leftOrRightMost(0, $node, $offset)                                        # Return the left most node
  }
 
-sub Nasm::X86::Tree::rightMost($$$)                                             # Return the offset of the left most node from the specified node.
+sub Nasm::X86::Tree::rightMost($$$)                                             #P Return the offset of the left most node from the specified node.
  {my ($t, $node, $offset) = @_;                                                 # Tree descriptor, start node, returned offset
   @_ == 3 or confess "Three parameters";
   $t->leftOrRightMost(1, $node, $offset)                                        # Return the right most node
@@ -8165,7 +8165,7 @@ sub Nasm::X86::Tree::insertIntoTreeBits($$$$)                                   
 
 #D2 Delete                                                                      # Delete a key from the tree
 
-sub Nasm::X86::Tree::extract($$$$$)                                             # Extract the key/data/node and tree bit at the specified point from the block held in the specified zmm registers.
+sub Nasm::X86::Tree::extract($$$$$)                                             #P Extract the key/data/node and tree bit at the specified point from the block held in the specified zmm registers.
  {my ($tree, $point, $K, $D, $N) = @_;                                          # Tree descriptor, point at which to extract, keys zmm, data zmm, node zmm
   @_ == 5 or confess "Five parameters";
 
@@ -8226,7 +8226,7 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
   $s->call(structures=>{tree => $tree}, parameters=>{point => $point});
  } # extract
 
-sub Nasm::X86::Tree::extractFirst($$$$)                                         # Extract the first key/data and tree bit at the specified point from the block held in the specified zmm registers and place the extracted data/bit in tree data/subTree.
+sub Nasm::X86::Tree::extractFirst($$$$)                                         #P Extract the first key/data and tree bit at the specified point from the block held in the specified zmm registers and place the extracted data/bit in tree data/subTree.
  {my ($tree, $K, $D, $N) = @_;                                                  # Tree descriptor, keys zmm, data zmm, node zmm
   @_ == 4 or confess "Four parameters";
 
@@ -8270,7 +8270,7 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
   $s->call(structures=>{tree => $tree});
  } # extractFirst
 
-sub Nasm::X86::Tree::mergeOrSteal($$$)                                          # Merge the block at the specified offset with its right sibling or steal from it. If there is no  right sibling then do the same thing but with the left sibling.  The supplied block must not be the root. The key we ae looking for must be in the tree key field.
+sub Nasm::X86::Tree::mergeOrSteal($$$)                                          #P Merge the block at the specified offset with its right sibling or steal from it. If there is no  right sibling then do the same thing but with the left sibling.  The supplied block must not be the root. The key we ae looking for must be in the tree key field.
  {my ($tree, $offset) = @_;                                                     # Tree descriptor, offset of non root block that might need to merge or steal
   @_ == 2 or confess "Two parameters";
 
@@ -8517,37 +8517,6 @@ sub Nasm::X86::Tree::delete($$)                                                 
  } # delete
 
 #D2 Print                                                                       # Print a tree
-
-sub Nasm::X86::Tree::print($)                                                   # Print a tree.
- {my ($tree) = @_;                                                              # Tree
-  @_ == 1 or confess "One parameter";
-
-  my $s = Subroutine                                                            # Print a tree
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-
-    my $t = $$s{tree};                                                          # Tree
-    my $F = $t->first;                                                          # First block of tree
-    PrintOutString "Tree at: "; $F->outNL(' ');
-    my $arena = $t->arena;                                                      # Arena
-
-    $t->by(sub                                                                  # Iterate through the tree
-     {my ($iter, $end) = @_;
-      $iter->tree->depth($iter->node, my $D = V(depth));
-      $iter->key ->out('key: ');
-      $iter->data->out(' data: ');
-      $D   ->outNL    (' depth: ');
-      $t->find($iter->key);                                                     # Slow way to find out if this is a subtree
-      If $t->subTree > 0,
-      Then
-       {my $T = $t->describeTree(first => $t->data);
-         $sub->call(structures => {tree => $T});
-       };
-     });
-   } structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::print";
-
-  $s->call(structures=>{tree=>$tree});
- }
 
 sub Nasm::X86::Tree::dump($$)                                                   # Dump a tree and all its sub trees.
  {my ($tree, $title) = @_;                                                      # Tree, title
