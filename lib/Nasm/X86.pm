@@ -310,7 +310,7 @@ sub PushR(@);                                                                   
 sub PushRR(@);                                                                  # Push a list of registers onto the stack without tracking.
 sub RComment(@);                                                                # Insert a comment into the read only data section.
 sub StringLength($);                                                            # Length of a zero terminated string.
-sub Subroutine(&%);                                                            # Create a subroutine that can be called in assembler code.
+sub Subroutine(&%);                                                             # Create a subroutine that can be called in assembler code.
 sub Syscall();                                                                  # System call in linux 64 format.
 
 #D1 Data                                                                        # Layout data
@@ -988,7 +988,7 @@ sub Nasm::X86::Sub::callTo($$$@)                                                
    }
 
   my $w = RegisterSize r15;
-  PushR 15;                                                                    # Use this register to transfer between the current frame and the next frame
+  PushR 15;                                                                     # Use this register to transfer between the current frame and the next frame
   Mov "dword[rsp  -$w*3]", $sub->nameString;                                    # Point to name
   Mov "byte [rsp-1-$w*2]", scalar $sub->parameters->@*;                         # Number of parameters to enable traceback with parameters
 
@@ -1201,7 +1201,7 @@ sub copyStructureMinusVariables($)                                              
   bless \%s, ref $s;                                                            # Return a copy of the structure
  }
 
-sub Subroutine(&%)                                                             # Create a subroutine that can be called in assembler code.
+sub Subroutine(&%)                                                              # Create a subroutine that can be called in assembler code.
  {my ($block, %options) = @_;                                                   # Block of code as a sub, options
   @_ >= 1 or confess "Subroutine requires at least a block";
 
@@ -1404,7 +1404,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
    }
 
   my $w = RegisterSize r15;
-  PushR 15;                                                                    # Use this register to transfer between the current frame and the next frame
+  PushR 15;                                                                     # Use this register to transfer between the current frame and the next frame
   Mov "dword[rsp  -$w*3]", $sub->nameString;                                    # Point to subroutine name
   Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable trace back with parameters
 
@@ -2831,7 +2831,7 @@ sub Nasm::X86::Variable::mod($$)                                                
 sub Nasm::X86::Variable::shiftLeft($$)                                          # Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   PushR rcx, r15;
-  $left ->setReg(15);                                                          # Value to shift
+  $left ->setReg(15);                                                           # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
   Shl r15, cl;                                                                  # Shift
@@ -2843,7 +2843,7 @@ sub Nasm::X86::Variable::shiftLeft($$)                                          
 sub Nasm::X86::Variable::shiftRight($$)                                         # Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   PushR rcx, r15;
-  $left ->setReg(15);                                                          # Value to shift
+  $left ->setReg(15);                                                           # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
   Shr r15, cl;                                                                  # Shift
@@ -3262,7 +3262,7 @@ sub Nasm::X86::Variable::setZmm($$$$)                                           
   PushR (k7, r14, r15);
   $offset->setMask($length, k7);                                                # Set mask for target
   $source->setReg(15);
-  $offset->setReg(14);                                                         # Position memory for target
+  $offset->setReg(14);                                                          # Position memory for target
   Sub r15, r14;                                                                 # Position memory for target
   Vmovdqu8 "zmm${zmm}{k7}", "[r15]";                                            # Read from memory
   PopR;
@@ -4430,7 +4430,7 @@ sub GetNextUtf8CharAsUtf32($$$$)                                                
 
     PushR 11, 12, 13, 14, 15;
     $$p{fail}->getConst(0);                                                     # Clear failure indicator
-    $$p{in}->setReg(15);                                                       # Character to convert
+    $$p{in}->setReg(15);                                                        # Character to convert
     ClearRegisters 14;                                                          # Move to byte register below does not clear the entire register
     Mov r14b, "[r15]";
     my $success = Label;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
@@ -4515,9 +4515,9 @@ sub ConvertUtf8ToUtf32(@)                                                       
     my $size = $$p{size8} * 4;                                                  # Estimated length for utf32
     AllocateMemory size => $size, my $address = V(address);
 
-     $$p{u8}            ->setReg(14);                                          # Current position in input string
-    ($$p{u8}+$$p{size8})->setReg(15);                                          # Upper limit of input string
-    $address->setReg(13);                                                      # Current position in output string
+     $$p{u8}            ->setReg(14);                                           # Current position in input string
+    ($$p{u8}+$$p{size8})->setReg(15);                                           # Upper limit of input string
+    $address->setReg(13);                                                       # Current position in output string
     ClearRegisters 12;                                                          # Number of characters in output string
 
     ForEver sub                                                                 # Loop through input string  converting each utf8 sequence to utf32
@@ -4577,7 +4577,7 @@ sub ClassifyRange($$$)                                                          
     Vmovdqu8 "zmm31\{k7}{z}", zmm1;                                             # Utf32 characters at upper end of each range
     Vmovdqu8 "zmm30\{k7}{z}", zmm0;                                             # Utf32 characters at lower end of each range
 
-    $$p{address}->setReg(15);                                                  # Address of first utf32 character
+    $$p{address}->setReg(15);                                                   # Address of first utf32 character
     $$p{size}->for(sub                                                          # Process each utf32 character in the block of memory
      {my ($index, $start, $next, $end) = @_;
 
@@ -4676,7 +4676,7 @@ sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   
       Mov r12, r14;                                                             # Range classification code and start of range
       Sub r12, r13;                                                             # We now have the offset in the range
 
-      $$p{classification}->setReg(13);                                         # Classification code
+      $$p{classification}->setReg(13);                                          # Classification code
       Shl r13, 24;                                                              # Shift classification code into position
       Or  r12, r13;                                                             # Position classification code
       Mov "[r15-4]", r12d;                                                      # Classification in highest byte of dword, offset in range in lowest word
@@ -4723,13 +4723,13 @@ sub Nasm::X86::ShortString::load($$$)                                           
   $string->clear;                                                               # Clear the register we are going to use as a short string
 
   PushR 14, 15, 7;
-  $length->setReg(15);                                                         # Length of string
+  $length->setReg(15);                                                          # Length of string
   Mov r14, -1;                                                                  # Clear bits that we do not wish to load
   Bzhi r14, r14, r15;
   Shl r14, 1;                                                                   # Move over length byte
   Kmovq k7, r14;                                                                # Load mask
 
-  $address->setReg(14);                                                        # Address of data to load
+  $address->setReg(14);                                                         # Address of data to load
   Vmovdqu8 "${z}{k7}", "[r14-1]";                                               # Load string skipping length byte
   Pinsrb $x, r15b, 0;                                                           # Set length in zmm
   PopR;
@@ -4833,7 +4833,7 @@ sub Nasm::X86::ShortString::setLength($$)                                       
   @_ == 2 or confess "Two parameters";
   my $x = $string->x;                                                           # Corresponding xmm
   PushR (r15);
-  $length->setReg(15);                                                         # Length of string
+  $length->setReg(15);                                                          # Length of string
   Pinsrb $x, r15b, 0;                                                           # Set length in zmm
   PopR;
  }
@@ -4848,7 +4848,7 @@ sub Nasm::X86::ShortString::append($$)                                          
   my $w  = $left->lengthWidth;                                                  # The length of the initial field followed by the data
   my $m  = $left->maximumLength;                                                # Maximum width of a short string
 
-  my $s = Subroutine                                                           # Append two short strings
+  my $s = Subroutine                                                            # Append two short strings
    {PushR (k7, rcx, r14, r15);
     Pextrb r15, $rx, 0;                                                         # Length of right hand string
     Mov   r14, -1;                                                              # Expand mask
@@ -4944,7 +4944,7 @@ sub Nasm::X86::ShortString::appendVar($$)                                       
 sub Cstrlen()                                                                   #P Length of the C style string addressed by rax returning the length in r15.
  {@_ == 0 or confess "Deprecated in favor of StringLength";
 
-  my $s = Subroutine                                                           # Create arena
+  my $s = Subroutine                                                            # Create arena
    {PushR my @regs = (rax, rdi, rcx);
     Mov rdi, rax;
     Mov rcx, -1;
@@ -5021,7 +5021,7 @@ sub CreateArena(%)                                                              
   my $data  = $arena->dataOffset;
   my $size  = $arena->sizeOffset;
 
-  my $s = Subroutine                                                           # Allocate arena
+  my $s = Subroutine                                                            # Allocate arena
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $arena = AllocateMemory K size=> $N;                                     # Allocate memory and save its location in a variable
@@ -5332,7 +5332,7 @@ sub Nasm::X86::Arena::clearZmmBlock($$)                                         
  {my ($arena, $offset) = @_;                                                    # Arena descriptor, offset of the block as a variable
   @_ == 2 or confess "Two parameters";
 
-  PushR 31;                                                                  # Clear a zmm block
+  PushR 31;                                                                     # Clear a zmm block
   ClearRegisters 31;
   $arena->putZmmBlock($offset, 31);
   PopR;
@@ -5344,7 +5344,7 @@ sub Nasm::X86::Arena::freeZmmBlock($$)                                          
 
   PushR 15, 31;
   my $rfc = $arena->firstFreeBlock;                                             # Get first free block
-  ClearRegisters 31;                                                         # Second block
+  ClearRegisters 31;                                                            # Second block
   $rfc->dIntoZ(31, $arena->nextOffset);                                         # The position of the next pointer was dictated by strings.
   $arena->putZmmBlock($offset, 31);                                             # Link the freed block to the rest of the free chain
   $arena->setFirstFreeBlock($offset);                                           # Set free chain field to point to latest free chain element
@@ -5671,8 +5671,8 @@ sub Nasm::X86::String::putNextandPrevBlockOffsetIntoZmm($$$$)                   
   @_ == 4 or confess;
   if ($next and $prev)                                                          # Set both previous and next
    {PushR my @regs = (r14, r15);                                                # Work registers
-    $next->setReg(14);                                                         # Next offset
-    $prev->setReg(15);                                                         # Prev offset
+    $next->setReg(14);                                                          # Next offset
+    $prev->setReg(15);                                                          # Prev offset
     Shl r14, RegisterSize(r14d) * 8;                                            # Prev high
     Or r15, r14;                                                                # Links in one register
     my $l = V("Links", r15);                                                    # Links as variable
@@ -5681,14 +5681,14 @@ sub Nasm::X86::String::putNextandPrevBlockOffsetIntoZmm($$$$)                   
    }
   elsif ($next)                                                                 # Set just next
    {PushR my @regs = (r8, r15);                                                 # Work registers
-    $next->setReg(15);                                                         # Next offset
+    $next->setReg(15);                                                          # Next offset
     my $l = V("Links", r15);                                                    # Links as variable
     $l->dIntoZ($zmm, $String->next);                                            # Load links into zmm
     PopR @regs;                                                                 # Free work registers
    }
   elsif ($prev)                                                                 # Set just prev
    {PushR my @regs = (r8, r15);                                                 # Work registers
-    $prev->setReg(15);                                                         # Next offset
+    $prev->setReg(15);                                                          # Next offset
     my $l = V("Links", r15);                                                    # Links as variable
     $l->dIntoZ($zmm, $String->prev);                                            # Load links into zmm
     PopR @regs;                                                                 # Free work registers
@@ -5850,8 +5850,8 @@ sub Nasm::X86::String::insertChar($$$)                                          
          {my $O = $P - $C;                                                      # Offset in current block
 
           PushR zmm31;                                                          # Stack block
-          $O->setReg(14);                                                      # Offset of character in block
-          $c->setReg(15);                                                      # Character to insert
+          $O->setReg(14);                                                       # Offset of character in block
+          $c->setReg(15);                                                       # Character to insert
           Mov "[rsp+r14]", r15b;                                                # Place character after skipping length field
 
           If $L < $M,
@@ -5892,7 +5892,7 @@ sub Nasm::X86::String::insertChar($$$)                                          
 
       If $next == $F,
       Then                                                                      # Last source block
-       {$c->setReg(15);                                                        # Character to insert
+       {$c->setReg(15);                                                         # Character to insert
         Push r15;
         Mov r15, rsp;                                                           # Address content on the stack
         $string->append($F, V(size, 1), V(source, r15));                        # Append character if we go beyond limit
@@ -5991,7 +5991,7 @@ sub Nasm::X86::String::getCharacter($$)                                         
         Then                                                                    # Position is in current block
          {my $O = $P - $C;                                                      # Offset in current block
           PushR zmm31;                                                          # Stack block
-          ($O+1)  ->setReg(15);                                                # Character to get
+          ($O+1)  ->setReg(15);                                                 # Character to get
           Mov r15b, "[rsp+r15]";                                                # Reload
           $$p{out}->getReg(r15);                                                # Save character
           PopR zmm31;                                                           # Stack block
@@ -6084,7 +6084,7 @@ sub Nasm::X86::String::appendShortString($$)                                    
  {my ($string, $short) = @_;                                                    # String descriptor, short string
   @_ == 2 or confess "Two parameters";
   my $z = $short->z;                                                            # Zmm register containing short string
-  PushR 15, $z;                                                                # Save short string on stack
+  PushR 15, $z;                                                                 # Save short string on stack
   my $L = $short->len;                                                          # Length of short string
   Mov r15, rsp;                                                                 # Step over length
   Inc r15;                                                                      # Data of short string on stack without preceding length byte
@@ -6097,8 +6097,8 @@ sub Nasm::X86::String::appendVar($$)                                            
  {my ($string, $var) = @_;                                                      # String descriptor, short string
   @_ == 2 or confess "Two parameters";
   PushR 15;
-  $var->setReg(15);                                                            # Value of variable
-  PushR 15;                                                                    # Put value of variable on the stack
+  $var->setReg(15);                                                             # Value of variable
+  PushR 15;                                                                     # Put value of variable on the stack
   Mov r15, rsp;                                                                 # Step over length
   $string->append(V(address => r15), V(size => $var->width));                   # Append the short string data on the stack
   PopR;
@@ -7555,7 +7555,7 @@ sub Nasm::X86::Tree::find($$)                                                   
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # find
 
-sub Nasm::X86::Tree::findFirst($)                                            # Find the first element in a tree
+sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
@@ -7851,9 +7851,9 @@ sub Nasm::X86::Tree::findShortString($$)                                        
 
     PushR rax, 14, 15;
     ClearRegisters 15;
-    PushR 15, $z;                                                              # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
+    PushR 15, $z;                                                               # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
     Lea rax, "[rsp+1]";                                                         # Address first data byte of short string
-    $L->setReg(15);                                                            # Length of key remaining to write into key chain
+    $L->setReg(15);                                                             # Length of key remaining to write into key chain
 
     AndBlock
      {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
@@ -7894,10 +7894,10 @@ sub Nasm::X86::Tree::insertShortString($$$)                                     
 
     PushR rax, 14, 15;
     ClearRegisters 15;
-    PushR 15, $z;                                                              # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
+    PushR 15, $z;                                                               # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
     my $W = $string->lengthWidth;                                               # The length of the initial field followed by the data
     Lea rax, "[rsp+$W]";                                                        # Address first data byte of short string
-    $L->setReg(15);                                                            # Length of key remaining to write into key chain
+    $L->setReg(15);                                                             # Length of key remaining to write into key chain
 
     my $t = $$s{tree};                                                          # Reload the input tree so we can walk down the chain from it.
 
@@ -8414,9 +8414,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
     $t->find($k);                                                               # See if we can find the key
     If $t->found == 0, Then {Jmp $success};                                     # Key not present so we cannot delete
 
-    PushR 28..31;
-
-    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
     $t->firstFromMemory($F);                                                    # Update the size of the tree
     my $size = $t->sizeFromFirst($F);                                           # Size of tree
@@ -8426,99 +8424,99 @@ sub Nasm::X86::Tree::delete($$)                                                 
     K(loop => 99)->for(sub
      {my ($i, $startDescent, $next, $end) = @_;
 
-      $t->firstFromMemory         ($F);                                           # Load first block
-      my $root = $t->rootFromFirst($F);                                           # Start the search from the root to locate the  key to be deleted
-      If $root == 0, Then{Jmp $success};                                          # Empty tree so we have not found the key and nothing needs to be done
+      $t->firstFromMemory         ($F);                                         # Load first block
+      my $root = $t->rootFromFirst($F);                                         # Start the search from the root to locate the  key to be deleted
+      If $root == 0, Then{Jmp $success};                                        # Empty tree so we have not found the key and nothing needs to be done
 
-      If $size == 1,                                                              # Delete the last element which must be the matching element
+      If $size == 1,                                                            # Delete the last element which must be the matching element
       Then
-       {$t->rootIntoFirst($F, K z=>0);                                            # Empty the tree
-        $t->firstIntoMemory($F);                                                  # The position of the key in the root node
+       {$t->rootIntoFirst($F, K z=>0);                                          # Empty the tree
+        $t->firstIntoMemory($F);                                                # The position of the key in the root node
         Jmp $success
        };
 
-      $t->getBlock($root, $K, $D, $N);                                            # Load root block
-      If $t->leafFromNodes($N) > 0,                                               # Element must be in the root as the root is a leaf and we know the key can be found
+      $t->getBlock($root, $K, $D, $N);                                          # Load root block
+      If $t->leafFromNodes($N) > 0,                                             # Element must be in the root as the root is a leaf and we know the key can be found
       Then
-       {my $eq = $t->indexEq($k, $K);                                             # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
-        $t->extract($eq, $K, $D, $N);                                             # Extract from root
+       {my $eq = $t->indexEq($k, $K);                                           # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
+        $t->extract($eq, $K, $D, $N);                                           # Extract from root
         $t->putBlock($root, $K, $D, $N);
         Jmp $success
        };
 
-      my $P = $root->clone('position');                                           # Position in tree
-      K(loop, 99)->for(sub                                                        # Step down through tree looking for the key
+      my $P = $root->clone('position');                                         # Position in tree
+      K(loop, 99)->for(sub                                                      # Step down through tree looking for the key
        {my ($index, $start, $next, $end) = @_;
-        my $eq = $t->indexEq($k, $K);                                             # The key might still be in the parent now known not be a leaf
+        my $eq = $t->indexEq($k, $K);                                           # The key might still be in the parent now known not be a leaf
         If $eq > 0,
-        Then                                                                      # We have found the key so now we need to find the next leaf unless this node is in fact a leaf
-         {my $pu = $t->upFromData($D);                                            # Parent offset
+        Then                                                                    # We have found the key so now we need to find the next leaf unless this node is in fact a leaf
+         {my $pu = $t->upFromData($D);                                          # Parent offset
           If $pu > 0,
-          Then                                                                    # Cannot merge or steal on root
-           {If $t->mergeOrSteal($P) > 0,                                          # Merge or steal if necessary
-            Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+          Then                                                                  # Cannot merge or steal on root
+           {If $t->mergeOrSteal($P) > 0,                                        # Merge or steal if necessary
+            Then                                                                # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
              {Jmp $startDescent;
              };
            };
 
-          If $t->leafFromNodes($N) > 0,                                           # We found the item in a leaf so it can be deleted immediately if there is enough
+          If $t->leafFromNodes($N) > 0,                                         # We found the item in a leaf so it can be deleted immediately if there is enough
           Then
-           {my $eq = $t->indexEq($k, $K);                                         # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
-            $t->extract($eq, $K, $D, $N);                                         # Remove from block
-            $t->putBlock($P, $K, $D, $N);                                         # Save block
-            Jmp $success;                                                         # Leaf removed
+           {my $eq = $t->indexEq($k, $K);                                       # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
+            $t->extract($eq, $K, $D, $N);                                       # Remove from block
+            $t->putBlock($P, $K, $D, $N);                                       # Save block
+            Jmp $success;                                                       # Leaf removed
            };
 
-          my $eq = $t->indexEq($k, $K);                                           # Location of key
-          my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                          # Go right to the next level down
+          my $eq = $t->indexEq($k, $K);                                         # Location of key
+          my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                        # Go right to the next level down
 
-          K(loop, 99)->for(sub                                                    # Find the left most leaf
+          K(loop, 99)->for(sub                                                  # Find the left most leaf
            {my ($index, $start, $next, $end) = @_;
 
-            If $t->mergeOrSteal($Q) > 0,                                          # Merge or steal if necessary
-            Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+            If $t->mergeOrSteal($Q) > 0,                                        # Merge or steal if necessary
+            Then                                                                # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
              {Jmp $startDescent;
              };
-            $t->getBlock($Q, $K, $D, $N);                                         # Next block down
-            If $t->leafFromNodes($N) > 0,                                         # We must hit a leaf eventually
+            $t->getBlock($Q, $K, $D, $N);                                       # Next block down
+            If $t->leafFromNodes($N) > 0,                                       # We must hit a leaf eventually
             Then
-             {$t->extractFirst($K, $D, $N);                                       # Remove from block
-              $t->putBlock($Q, $K, $D, $N);                                       # Save block
+             {$t->extractFirst($K, $D, $N);                                     # Remove from block
+              $t->putBlock($Q, $K, $D, $N);                                     # Save block
 
-              my $key     = $t->key->clone("key");                                # Record details of leaf
-              my $data    = $t->data->clone("data");                              #
-              my $subTree = $t->subTree->clone("data");                           #
-              $t->find($k);                                                       # Find key we actually want to delete
+              my $key     = $t->key->clone("key");                              # Record details of leaf
+              my $data    = $t->data->clone("data");                            #
+              my $subTree = $t->subTree->clone("data");                         #
+              $t->find($k);                                                     # Find key we actually want to delete
 
-              $t->key    ->copy($key);                                            # Reload
+              $t->key    ->copy($key);                                          # Reload
               $t->data   ->copy($data);
               $t->subTree->copy($subTree);
 
-              my $l = $t->offset;                                                 # Offset of block containing key
+              my $l = $t->offset;                                               # Offset of block containing key
 
-              $t->getBlock($l, $K, $D, $N);                                       # Block containing key
-              $t->replace ($t->found,  $K, $D);                                   # Replace key to delete with leaf
-              $t->putBlock($l, $K, $D, $N);                                       # Save block
+              $t->getBlock($l, $K, $D, $N);                                     # Block containing key
+              $t->replace ($t->found,  $K, $D);                                 # Replace key to delete with leaf
+              $t->putBlock($l, $K, $D, $N);                                     # Save block
               Jmp $success;
              };
 
-            my $i = $t->insertionPoint($k, $K);                                   # The insertion point if we were inserting is the next node to visit
-            $Q->copy($i->dFromPointInZ($N));                                      # Get the corresponding offset of the the next block down
+            my $i = $t->insertionPoint($k, $K);                                 # The insertion point if we were inserting is the next node to visit
+            $Q->copy($i->dFromPointInZ($N));                                    # Get the corresponding offset of the the next block down
            });
            Jmp $success;
          };
 
-        my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting is the next node to visit
-        $P->copy($i->dFromPointInZ($N));                                          # Get the corresponding node
+        my $i = $t->insertionPoint($k, $K);                                     # The insertion point if we were inserting is the next node to visit
+        $P->copy($i->dFromPointInZ($N));                                        # Get the corresponding node
 
-        $t->getBlock($P, $K, $D, $N);                                             # Get the next block
+        $t->getBlock($P, $K, $D, $N);                                           # Get the next block
 
-        my $l = $t->lengthFromKeys($K);                                           # Length of block
+        my $l = $t->lengthFromKeys($K);                                         # Length of block
 
-        If $l == $t->lengthMin,                                                   # Has the the bare minimum so must be merged.
+        If $l == $t->lengthMin,                                                 # Has the the bare minimum so must be merged.
         Then
-         {If $t->mergeOrSteal($P) > 0,                                            # Merge or steal if necessary
-          Then                                                                    # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+         {If $t->mergeOrSteal($P) > 0,                                          # Merge or steal if necessary
+          Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
            {Jmp $startDescent;
            };
          };
@@ -8541,7 +8539,7 @@ sub Nasm::X86::Tree::print($)                                                   
  {my ($tree) = @_;                                                              # Tree
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine                                                           # Print a tree
+  my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
@@ -8574,7 +8572,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
 
   PushR my ($W1, $W2, $F) = (r8, r9, 31);
 
-  my $s = Subroutine                                                           # Print a tree
+  my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
@@ -8733,7 +8731,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
 
   $tree->firstFromMemory($F);
   my $Q = $tree->rootFromFirst($F);
-  my $size = $tree->sizeFromFirst($F);                                         # Size of tree
+  my $size = $tree->sizeFromFirst($F);                                          # Size of tree
 
   If $Q == 0,                                                                   # Empty tree
   Then
@@ -8754,7 +8752,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
 
   PushR my ($W1, $W2, $F) = (r8, r9, 31);
 
-  my $s = Subroutine                                                           # Print a tree
+  my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
@@ -8899,7 +8897,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
         &$new($l, K(zero, 0));
        },
       Else
-       {my $l = $tree->lengthFromKeys(31);                                     # Number of keys
+       {my $l = $tree->lengthFromKeys(31);                                      # Number of keys
         If $l > 0,
         Then                                                                    # Start with the current node as it is a leaf
          {&$new($C, K(zero, 0));
@@ -8929,7 +8927,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
         my $p = $t->getUpFromData($zmmND);
         If $p == 0, sub{Jmp $end};                                              # Jump to the end if we have reached the top of the tree
         $t->getBlock($p, $zmmPK, $zmmPD, $zmmPN);                               # Load keys, data and children nodes for parent which must have children
-        $n->setReg(15);                                                        # Offset of child
+        $n->setReg(15);                                                         # Offset of child
         Vpbroadcastd "zmm".$zmmTest, r15d;                                      # Current node broadcasted
         Vpcmpud k7, "zmm".$zmmPN, "zmm".$zmmTest, 0;                            # Check for equal offset - one of them will match to create the single insertion point in k6
         Kmovw r14d, k7;                                                         # Bit mask ready for count
@@ -9244,7 +9242,7 @@ sub Nasm::X86::Quarks::call($$)                                                 
     my $l = $q->arena->DescribeString(first => $e);                             # Create a definition for the string addressed by the quark
 
     PushR 15;
-    $l->getQ1->setReg(15);                                                     # Load first quad word in string
+    $l->getQ1->setReg(15);                                                      # Load first quad word in string
     Call r15;                                                                   # Call sub routine
     PopR r15;
     $s->copy(1);                                                                # Show subroutine was found and called
@@ -10005,7 +10003,7 @@ END
 
 Read this file:
 
-  ReadFile(V(file, Rs($0)), (my $s = V(size)), my $a = V(address));          # Read file
+  ReadFile(V(file, Rs($0)), (my $s = V(size)), my $a = V(address));             # Read file
   $a->setReg(rax);                                                              # Address of file in memory
   $s->setReg(rdi);                                                              # Length  of file in memory
   PrintOutMemory;                                                               # Print contents of memory to stdout
@@ -14552,7 +14550,7 @@ END
 
 #latest:
 if (1) {
-  my $s = Subroutine                                                           #TSubroutine2
+  my $s = Subroutine                                                            #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     $$s{var}->setReg(rax);
     Dec rax;
@@ -14575,7 +14573,7 @@ if (1) {
   my $N = 256;
   my $t = V struct => 33;
 
-  my $s = Subroutine                                                           #TSubroutine2
+  my $s = Subroutine                                                            #TSubroutine2
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     SaveFirstFour;
     my $v = V var => 0;
@@ -16130,7 +16128,7 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
        (7, createBitNumberFromAlternatingPattern '0',  $t->lengthRight+1, -$t->lengthMiddle);
       Vpexpandd zmmM($LN, 7), zmm($RN);                                         # Expand right data into left
 
-      $pip->setReg(15);                                                        # Collapse mask for keys/data in parent
+      $pip->setReg(15);                                                         # Collapse mask for keys/data in parent
       Not r15;
       And r15, $t->treeBitsMask;
       Kmovq k7, r15;
@@ -16150,7 +16148,7 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
       $t->getTreeBits($PK, r15);                                                # Get tree bits
       Kmovq k7, r15;                                                            # Tree bits
       Vpmovm2d zmm($z), k7;                                                     # Broadcast the bits into a zmm
-      $pip->setReg(15);                                                        # Parent insertion point
+      $pip->setReg(15);                                                         # Parent insertion point
       Kmovq k7, r15;
       Knotq k7, k7;                                                             # Invert parent insertion point
       Vpcompressd zmmM($z, 7), zmm($z);                                         # Compress
