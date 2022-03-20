@@ -14,10 +14,7 @@
 # Have K and possibly V accept a flat hash of variable names and expressions
 # Document that V > 0 is required to create a boolean test
 # Optimize putBwdqIntoMm with vpbroadcast
-# WHat is the differenfe between variable clone and variable copy?
-# Standardize w1 = r8, w2 = r9 so we do need to pass them around - rdi, rsi are always general purpose except in system calls
 # Make sure that we are using bts and bzhi as much as possible in mask situations
-# Subroutine->subroutine and readd final label paramter so we do not have to c=keep delaring ands placing it
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -991,7 +988,7 @@ sub Nasm::X86::Sub::callTo($$$@)                                                
    }
 
   my $w = RegisterSize r15;
-  PushR r15;                                                                    # Use this register to transfer between the current frame and the next frame
+  PushR 15;                                                                    # Use this register to transfer between the current frame and the next frame
   Mov "dword[rsp  -$w*3]", $sub->nameString;                                    # Point to name
   Mov "byte [rsp-1-$w*2]", scalar $sub->parameters->@*;                         # Number of parameters to enable traceback with parameters
 
@@ -1029,7 +1026,7 @@ sub Nasm::X86::Sub::call($@)                                                    
 
 sub Nasm::X86::Sub::via($$@)                                                    # Call a sub by reference passing it some parameters.
  {my ($sub, $ref, @parameters) = @_;                                            # Subroutine descriptor, variable containing a reference to the sub, parameter variables
-  PushR r14, r15;
+  PushR 14, 15;
   if ($ref->reference)                                                          # Dereference address of subroutine.
    {Mov r14, "[$$ref{label}]";                                                  # Reference
    }
@@ -1407,7 +1404,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
    }
 
   my $w = RegisterSize r15;
-  PushR r15;                                                                    # Use this register to transfer between the current frame and the next frame
+  PushR 15;                                                                    # Use this register to transfer between the current frame and the next frame
   Mov "dword[rsp  -$w*3]", $sub->nameString;                                    # Point to subroutine name
   Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable trace back with parameters
 
@@ -1880,7 +1877,7 @@ sub PrintRightInHex($$$)                                                        
 
     PushR rax, rdi, r14, r15, xmm0;
     ClearRegisters xmm0;
-    $$p{number}->setReg(r14);
+    $$p{number}->setReg(14);
 
     K(loop => 16)->for(sub
      {Mov r15, r14;                                                             # Load xmm0 with hexadecimal digits
@@ -2179,7 +2176,7 @@ sub PrintRaxRightInDec($$)                                                      
     Jnz $convert;
 
     Mov rdi, 1;                                                                 # Length of each write
-    $$p{width}->setReg(r10);                                                    # Pad to this width if necessary
+    $$p{width}->setReg(10);                                                     # Pad to this width if necessary
     Cmp r9, r10;
     IfLt
     Then                                                                        # Padding required
@@ -2316,10 +2313,10 @@ sub Variable($;$%)                                                              
        {Mov "[$label]", $expr;
        }
       else                                                                      # Transfer expression
-       {PushR r15;
+       {PushR 15;
         Mov r15, $expr;
         Mov "[$label]", r15;
-        PopR r15;
+        PopR;
        }
      }
    }
@@ -2363,7 +2360,7 @@ sub V(*;$%)                                                                     
 sub Nasm::X86::Variable::dump($$$;$$)                                           #P Dump the value of a variable to the specified channel adding an optional title and new line if requested.
  {my ($left, $channel, $newLine, $title1, $title2) = @_;                        # Left variable, channel, new line required, optional leading title, optional trailing title
   @_ >= 3 or confess;
-  PushR my @regs = (rax, rdi);
+  PushR rax, rdi;
   my $label = $left->label;                                                     # Address in memory
   Mov rax, "[$label]";
   Mov rax, "[rax]" if $left->reference;
@@ -2372,7 +2369,7 @@ sub Nasm::X86::Variable::dump($$$;$$)                                           
   PrintRaxInHex($channel);
   PrintString  ($channel, $title2) if defined $title2;
   PrintNL      ($channel) if $newLine;
-  PopR @regs;
+  PopR;
  }
 
 sub Nasm::X86::Variable::err($;$$)                                              # Dump the value of a variable on stderr.
@@ -2402,7 +2399,7 @@ sub Nasm::X86::Variable::outNL($;$$)                                            
 
 sub Nasm::X86::Variable::debug($)                                               # Dump the value of a variable on stdout with an indication of where the dump came from.
  {my ($left) = @_;                                                              # Left variable
-  PushR my @regs = (rax, rdi);
+  PushR rax, rdi;
   Mov rax, $left->label;                                                        # Address in memory
   Mov rax, "[rax]";
   &PrintErrString(pad($left->name, 32).": ");
@@ -2410,7 +2407,7 @@ sub Nasm::X86::Variable::debug($)                                               
   my ($p, $f, $l) = caller(0);                                                  # Position of caller in file
   &PrintErrString("               at $f line $l");
   &PrintErrNL();
-  PopR @regs;
+  PopR;
  }
 
 #D3 Decimal representation                                                      # Print out a variable as a decimal number
@@ -2727,7 +2724,7 @@ sub Nasm::X86::Variable::assign($$$)                                            
   $left->constant and confess "cannot assign to a constant";
 
   Comment "Variable assign";
-  PushR (r14, r15);
+  PushR 14, 15;
   Mov r14, $left ->address;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r14, "[r14]";
@@ -2743,10 +2740,10 @@ sub Nasm::X86::Variable::assign($$$)                                            
    }
   &$op(r14, r15);
   if ($left->reference)                                                         # Store in reference on left if necessary
-   {PushR r13;
+   {PushR 13;
     Mov r13, $left->address;
     Mov "[r13]", r14;
-    PopR r13;
+    PopR;
    }
   else                                                                          # Store in variable
    {Mov $left ->address, r14;
@@ -2810,14 +2807,14 @@ sub Nasm::X86::Variable::division($$$)                                          
 
   my $l = $left ->address;
   my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
-  PushR my @regs = (rax, rdx, r15);
+  PushR rax, rdx, r15;
   Mov rax, $l;
   Mov rax, "[rax]" if $left->reference;
   Mov r15, $r;
   Mov r15, "[r15]" if ref($right) and $right->reference;
   Idiv r15;
   my $v = V(join(' ', '('.$left->name, $op, (ref($right) ? $right->name : '').')'), $op eq "%" ? rdx : rax);
-  PopR @regs;
+  PopR;
   $v;
  }
 
@@ -2834,7 +2831,7 @@ sub Nasm::X86::Variable::mod($$)                                                
 sub Nasm::X86::Variable::shiftLeft($$)                                          # Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   PushR rcx, r15;
-  $left ->setReg(r15);                                                          # Value to shift
+  $left ->setReg(15);                                                          # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
   Shl r15, cl;                                                                  # Shift
@@ -2846,7 +2843,7 @@ sub Nasm::X86::Variable::shiftLeft($$)                                          
 sub Nasm::X86::Variable::shiftRight($$)                                         # Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   PushR rcx, r15;
-  $left ->setReg(r15);                                                          # Value to shift
+  $left ->setReg(15);                                                          # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
   Shr r15, cl;                                                                  # Shift
@@ -2871,18 +2868,18 @@ sub Nasm::X86::Variable::boolean($$$$)                                          
   my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
 
   Comment "Boolean Arithmetic Start";
-  PushR r15;
+  PushR 15;
 
   Mov r15, $left ->address;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r15, "[r15]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
-   {PushR r14;
+   {PushR 14;
     Mov r14, $right ->address;
     Mov r14, "[r14]";
     Cmp r15, r14;
-    PopR r14;
+    PopR;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
    {Cmp r15, $right->address;
@@ -2894,7 +2891,7 @@ sub Nasm::X86::Variable::boolean($$$$)                                          
   &$sub(sub {Mov  r15, 1}, sub {Mov  r15, 0});
   my $v = V(join(' ', '('.$left->name, $op, (ref($right) ? $right->name : '').')'), r15);
 
-  PopR r15;
+  PopR;
   Comment "Boolean Arithmetic end";
 
   $v
@@ -2907,18 +2904,18 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
   my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
 
   Comment "Boolean ZF Arithmetic Start";
-  PushR r15;
+  PushR 15;
 
   Mov r15, $left ->address;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r15, "[r15]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
-   {PushR r14;
+   {PushR 14;
     Mov r14, $right ->address;
     Mov r14, "[r14]";
     Cmp r15, r14;
-    PopR r14;
+    PopR;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
    {Cmp r15, $right->address;
@@ -2929,7 +2926,7 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
 
   &$sub(sub {Cmp rsp, rsp}, sub {Test rsp, rsp});
 
-  PopR r15;
+  PopR;
   Comment "Boolean ZF Arithmetic end";
 
   V(empty);                                                                     # Return an empty variable so that If regenerates the follow on code
@@ -2941,17 +2938,17 @@ sub Nasm::X86::Variable::booleanC($$$$)                                         
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
   my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
 
-  PushR r15;
+  PushR 15;
   Mov r15, $left ->address;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r15, "[r15]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
-   {PushR r14;
+   {PushR 14;
     Mov r14, $right ->address;
     Mov r14, "[r14]";
     Cmp r15, r14;
-    PopR r14;
+    PopR;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
    {Cmp r15, $right->address;
@@ -2966,7 +2963,7 @@ sub Nasm::X86::Variable::booleanC($$$$)                                         
   Mov r15, 0;                                                                   # Assume the result was false
   &$cmov(r15, "[rsp-$w]");                                                      # Indicate true result
   my $v = V(join(' ', '('.$left->name, $op, (ref($right) ? $right->name : '').')'), r15);
-  PopR r15;
+  PopR;
 
   $v
  }
@@ -3016,7 +3013,7 @@ sub Nasm::X86::Variable::setReg($$)                                             
      {confess "Cannot set a mask register to the address of a variable";
      }
     else
-     {PushR r15;
+     {PushR 15;
       Mov r15, $variable->address;
       Kmovq $r, r15;
       PopR;
@@ -3078,7 +3075,7 @@ sub Nasm::X86::Variable::incDec($$)                                             
     Mov rsi, $l;
     &$op(rsi);
     Mov $l, rsi;
-    PopR rsi;
+    PopR;
     return $left;
    }
  }
@@ -3101,10 +3098,10 @@ sub Nasm::X86::Variable::str($)                                                 
 sub Nasm::X86::Variable::min($$)                                                # Minimum of two variables.
  {my ($left, $right) = @_;                                                      # Left variable, right variable or constant
   PushR (r12, r14, r15);
-  $left->setReg(r14);
+  $left->setReg(14);
 
   if (ref($right))                                                              # Right hand side is a variable
-   {$right->setReg(r15);
+   {$right->setReg(15);
    }
   else                                                                          # Right hand side is a constant
    {Mov r15, $right;
@@ -3121,10 +3118,10 @@ sub Nasm::X86::Variable::min($$)                                                
 sub Nasm::X86::Variable::max($$)                                                # Maximum of two variables.
  {my ($left, $right) = @_;                                                      # Left variable, right variable or constant
   PushR (r12, r14, r15);
-  $left->setReg(r14);
+  $left->setReg(14);
 
   if (ref($right))                                                              # Right hand side is a variable
-   {$right->setReg(r15);
+   {$right->setReg(15);
    }
   else                                                                          # Right hand side is a constant
    {Mov r15, $right;
@@ -3143,11 +3140,11 @@ sub Nasm::X86::Variable::and($$)                                                
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   PushR (r14, r15);
   Mov r14, 0;
-  $left->setReg(r15);
+  $left->setReg(15);
   Cmp r15, 0;
   &IfNe (
     sub
-     {$right->setReg(r15);
+     {$right->setReg(15);
       Cmp r15, 0;
       &IfNe(sub {Add r14, 1});
      }
@@ -3161,11 +3158,11 @@ sub Nasm::X86::Variable::or($$)                                                 
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   PushR (r14, r15);
   Mov r14, 1;
-  $left->setReg(r15);
+  $left->setReg(15);
   Cmp r15, 0;
   &IfEq (
     sub
-     {$right->setReg(r15);
+     {$right->setReg(15);
       Cmp r15, 0;
       &IfEq(sub {Mov r14, 0});
      }
@@ -3182,16 +3179,16 @@ sub Nasm::X86::Variable::setMask($$$)                                           
   PushR (r13, r14, r15);
   Mov r15, -1;
   if ($start)                                                                   # Non zero start
-   {$start->setReg(r14);
+   {$start->setReg(14);
     Bzhi r15, r15, r14;
     Not  r15;
     ref($length) or confess "Not a variable";
-    $length->setReg(r13);
+    $length->setReg(13);
     Add  r14, r13;
    }
   else                                                                          # Starting at zero
    {confess "Deprecated: use setMaskFirst instead";
-     $length->setReg(r13);
+     $length->setReg(13);
     Mov r14, $length;
    }
   Bzhi r15, r15, r14;
@@ -3203,7 +3200,7 @@ sub Nasm::X86::Variable::setMaskFirst($$)                                       
  {my ($length, $mask) = @_;                                                     # Variable containing length to set, mask register
   @_ == 2 or confess "Two parameters";
 
-  PushR my @save = my ($l, $b) = ChooseRegisters(2, $mask);                     # Choose two registers not the mask register
+  PushR my ($l, $b) = ChooseRegisters(2, $mask);                                # Choose two registers not the mask register
   Mov $b, -1;
   $length->setReg($l);
   Bzhi $b, $b, $l;
@@ -3216,7 +3213,7 @@ sub Nasm::X86::Variable::setMaskBit($$)                                         
  {my ($index, $mask) = @_;                                                      # Variable containing bit position to set, mask register
   @_ == 2 or confess "Two parameters";
   $mask =~ m(\Ak)i or confess "Mask register required";
-  PushR my @save = my ($l, $b) = (r14, r15);
+  PushR my ($l, $b) = (r14, r15);
   Kmovq $b, $mask;
   $index->setReg($l);
   Bts $b, $l;
@@ -3229,7 +3226,7 @@ sub Nasm::X86::Variable::clearMaskBit($$)                                       
   @_ == 2 or confess "Two parameters";
   $mask =~ m(\Ak)i or confess "Mask register required";
 
-  PushR my @save = my ($l, $b) = (r14, r15);
+  PushR my ($l, $b) = (r14, r15);
   Kmovq $b, $mask;
   $index->setReg($l);
   Btc $b, $l;
@@ -3241,7 +3238,7 @@ sub Nasm::X86::Variable::setBit($$)                                             
  {my ($index, $mask) = @_;                                                      # Variable containing bit position to set, mask register
   @_ == 2 or confess "Two parameters";
 
-  PushR my @save = my ($l) = ChooseRegisters(1, $mask);                         # Choose a register
+  PushR my ($l) = ChooseRegisters(1, $mask);                                    # Choose a register
   $index->setReg($l);
   Bts $mask, $l;
   PopR;
@@ -3251,7 +3248,7 @@ sub Nasm::X86::Variable::clearBit($$)                                           
  {my ($index, $mask) = @_;                                                      # Variable containing bit position to clear, mask register
   @_ == 2 or confess "Two parameters";
 
-  PushR my @save = my ($l) = ChooseRegisters(1, $mask);                         # Choose a register
+  PushR my ($l) = ChooseRegisters(1, $mask);                                    # Choose a register
   $index->setReg($l);
   Btc $mask, $l;
   PopR;
@@ -3264,8 +3261,8 @@ sub Nasm::X86::Variable::setZmm($$$$)                                           
   Comment "Set Zmm $zmm from Memory";
   PushR (k7, r14, r15);
   $offset->setMask($length, k7);                                                # Set mask for target
-  $source->setReg(r15);
-  $offset->setReg(r14);                                                         # Position memory for target
+  $source->setReg(15);
+  $offset->setReg(14);                                                         # Position memory for target
   Sub r15, r14;                                                                 # Position memory for target
   Vmovdqu8 "zmm${zmm}{k7}", "[r15]";                                            # Read from memory
   PopR;
@@ -3445,7 +3442,7 @@ sub Nasm::X86::Variable::qFromZ($$$)                                            
 sub Nasm::X86::Variable::dFromPointInZ($$)                                      # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
  {my ($point, $zmm) = @_;                                                       # Point, numbered zmm
   PushR 7, 14, 15, $zmm;
-  $point->setReg(r15);
+  $point->setReg(15);
   Kmovq k7, r15;
   my ($z) = zmm $zmm;
   Vpcompressd "$z\{k7}", $z;
@@ -3458,8 +3455,8 @@ sub Nasm::X86::Variable::dFromPointInZ($$)                                      
 sub Nasm::X86::Variable::dIntoPointInZ($$$)                                     # Put the variable double word content into the numbered zmm register at a point specified by the variable.
  {my ($point, $zmm, $content) = @_;                                             # Point, numbered zmm, content to be inserted as a variable
   PushR 7, 14, 15;
-  $content->setReg(r14);
-  $point->setReg(r15);
+  $content->setReg(14);
+  $point->setReg(15);
   Kmovq k7, r15;
   Vpbroadcastd zmmM($zmm, 7), r14d;                                             # Insert dword at desired location
   PopR;
@@ -4309,7 +4306,7 @@ sub ReadInteger()                                                               
  {@_ == 0 or confess "Zero parameters";
   my $s = Subroutine
    {my ($p) = @_;
-    PushR r15;
+    PushR 15;
     ClearRegisters rax, r15;
 
     (V max => RegisterSize(rax))->for(sub                                       # Read each character
@@ -4428,11 +4425,11 @@ sub unlinkFile(@)                                                               
 sub Hash()                                                                      # Hash a string addressed by rax with length held in rdi and return the hash code in r15.
  {@_ == 0 or confess;
 
-  my $s = Subroutine                                                           # Read file
+  my $s = Subroutine                                                            # Read file
    {Comment "Hash";
 
-    PushR my @regs = (rax, rdi, k1, zmm0, zmm1);                                # Save registers
-    PushR r15;
+    PushR rax, rdi, k1, zmm0, zmm1;                                             # Save registers
+    PushR 15;
     Vpbroadcastq zmm0, rdi;                                                     # Broadcast length through ymm0
     Vcvtuqq2pd   zmm0, zmm0;                                                    # Convert to lengths to float
     Vgetmantps   zmm0, zmm0, 4;                                                 # Normalize to 1 to 2, see: https://hjlebbink.github.io/x86doc/html/VGETMANTPD.html
@@ -4479,7 +4476,7 @@ sub Hash()                                                                      
 
     Vmovq r15, xmm0;                                                            # Result in r15
 
-    PopR @regs;
+    PopR;
    } name=> "Hash";
 
   $s->call;
@@ -4494,10 +4491,10 @@ sub GetNextUtf8CharAsUtf32($$$$)                                                
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
 
-    PushR (r11, r12, r13, r14, r15);
+    PushR 11, 12, 13, 14, 15;
     $$p{fail}->getConst(0);                                                     # Clear failure indicator
-    $$p{in}->setReg(r15);                                                       # Character to convert
-    ClearRegisters r14;                                                         # Move to byte register below does not clear the entire register
+    $$p{in}->setReg(15);                                                       # Character to convert
+    ClearRegisters 14;                                                          # Move to byte register below does not clear the entire register
     Mov r14b, "[r15]";
     my $success = Label;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
 
@@ -4576,15 +4573,15 @@ sub ConvertUtf8ToUtf32(@)                                                       
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
-    PushR (r10, r11, r12, r13, r14, r15);
+    PushR 10, 11, 12, 13, 14, 15;
 
     my $size = $$p{size8} * 4;                                                  # Estimated length for utf32
     AllocateMemory size => $size, my $address = V(address);
 
-     $$p{u8}            ->setReg(r14);                                          # Current position in input string
-    ($$p{u8}+$$p{size8})->setReg(r15);                                          # Upper limit of input string
-    $address->setReg(r13);                                                      # Current position in output string
-    ClearRegisters r12;                                                         # Number of characters in output string
+     $$p{u8}            ->setReg(14);                                          # Current position in input string
+    ($$p{u8}+$$p{size8})->setReg(15);                                          # Upper limit of input string
+    $address->setReg(13);                                                      # Current position in output string
+    ClearRegisters 12;                                                          # Number of characters in output string
 
     ForEver sub                                                                 # Loop through input string  converting each utf8 sequence to utf32
      {my ($start, $end) = @_;
@@ -4643,7 +4640,7 @@ sub ClassifyRange($$$)                                                          
     Vmovdqu8 "zmm31\{k7}{z}", zmm1;                                             # Utf32 characters at upper end of each range
     Vmovdqu8 "zmm30\{k7}{z}", zmm0;                                             # Utf32 characters at lower end of each range
 
-    $$p{address}->setReg(r15);                                                  # Address of first utf32 character
+    $$p{address}->setReg(15);                                                  # Address of first utf32 character
     $$p{size}->for(sub                                                          # Process each utf32 character in the block of memory
      {my ($index, $start, $next, $end) = @_;
 
@@ -4723,9 +4720,9 @@ sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   
    {my ($p) = @_;                                                               # Parameters
     my $finish = Label;
 
-    PushR my @save =  (r12, r13, r14, r15, k6, k7, zmm 29..31);
+    PushR 12, 13, 14, 15, 6, 7, 29..31;
 
-    $$p{address}->setReg(r15);                                                  # Address of first utf32 character
+    $$p{address}->setReg(15);                                                   # Address of first utf32 character
     $$p{size}->for(sub                                                          # Process each utf32 character in the block of memory
      {my ($index, $start, $next, $end) = @_;
 
@@ -4742,7 +4739,7 @@ sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   
       Mov r12, r14;                                                             # Range classification code and start of range
       Sub r12, r13;                                                             # We now have the offset in the range
 
-      $$p{classification}->setReg(r13);                                         # Classification code
+      $$p{classification}->setReg(13);                                         # Classification code
       Shl r13, 24;                                                              # Shift classification code into position
       Or  r12, r13;                                                             # Position classification code
       Mov "[r15-4]", r12d;                                                      # Classification in highest byte of dword, offset in range in lowest word
@@ -4788,14 +4785,14 @@ sub Nasm::X86::ShortString::load($$$)                                           
 
   $string->clear;                                                               # Clear the register we are going to use as a short string
 
-  PushR r14, r15, k7;
-  $length->setReg(r15);                                                         # Length of string
+  PushR 14, 15, 7;
+  $length->setReg(15);                                                         # Length of string
   Mov r14, -1;                                                                  # Clear bits that we do not wish to load
   Bzhi r14, r14, r15;
   Shl r14, 1;                                                                   # Move over length byte
   Kmovq k7, r14;                                                                # Load mask
 
-  $address->setReg(r14);                                                        # Address of data to load
+  $address->setReg(14);                                                        # Address of data to load
   Vmovdqu8 "${z}{k7}", "[r14-1]";                                               # Load string skipping length byte
   Pinsrb $x, r15b, 0;                                                           # Set length in zmm
   PopR;
@@ -4809,7 +4806,7 @@ sub Nasm::X86::ShortString::loadConstantString($$)                              
 
   $string->clear;                                                               # Clear the register we are going to use as a short string
 
-  PushR r14, r15, k7;
+  PushR 14, 15, 7;
   Mov r15, length $data;                                                        # Length of string
   Mov r14, -1;                                                                  # Clear bits that we do not wish to load
   Bzhi r14, r14, r15;
@@ -4834,17 +4831,17 @@ sub Nasm::X86::ShortString::loadDwordBytes($$$$;$)                              
 
   $string->clear;                                                               # Clear the register we are going to use as a short string
 
-  PushR r13, r14, r15, $z;                                                      # Build an image of the short string on the stack and then pop it into the short string zmm
+  PushR 13, 14, 15, $z;                                                         # Build an image of the short string on the stack and then pop it into the short string zmm
 
   my $m = $length->min($string->maximumLength);                                 # Length to load
-  $m->setReg(r15);
+  $m->setReg(15);
   Add r15, $offset if $Offset;                                                  # Include the offset in the length of the string if an offset has been supplied
   Mov "[rsp]", r15b;                                                            # Save length on stack image of short string
 
-  $address->setReg(r15);                                                        # Source dwords
+  $address->setReg(15);                                                         # Source dwords
   $m->for(sub                                                                   # Load each byte while there is room in the short string
    {my ($index, $start, $next, $end) = @_;                                      # Execute block
-    $index->setReg(r14);                                                        # Index source and target
+    $index->setReg(14);                                                         # Index source and target
     Mov r13b, "[r15+4*r14+$byte]";                                              # Load next byte from specified position in the source dword
     Mov "[rsp+r14+$w+$offset]", r13b;                                           # Save next byte skipping length
    });
@@ -4863,18 +4860,18 @@ sub Nasm::X86::ShortString::loadDwordWords($$$$;$)                              
 
   $string->clear;                                                               # Clear the register we are going to use as a short string
 
-  PushR r13, r14, r15, $z;                                                      # Build an image of the short string on the stack and then pop it into the short string zmm
+  PushR 13, 14, 15, $z;                                                         # Build an image of the short string on the stack and then pop it into the short string zmm
 
   my $m = $length->min($string->maximumLengthWords);                            # Length to load in words
-  $m->setReg(r15);
+  $m->setReg(15);
   Shl r15, 1;                                                                   # Double the length because the short string measures its length in bytes but we are loading words.
   Add r15, $offset if $Offset;                                                  # Include the offset in the length of the string if an offset has been supplied
   Mov "[rsp]", r15b;                                                            # Save length on stack image of short string
 
-  $address->setReg(r15);                                                        # Source dwords
+  $address->setReg(15);                                                         # Source dwords
   $m->for(sub                                                                   # Load each word while there is room in the short string
    {my ($index, $start, $next, $end) = @_;                                      # Execute block
-    $index->setReg(r14);                                                        # Index source and target
+    $index->setReg(14);                                                         # Index source and target
     Mov r13w, "[r15+4*r14+$byte]";                                              # Load next word from specified position in the source dword
     Mov "[rsp+2*r14+$w+$offset]", r13w;                                         # Save next word skipping length
    });
@@ -4887,7 +4884,7 @@ sub Nasm::X86::ShortString::len($)                                              
   @_ == 1 or confess "One parameter";
   my $z = $string->z;                                                           # Zmm register to use
   my $x = $string->x;                                                           # Corresponding xmm
-  PushR r15;
+  PushR 15;
   Pextrb r15, $x, 0;                                                            # Length
   my $l = V(size, r15);                                                         # Length as a variable
   PopR;
@@ -4899,7 +4896,7 @@ sub Nasm::X86::ShortString::setLength($$)                                       
   @_ == 2 or confess "Two parameters";
   my $x = $string->x;                                                           # Corresponding xmm
   PushR (r15);
-  $length->setReg(r15);                                                         # Length of string
+  $length->setReg(15);                                                         # Length of string
   Pinsrb $x, r15b, 0;                                                           # Set length in zmm
   PopR;
  }
@@ -4951,15 +4948,15 @@ sub Nasm::X86::ShortString::appendByte($$)                                      
   my $x = $string->x;                                                           # Corresponding xmm
   my $w = $string->lengthWidth;                                                 # The length of the initial field followed by the data
 
-  my $s = Subroutine                                                           # Append byte to short string
+  my $s = Subroutine                                                            # Append byte to short string
    {my ($p) = @_;                                                               # Parameters
-    PushR r14, r15;
+    PushR 14, 15;
     Pextrb r15, $x, 0;                                                          # Length of string
     Cmp r15, $string->maximumLength;                                            # Check current length against maximum length for a short string
     IfLt
     Then                                                                        # Room for an additional character
      {PushR $z;                                                                 # Stack string
-      $$p{char}->setReg(r14);                                                   # Byte to append
+      $$p{char}->setReg(14);                                                    # Byte to append
       Mov "[rsp+r15+$w]", r14b;                                                 # Place byte
       PopR;                                                                     # Reload string with additional byte
       Inc r15;                                                                  # New length
@@ -4984,13 +4981,13 @@ sub Nasm::X86::ShortString::appendVar($$)                                       
 
   my $s = Subroutine                                                            # Append byte to short string
    {my ($p) = @_;                                                               # Parameters
-    PushR r14, r15;
+    PushR 14, 15;
     my $l = $string->len;                                                       # Length of short string
     If $l + $w <= $string->maximumLength,                                       # Room within short string
     Then
      {PushR r14, r15, $z;
-      $l->setReg(r15);                                                          # Length of string
-      $$p{var}->setReg(r14);                                                    # Value of variable
+      $l->setReg(15);                                                           # Length of string
+      $$p{var}->setReg(14);                                                     # Value of variable
       Mov "[rsp+r15+1]", r14;                                                   # Insert value of variable into copy of short string on stack
       PopR;
       $string->setLength($l + $w);
@@ -5293,9 +5290,9 @@ sub Nasm::X86::Arena::establishYggdrasil($)                                     
 
   my $y = "Yggdrasil";
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
-  PushR my @save = (rax, rdi);
+  PushR rax, rdi;
   $arena->address->setReg(rax);                                                 #P Address underlying arena
-  Mov rdi, "[rax+$$arena{treeOffset}]";                                               # Address Yggdrasil
+  Mov rdi, "[rax+$$arena{treeOffset}]";                                         # Address Yggdrasil
   Cmp rdi, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
   Then                                                                          # Yggdrasil has been created so we can address it
@@ -5307,7 +5304,7 @@ sub Nasm::X86::Arena::establishYggdrasil($)                                     
     $t->first->copy(rdi);
     Mov "[rax+$$arena{treeOffset}]", rdi;                                       # Save offset of Yggdrasil
    };
-  PopR @save;
+  PopR;
   $t
  }
 
@@ -5341,7 +5338,7 @@ sub Nasm::X86::Arena::dumpFreeChain($)                                          
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameters";
 
-  PushR my @save = (r8, r9, r15, zmm31);
+  PushR 8, 9, 15, 31;
   my $ffb = $arena->firstFreeBlock;                                             # Get first free block
   PrintOutStringNL "Free chain";
   V( loop => 99)->for(sub                                                       # Loop through free block chain
@@ -5398,8 +5395,8 @@ sub Nasm::X86::Arena::clearZmmBlock($$)                                         
  {my ($arena, $offset) = @_;                                                    # Arena descriptor, offset of the block as a variable
   @_ == 2 or confess "Two parameters";
 
-  PushR zmm31;                                                                  # Clear a zmm block
-  ClearRegisters zmm31;
+  PushR 31;                                                                  # Clear a zmm block
+  ClearRegisters 31;
   $arena->putZmmBlock($offset, 31);
   PopR;
  }
@@ -5408,10 +5405,10 @@ sub Nasm::X86::Arena::freeZmmBlock($$)                                          
  {my ($arena, $offset) = @_;                                                    # Arena descriptor, offset of zmm block to be freed
   @_ == 2 or confess "Two parameters";
 
-  PushR my @save = (r15, zmm31);
+  PushR 15, 31;
   my $rfc = $arena->firstFreeBlock;                                             # Get first free block
-  ClearRegisters @save;                                                         # Second block
-  $rfc->dIntoZ(31, $arena->nextOffset, r15);                                    # The position of the next pointer was dictated by strings.
+  ClearRegisters 31;                                                         # Second block
+  $rfc->dIntoZ(31, $arena->nextOffset);                                         # The position of the next pointer was dictated by strings.
   $arena->putZmmBlock($offset, 31);                                             # Link the freed block to the rest of the free chain
   $arena->setFirstFreeBlock($offset);                                           # Set free chain field to point to latest free chain element
   PopR;
@@ -5670,8 +5667,8 @@ sub Nasm::X86::Arena::CreateString($)                                           
    {my $nn = $s->next;
     my $pp = $s->prev;
     PushR (r14, r15);
-    $arena->address->setReg(r15);
-    $first->setReg(r14);
+    $arena->address->setReg(15);
+    $first->setReg(14);
     Mov "[r15+r14+$nn]", r14d;
     Mov "[r15+r14+$pp]", r14d;
     PopR;
@@ -5701,7 +5698,7 @@ sub Nasm::X86::String::setBlockLengthInZmm($$$)                                 
  {my ($String, $length, $zmm) = @_;                                             # String descriptor, length as a variable, number of zmm register
   @_ == 3 or confess "Three parameters";
   PushR (r15);                                                                  # Save work register
-  $length->setReg(r15);                                                         # New length
+  $length->setReg(15);                                                         # New length
   $length->bIntoZ($zmm, 0);                                                     # Insert block length
   PopR;                                                                         # Length of block is a byte
  }
@@ -5722,13 +5719,13 @@ sub Nasm::X86::String::getNextAndPrevBlockOffsetFromZmm($$)                     
  {my ($String, $zmm) = @_;                                                      # String descriptor, zmm containing block
   @_ == 2 or confess "Two parameters";
   my $l = $String->links;                                                       # Location of links
-  PushR my @regs = (r14, r15);                                                  # Work registers
+  PushR 14, 15;                                                                 # Work registers
   my $L = qFromZ($zmm, $String->links);                                         # Links in one register
-  $L->setReg(r15);                                                              # Links
+  $L->setReg(15);                                                              # Links
   Mov r14d, r15d;                                                               # Next
   Shr r15, RegisterSize(r14d) * 8;                                              # Prev
   my @r = (V("Next block offset", r15), V("Prev block offset", r14));           # Result
-  PopR @regs;                                                                   # Free work registers
+  PopR;                                                                         # Free work registers
   @r;                                                                           # Return (next, prev)
  }
 
@@ -5737,8 +5734,8 @@ sub Nasm::X86::String::putNextandPrevBlockOffsetIntoZmm($$$$)                   
   @_ == 4 or confess;
   if ($next and $prev)                                                          # Set both previous and next
    {PushR my @regs = (r14, r15);                                                # Work registers
-    $next->setReg(r14);                                                         # Next offset
-    $prev->setReg(r15);                                                         # Prev offset
+    $next->setReg(14);                                                         # Next offset
+    $prev->setReg(15);                                                         # Prev offset
     Shl r14, RegisterSize(r14d) * 8;                                            # Prev high
     Or r15, r14;                                                                # Links in one register
     my $l = V("Links", r15);                                                    # Links as variable
@@ -5747,14 +5744,14 @@ sub Nasm::X86::String::putNextandPrevBlockOffsetIntoZmm($$$$)                   
    }
   elsif ($next)                                                                 # Set just next
    {PushR my @regs = (r8, r15);                                                 # Work registers
-    $next->setReg(r15);                                                         # Next offset
+    $next->setReg(15);                                                         # Next offset
     my $l = V("Links", r15);                                                    # Links as variable
     $l->dIntoZ($zmm, $String->next);                                            # Load links into zmm
     PopR @regs;                                                                 # Free work registers
    }
   elsif ($prev)                                                                 # Set just prev
    {PushR my @regs = (r8, r15);                                                 # Work registers
-    $prev->setReg(r15);                                                         # Next offset
+    $prev->setReg(15);                                                         # Next offset
     my $l = V("Links", r15);                                                    # Links as variable
     $l->dIntoZ($zmm, $String->prev);                                            # Load links into zmm
     PopR @regs;                                                                 # Free work registers
@@ -5916,8 +5913,8 @@ sub Nasm::X86::String::insertChar($$$)                                          
          {my $O = $P - $C;                                                      # Offset in current block
 
           PushR zmm31;                                                          # Stack block
-          $O->setReg(r14);                                                      # Offset of character in block
-          $c->setReg(r15);                                                      # Character to insert
+          $O->setReg(14);                                                      # Offset of character in block
+          $c->setReg(15);                                                      # Character to insert
           Mov "[rsp+r14]", r15b;                                                # Place character after skipping length field
 
           If $L < $M,
@@ -5958,7 +5955,7 @@ sub Nasm::X86::String::insertChar($$$)                                          
 
       If $next == $F,
       Then                                                                      # Last source block
-       {$c->setReg(r15);                                                        # Character to insert
+       {$c->setReg(15);                                                        # Character to insert
         Push r15;
         Mov r15, rsp;                                                           # Address content on the stack
         $string->append($F, V(size, 1), V(source, r15));                        # Append character if we go beyond limit
@@ -6039,7 +6036,7 @@ sub Nasm::X86::String::getCharacter($$)                                         
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    PushR r15, zmm31;
+    PushR 15, zmm31;
     my $string = $$s{string};                                                   # String
     my $F = $string->first;                                                     # The first block in string
     my $P = $$p{position};                                                      # The position in the string at which we want to insert the character
@@ -6057,7 +6054,7 @@ sub Nasm::X86::String::getCharacter($$)                                         
         Then                                                                    # Position is in current block
          {my $O = $P - $C;                                                      # Offset in current block
           PushR zmm31;                                                          # Stack block
-          ($O+1)  ->setReg(r15);                                                # Character to get
+          ($O+1)  ->setReg(15);                                                # Character to get
           Mov r15b, "[rsp+r15]";                                                # Reload
           $$p{out}->getReg(r15);                                                # Save character
           PopR zmm31;                                                           # Stack block
@@ -6150,7 +6147,7 @@ sub Nasm::X86::String::appendShortString($$)                                    
  {my ($string, $short) = @_;                                                    # String descriptor, short string
   @_ == 2 or confess "Two parameters";
   my $z = $short->z;                                                            # Zmm register containing short string
-  PushR r15, $z;                                                                # Save short string on stack
+  PushR 15, $z;                                                                # Save short string on stack
   my $L = $short->len;                                                          # Length of short string
   Mov r15, rsp;                                                                 # Step over length
   Inc r15;                                                                      # Data of short string on stack without preceding length byte
@@ -6162,9 +6159,9 @@ sub Nasm::X86::String::appendShortString($$)                                    
 sub Nasm::X86::String::appendVar($$)                                            # Append the content of the specified variable to a string.
  {my ($string, $var) = @_;                                                      # String descriptor, short string
   @_ == 2 or confess "Two parameters";
-  PushR r15;
-  $var->setReg(r15);                                                            # Value of variable
-  PushR r15;                                                                    # Put value of variable on the stack
+  PushR 15;
+  $var->setReg(15);                                                            # Value of variable
+  PushR 15;                                                                    # Put value of variable on the stack
   Mov r15, rsp;                                                                 # Step over length
   $string->append(V(address => r15), V(size => $var->width));                   # Append the short string data on the stack
   PopR;
@@ -6209,7 +6206,7 @@ sub Nasm::X86::String::getQ1($)                                                 
 
     my $string = $$s{string};                                                   # String
 
-    PushR r8, r9, zmm0;
+    PushR 8, 9, zmm0;
     $string->arena->getZmmBlock($string->first, 0, r8, r9);                     # Load the first block on the free chain
     Psrldq xmm0, $string->lengthWidth;                                          # Shift off the length field of the long string block
     Pextrq r8, xmm0, 0;                                                         # Extract first quad word
@@ -6234,7 +6231,7 @@ sub Nasm::X86::String::clear($)                                                 
 
     my $string = $$s{string};                                                   # String
 
-    PushR rax, r14, r15; PushZmm 29..31;
+    PushR rax, 14, 15, 29..31;
 
     my $first = $string->first;                                                 # First block
     $string->getZmmBlock($first, 29);                                           # Get the first block
@@ -6265,7 +6262,7 @@ sub Nasm::X86::String::clear($)                                                 
       $string->arena->setFirstFreeBlock($second);                               # The second block becomes the head of the free chain
      };
 
-    PopZmm; PopR;
+    PopR;
    } structures=>{string=>$string}, name => 'Nasm::X86::String::clear';
 
   $s->call(structures=>{string=>$string});
@@ -6280,7 +6277,7 @@ sub Nasm::X86::String::free($)                                                  
 
     my $string = $$s{string};                                                   # String
 
-    PushR rax, r14, r15; PushZmm  30..31;
+    PushR rax, 14, 15, 30..31;
 
     my $first = $string->first;                                                 # First block
     $string->getZmmBlock($first,  30);                                          # Get the first block
@@ -6293,7 +6290,7 @@ sub Nasm::X86::String::free($)                                                  
     $string->putZmmBlock($first,  30);                                          # Put the second block
     $string->putZmmBlock($last,   31);                                          # Put the last block
 
-    PopZmm; PopR;
+    PopR;
    } structures=>{string => $string}, name => 'Nasm::X86::String::free';
 
   $s->call(structures=>{string => $string});
@@ -6406,7 +6403,7 @@ sub Nasm::X86::Array::push($$)                                                  
     my $F = $array->first;                                                      # First block
     my $E = $$s{element};                                                       # The element to be inserted
 
-    PushR r8, zmm31;
+    PushR 8, 31;
     my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
 
     $arena->getZmmBlock($F, 31);                                                # Get the first block
@@ -6491,7 +6488,7 @@ sub Nasm::X86::Array::pop($)                                                    
     my $arena = $array->arena;                                                     # Arena
     my $F     = $array->first;                                                  # First block of array
 
-    PushR r8, zmm31;
+    PushR 8, 31;
     my $transfer = r8;                                                          # Transfer data from zmm to variable via this register
     $arena->getZmmBlock($F, 31);                                                # Get the first block
     my $size = dFromZ 31, 0;                                                    # Size of array
@@ -6919,13 +6916,13 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
     my $d = $arena->allocZmmBlock;                                              # Data
     my $n = $arena->allocZmmBlock;                                              # Children
 
-    PushR r8;
+    PushR 8;
     $t->putLoop($d, $K);                                                        # Set the link from key to data
     $t->putLoop($n, $D);                                                        # Set the link from data to node
     $t->putLoop($t->first, $N);                                                 # Set the link from node to tree first block
 
     $$p{address}->copy($k);                                                     # Address of block
-    PopR r8;
+    PopR;
    } structures => {tree => $tree},
      parameters => [qw(address)],
      name       => qq(Nasm::X86::Tree::allocBlock::${K}::${D}::${N});           # Create a subroutine for each combination of registers encountered
@@ -6966,7 +6963,7 @@ sub Nasm::X86::Tree::incLengthInKeys($$)                                        
  {my ($t, $K) = @_;                                                             # Tree, zmm number
   @_ == 2 or confess "Two parameters";
   my $l = $t->lengthOffset;                                                     # Offset of length bits
-  PushR r15;
+  PushR 15;
   ClearRegisters r15;
   bRegFromZmm r15, $K, $l;                                                      # Length
   Cmp r15, $t->length;
@@ -6985,7 +6982,7 @@ sub Nasm::X86::Tree::decLengthInKeys($$)                                        
  {my ($t, $K) = @_;                                                             # Tree, zmm number
   @_ == 2 or confess "Two parameters";
   my $l = $t->lengthOffset;                                                     # Offset of length bits
-  PushR r15;
+  PushR 15;
   ClearRegisters r15;
   bRegFromZmm r15, $K, $l;                                                      # Length
   Cmp r15, 0;
@@ -7106,7 +7103,7 @@ sub Nasm::X86::Tree::indexXX($$$$)                                              
   my $A = $K == 17 ? 18 : 17;                                                   # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
   PushR rcx, r14, r15, k7, $A;                                                  # Registers
 
-  $key->setReg(r14);
+  $key->setReg(14);
   Vpbroadcastd zmm($A), r14d;                                                   # Load key to test
   Vpcmpud k7, zmm($K, $A), $cmp;                                                # Check keys from memory broadcast
   my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
@@ -7799,11 +7796,11 @@ sub Nasm::X86::Tree::findShortString($$)                                        
     my $t = $$s{tree};                                                          # Tree
     $t->found->copy(0);                                                         # Not yet found
 
-    PushR rax, r14, r15;
-    ClearRegisters r15;
-    PushR r15, $z;                                                              # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
+    PushR rax, 14, 15;
+    ClearRegisters 15;
+    PushR 15, $z;                                                              # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
     Lea rax, "[rsp+1]";                                                         # Address first data byte of short string
-    $L->setReg(r15);                                                            # Length of key remaining to write into key chain
+    $L->setReg(15);                                                            # Length of key remaining to write into key chain
 
     AndBlock
      {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
@@ -7842,12 +7839,12 @@ sub Nasm::X86::Tree::insertShortString($$$)                                     
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $L = $string->len;                                                       # Length of the short string
 
-    PushR rax, r14, r15;
-    ClearRegisters r15;
-    PushR r15, $z;                                                              # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
+    PushR rax, 14, 15;
+    ClearRegisters 15;
+    PushR 15, $z;                                                              # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
     my $W = $string->lengthWidth;                                               # The length of the initial field followed by the data
     Lea rax, "[rsp+$W]";                                                        # Address first data byte of short string
-    $L->setReg(r15);                                                            # Length of key remaining to write into key chain
+    $L->setReg(15);                                                            # Length of key remaining to write into key chain
 
     my $t = $$s{tree};                                                          # Reload the input tree so we can walk down the chain from it.
 
@@ -7886,7 +7883,7 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
     my $t        = $$s{tree};                                                   # Tree
        $t->first->copy(my $F = $$p{node});                                      # First block
     my $arena = $t->arena;                                                      # Arena
-    PushR rax, r8, r9; PushZmm 29..31;
+    PushR rax, 8, 9, 29..31;
 
     K(loopLimit, 9)->for(sub                                                    # Loop a reasonable number of times
      {my ($index, $start, $next, $end) = @_;
@@ -7911,7 +7908,7 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
     Exit(1);
 
     SetLabel $success;                                                          # Insert completed successfully
-    PushZmm; PopR;
+    PopR;
    } structures => {tree => $tree},
      parameters => [qw(node offset)],
      name       => $dir==0 ? "Nasm::X86::Tree::leftMost" :
@@ -7953,7 +7950,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
     my $arena = $tree->arena;                                                   # Arena
     my $N = $$p{node};                                                          # Starting node
 
-    PushR r8, r9, r14, r15, zmm30, zmm31;
+    PushR 8, 9, 14, 15, 30, 31;
     my $tree = $N->clone('tree');                                               # Start at the specified node
 
     K(loop, 9)->for(sub                                                         # Step up through tree
@@ -8046,8 +8043,8 @@ sub Nasm::X86::Tree::setOrClearTreeBitToMatchContent($$$$)                      
   @_ == 4 or confess "Four parameters";
 
   if (ref($point))                                                              # Point is a variable so we must it in a register
-   {PushR r15;
-    $point->setReg(r15);
+   {PushR 15;
+    $point->setReg(15);
     If $content > 0,                                                              # Content represents a tree
     Then
      {$t->setTreeBit($zmm, r15);
@@ -8116,8 +8113,8 @@ sub Nasm::X86::Tree::insertIntoTreeBits($$$$)                                   
   @_ == 4 or confess "Four parameters";
 
   if (ref($point))                                                              # Point is a variable so we must put into a register
-   {PushR r15;
-    $point->setReg(r15);
+   {PushR 15;
+    $point->setReg(15);
     If $content > 0,                                                            # Content represents a one
     Then
      {$t->insertOneIntoTreeBits ($zmm, r15);
@@ -8167,7 +8164,7 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
     $t->data->copy($q->dFromPointInZ($D));                                      # Data at point
     $t->subTree->copy($t->getTreeBit($K, $q));                                  # Sub tree or not a sub tree
 
-    $q->setReg(r15);                                                            # Create a compression mask to squeeze out the key/data
+    $q->setReg(15);                                                            # Create a compression mask to squeeze out the key/data
     Not r15;                                                                    # Invert point
     Mov rsi, r15;                                                               # Inverted point
     And rsi, $t->keyDataMask;                                                   # Mask for keys area
@@ -8941,7 +8938,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
 
     my $new  = sub                                                              # Load iterator with latest position
      {my ($node, $pos) = @_;                                                    # Parameters
-      PushR r8, r9; PushZmm 29..31;
+      PushR 8, 9, 29..31;
       $iter->node->copy($node);                                                 # Set current node
       $iter->pos ->copy($pos);                                                  # Set current position in node
       $iter->tree->getKeysData($node, 31, 30, r8, r9);                          # Load keys and data
@@ -8949,7 +8946,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
       my $offset = $pos * $iter->tree->width;                                   # Load key and data
       $iter->key ->copy(dFromZ 31, $offset);
       $iter->data->copy(dFromZ 30, $offset);
-      PopZmm; PopR;
+      PopR;
      };
 
     my $done = sub                                                              # The tree has been completely traversed
@@ -8963,7 +8960,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
     Then                                                                        # Initial descent
      {my $end = Label;
 
-      PushR r8, r9; PushZmm 29..31;
+      PushR 8, 9, 29..31;
       $tree->getBlock($C, 31, 30, 29);                                          # Load keys and data
 
       my $l = $tree->lengthFromKeys(31);                                        # Length of the block
@@ -8992,7 +8989,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
        };
 
       SetLabel $end;
-      PopZmm; PopR;
+      PopR;
       Jmp $success;                                                             # Return with iterator loaded
      };
 
@@ -9011,7 +9008,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
         my $p = $t->getUpFromData($zmmND);
         If $p == 0, sub{Jmp $end};                                              # Jump to the end if we have reached the top of the tree
         $t->getBlock($p, $zmmPK, $zmmPD, $zmmPN);                               # Load keys, data and children nodes for parent which must have children
-        $n->setReg(r15);                                                        # Offset of child
+        $n->setReg(15);                                                        # Offset of child
         Vpbroadcastd "zmm".$zmmTest, r15d;                                      # Current node broadcasted
         Vpcmpud k7, "zmm".$zmmPN, "zmm".$zmmTest, 0;                            # Check for equal offset - one of them will match to create the single insertion point in k6
         Kmovw r14d, k7;                                                         # Bit mask ready for count
@@ -9033,7 +9030,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
      };
 
     $iter->pos->copy(my $i = $iter->pos + 1);                                   # Next position in block being scanned
-    PushR r8, r9; PushZmm 29..31;
+    PushR 8, 9, 29..31;
     my $t = $iter->tree;
     $t->getBlock($C, 31, 30, 29, r8, r9);                                       # Load keys and data
     my $l = $t->lengthFromKeys(31);                                             # Length of keys
@@ -9054,7 +9051,7 @@ sub Nasm::X86::Tree::Iterator::next($)                                          
       &$new($l, K(zero, 0));
      };
 
-    PopZmm; PopR;
+    PopR;
     SetLabel $success;
    } structures => {iterator => $iterator},
      name       => 'Nasm::X86::Tree::Iterator::next ';
@@ -9326,8 +9323,8 @@ sub Nasm::X86::Quarks::call($$)                                                 
     my $e = $q->numbersToStrings->get($number);                                 # Get subroutine indexed by quark
     my $l = $q->arena->DescribeString(first => $e);                             # Create a definition for the string addressed by the quark
 
-    PushR r15;
-    $l->getQ1->setReg(r15);                                                     # Load first quad word in string
+    PushR 15;
+    $l->getQ1->setReg(15);                                                     # Load first quad word in string
     Call r15;                                                                   # Call sub routine
     PopR r15;
     $s->copy(1);                                                                # Show subroutine was found and called
@@ -9344,7 +9341,7 @@ sub Nasm::X86::Quarks::dump($)                                                  
   @_ == 1 or confess "1 parameter";
 
   my $l = $q->numbersToStrings->size;                                           # Number of subs
-  PushR r15, zmm0;
+  PushR 15, zmm0;
   my $L = $q->arena->length;
   $l->for(sub
    {my ($index, $start, $next, $end) = @_;
@@ -9355,7 +9352,7 @@ sub Nasm::X86::Quarks::dump($)                                                  
     If $n < $L,                                                                 # Appears to be a string within the arena
     Then
      {my $p = $q->arena->address + $n;
-      $p->setReg(r15);
+      $p->setReg(15);
       Vmovdqu64 zmm0, "[r15]";
       PrintOutString " == ";
       PrintOneRegisterInHex $stdout, zmm0;
@@ -11103,7 +11100,7 @@ END
 if (1) {                                                                        #TClearMemory
   K(loop, 8+1)->for(sub
    {my ($index, $start, $next, $end) = @_;
-    $index->setReg(r15);
+    $index->setReg(15);
     Push r15;
    });
 
@@ -11634,7 +11631,7 @@ if (1) {
   $a->getReg(r15);
   $b->copy($a);
   $b = $b + 1;
-  $b->setReg(r14);
+  $b->setReg(14);
   $a->outNL;
   $b->outNL;
   $c->outNL;
@@ -13454,13 +13451,13 @@ if (1) {                                                                        
     PushR zmm1;
     V(loop)->getReg(r14)->for(sub                                               # Write each letter out from its position on the stack
      {my ($index, $start, $next, $end) = @_;                                    # Execute body
-      $index->setReg(r14);                                                      # Index stack
+      $index->setReg(14);                                                       # Index stack
       ClearRegisters r15;
       Mov r15b, "[rsp+4*r14]";                                                  # Load alphabet offset from stack
       Shl r15, 2;                                                               # Each letter is 4 bytes wide in utf8
       Mov r14, $va;                                                             # Alphabet address
       Mov r14d, "[r14+r15]";                                                    # Alphabet letter as utf8
-      PushR r14;                                                                # Utf8 is on the stack and it is 4 bytes wide
+      PushR 14;                                                                 # Utf8 is on the stack and it is 4 bytes wide
       Mov rax, rsp;
       Mov rdi, 4;
       PrintOutMemory;                                                           # Print letter from stack
@@ -13998,14 +13995,14 @@ if (0) {                                                                        
   my $s = Subroutine33
    {my ($p, $s) = @_;
     PrintOutString "SSSS";
-    $$p{p}->setReg(r15);
+    $$p{p}->setReg(15);
     PrintOutRegisterInHex r15;
    } [qw(p)], name => 'ssss';
 
   my $t = Subroutine33
    {my ($p, $s) = @_;
     PrintOutString "TTTT";
-    $$p{p}->setReg(r15);
+    $$p{p}->setReg(15);
     PrintOutRegisterInHex r15;
    } [], name => 'tttt', with => $s;
 
@@ -15066,7 +15063,7 @@ Final Left
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::setTree  #TNasm::X86::Tree::clearTree #TNasm::X86::Tree::insertZeroIntoTreeBits #TNasm::X86::Tree::insertOneIntoTreeBits #TNasm::X86::Tree::getTreeBits #TNasm::X86::Tree::setTreeBits #TNasm::X86::Tree::isTree
 
   my $t = DescribeTree;
@@ -16213,7 +16210,7 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
        (7, createBitNumberFromAlternatingPattern '0',  $t->lengthRight+1, -$t->lengthMiddle);
       Vpexpandd zmmM($LN, 7), zmm($RN);                                         # Expand right data into left
 
-      $pip->setReg(r15);                                                        # Collapse mask for keys/data in parent
+      $pip->setReg(15);                                                        # Collapse mask for keys/data in parent
       Not r15;
       And r15, $t->treeBitsMask;
       Kmovq k7, r15;
@@ -16233,7 +16230,7 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
       $t->getTreeBits($PK, r15);                                                # Get tree bits
       Kmovq k7, r15;                                                            # Tree bits
       Vpmovm2d zmm($z), k7;                                                     # Broadcast the bits into a zmm
-      $pip->setReg(r15);                                                        # Parent insertion point
+      $pip->setReg(15);                                                        # Parent insertion point
       Kmovq k7, r15;
       Knotq k7, k7;                                                             # Invert parent insertion point
       Vpcompressd zmmM($z, 7), zmm($z);                                         # Compress
@@ -16528,7 +16525,7 @@ sub Nasm::X86::Tree::relativeNode($$$$)                                         
 
   my $l = $tree->lengthFromKeys($K);                                            # Length of block
   PushR $K, 7, 15;                                                              # Reuse keys for comparison value
-  $offset->setReg(r15);
+  $offset->setReg(15);
   Vpbroadcastd zmm($K), r15d;                                                   # Load offset to test
   Vpcmpud k7, zmm($N, $K), $Vpcmp->eq;                                          # Check for nodes equal to offset
   Kmovq r15, k7;
@@ -16620,9 +16617,9 @@ sub Nasm::X86::Tree::indexNode($$$$)                                            
   @_ == 4 or confess "Four parameters";
 
   my $A = $K == 17 ? 18 : 17;                                                   # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
-  PushR rcx, r14, r15, k7, $A;                                                  # Registers
+  PushR rcx, 14, 15, 7, $A;                                                     # Registers
 
-  $offset->setReg(r14);                                                         # The offset we are looking for
+  $offset->setReg(14);                                                          # The offset we are looking for
   Vpbroadcastd zmm($A), r14d;                                                   # Load offset to test
   Vpcmpud k7, zmm($N, $A), $Vpcmp->eq;                                          # Check for nodes equal to offset
   my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
