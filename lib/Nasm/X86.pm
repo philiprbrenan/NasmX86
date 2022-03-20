@@ -3643,11 +3643,6 @@ sub PushR(@)                                                                    
   scalar(@PushR)                                                                # Stack depth
  }
 
-sub PushRAssert($)                                                              #P Check that the stack ash the expected depth.
- {my ($depth) = @_;                                                             # Expected Depth
-  confess "Stack mismatch" unless $depth == scalar(@PushR)
- }
-
 sub PopRR(@)                                                                    #P Pop registers from the stack without tracking.
  {my (@r) = @_;                                                                 # Register
   my $w = RegisterSize rax;
@@ -3674,12 +3669,6 @@ sub PopR(@)                                                                     
   dump(\@r) eq dump($r) or confess "Mismatched registers:\n".dump($r, \@r) if @r;
   PopRR @$r;                                                                    # Pop registers from the stack without tracking
 # CommentWithTraceBack;
- }
-
-sub PopEax()                                                                    # We cannot pop a double word from the stack in 64 bit long mode using pop so we improvise.
- {my $l = RegisterSize eax;                                                     # Eax is half rax
-  Mov eax, "[rsp]";
-  Add rsp, RegisterSize eax;
  }
 
 my @PushMask;                                                                   # Mask pushes
