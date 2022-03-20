@@ -7466,9 +7466,18 @@ sub Nasm::X86::Tree::put($$$)                                                   
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
-  $s->call(structures => {tree => $tree},
-           parameters => {key  => $key, data=>$data,
-            subTree => V(subTree => ref($data) =~ m(Tree) ? 1 : 0)});
+  if (ref($data) =~ m(Tree))                                                     # Whether we are a putting a sub tree
+   {$s->call(structures => {tree    => $tree},
+             parameters => {key     => $key,
+                            data    => $data,
+                            subTree => K(zero => 0)});
+   }
+  else
+   {$s->call(structures => {tree    => $tree},
+             parameters => {key     => $key,
+                            data    => $data,
+                            subTree => K(key => 1)});
+   }
  }
 
 #D2 Find                                                                        # Find a key in the tree
@@ -8807,20 +8816,17 @@ sub Nasm::X86::Tree::yb($&)                                                     
 
 #D2 Push and Pop                                                                # Push elements on to a tree with the next available key. Pop the last element in a tree.
 
-sub Nasm::X86::Tree::push($$;$)                                                 # Push a data value onto a tree, indicating whether the data represents the offset of a sub tree or not.
- {my ($tree, $data, $subTree) = @_;                                             # Tree descriptor, variable data, variable sub tree boolean indicator
-  @_ == 2 or @_ == 3 or confess "Two or three parameters";
-  my $z = K(zero => 0);
+sub Nasm::X86::Tree::push($$)                                                   #P Push a data value onto a tree. If teh data is a reference to a tree then the offset of the first block of the tree is pushed.
+ {my ($tree, $data) = @_;                                                       # Tree descriptor, variable data
+  @_ == 2 or confess "Two parameters";
 
   $tree->findLast;                                                              # Last element
   If $tree->found == 0,
   Then                                                                          # Empty tree
-   {#$tree->put($z, $data, $subTree // $z);                                     # First element in tree
-    $tree->put($z, $data);                                                      # First element in tree
+   {$tree->put(K(key => 1), $data);                                             # First element in tree
    },
   Else                                                                          # Non empty tree
-   {#$tree->insert($tree->key + 1, $data, $subTree // $z);                      # Last element in tree
-    $tree->put($tree->key + 1, $data);                                          # Last element in tree
+   {$tree->put($tree->key + 1, $data);                                          # Last element in tree
    };
  }
 
@@ -18290,7 +18296,7 @@ if (1) {                                                                        
    {my ($i) = @_;
     $t->pop; $t->found->out("f: ", " "); $t->data->outNL;
    });
-  $t->pop; $t->found->out("f: ");
+  $t->pop; $t->found->outNL("f: ");
 
   ok Assemble eq => <<END;
 f: 0000 0000 0000 0001 data: 0000 0000 0000 000F
