@@ -4985,7 +4985,7 @@ sub Nasm::X86::ShortString::appendVar($$)                                       
     my $l = $string->len;                                                       # Length of short string
     If $l + $w <= $string->maximumLength,                                       # Room within short string
     Then
-     {PushR r14, r15, $z;
+     {PushR 14, 15, $z;
       $l->setReg(15);                                                           # Length of string
       $$p{var}->setReg(14);                                                     # Value of variable
       Mov "[rsp+r15+1]", r14;                                                   # Insert value of variable into copy of short string on stack
@@ -5838,7 +5838,7 @@ sub Nasm::X86::String::concatenate($$)                                          
   my $s = Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, structures
     Comment "Concatenate strings";
-    PushZmm 29..31;
+    PushR 29..31;
 
     my $source = $$s{source}; my $sf = $source->first;                          # Source string
     my $target = $$s{target}; my $tf = $target->first;                          # Target string
@@ -5875,7 +5875,7 @@ sub Nasm::X86::String::concatenate($$)                                          
       $source->getZmmBlock($sn, 31);                                            # Next source block
      };
 
-    PopZmm;
+    PopR;
    } structures => {source=>$source, target=>$target},
      name       => 'Nasm::X86::String::concatenate';
 
@@ -6095,7 +6095,7 @@ sub Nasm::X86::String::append($$$)                                              
     my $size    = $$p{size}  ->clone('size');                                   # Size of content
     my $L       = V(size, $string->length);                                     # Length of string
 
-    PushZmm 29..31;
+    PushR 29..31;
     ForEver                                                                     # Append content until source exhausted
      {my ($start, $end) = @_;                                                   # Parameters
 
@@ -6134,7 +6134,7 @@ sub Nasm::X86::String::append($$$)                                              
       $string->putZmmBlock($last, 31);                                          # Put the modified last block
       $string->putZmmBlock($new,  30);                                          # Put the modified new block
      };
-    PopZmm;
+    PopR;
    }  parameters=>[qw(source size)],
       structures=>{string => $string},
      name => 'Nasm::X86::String::append';
@@ -7194,7 +7194,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
     my $t     = $$s{tree};                                                      # Tree
     my $arena = $t->arena;                                                      # Arena
 
-    PushR ((my $W1 = r8), (my $W2 = r9)); PushZmm 22...31;
+    PushR 22...31;
     ClearRegisters 22..31;                                                      # Otherwise we get left over junk
 
     my $offset = $$p{offset};                                                   # Offset of block in arena
@@ -7249,7 +7249,6 @@ sub Nasm::X86::Tree::splitNode($$)                                              
     $t->putBlock        ($r,      $RK, $RD, $RN);                               # Save right block
 
     SetLabel $success;                                                          # Insert completed successfully
-    PopZmm;
     PopR;
    }  structures => {tree => $tree},
       parameters => [qw(offset split)],
