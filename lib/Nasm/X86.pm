@@ -5159,7 +5159,7 @@ sub Nasm::X86::Arena::makeWriteable($)                                          
   $s->call(parameters=>{address => $arena->address});
  }
 
-#D2 Alloc/Free                                                                  # Allocate and free zmm blocks via the free block chain allowing space within the arena to be conveniently reused
+#D2 Alloc/Free                                                                  # Allocate and free memory in an arena, either once only but in variable size blocks or reusably in zmm sized blocks via the free block chain.
 
 sub Nasm::X86::Arena::allocate($$)                                              # Allocate the variable amount of space in the variable addressed arena and return the offset of the allocation in the arena as a variable.
  {my ($arena, $size) = @_;                                                      # Arena descriptor, variable amount of allocation
@@ -5222,51 +5222,6 @@ sub Nasm::X86::Arena::freeZmmBlock($$)                                          
   PopR;
  }
 
-sub Nasm::X86::Arena::firstFreeBlock222($)                                      #P Create and load a variable with the first free block on the free block chain or zero if no such block in the given arena.
- {my ($arena) = @_;                                                             # Arena descriptor
-  @_ == 1 or confess "One parameter";
-  my $v = V('free', 0);                                                         # Offset of first free block
-  my $t = $arena->checkYggdrasilCreated;                                        # Check Yggdrasil
-  IfNe
-  Then
-   {PushR rax;
-    my $d = $t->find(K key => $ArenaFreeChain);                                 # Locate free chain
-    If ($t->found > 0,                                                          # Located offset of free chain
-    Then
-     {$v->copy($t->data);                                                       # Offset of first free block
-     });
-    PopR rax;
-   };
-  $v                                                                            # Return offset of first free block or zero if there is none
- }
-
-sub Nasm::X86::Arena::setFirstFreeBlock222($$)                                     #P Set the first free block field from a variable.
- {my ($arena, $offset) = @_;                                                    # Arena descriptor, first free block offset as a variable
-  @_ == 2 or confess "Two parameters";
-
-  my $t = $arena->establishYggdrasil;
-  $t->insert(K(key => $ArenaFreeChain), $offset);                               # Save offset of first block in free chain
- }
-
-sub Nasm::X86::Arena::dumpFreeChain222($)                                          #P Dump the addresses of the blocks currently on the free chain.
- {my ($arena) = @_;                                                             # Arena descriptor
-  @_ == 1 or confess "One parameters";
-
-  PushR 8, 9, 15, 31;
-  my $ffb = $arena->firstFreeBlock;                                             # Get first free block
-  PrintOutStringNL "Free chain";
-  V( loop => 99)->for(sub                                                       # Loop through free block chain
-   {my ($index, $start, $next, $end) = @_;
-    If $ffb == 0, Then {Jmp $end};                                              # No more free blocks
-    $ffb->outNL;
-    $arena->getZmmBlock($ffb, 31, r8, r9);                                      # Load the first block on the free chain
-    my $n = dFromZ 31, $arena->nextOffset;                                      # The location of the next pointer is forced upon us by string which got there first.
-    $ffb->copy($n);
-   });
-  PrintOutStringNL "Free chain end";
-  PopR;
- }
-
 sub Nasm::X86::Arena::getZmmBlock($$$)                                          #P Get the block with the specified offset in the specified string and return it in the numbered zmm.
  {my ($arena, $block, $zmm) = @_;                                               # Arena descriptor, offset of the block as a variable, number of zmm register to contain block
   @_ == 3 or confess "Three parameters";
@@ -5321,7 +5276,6 @@ sub Nasm::X86::Arena::checkYggdrasilCreated($)                                  
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $y = "Yggdrasil";
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
   PushR rax;
   $arena->address->setReg(rax);                                                 #P Address underlying arena
@@ -5345,14 +5299,13 @@ sub Nasm::X86::Arena::establishYggdrasil($)                                     
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
 
-  my $y = "Yggdrasil";
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
   PushR rax, rdi;
   $arena->address->setReg(rax);                                                 #P Address underlying arena
   Mov rdi, "[rax+$$arena{treeOffset}]";                                         # Address Yggdrasil
   Cmp rdi, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
-  Then                                                                          # Yggdrasil has been created so we can address it
+  Then                                                                          # Yggdrasil has already been created so we can address it
    {$t->first->copy(rdi);
    },
   Else                                                                          # Yggdrasil has not been created
@@ -5364,6 +5317,8 @@ sub Nasm::X86::Arena::establishYggdrasil($)                                     
   PopR;
   $t
  }
+
+#D2 Arena as a String                                                           # Use the memory supplied by the arena as a string - however, in general, this is too slow unless coupled with another slow operation such as executing a command, mapping a file or writing to a file.
 
 sub Nasm::X86::Arena::m($$$)                                                    # Append the variable addressed content of variable size to the specified arena.
  {my ($arena, $address, $size) = @_;                                            # Arena descriptor, variable address of content, variable length of content
