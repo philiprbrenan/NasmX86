@@ -3,7 +3,7 @@
 # Generate X86 assembler code using Perl as a macro pre-processor.
 # Philip R Brenan at appaapps dot com, Appa Apps Ltd Inc., 2021
 #-------------------------------------------------------------------------------
-# podDocumentation
+# podDocumentation (\A.{80})\s+(#.*\Z) \1\2
 # tree::print - speed up decision as to whether we are on a tree or not
 # Replace empty in boolean arithmetic with boolean and then check it in If to confirm that we are testing a boolean value
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
@@ -624,7 +624,7 @@ sub LoadZmm($@)                                                                 
  }
 
 sub checkZmmRegister($)                                                         # Check that a register is a zmm register
- {my ($z) = @_;                                                              # Parameters
+ {my ($z) = @_;                                                                 # Parameters
   $z =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess "$z is not the number of a zmm register";
  }
 
@@ -2333,8 +2333,8 @@ sub Variable($;$%)                                                              
    );
  }
 
-#sub G(*;$%)                                                                     # Define a global variable. Global variables with the same name are not necessarily the same variable.  Two global variables are identical iff they have have the same label field.
-# {my ($name, $expr, %options) = @_;                                             # Name of variable, initializing expression, options
+#sub G(*;$%)                                                                    # Define a global variable. Global variables with the same name are not necessarily the same variable.  Two global variables are identical iff they have have the same label field.
+# {my ($name, $expr, %options) = @_;                                            # Name of variable, initializing expression, options
 #  &Variable($name, $expr, global => 1, %options);
 # }
 
@@ -2447,7 +2447,7 @@ sub Nasm::X86::Variable::outInDecNL($;$$)                                       
 #D3 Decimal representation right justified                                      # Print out a variable as a decimal number right adjusted in a field of specified width
 
 sub Nasm::X86::Variable::rightInDec($$$)                                        # Dump the value of a variable on the specified channel as a decimal  number right adjusted in a field of specified width.
- {my ($number, $channel, $width) = @_;                                           # Number as variable, channel, width
+ {my ($number, $channel, $width) = @_;                                          # Number as variable, channel, width
   PushR rax;
   $number->setReg(rax);
   PrintRaxRightInDec($width, $channel);
@@ -5105,7 +5105,7 @@ sub Nasm::X86::Arena::updateSpace($$)                                           
       $arena->address->copy($address);                                          # Save new arena address
 
       $arena->address->setReg($base);                                           # Address arena
-      Mov "[$base+$$arena{sizeOffset}]", $proposed;                                   # Save the new size in the arena
+      Mov "[$base+$$arena{sizeOffset}]", $proposed;                             # Save the new size in the arena
      };
 
     PopR;
@@ -5126,7 +5126,7 @@ sub Nasm::X86::Arena::makeReadOnly($)                                           
     SaveFirstFour;
     $$p{address}->setReg(rax);
     Mov rdi, rax;                                                               # Address of arena
-    Mov rsi, "[rax+$$arena{sizeOffset}]";                                             # Size of arena
+    Mov rsi, "[rax+$$arena{sizeOffset}]";                                       # Size of arena
 
     Mov rdx, 1;                                                                 # Read only access
     Mov rax, 10;
@@ -5147,7 +5147,7 @@ sub Nasm::X86::Arena::makeWriteable($)                                          
     SaveFirstFour;
     $$p{address}->setReg(rax);
     Mov rdi, rax;                                                               # Address of arena
-    Mov rsi, "[rax+$$arena{sizeOffset}]";                                             # Size of arena
+    Mov rsi, "[rax+$$arena{sizeOffset}]";                                       # Size of arena
     Mov rdx, 3;                                                                 # Read only access
     Mov rax, 10;
     Syscall;
@@ -5164,11 +5164,11 @@ sub Nasm::X86::Arena::allocate($$)                                              
   SaveFirstFour;
   $arena->updateSpace($size);                                                   # Update space if needed
   $arena->address->setReg(rax);
-  Mov rsi, "[rax+$$arena{usedOffset}]";                                               # Currently used
+  Mov rsi, "[rax+$$arena{usedOffset}]";                                         # Currently used
   my $offset = V(offset => rsi);                                                # Variable to hold offset of allocation
   $size  ->setReg(rdi);
   Add rsi, rdi;
-  Mov "[rax+$$arena{usedOffset}]", rsi;                                               # Update currently used
+  Mov "[rax+$$arena{usedOffset}]", rsi;                                         # Update currently used
   RestoreFirstFour;
   $offset
  }
@@ -5178,17 +5178,17 @@ sub Nasm::X86::Arena::allocZmmBlock($)                                          
   @_ == 1 or confess "One parameter";
   my $offset = V("offset");                                                     # Variable to hold offset of allocation
 # Reinstate when we have trees working as an array
-##  my $ffb = $arena->firstFreeBlock;                                             # Check for a free block
+##  my $ffb = $arena->firstFreeBlock;                                           # Check for a free block
 ##  If $ffb > 0,
-##  Then                                                                          # Free block available
+##  Then                                                                        # Free block available
 ##   {PushR my @save = (r8, r9, zmm31);
-##    $arena->getZmmBlock($ffb, 31, r8, r9);                                      # Load the first block on the free chain
-##    my $second = dFromZ(31, $arena->nextOffset, r8);                            # The location of the next pointer is forced upon us by string which got there first.
-##    $arena->setFirstFreeBlock($second);                                         # Set the first free block field to point to the second block
-##    $offset->copy($ffb);                                                        # Get the block at the start of the chain
+##    $arena->getZmmBlock($ffb, 31, r8, r9);                                    # Load the first block on the free chain
+##    my $second = dFromZ(31, $arena->nextOffset, r8);                          # The location of the next pointer is forced upon us by string which got there first.
+##    $arena->setFirstFreeBlock($second);                                       # Set the first free block field to point to the second block
+##    $offset->copy($ffb);                                                      # Get the block at the start of the chain
 ##    PopR @save;
 ##   },
-##  Else                                                                          # Cannot reuse a free block so allocate
+##  Else                                                                        # Cannot reuse a free block so allocate
    {$offset->copy($arena->allocate(K size => $arena->zmmBlock));                # Copy offset of allocation
    };
 
@@ -5205,7 +5205,7 @@ sub Nasm::X86::Arena::checkYggdrasilCreated($)                                  
   my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
   PushR rax;
   $arena->address->setReg(rax);                                                 #P Address underlying arena
-  Mov rax, "[rax+$$arena{treeOffset}]";                                               # Address Yggdrasil
+  Mov rax, "[rax+$$arena{treeOffset}]";                                         # Address Yggdrasil
   my $v = V('Yggdrasil', rax);                                                  # Offset to Yggdrasil if it exists else zero
   Cmp rax, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
@@ -5635,7 +5635,7 @@ sub Nasm::X86::String::setBlockLengthInZmm($$$)                                 
  {my ($String, $length, $zmm) = @_;                                             # String descriptor, length as a variable, number of zmm register
   @_ == 3 or confess "Three parameters";
   PushR (r15);                                                                  # Save work register
-  $length->setReg(15);                                                         # New length
+  $length->setReg(15);                                                          # New length
   $length->bIntoZ($zmm, 0);                                                     # Insert block length
   PopR;                                                                         # Length of block is a byte
  }
@@ -5658,7 +5658,7 @@ sub Nasm::X86::String::getNextAndPrevBlockOffsetFromZmm($$)                     
   my $l = $String->links;                                                       # Location of links
   PushR 14, 15;                                                                 # Work registers
   my $L = qFromZ($zmm, $String->links);                                         # Links in one register
-  $L->setReg(15);                                                              # Links
+  $L->setReg(15);                                                               # Links
   Mov r14d, r15d;                                                               # Next
   Shr r15, RegisterSize(r14d) * 8;                                              # Prev
   my @r = (V("Next block offset", r15), V("Prev block offset", r14));           # Result
@@ -6422,7 +6422,7 @@ sub Nasm::X86::Array::pop($)                                                    
     my $E = $$p{element};                                                       # The element being popped
 
     my $array = $$s{array};                                                     # Array
-    my $arena = $array->arena;                                                     # Arena
+    my $arena = $array->arena;                                                  # Arena
     my $F     = $array->first;                                                  # First block of array
 
     PushR 8, 31;
@@ -7555,6 +7555,125 @@ sub Nasm::X86::Tree::find($$)                                                   
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # find
 
+sub Nasm::X86::Tree::findFirst($)                                            # Find the first element in a tree
+ {my ($tree) = @_;                                                              # Tree descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $success = Label;                                                        # Successfully completed
+
+    my $t = $$s{tree};                                                          # Tree to search
+
+    $t->found  ->copy(0);                                                       # Key not found
+    $t->data   ->copy(0);                                                       # Data not yet found
+    $t->subTree->copy(0);                                                       # Not yet a sub tree
+    $t->offset ->copy(0);                                                       # Offset not known
+
+    PushR 28..31;
+
+    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
+
+    $t->firstFromMemory($F);                                                    # Update the size of the tree
+    my $size = $t->sizeFromFirst($F);                                           # Size of tree
+
+    If $size == 0,                                                              # Empty tree
+    Then
+     {Jmp $success
+     };
+
+    my $root = $t->rootFromFirst($F);                                           # Root of tree
+    $t->getBlock($root, $K, $D, $N);                                            # Load root
+
+    K(loop => 99)->for(sub                                                      # Step down through the tree a reasonable number of times
+     {my ($i, $start, $next, $end) = @_;
+      my $k = dFromZ($K, 0);
+      my $d = dFromZ($D, 0);
+      my $n = dFromZ($N, 0);
+      my $b = $t->getTreeBit($K, K key => 1);
+
+      If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
+      Then
+       {$t->found   ->copy(1);
+        $t->key     ->copy($k);
+        $t->data    ->copy($d);
+        $t->subTree->copy($b);
+        Jmp $success
+       };
+
+      $t->getBlock($n, $K, $D, $N);
+     });
+    PrintErrTraceBack "Stuck looking for first";
+
+    SetLabel $success;                                                          # Find completed successfully
+    PopR;
+   } structures=>{tree=>$tree},
+     name => "Nasm::X86::Tree::findFirst($$tree{length})";
+
+  $s->call(structures=>{tree => $tree});
+ } # findFirst
+
+sub Nasm::X86::Tree::findLast($)                                             # Find the last key in a tree
+ {my ($tree) = @_;                                                              # Tree descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $success = Label;                                                        # Successfully completed
+
+    my $t = $$s{tree};                                                          # Tree to search
+
+    $t->found  ->copy(0);                                                       # Key not found
+    $t->data   ->copy(0);                                                       # Data not yet found
+    $t->subTree->copy(0);                                                       # Not yet a sub tree
+    $t->offset ->copy(0);                                                       # Offset not known
+
+    PushR 28..31;
+
+    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
+
+    $t->firstFromMemory($F);                                                    # Update the size of the tree
+    my $size = $t->sizeFromFirst($F);                                           # Size of tree
+
+    If $size == 0,                                                              # Empty tree
+    Then
+     {Jmp $success
+     };
+
+    my $root = $t->rootFromFirst($F);                                           # Root of tree
+    $t->getBlock($root, $K, $D, $N);                                            # Load root
+
+    K(loop => 99)->for(sub                                                      # Step down through the tree a reasonable number of times
+     {my ($i, $start, $next, $end) = @_;
+      my $l = $t->lengthFromKeys($K);
+      my $o  = ($l - 1) * $t->width;
+      my $O  = ($l + 0) * $t->width;
+      my $k = dFromZ($K, $o);
+      my $d = dFromZ($D, $o);
+      my $n = dFromZ($N, $O);
+      my $b = $t->getTreeBit($K, $l);
+
+      If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
+      Then
+       {$t->found   ->copy(1);
+        $t->key    ->copy($k);
+        $t->data   ->copy($d);
+        $t->subTree->copy($b);
+        Jmp $success
+       };
+
+      $t->getBlock($n, $K, $D, $N);
+     });
+    PrintErrTraceBack "Stuck looking for last";
+
+    SetLabel $success;                                                          # Find completed successfully
+    PopR;
+   } structures=>{tree=>$tree},
+     name => "Nasm::X86::Tree::findLast($$tree{length})";
+
+  $s->call(structures=>{tree => $tree});
+ } # findLast
+
 sub Nasm::X86::Tree::findNext($$)                                               # Find the next key greater than the one specified.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key
   @_ == 2 or confess "Two parameters";
@@ -7979,21 +8098,21 @@ sub Nasm::X86::Tree::setOrClearTreeBitToMatchContent($$$$)                      
   if (ref($point))                                                              # Point is a variable so we must it in a register
    {PushR 15;
     $point->setReg(15);
-    If $content > 0,                                                              # Content represents a tree
+    If $content > 0,                                                            # Content represents a tree
     Then
      {$t->setTreeBit($zmm, r15);
      },
-    Else                                                                          # Content represents a variable
+    Else                                                                        # Content represents a variable
      {$t->clearTreeBit($zmm, r15);
      };
     PopR;
    }
   Else
-   {If $content > 0,                                                              # Content represents a tree
+   {If $content > 0,                                                            # Content represents a tree
     Then
      {$t->setTreeBit($zmm, $point);
      },
-    Else                                                                          # Content represents a variable
+    Else                                                                        # Content represents a variable
      {$t->clearTreeBit($zmm, $point);
      };
    }
@@ -8086,9 +8205,9 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
      {PrintErrTraceBack "Cannot extract from a non leaf node";
      };
 
-#    my $l = $t->lengthFromKeys($K);                                             # Check for a minimal block
+#    my $l = $t->lengthFromKeys($K);                                            # Check for a minimal block
 #    If $l <= $t->lengthMin,
-#    Then                                                                        # Minimal block - extraction not possible
+#    Then                                                                       # Minimal block - extraction not possible
 #     {PrintErrTraceBack "Cannot extract from a minimum block";
 #     };
 #
@@ -8347,58 +8466,58 @@ sub Nasm::X86::Tree::delete($$)                                                 
       my $eq = $t->indexEq($k, $K);                                             # The key might still be in the parent now known not be a leaf
       If $eq > 0,
       Then                                                                      # We have found the key so now we need to find the next leaf unless this node is in fact a leaf
-       {my $pu = $t->upFromData($D);                                                # Parent offset
+       {my $pu = $t->upFromData($D);                                            # Parent offset
         If $pu > 0,
-        Then                                                                        # Cannot merge or steal on root
-         {If $t->mergeOrSteal($P) > 0,                                              # Merge or steal if necessary
-          Then                                                                      # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+        Then                                                                    # Cannot merge or steal on root
+         {If $t->mergeOrSteal($P) > 0,                                          # Merge or steal if necessary
+          Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
            {Jmp $startDescent;
            };
          };
 
-        If $t->leafFromNodes($N) > 0,                                               # We found the item in a leaf so it can be deleted immediately if there is enough
+        If $t->leafFromNodes($N) > 0,                                           # We found the item in a leaf so it can be deleted immediately if there is enough
         Then
-         {my $eq = $t->indexEq($k, $K);                                             # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
-          $t->extract($eq, $K, $D, $N);                                             # Remove from block
-          $t->putBlock($P, $K, $D, $N);                                             # Save block
-          Jmp $success;                                                             # Leaf removed
+         {my $eq = $t->indexEq($k, $K);                                         # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
+          $t->extract($eq, $K, $D, $N);                                         # Remove from block
+          $t->putBlock($P, $K, $D, $N);                                         # Save block
+          Jmp $success;                                                         # Leaf removed
          };
 
-        my $eq = $t->indexEq($k, $K);                                               # Location of key
-        my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                              # Go right to the next level down
+        my $eq = $t->indexEq($k, $K);                                           # Location of key
+        my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                          # Go right to the next level down
 
-        K(loop, 99)->for(sub                                                        # Find the left most leaf
+        K(loop, 99)->for(sub                                                    # Find the left most leaf
          {my ($index, $start, $next, $end) = @_;
 
-          If $t->mergeOrSteal($Q) > 0,                                              # Merge or steal if necessary
-          Then                                                                      # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+          If $t->mergeOrSteal($Q) > 0,                                          # Merge or steal if necessary
+          Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
            {Jmp $startDescent;
            };
-          $t->getBlock($Q, $K, $D, $N);                                             # Next block down
-          If $t->leafFromNodes($N) > 0,                                             # We must hit a leaf eventually
+          $t->getBlock($Q, $K, $D, $N);                                         # Next block down
+          If $t->leafFromNodes($N) > 0,                                         # We must hit a leaf eventually
           Then
-           {$t->extractFirst($K, $D, $N);                                           # Remove from block
-            $t->putBlock($Q, $K, $D, $N);                                           # Save block
+           {$t->extractFirst($K, $D, $N);                                       # Remove from block
+            $t->putBlock($Q, $K, $D, $N);                                       # Save block
 
-            my $key     = $t->key->clone("key");                                    # Record details of leaf
-            my $data    = $t->data->clone("data");                                  #
-            my $subTree = $t->subTree->clone("data");                               #
-            $t->find($k);                                                           # Find key we actually want to delete
+            my $key     = $t->key->clone("key");                                # Record details of leaf
+            my $data    = $t->data->clone("data");                              #
+            my $subTree = $t->subTree->clone("data");                           #
+            $t->find($k);                                                       # Find key we actually want to delete
 
-            $t->key    ->copy($key);                                                # Reload
+            $t->key    ->copy($key);                                            # Reload
             $t->data   ->copy($data);
             $t->subTree->copy($subTree);
 
-            my $l = $t->offset;                                                     # Offset of block containing key
+            my $l = $t->offset;                                                 # Offset of block containing key
 
-            $t->getBlock($l, $K, $D, $N);                                           # Block containing key
-            $t->replace ($t->found,  $K, $D);                                       # Replace key to delete with leaf
-            $t->putBlock($l, $K, $D, $N);                                           # Save block
+            $t->getBlock($l, $K, $D, $N);                                       # Block containing key
+            $t->replace ($t->found,  $K, $D);                                   # Replace key to delete with leaf
+            $t->putBlock($l, $K, $D, $N);                                       # Save block
             Jmp $success;
            };
 
-          my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting is the next node to visit
-          $Q->copy($i->dFromPointInZ($N));                                          # Get the corresponding offset of the the next block down
+          my $i = $t->insertionPoint($k, $K);                                   # The insertion point if we were inserting is the next node to visit
+          $Q->copy($i->dFromPointInZ($N));                                      # Get the corresponding offset of the the next block down
          });
          Jmp $success;
        };
@@ -8428,125 +8547,6 @@ sub Nasm::X86::Tree::delete($$)                                                 
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # delete
-
-sub Nasm::X86::Tree::findFirst($)                                            # Find the first element in a tree
- {my ($tree) = @_;                                                              # Tree descriptor
-  @_ == 1 or confess "One parameter";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Successfully completed
-
-    my $t = $$s{tree};                                                          # Tree to search
-
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
-
-    PushR 28..31;
-
-    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
-
-    $t->firstFromMemory($F);                                                    # Update the size of the tree
-    my $size = $t->sizeFromFirst($F);                                           # Size of tree
-
-    If $size == 0,                                                              # Empty tree
-    Then
-     {Jmp $success
-     };
-
-    my $root = $t->rootFromFirst($F);                                           # Root of tree
-    $t->getBlock($root, $K, $D, $N);                                            # Load root
-
-    K(loop => 99)->for(sub                                                      # Step down through the tree a reasonable number of times
-     {my ($i, $start, $next, $end) = @_;
-      my $k = dFromZ($K, 0);
-      my $d = dFromZ($D, 0);
-      my $n = dFromZ($N, 0);
-      my $b = $t->getTreeBit($K, K key => 1);
-
-      If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
-      Then
-       {$t->found   ->copy(1);
-        $t->key     ->copy($k);
-        $t->data    ->copy($d);
-        $t->subTree->copy($b);
-        Jmp $success
-       };
-
-      $t->getBlock($n, $K, $D, $N);
-     });
-    PrintErrTraceBack "Stuck looking for first";
-
-    SetLabel $success;                                                          # Find completed successfully
-    PopR;
-   } structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::findFirst($$tree{length})";
-
-  $s->call(structures=>{tree => $tree});
- } # findFirst
-
-sub Nasm::X86::Tree::findLast($)                                             # Find the last key in a tree
- {my ($tree) = @_;                                                              # Tree descriptor
-  @_ == 1 or confess "One parameter";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Successfully completed
-
-    my $t = $$s{tree};                                                          # Tree to search
-
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
-
-    PushR 28..31;
-
-    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
-
-    $t->firstFromMemory($F);                                                    # Update the size of the tree
-    my $size = $t->sizeFromFirst($F);                                           # Size of tree
-
-    If $size == 0,                                                              # Empty tree
-    Then
-     {Jmp $success
-     };
-
-    my $root = $t->rootFromFirst($F);                                           # Root of tree
-    $t->getBlock($root, $K, $D, $N);                                            # Load root
-
-    K(loop => 99)->for(sub                                                      # Step down through the tree a reasonable number of times
-     {my ($i, $start, $next, $end) = @_;
-      my $l = $t->lengthFromKeys($K);
-      my $o  = ($l - 1) * $t->width;
-      my $O  = ($l + 0) * $t->width;
-      my $k = dFromZ($K, $o);
-      my $d = dFromZ($D, $o);
-      my $n = dFromZ($N, $O);
-      my $b = $t->getTreeBit($K, $l);
-
-      If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
-      Then
-       {$t->found   ->copy(1);
-        $t->key    ->copy($k);
-        $t->data   ->copy($d);
-        $t->subTree->copy($b);
-        Jmp $success
-       };
-
-      $t->getBlock($n, $K, $D, $N);
-     });
-    PrintErrTraceBack "Stuck looking for last";
-
-    SetLabel $success;                                                          # Find completed successfully
-    PopR;
-   } structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::findLast($$tree{length})";
-
-  $s->call(structures=>{tree => $tree});
- } # findLast
 
 #D2 Print                                                                       # Print a tree
 
@@ -11213,7 +11213,7 @@ END
  }
 
 #latest:
-if (0) {    # NEED Y                                                                      #TNasm::X86::Arena::allocZmmBlock #TNasm::X86::Arena::freeZmmBlock #TNasm::X86::Arena::getZmmBlock #TNasm::X86::Arena::putZmmBlock #TNasm::X86::Arena::clearBlock
+if (0) {    # NEED Y                                                            #TNasm::X86::Arena::allocZmmBlock #TNasm::X86::Arena::freeZmmBlock #TNasm::X86::Arena::getZmmBlock #TNasm::X86::Arena::putZmmBlock #TNasm::X86::Arena::clearBlock
   my $a = CreateArena;
   LoadZmm(31, 0..63);
   LoadZmm(30,    64..127);
@@ -11397,7 +11397,7 @@ END
  }
 
 #latest:;
-if (0) {  # NEED Y                                                                       #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
+if (0) {  # NEED Y                                                              #TNasm::X86::Arena::checkYggdrasilCreated #TNasm::X86::Arena::establishYggdrasil #TNasm::X86::Arena::firstFreeBlock #TNasm::X86::Arena::setFirstFreeBlock
   my $A = CreateArena;
   my $t = $A->checkYggdrasilCreated;
      $t->found->outNL;
@@ -11652,7 +11652,7 @@ if (0) {                                                                        
 
     If $d > 0,
     Then
-     {$sub->call(parameters => {depth => $d});                                     # Recurse
+     {$sub->call(parameters => {depth => $d});                                  # Recurse
      };
 
     #PrintOutTraceBack 'AAAA';
@@ -12212,7 +12212,7 @@ END
  }
 
 #latest:;
-if (0) {  # NEED Y                                                                       #TNasm::X86::Arena::length #TNasm::X86::Arena::clear
+if (0) {  # NEED Y                                                              #TNasm::X86::Arena::length #TNasm::X86::Arena::clear
   my $t = Rb(0..255);
   my $a = CreateArena;
   my $s = $a->CreateString;
@@ -12232,7 +12232,7 @@ END
  }
 
 #latest:;
-if (0) {  # NEED Y                                                                       #TNasm::X86::Arena::free
+if (0) {  # NEED Y                                                              #TNasm::X86::Arena::free
   my $t = Rb(0..255);
   my $a = CreateArena;
 
@@ -13192,7 +13192,7 @@ END
  }
 
 #latest:
-if (00) {                                                                        #TNasm::X86::Tree::insertTreeAndReload #TNasm::X86::Tree::Reload  #TNasm::X86::Tree::findAndReload
+if (00) {                                                                       #TNasm::X86::Tree::insertTreeAndReload #TNasm::X86::Tree::Reload  #TNasm::X86::Tree::findAndReload
   my $L = K(loop, 4);
   my $b = CreateArena;
   my $T = $b->CreateTree;
@@ -14269,7 +14269,7 @@ if (0) {
   my ($inc, $dup, $put) = map {my $c = $_->call; sub {$c->call}} @s{@s};        # Call subroutine via variable - perl bug because $_ by  itself is not enough
 
    Mov rax, 1; &$put;
-#  &$inc;      &$put;                                                            # Use the subroutines from the library
+#  &$inc;      &$put;                                                           # Use the subroutines from the library
 #  &$dup;      &$put;
 #  &$dup;      &$put;
 #  &$inc;      &$put;
@@ -14996,7 +14996,7 @@ Final Left
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::setTree  #TNasm::X86::Tree::clearTree #TNasm::X86::Tree::insertZeroIntoTreeBits #TNasm::X86::Tree::insertOneIntoTreeBits #TNasm::X86::Tree::getTreeBits #TNasm::X86::Tree::setTreeBits #TNasm::X86::Tree::isTree
 
   my $t = DescribeTree;
@@ -15033,7 +15033,7 @@ if (1) {                                                                        
   Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
   Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
 
-  Not r8; $t->setTreeBits(31, r8);                   PrintOutRegisterInHex 31;
+  Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
 
   ok Assemble eq => <<END;
  zmm31: 0000 0000 0004 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
@@ -16630,14 +16630,14 @@ sub Nasm::X86::Tree::expand($$)                                                 
       If $lr == $t->lengthMin,
       Then                                                                      # Merge left and right into left as they are both at minimum size
        {$t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
-        # $t->freeBlock($R, $RK, $RD, $RN);                                       # The right is no longer required because it has been merged away
+        # $t->freeBlock($R, $RK, $RD, $RN);                                     # The right is no longer required because it has been merged away
 
         my $lp = $t->lengthFromKeys($PK);                                       # New length of parent
         If $lp == 0,
         Then                                                                    # Root now empty
          {$t->rootIntoFirst($F, $L);                                            # Parent is now empty so the left block must be the new root
           $t->firstIntoMemory($F);                                              # Save first block with updated root
-          #$t->freeBlock($P, $PK, $PD, $PN);                                     # The parent is no longer required because the left ir the new root
+          #$t->freeBlock($P, $PK, $PD, $PN);                                    # The parent is no longer required because the left ir the new root
          },
         Else                                                                    # Root not empty
          {$t->putBlock($P, $PK, $PD, $PN);                                      # Write parent back into memory
