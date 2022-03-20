@@ -7,7 +7,6 @@
 # tree::print - speed up decision as to whether we are on a tree or not
 # Replace empty in boolean arithmetic with boolean and then check it in If to confirm that we are testing a boolean value
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
-# Replace registerSize(rax) with $variable->width
 # Make hash accept parameters at: #THash
 # if (0) in tests from subroutine conversion
 # Call - validate that all parameter keys have a definition
