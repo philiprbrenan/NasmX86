@@ -95,7 +95,7 @@ cmova cmovae cmovb cmovbe cmovc cmove cmovg cmovge cmovl cmovle
 cmovna cmovnae cmovnb cmp
 enter
 imul
-kmov knot kortest ktest lea lzcnt mov movdqa
+kmov knot kortest ktest lea lzcnt mov movd movdqa
 or popcnt sal sar shl shr sub test tzcnt
 vcvtudq2pd vcvtuqq2pd vcvtudq2ps vmovdqu vmovdqu32 vmovdqu64 vmovdqu8
 vpcompressd vpcompressq vpexpandd vpexpandq xchg xor
@@ -4997,14 +4997,16 @@ sub DescribeArena(%)                                                            
 
   my $quad = RegisterSize rax;                                                  # Field offsets
   my $size = 0;
-  my $used = $size + $quad;
-  my $tree = $used + $quad;
+  my $used = $size + $quad;                                                     # Amount of memory in the arena that has been used - includes the free chain.
+  my $free = $used + $quad;                                                     # Free chain blocks = freed zmm blocks
+  my $tree = $free + $quad;                                                     # Start of Yggdrasil,
   my $data = $w;                                                                # Data starts in the next zmm block
 
   genHash(__PACKAGE__."::Arena",                                                # Definition of arena
     N          => $N,                                                           # Initial allocation
     sizeOffset => $size,                                                        # Size field offset
     usedOffset => $used,                                                        # Used field offset
+    freeOffset => $tree,                                                        # Free chain offset
     treeOffset => $tree,                                                        # Yggdrasil - a tree of global variables in this arena
     dataOffset => $data,                                                        # The start of the data
     address    => ($options{address} // V address => 0),                        # Variable that addresses the memory containing the arena
@@ -5157,6 +5159,8 @@ sub Nasm::X86::Arena::makeWriteable($)                                          
   $s->call(parameters=>{address => $arena->address});
  }
 
+#D2 Alloc/Free                                                                  # Allocate and free zmm blocks via the free block chain allowing space within the arena to be conveniently reused
+
 sub Nasm::X86::Arena::allocate($$)                                              # Allocate the variable amount of space in the variable addressed arena and return the offset of the allocation in the arena as a variable.
  {my ($arena, $size) = @_;                                                      # Arena descriptor, variable amount of allocation
   @_ == 2 or confess "Two parameters";
@@ -5176,76 +5180,49 @@ sub Nasm::X86::Arena::allocate($$)                                              
 sub Nasm::X86::Arena::allocZmmBlock($)                                          # Allocate a block to hold a zmm register in the specified arena and return the offset of the block as a variable.
  {my ($arena) = @_;                                                             # Arena
   @_ == 1 or confess "One parameter";
-  my $offset = V("offset");                                                     # Variable to hold offset of allocation
-# Reinstate when we have trees working as an array
-##  my $ffb = $arena->firstFreeBlock;                                           # Check for a free block
-##  If $ffb > 0,
-##  Then                                                                        # Free block available
-##   {PushR my @save = (r8, r9, zmm31);
-##    $arena->getZmmBlock($ffb, 31, r8, r9);                                    # Load the first block on the free chain
-##    my $second = dFromZ(31, $arena->nextOffset, r8);                          # The location of the next pointer is forced upon us by string which got there first.
-##    $arena->setFirstFreeBlock($second);                                       # Set the first free block field to point to the second block
-##    $offset->copy($ffb);                                                      # Get the block at the start of the chain
-##    PopR @save;
-##   },
-##  Else                                                                        # Cannot reuse a free block so allocate
+  my $offset = V(offset => 0);                                                  # Variable to hold offset of allocation
+
+  PushR rax, my $first = r14, my $second = r15, 31;
+  my $firstD = $first.'d'; my $secondD = $second.'d';
+
+  $arena->address->setReg(rax);                                                 # Address of arena
+  Mov $firstD, "[rax+$$arena{freeOffset}]";                                     # Offset of first block in free chain if such a block exists
+  Cmp $first, 0;
+  IfGt
+  Then                                                                          # Free block available
+   {$arena->getZmmBlock(V (offset => $first), 31);                              # Load the first block on the free chain
+    dFromZ(31, 0)->setReg($second);                                             # The location of the second block if any
+    Mov "[rax+$$arena{freeOffset}]", $secondD;                                  # Offset of first block in free chain if such a block exists
+    ClearRegisters 31;                                                          # Clear the zmm block - possibly this only needs to be done if we are reusing a block
+    $offset->getReg($first);                                                    # First block is the allocated block
+    $arena->putZmmBlock($offset, 31);
+   },
+  Else                                                                          # Cannot reuse a free block so allocate
    {$offset->copy($arena->allocate(K size => $arena->zmmBlock));                # Copy offset of allocation
    };
+  PopR;
 
-  $arena->clearZmmBlock($offset);                                               # Clear the zmm block - possibly this only needs to be done if we are reusing a block
 
   $offset                                                                       # Return offset of allocated block
  }
 
-sub Nasm::X86::Arena::checkYggdrasilCreated($)                                  #P Return a tree descriptor to the Yggdrasil world tree for an arena.  If Yggdrasil has not been created the B<found> variable will be zero else one.
- {my ($arena) = @_;                                                             # Arena descriptor
-  @_ == 1 or confess "One parameter";
+sub Nasm::X86::Arena::freeZmmBlock($$)                                          #P Free a block in an arena by placing it on the free chain.
+ {my ($arena, $offset) = @_;                                                    # Arena descriptor, offset of zmm block to be freed
+  @_ == 2 or confess "Two parameters";
 
-  my $y = "Yggdrasil";
-  my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
-  PushR rax;
-  $arena->address->setReg(rax);                                                 #P Address underlying arena
-  Mov rax, "[rax+$$arena{treeOffset}]";                                         # Address Yggdrasil
-  my $v = V('Yggdrasil', rax);                                                  # Offset to Yggdrasil if it exists else zero
-  Cmp rax, 0;                                                                   # Does Yggdrasil even exist?
-  IfNe
-  Then                                                                          # Yggdrasil has been created so we can address it
-   {$t->first->copy(rax);
-    $t->found->copy(1);
-   },
-  Else                                                                          # Yggdrasil has not been created
-   {$t->found->copy(0);
-   };
-  Cmp rax, 0;                                                                   # Restate whether Yggdrasil exists so that we can test its status quickly in the following code.
-  PopR rax;
-  $t
- }
-
-sub Nasm::X86::Arena::establishYggdrasil($)                                     #P Return a tree descriptor to the Yggdrasil world tree for an arena creating the world tree Yggdrasil if it has not already been created.
- {my ($arena) = @_;                                                             # Arena descriptor
-  @_ == 1 or confess "One parameter";
-
-  my $y = "Yggdrasil";
-  my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
-  PushR rax, rdi;
-  $arena->address->setReg(rax);                                                 #P Address underlying arena
-  Mov rdi, "[rax+$$arena{treeOffset}]";                                         # Address Yggdrasil
-  Cmp rdi, 0;                                                                   # Does Yggdrasil even exist?
-  IfNe
-  Then                                                                          # Yggdrasil has been created so we can address it
-   {$t->first->copy(rdi);
-   },
-  Else                                                                          # Yggdrasil has not been created
-   {my $T = $arena->CreateTree();
-    $T->first->setReg(rdi);
-    $t->first->copy(rdi);
-    Mov "[rax+$$arena{treeOffset}]", rdi;                                       # Save offset of Yggdrasil
-   };
+  PushR rax, my $first = r14, my $second = r15, zmm7;
+  my $firstD = $first.'d'; my $secondD = $second.'d';
+  $arena->address->setReg(rax);                                                 # Address of arena
+  Mov $secondD, "[rax+$$arena{freeOffset}]";                                    # Offset of first block in free chain if such a block exists
+  ClearRegisters zmm7;
+  Movd xmm7, $secondD;
+  $arena->putZmmBlock($offset, 7);
+  $offset->setReg($first);                                                      # Offset if what will soon be the first block on the free chain
+  Mov "[rax+$$arena{freeOffset}]", $firstD;                                     # Offset of first block in free chain if such a block exists
   PopR;
-  $t
  }
 
-sub Nasm::X86::Arena::firstFreeBlock($)                                         #P Create and load a variable with the first free block on the free block chain or zero if no such block in the given arena.
+sub Nasm::X86::Arena::firstFreeBlock222($)                                      #P Create and load a variable with the first free block on the free block chain or zero if no such block in the given arena.
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameter";
   my $v = V('free', 0);                                                         # Offset of first free block
@@ -5263,15 +5240,15 @@ sub Nasm::X86::Arena::firstFreeBlock($)                                         
   $v                                                                            # Return offset of first free block or zero if there is none
  }
 
-sub Nasm::X86::Arena::setFirstFreeBlock($$)                                     #P Set the first free block field from a variable.
+sub Nasm::X86::Arena::setFirstFreeBlock222($$)                                     #P Set the first free block field from a variable.
  {my ($arena, $offset) = @_;                                                    # Arena descriptor, first free block offset as a variable
   @_ == 2 or confess "Two parameters";
 
   my $t = $arena->establishYggdrasil;
-  $t->insert(K('key', $ArenaFreeChain), $offset);                               # Save offset of first block in free chain
+  $t->insert(K(key => $ArenaFreeChain), $offset);                               # Save offset of first block in free chain
  }
 
-sub Nasm::X86::Arena::dumpFreeChain($)                                          #P Dump the addresses of the blocks currently on the free chain.
+sub Nasm::X86::Arena::dumpFreeChain222($)                                          #P Dump the addresses of the blocks currently on the free chain.
  {my ($arena) = @_;                                                             # Arena descriptor
   @_ == 1 or confess "One parameters";
 
@@ -5338,17 +5315,54 @@ sub Nasm::X86::Arena::clearZmmBlock($$)                                         
   PopR;
  }
 
-sub Nasm::X86::Arena::freeZmmBlock($$)                                          #P Free a block in an arena by placing it on the free chain.
- {my ($arena, $offset) = @_;                                                    # Arena descriptor, offset of zmm block to be freed
-  @_ == 2 or confess "Two parameters";
+#D2 Yggdrasil                                                                   # The world tree from which we can address so many other things
 
-  PushR 15, 31;
-  my $rfc = $arena->firstFreeBlock;                                             # Get first free block
-  ClearRegisters 31;                                                            # Second block
-  $rfc->dIntoZ(31, $arena->nextOffset);                                         # The position of the next pointer was dictated by strings.
-  $arena->putZmmBlock($offset, 31);                                             # Link the freed block to the rest of the free chain
-  $arena->setFirstFreeBlock($offset);                                           # Set free chain field to point to latest free chain element
+sub Nasm::X86::Arena::checkYggdrasilCreated($)                                  #P Return a tree descriptor to the Yggdrasil world tree for an arena.  If Yggdrasil has not been created the B<found> variable will be zero else one.
+ {my ($arena) = @_;                                                             # Arena descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $y = "Yggdrasil";
+  my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
+  PushR rax;
+  $arena->address->setReg(rax);                                                 #P Address underlying arena
+  Mov rax, "[rax+$$arena{treeOffset}]";                                         # Address Yggdrasil
+  my $v = V('Yggdrasil', rax);                                                  # Offset to Yggdrasil if it exists else zero
+  Cmp rax, 0;                                                                   # Does Yggdrasil even exist?
+  IfNe
+  Then                                                                          # Yggdrasil has been created so we can address it
+   {$t->first->copy(rax);
+    $t->found->copy(1);
+   },
+  Else                                                                          # Yggdrasil has not been created
+   {$t->found->copy(0);
+   };
+  Cmp rax, 0;                                                                   # Restate whether Yggdrasil exists so that we can test its status quickly in the following code.
+  PopR rax;
+  $t
+ }
+
+sub Nasm::X86::Arena::establishYggdrasil($)                                     #P Return a tree descriptor to the Yggdrasil world tree for an arena creating the world tree Yggdrasil if it has not already been created.
+ {my ($arena) = @_;                                                             # Arena descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $y = "Yggdrasil";
+  my $t = $arena->DescribeTree;                                                 # Tree descriptor for Yggdrasil
+  PushR rax, rdi;
+  $arena->address->setReg(rax);                                                 #P Address underlying arena
+  Mov rdi, "[rax+$$arena{treeOffset}]";                                         # Address Yggdrasil
+  Cmp rdi, 0;                                                                   # Does Yggdrasil even exist?
+  IfNe
+  Then                                                                          # Yggdrasil has been created so we can address it
+   {$t->first->copy(rdi);
+   },
+  Else                                                                          # Yggdrasil has not been created
+   {my $T = $arena->CreateTree();
+    $T->first->setReg(rdi);
+    $t->first->copy(rdi);
+    Mov "[rax+$$arena{treeOffset}]", rdi;                                       # Save offset of Yggdrasil
+   };
   PopR;
+  $t
  }
 
 sub Nasm::X86::Arena::m($$$)                                                    # Append the variable addressed content of variable size to the specified arena.
@@ -6870,6 +6884,14 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
   $a
  } # allocBlock
 
+sub Nasm::X86::Tree::freeBlock($$$$$)                                           #P Free a keys/data/node block whise keys  block entry is located at the specified offset.
+ {my ($tree, $k, $K, $D, $N) = @_;                                              # Tree descriptor, offset of keys block, numbered zmm for keys, numbered zmm for data, numbered zmm for children
+  @_ == 5 or confess "Five parameters";
+  my $d = $tree->getLoop($K);
+  my $n = $tree->getLoop($D);
+  $tree->arena->freeZmmBlock($_) for $k, $d, $n;                                   # Free the component zmm blocks
+ } # freeBlock
+
 sub Nasm::X86::Tree::upFromData($$)                                             # Up from the data zmm in a block in a tree
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing data block
   @_ == 2 or confess "Two parameters";
@@ -8334,12 +8356,12 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
             $t->rootIntoFirst($F, $l);
             $t->firstIntoMemory($F);
             $t->upIntoData(K(zero => 0), $LD);                                  # Zero the up pointer for the root
-            #$t->freeBlock($p, $PK, $PD, $PN);                                  # Free parent as it is no longer needed
+            $t->freeBlock($p, $PK, $PD, $PN);                                   # Free parent as it is no longer needed
            },                                                                   # Else not required
           Else                                                                  # Steal from right sibling
            {$t->putBlock($p, $PK, $PD, $PN);                                    # Save modified parent
            };
-          #$t->freeBlock($r, $RK, $RD, $RN);                                    # Free right as it is no longer needed
+          $t->freeBlock($r, $RK, $RD, $RN);                                     # Free right as it is no longer needed
          },
         Else                                                                    # Steal from right sibling
          {$t->stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);      # Steal
@@ -8365,12 +8387,12 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
             $t->rootIntoFirst($F, $l);
             $t->firstIntoMemory($F);
             $t->upIntoData(K(zero => 0), $LD);                                  # Zero the up pointer for the root
-            #$t->freeBlock($p, $PK, $PD, $PN);                                  # Free parent as it is no longer needed
+            $t->freeBlock($p, $PK, $PD, $PN);                                   # Free parent as it is no longer needed
            },                                                                   # Else not required
           Else                                                                  # Steal from right sibling
            {$t->putBlock($p, $PK, $PD, $PN);                                    # Save modified parent
            };
-           #$t->freeBlock($r, $RK, $RD, $RN);                                   # Save modified right
+           $t->freeBlock($r, $RK, $RD, $RN);                                    # Save modified right
          },
         Else                                                                    # Steal from right sibling
          {$t->stealFromLeft($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);       # Steal
@@ -9853,7 +9875,7 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 
 @ISA          = qw(Exporter);
 @EXPORT       = qw();
-@EXPORT_OK    = qw(Add All8Structure AllocateAll8OnStack AllocateMemory And AndBlock Andn ArenaFreeChain Assemble Bswap Bt Btc Btr Bts Bzhi Call CallC CheckGeneralPurposeRegister CheckMaskRegister CheckNumberedGeneralPurposeRegister ChooseRegisters ClassifyInRange ClassifyRange ClassifyWithInRange ClassifyWithInRangeAndSaveOffset ClassifyWithInRangeAndSaveWordOffset ClearMemory ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmp Comment CommentWithTraceBack ConvertUtf8ToUtf32 CopyMemory Cpuid CreateArena CreateShortString Cstrlen DComment Db Dbwdq Dd Dec DescribeArena DescribeArray DescribeQuarks DescribeString DescribeTree Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory G GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash ISA Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNz IfZ Imul Inc InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Label Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadRegFromMm LoadZmm LocalData LocateIntelEmulator Loop Lzcnt Macro MaskMemory22 MaskMemoryInRange4_22 Mov Movdqa Mulpd Neg Not OnSegv OpenRead OpenWrite Optimize Or OrBlock Pass PeekR Pextrb Pextrd Pextrq Pextrw Pi32 Pi64 Pinsrb Pinsrd Pinsrq Pinsrw Pop PopEax PopMask PopR PopRR PopZmm Popcnt Popfq PrintErrMemory PrintErrMemoryInHex PrintErrMemoryInHexNL PrintErrMemoryNL PrintErrNL PrintErrRaxInHex PrintErrRegisterInHex PrintErrSpace PrintErrString PrintErrStringNL PrintErrTraceBack PrintErrUtf32 PrintErrUtf8Char PrintErrZF PrintMemory PrintMemoryInHex PrintMemoryNL PrintNL PrintOneRegisterInHex PrintOutMemory PrintOutMemoryInHex PrintOutMemoryInHexNL PrintOutMemoryNL PrintOutNL PrintOutRaxInHex PrintOutRaxInReverseInHex PrintOutRegisterInHex PrintOutRegistersInHex PrintOutRflagsInHex PrintOutRipInHex PrintOutSpace PrintOutString PrintOutStringNL PrintOutTraceBack PrintOutUtf32 PrintOutUtf8Char PrintOutZF PrintRaxInHex PrintRegisterInHex PrintSpace PrintString PrintStringNL PrintTraceBack PrintUtf32 PrintUtf8Char Pslldq Psrldq Push PushMask PushR PushRAssert PushRR PushZmm Pushfq R RComment Rb Rbwdq Rd Rdtsc ReadFile ReadTimeStampCounter RegisterSize RegistersAvailable RegistersFree ReorderSyscallRegisters RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstFourExceptRaxAndRdi RestoreFirstSeven RestoreFirstSevenExceptRax RestoreFirstSevenExceptRaxAndRdi Ret Rq Rs Rutf8 Rw SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength Structure Sub Subroutine SubroutineStartStack Syscall Test Then Tzcnt UnReorderSyscallRegisters V VERSION Vaddd Vaddpd Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetmantps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bh bl bp bpl bx ch cl cs cx dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp fs gs k0 k1 k2 k3 k4 k5 k6 k7 mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9);
+@EXPORT_OK    = qw(Add Align All8Structure AllocateMemory And AndBlock Andn ArenaFreeChain Assemble Block Bswap Bt Btc Btr Bts Bzhi Call CallC CheckIfMaskRegisterNumber CheckMaskRegister CheckMaskRegisterNumber ChooseRegisters ClassifyInRange ClassifyRange ClassifyWithInRange ClassifyWithInRangeAndSaveOffset ClassifyWithInRangeAndSaveWordOffset ClearMemory ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmp Comment CommentWithTraceBack ConvertUtf8ToUtf32 CopyMemory Cpuid CreateArena CreateLibrary CreateShortString Cstrlen DComment Db Dbwdq Dd Dec DescribeArena DescribeArray DescribeQuarks DescribeString DescribeTree Div Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash ISA Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNs IfNz IfS IfZ Imul Imul3 Inc InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Isa Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Label Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadRegFromMm LoadZmm LocateIntelEmulator Loop Lzcnt Mov Movdqa Mulpd Neg Not OnSegv OpenRead OpenWrite Optimize Or OrBlock Pass Pextrb Pextrd Pextrq Pextrw Pi32 Pi64 Pinsrb Pinsrd Pinsrq Pinsrw Pop PopR PopRR Popcnt Popfq PrintCString PrintCStringNL PrintErrMemory PrintErrMemoryInHex PrintErrMemoryInHexNL PrintErrMemoryNL PrintErrMemory_InHex PrintErrMemory_InHexNL PrintErrNL PrintErrOneRegisterInHex PrintErrOneRegisterInHexNL PrintErrRaxAsChar PrintErrRaxAsCharNL PrintErrRaxAsText PrintErrRaxAsTextNL PrintErrRaxInDec PrintErrRaxInDecNL PrintErrRaxInHex PrintErrRaxInHexNL PrintErrRaxRightInDec PrintErrRaxRightInDecNL PrintErrRax_InHex PrintErrRax_InHexNL PrintErrRegisterInHex PrintErrRightInBin PrintErrRightInBinNL PrintErrRightInHex PrintErrRightInHexNL PrintErrSpace PrintErrString PrintErrStringNL PrintErrTraceBack PrintErrUtf32 PrintErrUtf8Char PrintErrZF PrintMemory PrintMemoryInHex PrintMemoryNL PrintMemory_InHex PrintNL PrintOneRegisterInHex PrintOutMemory PrintOutMemoryInHex PrintOutMemoryInHexNL PrintOutMemoryNL PrintOutMemory_InHex PrintOutMemory_InHexNL PrintOutNL PrintOutOneRegisterInHex PrintOutOneRegisterInHexNL PrintOutRaxAsChar PrintOutRaxAsCharNL PrintOutRaxAsText PrintOutRaxAsTextNL PrintOutRaxInDec PrintOutRaxInDecNL PrintOutRaxInHex PrintOutRaxInHexNL PrintOutRaxInReverseInHex PrintOutRaxRightInDec PrintOutRaxRightInDecNL PrintOutRax_InHex PrintOutRax_InHexNL PrintOutRegisterInHex PrintOutRegistersInHex PrintOutRflagsInHex PrintOutRightInBin PrintOutRightInBinNL PrintOutRightInHex PrintOutRightInHexNL PrintOutRipInHex PrintOutSpace PrintOutString PrintOutStringNL PrintOutTraceBack PrintOutUtf32 PrintOutUtf8Char PrintOutZF PrintRaxAsChar PrintRaxAsText PrintRaxInDec PrintRaxInHex PrintRaxRightInDec PrintRax_InHex PrintRegisterInHex PrintRightInBin PrintRightInHex PrintSpace PrintString PrintStringNL PrintTraceBack PrintUtf32 PrintUtf8Char Pslldq Psrldq Push PushR PushRR Pushfq R RComment Rb Rbwdq Rd Rdtsc ReadChar ReadFile ReadInteger ReadLine ReadTimeStampCounter RegisterSize RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstFourExceptRaxAndRdi RestoreFirstSeven RestoreFirstSevenExceptRax RestoreFirstSevenExceptRaxAndRdi Ret Rq Rs Rutf8 Rw Sal Sar SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength Structure Sub Subroutine SubroutineStartStack Syscall TODO Test Then Tzcnt V VERSION Vaddd Vaddpd Valignb Valignd Valignq Valignw Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetmantps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmovb2m Vpmovd2m Vpmovm2b Vpmovm2d Vpmovm2q Vpmovm2w Vpmovq2m Vpmovw2m Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bh bl bp bpl bx ch cl cs cx dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp fs gs k0 k1 k2 k3 k4 k5 k6 k7 mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9);
 %EXPORT_TAGS  = (all => [@EXPORT, @EXPORT_OK]);
 
 # podDocumentation
@@ -13617,7 +13639,7 @@ if (0) {                                                                        
 
   for my $i(1..$N)                                                              # Dump quarks
    {my $j = $i - 1;
-     $s->clear;
+    $s->clear;
     $Q->shortStringFromQuark(K(quark, $j), $s);
     PrintOutString "Quark string $j: ";
     PrintOutRegisterInHex xmm0;
@@ -17150,7 +17172,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::findFirst
   my $N = K(key => 32);
   my $a = CreateArena;
@@ -18626,6 +18648,108 @@ if (1) {                                                                        
 0000 0000 0000 0002 0000 0000 0000 0004
 0000 0000 0000 0001 0000 0000 0000 0002
 0000 0000 0000 0000 0000 0000 0000 0000
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Arena::allocZmmBlock #TNasm::X86::Arena::freeZmmBlock #TNasm::X86::Arena::getZmmBlock #TNasm::X86::Arena::putZmmBlock
+  my $a = CreateArena;
+
+  K(loop => 3)->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $i->outNL;
+    my $m1 = $a->allocZmmBlock;
+    my $m2 = $a->allocZmmBlock;
+
+    K(K => Rd(1..16))->loadZmm(31);
+    K(K => Rd(17..32))->loadZmm(30);
+    PrintOutRegisterInHex 31, 30;
+
+    $a->putZmmBlock($m1, 31);
+    $a->putZmmBlock($m2, 30);
+    $a->dump("A");
+
+    $a->getZmmBlock($m1, 30);
+    $a->getZmmBlock($m2, 31);
+    PrintOutRegisterInHex 31, 30;
+
+    $a->freeZmmBlock($m1);
+    $a->dump("B");
+
+    $a->freeZmmBlock($m2);
+    $a->dump("C");
+   });
+
+  ok Assemble eq => <<END;
+index: 0000 0000 0000 0000
+ zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+A
+Arena     Size:     4096    Used:      192
+0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+ zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+ zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+B
+Arena     Size:     4096    Used:      192
+0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+C
+Arena     Size:     4096    Used:      192
+0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+index: 0000 0000 0000 0001
+ zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+A
+Arena     Size:     4096    Used:      192
+0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+0000 0000 0000 0080 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+ zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+ zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+B
+Arena     Size:     4096    Used:      192
+0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+C
+Arena     Size:     4096    Used:      192
+0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | 80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+index: 0000 0000 0000 0002
+ zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+ zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+A
+Arena     Size:     4096    Used:      192
+0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+ zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+ zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+B
+Arena     Size:     4096    Used:      192
+0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+C
+Arena     Size:     4096    Used:      192
+0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
