@@ -7613,7 +7613,7 @@ sub Nasm::X86::Tree::findFirst($)                                            # F
   $s->call(structures=>{tree => $tree});
  } # findFirst
 
-sub Nasm::X86::Tree::findLast($)                                             # Find the last key in a tree
+sub Nasm::X86::Tree::findLast($)                                                # Find the last key in a tree
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
@@ -7983,14 +7983,6 @@ sub Nasm::X86::Tree::rightMost($$$)                                             
   $t->leftOrRightMost(1, $node, $offset)                                        # Return the right most node
  }
 
-sub Nasm::X86::Tree::nodeFromData($$$)                                          #P Load the the node block into the numbered zmm corresponding to the data block held in the numbered zmm.
- {my ($t, $data, $node) = @_;                                                   # Tree descriptor, numbered zmm containing data, numbered zmm to hold node block
-confess "Not needed";
-  @_ == 3 or confess "Three parameters";
-  my $loop = $t->getLoop($data);                                                # Get loop offset from data
-  $t->getZmmBlock($t->arena, $loop, $node);                                     # Node
- }
-
 sub Nasm::X86::Tree::depth($$)                                                  # Return the depth of a node within a tree.
  {my ($tree, $node) = @_;                                                       # Tree descriptor, node
   @_ == 2 or confess "Two parameters required";
@@ -8217,7 +8209,7 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
     $t->data->copy($q->dFromPointInZ($D));                                      # Data at point
     $t->subTree->copy($t->getTreeBit($K, $q));                                  # Sub tree or not a sub tree
 
-    $q->setReg(15);                                                            # Create a compression mask to squeeze out the key/data
+    $q->setReg(15);                                                             # Create a compression mask to squeeze out the key/data
     Not r15;                                                                    # Invert point
     Mov rsi, r15;                                                               # Inverted point
     And rsi, $t->keyDataMask;                                                   # Mask for keys area
@@ -8431,111 +8423,106 @@ sub Nasm::X86::Tree::delete($$)                                                 
     $t->decSizeInFirst($F);
     $t->firstIntoMemory($F);
 
-# Need a block here
-    my $countRestarts = V restarts => 0;
-    my $startDescent = SetLabel();                                              # Start descent at root
-    $countRestarts->copy($countRestarts + 1);
-    If $countRestarts > 10,
-    Then
-     {PrintErrTraceBack "Too many loop backs";
-     };
+    K(loop => 99)->for(sub
+     {my ($i, $startDescent, $next, $end) = @_;
 
-    $t->firstFromMemory         ($F);                                           # Load first block
-    my $root = $t->rootFromFirst($F);                                           # Start the search from the root to locate the  key to be deleted
-    If $root == 0, Then{Jmp $success};                                          # Empty tree so we have not found the key and nothing needs to be done
+      $t->firstFromMemory         ($F);                                           # Load first block
+      my $root = $t->rootFromFirst($F);                                           # Start the search from the root to locate the  key to be deleted
+      If $root == 0, Then{Jmp $success};                                          # Empty tree so we have not found the key and nothing needs to be done
 
-    If $size == 1,                                                              # Delete the last element which must be the matching element
-    Then
-     {$t->rootIntoFirst($F, K z=>0);                                            # Empty the tree
-      $t->firstIntoMemory($F);                                                  # The position of the key in the root node
-      Jmp $success
-     };
-
-    $t->getBlock($root, $K, $D, $N);                                            # Load root block
-    If $t->leafFromNodes($N) > 0,                                               # Element must be in the root as the root is a leaf and we know the key can be found
-    Then
-     {my $eq = $t->indexEq($k, $K);                                             # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
-      $t->extract($eq, $K, $D, $N);                                             # Extract from root
-      $t->putBlock($root, $K, $D, $N);
-      Jmp $success
-     };
-
-    my $P = $root->clone('position');                                           # Position in tree
-    K(loop, 99)->for(sub                                                        # Step down through tree looking for the key
-     {my ($index, $start, $next, $end) = @_;
-      my $eq = $t->indexEq($k, $K);                                             # The key might still be in the parent now known not be a leaf
-      If $eq > 0,
-      Then                                                                      # We have found the key so now we need to find the next leaf unless this node is in fact a leaf
-       {my $pu = $t->upFromData($D);                                            # Parent offset
-        If $pu > 0,
-        Then                                                                    # Cannot merge or steal on root
-         {If $t->mergeOrSteal($P) > 0,                                          # Merge or steal if necessary
-          Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
-           {Jmp $startDescent;
-           };
-         };
-
-        If $t->leafFromNodes($N) > 0,                                           # We found the item in a leaf so it can be deleted immediately if there is enough
-        Then
-         {my $eq = $t->indexEq($k, $K);                                         # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
-          $t->extract($eq, $K, $D, $N);                                         # Remove from block
-          $t->putBlock($P, $K, $D, $N);                                         # Save block
-          Jmp $success;                                                         # Leaf removed
-         };
-
-        my $eq = $t->indexEq($k, $K);                                           # Location of key
-        my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                          # Go right to the next level down
-
-        K(loop, 99)->for(sub                                                    # Find the left most leaf
-         {my ($index, $start, $next, $end) = @_;
-
-          If $t->mergeOrSteal($Q) > 0,                                          # Merge or steal if necessary
-          Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
-           {Jmp $startDescent;
-           };
-          $t->getBlock($Q, $K, $D, $N);                                         # Next block down
-          If $t->leafFromNodes($N) > 0,                                         # We must hit a leaf eventually
-          Then
-           {$t->extractFirst($K, $D, $N);                                       # Remove from block
-            $t->putBlock($Q, $K, $D, $N);                                       # Save block
-
-            my $key     = $t->key->clone("key");                                # Record details of leaf
-            my $data    = $t->data->clone("data");                              #
-            my $subTree = $t->subTree->clone("data");                           #
-            $t->find($k);                                                       # Find key we actually want to delete
-
-            $t->key    ->copy($key);                                            # Reload
-            $t->data   ->copy($data);
-            $t->subTree->copy($subTree);
-
-            my $l = $t->offset;                                                 # Offset of block containing key
-
-            $t->getBlock($l, $K, $D, $N);                                       # Block containing key
-            $t->replace ($t->found,  $K, $D);                                   # Replace key to delete with leaf
-            $t->putBlock($l, $K, $D, $N);                                       # Save block
-            Jmp $success;
-           };
-
-          my $i = $t->insertionPoint($k, $K);                                   # The insertion point if we were inserting is the next node to visit
-          $Q->copy($i->dFromPointInZ($N));                                      # Get the corresponding offset of the the next block down
-         });
-         Jmp $success;
-       };
-
-      my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting is the next node to visit
-      $P->copy($i->dFromPointInZ($N));                                          # Get the corresponding node
-
-      $t->getBlock($P, $K, $D, $N);                                             # Get the next block
-
-      my $l = $t->lengthFromKeys($K);                                           # Length of block
-
-      If $l == $t->lengthMin,                                                   # Has the the bare minimum so must be merged.
+      If $size == 1,                                                              # Delete the last element which must be the matching element
       Then
-       {If $t->mergeOrSteal($P) > 0,                                            # Merge or steal if necessary
-        Then                                                                    # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
-         {Jmp $startDescent;
-         };
+       {$t->rootIntoFirst($F, K z=>0);                                            # Empty the tree
+        $t->firstIntoMemory($F);                                                  # The position of the key in the root node
+        Jmp $success
        };
+
+      $t->getBlock($root, $K, $D, $N);                                            # Load root block
+      If $t->leafFromNodes($N) > 0,                                               # Element must be in the root as the root is a leaf and we know the key can be found
+      Then
+       {my $eq = $t->indexEq($k, $K);                                             # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
+        $t->extract($eq, $K, $D, $N);                                             # Extract from root
+        $t->putBlock($root, $K, $D, $N);
+        Jmp $success
+       };
+
+      my $P = $root->clone('position');                                           # Position in tree
+      K(loop, 99)->for(sub                                                        # Step down through tree looking for the key
+       {my ($index, $start, $next, $end) = @_;
+        my $eq = $t->indexEq($k, $K);                                             # The key might still be in the parent now known not be a leaf
+        If $eq > 0,
+        Then                                                                      # We have found the key so now we need to find the next leaf unless this node is in fact a leaf
+         {my $pu = $t->upFromData($D);                                            # Parent offset
+          If $pu > 0,
+          Then                                                                    # Cannot merge or steal on root
+           {If $t->mergeOrSteal($P) > 0,                                          # Merge or steal if necessary
+            Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+             {Jmp $startDescent;
+             };
+           };
+
+          If $t->leafFromNodes($N) > 0,                                           # We found the item in a leaf so it can be deleted immediately if there is enough
+          Then
+           {my $eq = $t->indexEq($k, $K);                                         # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
+            $t->extract($eq, $K, $D, $N);                                         # Remove from block
+            $t->putBlock($P, $K, $D, $N);                                         # Save block
+            Jmp $success;                                                         # Leaf removed
+           };
+
+          my $eq = $t->indexEq($k, $K);                                           # Location of key
+          my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                          # Go right to the next level down
+
+          K(loop, 99)->for(sub                                                    # Find the left most leaf
+           {my ($index, $start, $next, $end) = @_;
+
+            If $t->mergeOrSteal($Q) > 0,                                          # Merge or steal if necessary
+            Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+             {Jmp $startDescent;
+             };
+            $t->getBlock($Q, $K, $D, $N);                                         # Next block down
+            If $t->leafFromNodes($N) > 0,                                         # We must hit a leaf eventually
+            Then
+             {$t->extractFirst($K, $D, $N);                                       # Remove from block
+              $t->putBlock($Q, $K, $D, $N);                                       # Save block
+
+              my $key     = $t->key->clone("key");                                # Record details of leaf
+              my $data    = $t->data->clone("data");                              #
+              my $subTree = $t->subTree->clone("data");                           #
+              $t->find($k);                                                       # Find key we actually want to delete
+
+              $t->key    ->copy($key);                                            # Reload
+              $t->data   ->copy($data);
+              $t->subTree->copy($subTree);
+
+              my $l = $t->offset;                                                 # Offset of block containing key
+
+              $t->getBlock($l, $K, $D, $N);                                       # Block containing key
+              $t->replace ($t->found,  $K, $D);                                   # Replace key to delete with leaf
+              $t->putBlock($l, $K, $D, $N);                                       # Save block
+              Jmp $success;
+             };
+
+            my $i = $t->insertionPoint($k, $K);                                   # The insertion point if we were inserting is the next node to visit
+            $Q->copy($i->dFromPointInZ($N));                                      # Get the corresponding offset of the the next block down
+           });
+           Jmp $success;
+         };
+
+        my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting is the next node to visit
+        $P->copy($i->dFromPointInZ($N));                                          # Get the corresponding node
+
+        $t->getBlock($P, $K, $D, $N);                                             # Get the next block
+
+        my $l = $t->lengthFromKeys($K);                                           # Length of block
+
+        If $l == $t->lengthMin,                                                   # Has the the bare minimum so must be merged.
+        Then
+         {If $t->mergeOrSteal($P) > 0,                                            # Merge or steal if necessary
+          Then                                                                    # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+           {Jmp $startDescent;
+           };
+         };
+       });
      });
     PrintErrTraceBack "Stuck looking for leaf";
 
@@ -17165,7 +17152,7 @@ end
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::findFirst
   my $N = K(key => 32);
   my $a = CreateArena;
