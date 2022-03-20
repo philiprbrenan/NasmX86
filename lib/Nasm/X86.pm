@@ -3671,32 +3671,6 @@ sub PopR(@)                                                                     
 # CommentWithTraceBack;
  }
 
-my @PushMask;                                                                   # Mask pushes
-
-sub PushMask(@)                                                                 # Push several Mask registers.
- {my (@M) = @_;                                                                 # Mask register numbers
-  if (@M)
-   {my @m = map {"k$_"} @M;
-    my $w = RegisterSize k0;
-    Sub rsp, @m * $w;
-    for my $i(keys @m)
-     {Kmovq "[rsp+$w*$i]", $m[$i];
-     }
-    push @PushMask, [@M];
-   }
- }
-
-sub PopMask                                                                     # Pop Mask registers.
- {@PushMask or confess "No Mask registers saved";
-  my $m = pop @PushMask;
-  my @m = map {"k$_"} @$m;
-  my $w = RegisterSize k0;
-  for my $i(keys @m)
-   {Kmovq $m[$i], "[rsp+$w*$i]";
-   }
-  Add rsp, @m * $w;
- }
-
 #D2 Declarations                                                                # Declare variables and structures
 
 #D3 Structures                                                                  # Declare a structure
@@ -9472,7 +9446,7 @@ sub Link(@)                                                                     
 
 sub Start()                                                                     # Initialize the assembler.
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
-  @PushR = @PushMask = @extern = @link = @VariableStack = ();
+  @PushR = @extern = @link = @VariableStack = ();
 # @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});               # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
   SubroutineStartStack;                                                         # Number of variables at each lexical level
   $Labels = 0;
