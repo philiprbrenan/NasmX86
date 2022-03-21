@@ -1,4 +1,4 @@
-# Test NasmX86 2022-03-21 at 03:55:28
+# Test NasmX86 2022-03-21 at 05:07:53
 
 name: Test
 
@@ -32,6 +32,10 @@ jobs:
         cp -R GitHubCrud-main/* .
         cp -R AsmC-main/* .
         tree
+
+    - name: avx
+      run: |
+        grep avx /proc/cpuinfo
 
     - name: Install Test::Most
       run: |
