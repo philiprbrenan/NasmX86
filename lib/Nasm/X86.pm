@@ -1056,7 +1056,7 @@ sub Nasm::X86::Sub::dispatch($)                                                 
   Jmp rdi;                                                                      # Start h specified sub - when it exits it will return to the code that called us.
  }
 
-sub Nasm::X86::Sub::dispatchV($)                                                # L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specified register.
+sub Nasm::X86::Sub::dispatchV($$)                                               # L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specified register.
  {my ($sub, $reference) = @_;                                                   # Subroutine descriptor, variable referring to the target subroutine
   @_ == 2 or confess "Two parameters";
   $reference->setReg(rdi);                                                      # Start of sub routine
@@ -1294,7 +1294,7 @@ END
   &$run($s)                                                                     # Run subroutine if requested and return its definition definition
  }
 
-sub Nasm::X86::Subroutine::mapStructureVariables($$$@)                          # Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined
+sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           # Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined
  {my ($sub, $S, @P) = @_;                                                       # Sub definition, copies of source structures, path through copies of source structures to a variable that becomes a reference
   for my $s(sort keys %$S)                                                      # Source keys
    {my $e = $$S{$s};
@@ -3963,7 +3963,7 @@ sub AllocateMemory(@)                                                           
   $address;
  }
 
-sub FreeMemory(@)                                                               # Free memory specified by variables.
+sub FreeMemory($$)                                                              # Free memory specified by variables.
  {my ($address, $size) = @_;                                                    # Variable address of memory, variable size of memory
   @_ == 2 or confess "Address, size to free";
 
@@ -3981,7 +3981,7 @@ sub FreeMemory(@)                                                               
  }
 
 sub ClearMemory($$)                                                             # Clear memory wit a variable address and variable length
- {my ($address, $size) = @_;                                                    # Variables
+ {my ($address, $size) = @_;                                                    # Address of memory as a variable, size of memory as a variable
   @_ == 2 or confess "address, size required";
   Comment "Clear memory";
 
@@ -4528,7 +4528,7 @@ sub GetNextUtf8CharAsUtf32($$$$)                                                
   $s->call(parameters=>{in=>$in, out=>$out, size=>$size, fail=>$fail});
  } # GetNextUtf8CharAsUtf32
 
-sub ConvertUtf8ToUtf32(@)                                                       # Convert a string of utf8 to an allocated block of utf32 and return its address and length.
+sub ConvertUtf8ToUtf32($$$$$)                                                   # Convert a string of utf8 to an allocated block of utf32 and return its address and length.
  {my ($u8, $size8, $u32, $size32, $count) = @_;                                 # utf8 string address variable, utf8 length variable, utf32 string address variable, utf32 length variable, number of utf8 characters converteed
   @_ == 5 or confess "Five parameters required";
 
@@ -4583,7 +4583,7 @@ sub ConvertUtf8ToUtf32(@)                                                       
 
 sub ClassifyRange($$$)                                                          #P Implementation of ClassifyInRange and ClassifyWithinRange.
  {my ($recordOffsetInRange, $address, $size) = @_;                              # Record offset in classification in high byte if 1 else in classification if 2, variable address of utf32 string to classify, variable length of utf32 string to classify
-  @_ == 3 or confess "Three parameters required";
+  @_ == 3 or confess "Three parameters";
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
@@ -4658,13 +4658,13 @@ sub ClassifyInRange($$)                                                         
   ClassifyRange(0, $address, $size);
  }
 
-sub ClassifyWithInRange(@)                                                      # Bracket classification: Classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification range in the high byte of each dword in zmm0 and the utf32 character at the start (zmm0) and end (zmm1) of each range in the lower 18 bits of each dword.  The classification bits from the position within the first matching range are copied into the high (unused) byte of each utf32 character in the block of memory.  With bracket matching this gives us a normalized bracket number.
+sub ClassifyWithInRange($$)                                                     # Bracket classification: Classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification range in the high byte of each dword in zmm0 and the utf32 character at the start (zmm0) and end (zmm1) of each range in the lower 18 bits of each dword.  The classification bits from the position within the first matching range are copied into the high (unused) byte of each utf32 character in the block of memory.  With bracket matching this gives us a normalized bracket number.
  {my ($address, $size) = @_;                                                    # Variable address of utf32 string to classify, variable length of utf32 string to classify
   @_ == 2 or confess "Two parameters required";
   ClassifyRange(1, $address, $size);
  }
 
-sub ClassifyWithInRangeAndSaveOffset(@)                                         # Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification code in the highest byte of each double word in zmm0 and the offset of the first element in the range in the highest byte of each dword in zmm1.  The lowest 18 bits of each double word in zmm0 and zmm1  contain the utf32 characters marking the start and end of each range. The classification bits from zmm1 for the first matching range are copied into the high byte of each utf32 character in the block of memory.  The offset in the range is copied into the lowest byte of each utf32 character in the block of memory.  The middle two bytes are cleared.  The classification byte is placed in the lowest byte of the utf32 character.
+sub ClassifyWithInRangeAndSaveOffset($$)                                        # Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification code in the highest byte of each double word in zmm0 and the offset of the first element in the range in the highest byte of each dword in zmm1.  The lowest 18 bits of each double word in zmm0 and zmm1  contain the utf32 characters marking the start and end of each range. The classification bits from zmm1 for the first matching range are copied into the high byte of each utf32 character in the block of memory.  The offset in the range is copied into the lowest byte of each utf32 character in the block of memory.  The middle two bytes are cleared.  The classification byte is placed in the lowest byte of the utf32 character.
  {my ($address, $size) = @_;                                                    # Variable address of utf32 string to classify, variable length of utf32 string to classify
   @_ == 2 or confess "Two parameters required";
   ClassifyRange(2, $address, $size);
@@ -5044,7 +5044,7 @@ sub Nasm::X86::Area::getZmmBlock($$$)                                           
  }
 
 sub Nasm::X86::Area::putZmmBlock($$$)                                           #P Write the numbered zmm to the block at the specified offset in the specified area.
- {my ($area, $block, $zmm) = @_;                                                # Area descriptor, offset of the block as a variable, number of zmm register to contain block, first optional work register, second optional work register
+ {my ($area, $block, $zmm) = @_;                                                # Area descriptor, offset of the block as a variable, number of zmm register to contain block
   @_ == 3 or confess "Three parameters";
 
   my $a = rdi;                                                                  # Work registers
@@ -5395,7 +5395,7 @@ sub DescribeTree(%)                                                             
     key          => V(key     => 0),                                            # Variable containing the current key
     offset       => V(key     => 0),                                            # Variable containing the offset of the block containing the current key
     subTree      => V(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
-   )
+   );
  }
 
 sub Nasm::X86::Area::DescribeTree($%)                                           #P Return a descriptor for a tree in the specified area with the specified options.
@@ -5471,7 +5471,7 @@ sub Nasm::X86::Tree::rootIntoFirst($$$)                                         
  }
 
 sub Nasm::X86::Tree::rootFromFirst($$)                                          #P Return a variable containing the offset of the root block of a tree from the first block when held in a zmm register.
- {my ($tree, $zmm) = @_;                                                        # Tree descriptor, variable containing value to put, number of zmm containing first block
+ {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   dFromZ $zmm, $tree->rootOffset;
  }
@@ -5483,7 +5483,7 @@ sub Nasm::X86::Tree::root($$$)                                                  
   $root == $offset                                                              # Check whether the offset is in fact the root
  }
 
-sub Nasm::X86::Tree::sizeFromFirst($$$)                                         #P Return a variable containing the number of keys in the specified tree when the first block is held in a zmm register..
+sub Nasm::X86::Tree::sizeFromFirst($$)                                          #P Return a variable containing the number of keys in the specified tree when the first block is held in a zmm register..
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   dFromZ $zmm, $tree->sizeOffset;
@@ -5589,7 +5589,7 @@ sub Nasm::X86::Tree::upFromData($$)                                             
   dFromZ $zmm, $tree->up;
  }
 
-sub Nasm::X86::Tree::upIntoData($$)                                             #P Up into the data zmm in a block in a tree
+sub Nasm::X86::Tree::upIntoData($$$)                                            #P Up into the data zmm in a block in a tree
  {my ($tree, $value, $zmm) = @_;                                                # Tree descriptor, variable containing value to put, number of zmm containing first block
   @_ == 3 or confess "Three parameters";
   $value->dIntoZ($zmm, $tree->up);
@@ -5696,7 +5696,7 @@ sub Nasm::X86::Tree::getBlock($$$$$)                                            
   $a->getZmmBlock($node,   $N);                                                 # Get the node block
  }
 
-sub Nasm::X86::Tree::putBlock($$$$$$)                                           #P Put a tree block held in three zmm registers back into the area holding the tree at the specified offset.
+sub Nasm::X86::Tree::putBlock($$$$$)                                            #P Put a tree block held in three zmm registers back into the area holding the tree at the specified offset.
  {my ($t, $offset, $K, $D, $N) = @_;                                            # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
   @_ == 5 or confess "Five parameters";
   my $a    = $t->area;                                                          # Area for tree
@@ -5721,7 +5721,7 @@ sub Nasm::X86::Tree::lastNode($$$$)                                             
   dFromZ($N, $tree->lengthFromKeys($K) * $tree->width)
  }
 
-sub Nasm::X86::Tree::relativeNode($$$$)                                         #P Return as a variable a node offset relative (specified as ac constant) to another offset in the same node in the specified zmm
+sub Nasm::X86::Tree::relativeNode($$$$$)                                        #P Return as a variable a node offset relative (specified as ac constant) to another offset in the same node in the specified zmm
  {my ($tree, $offset, $relative, $K, $N) = @_;                                  # Tree definition, offset, relative location, key zmm, node zmm
   @_ == 5 or confess "Five parameters";
 
@@ -5750,13 +5750,13 @@ sub Nasm::X86::Tree::relativeNode($$$$)                                         
   $r
  }
 
-sub Nasm::X86::Tree::nextNode($$$)                                              #P Return as a variable the next node block offset after the specified one in the specified zmm
+sub Nasm::X86::Tree::nextNode($$$$)                                             #P Return as a variable the next node block offset after the specified one in the specified zmm
  {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, offset, key zmm, node zmm
   @_ == 4 or confess "Four parameters";
   $tree->relativeNode($offset, +1, $K, $N);
  }
 
-sub Nasm::X86::Tree::prevNode($$$)                                              #P Return as a variable the previous node block offset after the specified one in the specified zmm
+sub Nasm::X86::Tree::prevNode($$$$)                                             #P Return as a variable the previous node block offset after the specified one in the specified zmm
  {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, offset, key zmm, node zmm
   @_ == 4 or confess "Four parameters";
   $tree->relativeNode($offset, -1, $K, $N);
@@ -5902,7 +5902,7 @@ sub Nasm::X86::Tree::replace($$$$)                                              
  } # replace
 
 sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        #P Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
- {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Point at which to overwrite formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
+ {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Tree descriptor, point at which to overwrite formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
 
   @_ == 7 or confess "Seven parameters";
 
@@ -5978,7 +5978,7 @@ sub Nasm::X86::Tree::insertionPoint($$$)                                        
  }
 
 sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
- {my ($tree, $point, $F, $K, $D, $IK, $ID, $subTree) = @_;                      # Point at which to insert formatted as a one in a sea of zeros, first, key, data, insert key, insert data, sub tree if tree.
+ {my ($tree, $point, $F, $K, $D, $IK, $ID, $subTree) = @_;                      # Tree descriptor, point at which to insert formatted as a one in a sea of zeros, first, key, data, insert key, insert data, sub tree if tree.
 
   @_ == 8 or confess "Eight parameters";
 
@@ -6105,7 +6105,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
  } # splitNode
 
 sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  #P Split a non root left node pushing its excess right and up.
- {my ($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;      # Tree definition, variable offset in area of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
+ {my ($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;      # Tree definition, variable offset in area of right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys, data, node zmm
   @_ == 11 or confess "Eleven parameters required";
 
   my $w         = $tree->width;                                                 # Size of keys, data, nodes
@@ -6242,7 +6242,7 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
     parameters => {newRight => $newRight});
  }
 sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    #P Split a non root node into left and right nodes with the left half left in the left node and splitting key/data pushed into the parent node with the remainder pushed into the new right node
- {my ($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;# Tree definition, variable offset in area of new left node block, variable offset in area of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys
+ {my ($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;# Tree definition, variable offset in area of new left node block, variable offset in area of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys, data , nodes zmm
   @_ == 12 or confess "Twelve parameters required";
 
   my $w         = $tree->width;                                                 # Size of keys, data, nodes
@@ -6750,95 +6750,6 @@ sub Nasm::X86::Tree::findAndReload($$)                                          
    };
  }
 
-sub Nasm::X86::Tree::findShortString($$)                                        # Find the data at the end of a key chain held in a short string.  Return a tree descriptor referencing the data located or marked as failed to find.
- {my ($tree, $string) = @_;                                                     # Tree descriptor, short string
-  @_ == 2 or confess "2 parameters";
-  my $t = $tree->copyDescription;                                               # Reload the input tree so we can walk down the chain
-  my $w = $tree->width;                                                         # Size of a key on the tree
-  my $z = $string->z;                                                           # The zmm containing the short string
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $L = $string->len;                                                       # Length of the short string
-    my $t = $$s{tree};                                                          # Tree
-    $t->found->copy(0);                                                         # Not yet found
-
-    PushR rax, 14, 15;
-    ClearRegisters 15;
-    PushR 15, $z;                                                               # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
-    Lea rax, "[rsp+1]";                                                         # Address first data byte of short string
-    $L->setReg(15);                                                             # Length of key remaining to write into key chain
-
-    AndBlock
-     {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
-      Cmp r15, $w;                                                              # Can we write a full key block ?
-      IfGt
-      Then                                                                      # Full dwords from key still to load
-       {Mov r14d, "[rax]";                                                      # Load dword from string
-        $t->findAndReload(V(key, r14));                                         # Find dword of key
-        If $t->found == 0,                                                      # Failed to find dword
-        Then
-         {Jmp $end;
-         };
-        Add rax, $w;                                                            # Move up over found key
-        Sub r15, $w;                                                            # Reduce amount of key still to find
-        Jmp $start;                                                             # Restart
-       };
-      Mov r14d, "[rax]";                                                        # Load possibly partial dword from string which might have some trailing zeroes in it from the register block above
-      $t->find(V(key, r14));                                                    # Find remaining key and data
-     };
-    PopR; PopR;
-   } structures => {tree => $tree},
-     name       => "Nasm::X86::Tree::findShortString_$z";
-
-  $s->call(structures=>{tree=>$tree});                                          # Find the data at the end of the short string key
-
-  $t                                                                            # Return the cloned tree descriptor as it shows the data and the find status
- } # findShortString
-
-sub Nasm::X86::Tree::insertShortString($$$)                                     # Insert some data at the end of a chain of sub trees keyed by the contents of a short string.
- {my ($tree, $string, $data) = @_;                                              # Tree descriptor, short string, data as a dword
-  @_ == 3 or confess "Three parameters";
-  my $w = $tree->width;                                                         # Size of a key on the tree
-  my $z = $string->z;                                                           # The zmm containing the short string
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $L = $string->len;                                                       # Length of the short string
-
-    PushR rax, 14, 15;
-    ClearRegisters 15;
-    PushR 15, $z;                                                               # Put the zmm holding the short string onto the stack with a register block full of zeroes above it
-    my $W = $string->lengthWidth;                                               # The length of the initial field followed by the data
-    Lea rax, "[rsp+$W]";                                                        # Address first data byte of short string
-    $L->setReg(15);                                                             # Length of key remaining to write into key chain
-
-    my $t = $$s{tree};                                                          # Reload the input tree so we can walk down the chain from it.
-
-    AndBlock
-     {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
-      Cmp r15, $w;                                                              # Can we write a full key block ?
-      IfGt
-      Then                                                                      # Full dwords from key still to load
-       {Mov r14d, "[rax]";                                                      # Load dword from string
-        $t->insertTreeAndReload(V(key, r14));                                   # Create sub tree
-        Add rax, $w;                                                            # Move up over inserted key
-        Sub r15, $w;                                                            # Reduce amount of key still to write
-        Jmp $start;                                                             # Restart
-       };
-      Mov r14d, "[rax]";                                                        # Load possibly partial dword from string which might have some trailing zeroes in it from the register block above
-      $t->insert(V(key, r14), $$p{data});                                       # Insert remaining key and data
-     };
-    PopR; PopR;
-   } structures => {tree => $tree},
-     parameters => [qw(data)],
-     name       => "Nasm::X86::Tree::insertinsertShortString_$z";
-
-  my $t = $tree->area->DescribeTree();                                          # Use a copy of the tree descriptor so that we can modify its first field
-     $t->first->copy($tree->first);
-  $s->call(structures => {tree => $t}, parameters => {data => $data});          # Insert the data at the end of the short string key
- } # insertShortString
-
 sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      #P Return the offset of the left most or right most node.
  {my ($tree, $dir, $node, $offset) = @_;                                        # Tree descriptor, direction: left = 0 or right = 1, start node,  offset of located node
   @_ == 4 or confess "Four parameters";
@@ -7068,7 +6979,7 @@ sub Nasm::X86::Tree::insertOneIntoTreeBits($$$)                                 
  }
 
 sub Nasm::X86::Tree::insertIntoTreeBits($$$$)                                   #P Insert a one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
- {my ($t, $zmm, $point, $content) = @_;                                         # Tree descriptor, numbered zmm, register indicating point
+ {my ($t, $zmm, $point, $content) = @_;                                         # Tree descriptor, numbered zmm, register indicating point, bit to insert
   @_ == 4 or confess "Four parameters";
 
   if (ref($point))                                                              # Point is a variable so we must put into a register
@@ -7201,7 +7112,7 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
   $s->call(structures=>{tree => $tree});
  } # extractFirst
 
-sub Nasm::X86::Tree::mergeOrSteal($$$)                                          #P Merge the block at the specified offset with its right sibling or steal from it. If there is no  right sibling then do the same thing but with the left sibling.  The supplied block must not be the root. The key we ae looking for must be in the tree key field.
+sub Nasm::X86::Tree::mergeOrSteal($$)                                           #P Merge the block at the specified offset with its right sibling or steal from it. If there is no  right sibling then do the same thing but with the left sibling.  The supplied block must not be the root. The key we ae looking for must be in the tree key field.
  {my ($tree, $offset) = @_;                                                     # Tree descriptor, offset of non root block that might need to merge or steal
   @_ == 2 or confess "Two parameters";
 
@@ -7308,7 +7219,7 @@ sub Nasm::X86::Tree::mergeOrSteal($$$)                                          
  } # mergeOrSteal
 
 sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 #P Steal one key from the node on the right where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else zero.
- {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+ {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys, data, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
   my $s = Subroutine
@@ -7396,7 +7307,7 @@ sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 
  }
 
 sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  #P Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
- {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+ {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys, data, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
   my $s = Subroutine
@@ -7478,7 +7389,7 @@ sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  
  } # stealFromLeft
 
 sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          #P Merge a left and right node if they are at minimum size.
- {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+ {my ($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys, data, nodes zmm.
   @_ == 10 or confess "Ten parameters required";
 
   my $s = Subroutine
@@ -7588,7 +7499,7 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
   $tree                                                                         # Chain
  } # merge
 
-sub Nasm::X86::Tree::deleteFirstKeyAndData($$$$)                                #P Delete the first element of a leaf mode returning its characteristics in the calling tree descriptor.
+sub Nasm::X86::Tree::deleteFirstKeyAndData($$$)                                 #P Delete the first element of a leaf mode returning its characteristics in the calling tree descriptor.
  {my ($tree, $K, $D) = @_;                                                      # Tree definition, keys zmm, data zmm
   @_ == 3 or confess "Three parameters";
 
@@ -8136,7 +8047,7 @@ sub Nasm::X86::Tree::push($$)                                                   
  }
 
 sub Nasm::X86::Tree::pop($)                                                     # Pop the last value out of a tree and return the key/data/subTree in the tree descriptor.
- {my ($tree, $data, $subTree) = @_;                                             # Tree descriptor
+ {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
   $tree->findLast;                                                              # Last element
@@ -8220,7 +8131,7 @@ sub Nasm::X86::Tree::substring($$$)                                             
  }
 
 sub Nasm::X86::Tree::reverse($)                                                 # Create a clone of the sstring in reverse order
- {my ($string, $start, $finish) = @_;                                           # Tree descriptor of string
+ {my ($string) = @_;                                                            # Tree descriptor of string
   @_ == 1 or confess "One parameter";
 
   my $t = $string->area->CreateTree;                                            # Cloned reversed copy
@@ -9327,6 +9238,14115 @@ shows all the output produces and conducts the test specified by the B<eq> is
 present. If the test fails we continue rather than calling L<Carp::confess>.
 
 =head1 Description
+
+Generate X86 assembler code using Perl as a macro pre-processor.
+
+
+Version "20211204".
+
+
+The following sections describe the methods in each functional area of this
+module.  For an alphabetic listing of all methods by name see L<Index|/Index>.
+
+
+
+=head1 Data
+
+Layout data
+
+=head2 SetLabel($l)
+
+Create (if necessary) and set a label in the code section returning the label so set.
+
+     Parameter  Description
+  1  $l         Label
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSeven;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFour;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+
+    SetLabel $l;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+    ok 8 == RegisterSize rax;
+
+
+=head2 Ds(@d)
+
+Layout bytes in memory and return their label.
+
+     Parameter  Description
+  1  @d         Data to be laid out
+
+B<Example:>
+
+
+    my $q = Rs('a'..'z');
+
+    Mov rax, Ds('0'x64);                                                          # Output area  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Vmovdqu32(xmm0, "[$q]");                                                      # Load
+    Vprolq   (xmm0,   xmm0, 32);                                                  # Rotate double words in quad words
+    Vmovdqu32("[rax]", xmm0);                                                     # Save
+    Mov rdi, 16;
+    PrintOutMemory;
+
+    ok Assemble =~ m(efghabcdmnopijkl)s;
+
+
+=head2 Rs(@d)
+
+Layout bytes in read only memory and return their label.
+
+     Parameter  Description
+  1  @d         Data to be laid out
+
+B<Example:>
+
+
+    Comment "Print a string from memory";
+    my $s = "Hello World";
+
+    Mov rax, Rs($s);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov rdi, length $s;
+    PrintOutMemory;
+    Exit(0);
+
+    ok Assemble =~ m(Hello World);
+
+
+    my $q = Rs('abababab');  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov(rax, 1);
+    Mov(rbx, 2);
+    Mov(rcx, 3);
+    Mov(rdx, 4);
+    Mov(r8,  5);
+    Lea r9,  "[rax+rbx]";
+    PrintOutRegistersInHex;
+
+    my $r = Assemble;
+    ok $r =~ m( r8: 0000 0000 0000 0005.* r9: 0000 0000 0000 0003.*rax: 0000 0000 0000 0001)s;
+    ok $r =~ m(rbx: 0000 0000 0000 0002.*rcx: 0000 0000 0000 0003.*rdx: 0000 0000 0000 0004)s;
+
+
+=head2 Rutf8(@d)
+
+Layout a utf8 encoded string as bytes in read only memory and return their label.
+
+     Parameter  Description
+  1  @d         Data to be laid out
+
+=head2 Db(@bytes)
+
+Layout bytes in the data segment and return their label.
+
+     Parameter  Description
+  1  @bytes     Bytes to layout
+
+B<Example:>
+
+
+    my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
+
+    my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Vmovdqu8 xmm0, "[$s]";
+    Vmovdqu8 xmm1, "[$t]";
+    PrintOutRegisterInHex xmm0;
+    PrintOutRegisterInHex xmm1;
+    Sub rsp, 16;
+
+    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rdi, 16;
+    Mov rsi, $s;
+    CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+    xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+  __01 02__ 03__ ____  04__ ____ ____ ____
+  END
+
+
+=head2 Dw(@words)
+
+Layout words in the data segment and return their label.
+
+     Parameter  Description
+  1  @words     Words to layout
+
+B<Example:>
+
+
+    my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
+
+    my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Vmovdqu8 xmm0, "[$s]";
+    Vmovdqu8 xmm1, "[$t]";
+    PrintOutRegisterInHex xmm0;
+    PrintOutRegisterInHex xmm1;
+    Sub rsp, 16;
+
+    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rdi, 16;
+    Mov rsi, $s;
+    CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+    xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+  __01 02__ 03__ ____  04__ ____ ____ ____
+  END
+
+
+=head2 Dd(@dwords)
+
+Layout double words in the data segment and return their label.
+
+     Parameter  Description
+  1  @dwords    Double words to layout
+
+B<Example:>
+
+
+    my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
+
+    my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Vmovdqu8 xmm0, "[$s]";
+    Vmovdqu8 xmm1, "[$t]";
+    PrintOutRegisterInHex xmm0;
+    PrintOutRegisterInHex xmm1;
+    Sub rsp, 16;
+
+    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rdi, 16;
+    Mov rsi, $s;
+    CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+    xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+  __01 02__ 03__ ____  04__ ____ ____ ____
+  END
+
+
+=head2 Dq(@qwords)
+
+Layout quad words in the data segment and return their label.
+
+     Parameter  Description
+  1  @qwords    Quad words to layout
+
+B<Example:>
+
+
+    my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
+
+    my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Vmovdqu8 xmm0, "[$s]";
+    Vmovdqu8 xmm1, "[$t]";
+    PrintOutRegisterInHex xmm0;
+    PrintOutRegisterInHex xmm1;
+    Sub rsp, 16;
+
+    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rdi, 16;
+    Mov rsi, $s;
+    CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+    xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+  __01 02__ 03__ ____  04__ ____ ____ ____
+  END
+
+
+=head2 Rb(@bytes)
+
+Layout bytes in the data segment and return their label.
+
+     Parameter  Description
+  1  @bytes     Bytes to layout
+
+B<Example:>
+
+
+
+    my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
+
+    Vmovdqu8 xmm0, "[$s]";
+    Vmovdqu8 xmm1, "[$t]";
+    PrintOutRegisterInHex xmm0;
+    PrintOutRegisterInHex xmm1;
+    Sub rsp, 16;
+
+    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rdi, 16;
+    Mov rsi, $s;
+    CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+    xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+  __01 02__ 03__ ____  04__ ____ ____ ____
+  END
+
+
+=head2 Rw(@words)
+
+Layout words in the data segment and return their label.
+
+     Parameter  Description
+  1  @words     Words to layout
+
+B<Example:>
+
+
+
+    my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
+
+    Vmovdqu8 xmm0, "[$s]";
+    Vmovdqu8 xmm1, "[$t]";
+    PrintOutRegisterInHex xmm0;
+    PrintOutRegisterInHex xmm1;
+    Sub rsp, 16;
+
+    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rdi, 16;
+    Mov rsi, $s;
+    CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+    xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+  __01 02__ 03__ ____  04__ ____ ____ ____
+  END
+
+
+=head2 Rd(@dwords)
+
+Layout double words in the data segment and return their label.
+
+     Parameter  Description
+  1  @dwords    Double words to layout
+
+B<Example:>
+
+
+
+    my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
+
+    Vmovdqu8 xmm0, "[$s]";
+    Vmovdqu8 xmm1, "[$t]";
+    PrintOutRegisterInHex xmm0;
+    PrintOutRegisterInHex xmm1;
+    Sub rsp, 16;
+
+    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rdi, 16;
+    Mov rsi, $s;
+    CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+    xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+  __01 02__ 03__ ____  04__ ____ ____ ____
+  END
+
+
+=head2 Rq(@qwords)
+
+Layout quad words in the data segment and return their label.
+
+     Parameter  Description
+  1  @qwords    Quad words to layout
+
+B<Example:>
+
+
+
+    my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
+
+    Vmovdqu8 xmm0, "[$s]";
+    Vmovdqu8 xmm1, "[$t]";
+    PrintOutRegisterInHex xmm0;
+    PrintOutRegisterInHex xmm1;
+    Sub rsp, 16;
+
+    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rdi, 16;
+    Mov rsi, $s;
+    CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+    xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+  __01 02__ 03__ ____  04__ ____ ____ ____
+  END
+
+
+=head1 Registers
+
+Operations on registers
+
+=head2 General
+
+Actions specific to general purpose registers
+
+=head3 registerNameFromNumber($r)
+
+Register name from number where possible
+
+     Parameter  Description
+  1  $r         Register number
+
+=head3 ChooseRegisters($number, @registers)
+
+Choose the specified numbers of registers excluding those on the specified list.
+
+     Parameter   Description
+  1  $number     Number of registers needed
+  2  @registers  Registers not to choose
+
+=head3 InsertZeroIntoRegisterAtPoint($point, $in)
+
+Insert a zero into the specified register at the point indicated by another general purpose or mask register moving the higher bits one position to the left.
+
+     Parameter  Description
+  1  $point     Register with a single 1 at the insertion point
+  2  $in        Register to be inserted into.
+
+B<Example:>
+
+
+    Mov r15, 0x100;                                                               # Given a register with a single one in it indicating the desired position,
+    Mov r14, 0xFFDC;                                                              # Insert a zero into the register at that position shifting the bits above that position up left one to make space for the new zero.
+    Mov r13, 0xF03F;
+    PrintOutRegisterInHex         r14, r15;
+
+    InsertZeroIntoRegisterAtPoint r15, r14;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex r14;
+    Or r14, r15;                                                                  # Replace the inserted zero with a one
+    PrintOutRegisterInHex r14;
+    InsertOneIntoRegisterAtPoint r15, r13;
+    PrintOutRegisterInHex r13;
+    ok Assemble(debug => 0, eq => <<END);
+     r14: 0000 0000 0000 FFDC
+     r15: 0000 0000 0000 0100
+     r14: 0000 0000 0001 FEDC
+     r14: 0000 0000 0001 FFDC
+     r13: 0000 0000 0001 E13F
+  END
+
+
+=head3 InsertOneIntoRegisterAtPoint($point, $in)
+
+Insert a one into the specified register at the point indicated by another register.
+
+     Parameter  Description
+  1  $point     Register with a single 1 at the insertion point
+  2  $in        Register to be inserted into.
+
+B<Example:>
+
+
+    Mov r15, 0x100;                                                               # Given a register with a single one in it indicating the desired position,
+    Mov r14, 0xFFDC;                                                              # Insert a zero into the register at that position shifting the bits above that position up left one to make space for the new zero.
+    Mov r13, 0xF03F;
+    PrintOutRegisterInHex         r14, r15;
+    InsertZeroIntoRegisterAtPoint r15, r14;
+    PrintOutRegisterInHex r14;
+    Or r14, r15;                                                                  # Replace the inserted zero with a one
+    PrintOutRegisterInHex r14;
+
+    InsertOneIntoRegisterAtPoint r15, r13;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex r13;
+    ok Assemble(debug => 0, eq => <<END);
+     r14: 0000 0000 0000 FFDC
+     r15: 0000 0000 0000 0100
+     r14: 0000 0000 0001 FEDC
+     r14: 0000 0000 0001 FFDC
+     r13: 0000 0000 0001 E13F
+  END
+
+
+=head3 Save and Restore
+
+Saving and restoring registers via the stack
+
+=head4 SaveFirstFour(@keep)
+
+Save the first 4 parameter registers making any parameter registers read only.
+
+     Parameter  Description
+  1  @keep      Registers to mark as read only
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+
+    SaveFirstFour;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSeven;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFour;
+    PrintOutRegisterInHex rax, rdi;
+
+
+    SaveFirstFour;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+
+    SaveFirstFour;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+    SetLabel $l;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+    ok 8 == RegisterSize rax;
+
+
+=head4 RestoreFirstFour()
+
+Restore the first 4 parameter registers.
+
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSeven;
+    PrintOutRegisterInHex rax, rdi;
+
+    RestoreFirstFour;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+    SetLabel $l;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+    ok 8 == RegisterSize rax;
+
+
+=head4 RestoreFirstFourExceptRax()
+
+Restore the first 4 parameter registers except rax so it can return its value.
+
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSeven;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFour;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+    RestoreFirstFourExceptRax;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+    SetLabel $l;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+    ok 8 == RegisterSize rax;
+
+
+=head4 RestoreFirstFourExceptRaxAndRdi()
+
+Restore the first 4 parameter registers except rax  and rdi so we can return a pair of values.
+
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSeven;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFour;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    RestoreFirstFourExceptRaxAndRdi;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+    SetLabel $l;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+    ok 8 == RegisterSize rax;
+
+
+=head4 SaveFirstSeven()
+
+Save the first 7 parameter registers.
+
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+
+    SaveFirstSeven;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSeven;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFour;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+
+    SaveFirstSeven;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+
+    SaveFirstSeven;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+    SetLabel $l;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+    ok 8 == RegisterSize rax;
+
+
+=head4 RestoreFirstSeven()
+
+Restore the first 7 parameter registers.
+
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+
+    RestoreFirstSeven;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFour;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+    SetLabel $l;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+    ok 8 == RegisterSize rax;
+
+
+=head4 RestoreFirstSevenExceptRax()
+
+Restore the first 7 parameter registers except rax which is being used to return the result.
+
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSeven;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFour;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+
+    RestoreFirstSevenExceptRax;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+    SetLabel $l;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+    ok 8 == RegisterSize rax;
+
+
+=head4 RestoreFirstSevenExceptRaxAndRdi()
+
+Restore the first 7 parameter registers except rax and rdi which are being used to return the results.
+
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSeven;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFour;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+
+    RestoreFirstSevenExceptRaxAndRdi;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+    SetLabel $l;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+    ok 8 == RegisterSize rax;
+
+
+=head4 RegisterSize($r)
+
+Return the size of a register.
+
+     Parameter  Description
+  1  $r         Register
+
+B<Example:>
+
+
+    Mov rax, 1;
+    Mov rdi, 1;
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSeven;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFour;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRax;
+    PrintOutRegisterInHex rax, rdi;
+
+    SaveFirstFour;
+    Mov rax, 2;
+    Mov rdi, 2;
+    SaveFirstSeven;
+    Mov rax, 3;
+    Mov rdi, 4;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstSevenExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+    RestoreFirstFourExceptRaxAndRdi;
+    PrintOutRegisterInHex rax, rdi;
+
+    Bswap rax;
+    PrintOutRegisterInHex rax;
+
+    my $l = Label;
+    Jmp $l;
+    SetLabel $l;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0002
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0001
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0002
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0000 0000 0000 0003
+     rdi: 0000 0000 0000 0004
+     rax: 0300 0000 0000 0000
+  END
+
+
+    ok 8 == RegisterSize rax;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+
+=head4 ClearRegisters(@registers)
+
+Clear registers by setting them to zero.
+
+     Parameter   Description
+  1  @registers  Registers
+
+B<Example:>
+
+
+    Mov rax,1;
+    Kmovq k0,  rax;
+    Kaddb k0,  k0, k0;
+    Kaddb k0,  k0, k0;
+    Kaddb k0,  k0, k0;
+    Kmovq rax, k0;
+    PushR k0;
+
+    ClearRegisters k0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Kmovq k1, k0;
+    PopR  k0;
+    PrintOutRegisterInHex k0;
+    PrintOutRegisterInHex k1;
+
+    ok Assemble =~ m(k0: 0000 0000 0000 0008.*k1: 0000 0000 0000 0000)s;
+
+
+=head4 SetZF()
+
+Set the zero flag.
+
+
+B<Example:>
+
+
+
+    SetZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutZF;
+    ClearZF;
+    PrintOutZF;
+
+    SetZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutZF;
+
+    SetZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutZF;
+    ClearZF;
+    PrintOutZF;
+
+
+    SetZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
+    ClearZF;
+    IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
+
+    Mov r15, 5;
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+
+    ok Assemble(debug => 0, eq => <<END);
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  Zero
+  NOT zero
+  Carry
+  NO carry
+  Carry
+  NO carry
+  END
+
+
+=head4 ClearZF()
+
+Clear the zero flag.
+
+
+B<Example:>
+
+
+    SetZF;
+    PrintOutZF;
+
+    ClearZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutZF;
+    SetZF;
+    PrintOutZF;
+    SetZF;
+    PrintOutZF;
+
+    ClearZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutZF;
+
+    SetZF;
+    IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
+
+    ClearZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
+
+    Mov r15, 5;
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+
+    ok Assemble(debug => 0, eq => <<END);
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  Zero
+  NOT zero
+  Carry
+  NO carry
+  Carry
+  NO carry
+  END
+
+
+=head2 x, y, zmm
+
+Actions specific to mm registers
+
+=head3 xmm(@r)
+
+Add xmm to the front of a list of register expressions.
+
+     Parameter  Description
+  1  @r         Register numbers
+
+=head3 ymm(@r)
+
+Add ymm to the front of a list of register expressions.
+
+     Parameter  Description
+  1  @r         Register numbers
+
+=head3 zmm(@r)
+
+Add zmm to the front of a list of register expressions.
+
+     Parameter  Description
+  1  @r         Register numbers
+
+B<Example:>
+
+
+    LoadZmm 0, 0..63;
+
+    PrintOutRegisterInHex zmm 0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble(debug => 0, eq => <<END);
+    zmm0: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130   2F2E 2D2C 2B2A 2928   2726 2524 2322 2120   1F1E 1D1C 1B1A 1918   1716 1514 1312 1110   0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
+  END
+
+
+=head3 zmmM($z, $m)
+
+Add zmm to the front of a register number and a mask after it
+
+     Parameter  Description
+  1  $z         Zmm number
+  2  $m         Mask register
+
+=head3 zmmMZ($z, $m)
+
+Add zmm to the front of a register number and mask and zero after it
+
+     Parameter  Description
+  1  $z         Zmm number
+  2  $m         Mask register number
+
+=head3 LoadZmm($zmm, @bytes)
+
+Load a numbered zmm with the specified bytes.
+
+     Parameter  Description
+  1  $zmm       Numbered zmm
+  2  @bytes     Bytes
+
+B<Example:>
+
+
+
+    LoadZmm 0, 0..63;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex zmm 0;
+
+    ok Assemble(debug => 0, eq => <<END);
+    zmm0: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130   2F2E 2D2C 2B2A 2928   2726 2524 2322 2120   1F1E 1D1C 1B1A 1918   1716 1514 1312 1110   0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
+  END
+
+
+=head3 checkZmmRegister($z)
+
+Check that a register is a zmm register
+
+     Parameter  Description
+  1  $z         Parameters
+
+=head2 Mask
+
+Operations on mask registers
+
+=head3 CheckMaskRegister($reg)
+
+Check that a register is in fact a numbered mask register
+
+     Parameter  Description
+  1  $reg       Register to check
+
+=head3 CheckIfMaskRegisterNumber($mask)
+
+Check that a register is in fact a mask register.
+
+     Parameter  Description
+  1  $mask      Mask register to check
+
+=head3 CheckMaskRegisterNumber($mask)
+
+Check that a register is in fact a mask register and confess if it is not.
+
+     Parameter  Description
+  1  $mask      Mask register to check
+
+=head3 SetMaskRegister($mask, $start, $length)
+
+Set the mask register to ones starting at the specified position for the specified length and zeroes elsewhere.
+
+     Parameter  Description
+  1  $mask      Number of mask register to set
+  2  $start     Register containing start position or 0 for position 0
+  3  $length    Register containing end position
+
+B<Example:>
+
+
+    Mov rax, 8;
+    Mov rsi, -1;
+
+    Inc rsi; SetMaskRegister(0, rax, rsi); PrintOutRegisterInHex k0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Inc rsi; SetMaskRegister(1, rax, rsi); PrintOutRegisterInHex k1;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Inc rsi; SetMaskRegister(2, rax, rsi); PrintOutRegisterInHex k2;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Inc rsi; SetMaskRegister(3, rax, rsi); PrintOutRegisterInHex k3;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Inc rsi; SetMaskRegister(4, rax, rsi); PrintOutRegisterInHex k4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Inc rsi; SetMaskRegister(5, rax, rsi); PrintOutRegisterInHex k5;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Inc rsi; SetMaskRegister(6, rax, rsi); PrintOutRegisterInHex k6;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Inc rsi; SetMaskRegister(7, rax, rsi); PrintOutRegisterInHex k7;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble(debug => 0, eq => <<END);
+      k0: 0000 0000 0000 0000
+      k1: 0000 0000 0000 0100
+      k2: 0000 0000 0000 0300
+      k3: 0000 0000 0000 0700
+      k4: 0000 0000 0000 0F00
+      k5: 0000 0000 0000 1F00
+      k6: 0000 0000 0000 3F00
+      k7: 0000 0000 0000 7F00
+  END
+
+
+=head3 LoadConstantIntoMaskRegister($mask, $value)
+
+Set a mask register equal to a constant.
+
+     Parameter  Description
+  1  $mask      Number of mask register to load
+  2  $value     Constant to load
+
+=head3 createBitNumberFromAlternatingPattern($prefix, @values)
+
+Create a number from a bit pattern.
+
+     Parameter  Description
+  1  $prefix    Prefix bits
+  2  @values    +n 1 bits -n 0 bits
+
+=head3 LoadBitsIntoMaskRegister($mask, $prefix, @values)
+
+Load a bit string specification into a mask register in two clocks.
+
+     Parameter  Description
+  1  $mask      Number of mask register to load
+  2  $prefix    Prefix bits
+  3  @values    +n 1 bits -n 0 bits
+
+B<Example:>
+
+
+    for (0..7)
+     {ClearRegisters "k$_";
+      K($_,$_)->setMaskBit("k$_");
+      PrintOutRegisterInHex "k$_";
+     }
+
+    ClearRegisters k7;
+
+    LoadBitsIntoMaskRegister(7, '1010', -4, +4, -2, +2, -1, +1, -1, +1);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex "k7";
+
+    ok Assemble(debug => 0, eq => <<END);
+      k0: 0000 0000 0000 0001
+      k1: 0000 0000 0000 0002
+      k2: 0000 0000 0000 0004
+      k3: 0000 0000 0000 0008
+      k4: 0000 0000 0000 0010
+      k5: 0000 0000 0000 0020
+      k6: 0000 0000 0000 0040
+      k7: 0000 0000 0000 0080
+      k7: 0000 0000 000A 0F35
+  END
+
+
+=head1 Comparison codes
+
+The codes used to specify what sort of comparison to perform
+
+=head1 Structured Programming
+
+Structured programming constructs
+
+=head2 If($jump, $then, $else)
+
+If statement.
+
+     Parameter  Description
+  1  $jump      Jump op code of variable
+  2  $then      Then - required
+  3  $else      Else - optional
+
+B<Example:>
+
+
+    my $c = K(one,1);
+
+    If ($c == 0,  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Then
+     {PrintOutStringNL "1 == 0";
+     },
+    Else
+     {PrintOutStringNL "1 != 0";
+     });
+
+    ok Assemble(debug => 0, eq => <<END);
+  1 != 0
+  END
+
+
+=head2 Then($block)
+
+Then block for an If statement.
+
+     Parameter  Description
+  1  $block     Then block
+
+B<Example:>
+
+
+    my $a = V(a, 3);  $a->outNL;
+    my $b = K(b, 2);  $b->outNL;
+    my $c = $a +  $b; $c->outNL;
+    my $d = $c -  $a; $d->outNL;
+    my $g = $a *  $b; $g->outNL;
+    my $h = $g /  $b; $h->outNL;
+    my $i = $a %  $b; $i->outNL;
+
+    If ($a == 3,
+
+    Then  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     {PrintOutStringNL "a == 3"
+     },
+    Else
+     {PrintOutStringNL "a != 3"
+     });
+
+    ++$a; $a->outNL;
+    --$a; $a->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  a: 0000 0000 0000 0003
+  b: 0000 0000 0000 0002
+  (a add b): 0000 0000 0000 0005
+  ((a add b) sub a): 0000 0000 0000 0002
+  (a times b): 0000 0000 0000 0006
+  ((a times b) / b): 0000 0000 0000 0003
+  (a % b): 0000 0000 0000 0001
+  a == 3
+  a: 0000 0000 0000 0004
+  a: 0000 0000 0000 0003
+  END
+
+
+=head2 Else($block)
+
+Else block for an If statement.
+
+     Parameter  Description
+  1  $block     Else block
+
+B<Example:>
+
+
+    my $a = V(a, 3);  $a->outNL;
+    my $b = K(b, 2);  $b->outNL;
+    my $c = $a +  $b; $c->outNL;
+    my $d = $c -  $a; $d->outNL;
+    my $g = $a *  $b; $g->outNL;
+    my $h = $g /  $b; $h->outNL;
+    my $i = $a %  $b; $i->outNL;
+
+    If ($a == 3,
+    Then
+     {PrintOutStringNL "a == 3"
+     },
+
+    Else  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     {PrintOutStringNL "a != 3"
+     });
+
+    ++$a; $a->outNL;
+    --$a; $a->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  a: 0000 0000 0000 0003
+  b: 0000 0000 0000 0002
+  (a add b): 0000 0000 0000 0005
+  ((a add b) sub a): 0000 0000 0000 0002
+  (a times b): 0000 0000 0000 0006
+  ((a times b) / b): 0000 0000 0000 0003
+  (a % b): 0000 0000 0000 0001
+  a == 3
+  a: 0000 0000 0000 0004
+  a: 0000 0000 0000 0003
+  END
+
+
+=head2 Ef($condition, $then, $else)
+
+Else if block for an If statement.
+
+     Parameter   Description
+  1  $condition  Condition
+  2  $then       Then block
+  3  $else       Else block
+
+=head2 IfEq($then, $else)
+
+If equal execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    my $cmp = sub
+     {my ($a, $b) = @_;
+
+      for my $op(qw(eq ne lt le gt ge))
+       {Mov rax, $a;
+        Cmp rax, $b;
+        my $Op = ucfirst $op;
+        eval qq(If$Op Then {PrintOutStringNL("$a $op $b")}, Else {PrintOutStringNL("$a NOT $op $b")});
+        $@ and confess $@;
+       }
+     };
+    &$cmp(1,1);
+    &$cmp(1,2);
+    &$cmp(3,2);
+    Assemble(debug => 0, eq => <<END);
+  1 eq 1
+  1 NOT ne 1
+  1 NOT lt 1
+  1 le 1
+  1 NOT gt 1
+  1 ge 1
+  1 NOT eq 2
+  1 ne 2
+  1 lt 2
+  1 le 2
+  1 NOT gt 2
+  1 NOT ge 2
+  3 NOT eq 2
+  3 ne 2
+  3 NOT lt 2
+  3 NOT le 2
+  3 gt 2
+  3 ge 2
+  END
+
+
+=head2 IfNe($then, $else)
+
+If not equal execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    my $cmp = sub
+     {my ($a, $b) = @_;
+
+      for my $op(qw(eq ne lt le gt ge))
+       {Mov rax, $a;
+        Cmp rax, $b;
+        my $Op = ucfirst $op;
+        eval qq(If$Op Then {PrintOutStringNL("$a $op $b")}, Else {PrintOutStringNL("$a NOT $op $b")});
+        $@ and confess $@;
+       }
+     };
+    &$cmp(1,1);
+    &$cmp(1,2);
+    &$cmp(3,2);
+    Assemble(debug => 0, eq => <<END);
+  1 eq 1
+  1 NOT ne 1
+  1 NOT lt 1
+  1 le 1
+  1 NOT gt 1
+  1 ge 1
+  1 NOT eq 2
+  1 ne 2
+  1 lt 2
+  1 le 2
+  1 NOT gt 2
+  1 NOT ge 2
+  3 NOT eq 2
+  3 ne 2
+  3 NOT lt 2
+  3 NOT le 2
+  3 gt 2
+  3 ge 2
+  END
+
+
+=head2 IfNz($then, $else)
+
+If the zero flag is not set then execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    Mov rax, 0;
+    Test rax,rax;
+
+    IfNz  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Then
+     {PrintOutRegisterInHex rax;
+     },
+    Else
+     {PrintOutRegisterInHex rbx;
+     };
+    Mov rax, 1;
+    Test rax,rax;
+
+    IfNz  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Then
+     {PrintOutRegisterInHex rcx;
+     },
+    Else
+     {PrintOutRegisterInHex rdx;
+     };
+
+    ok Assemble =~ m(rbx.*rcx)s;
+
+
+=head2 IfZ($then, $else)
+
+If the zero flag is set then execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    SetZF;
+    PrintOutZF;
+    ClearZF;
+    PrintOutZF;
+    SetZF;
+    PrintOutZF;
+    SetZF;
+    PrintOutZF;
+    ClearZF;
+    PrintOutZF;
+
+    SetZF;
+
+    IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    ClearZF;
+    IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
+
+    Mov r15, 5;
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+
+    ok Assemble(debug => 0, eq => <<END);
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  Zero
+  NOT zero
+  Carry
+  NO carry
+  Carry
+  NO carry
+  END
+
+
+=head2 IfC($then, $else)
+
+If the carry flag is set then execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    SetZF;
+    PrintOutZF;
+    ClearZF;
+    PrintOutZF;
+    SetZF;
+    PrintOutZF;
+    SetZF;
+    PrintOutZF;
+    ClearZF;
+    PrintOutZF;
+
+    SetZF;
+    IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
+    ClearZF;
+    IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
+
+    Mov r15, 5;
+
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+
+    ok Assemble(debug => 0, eq => <<END);
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  Zero
+  NOT zero
+  Carry
+  NO carry
+  Carry
+  NO carry
+  END
+
+
+=head2 IfNc($then, $else)
+
+If the carry flag is not set then execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    SetZF;
+    PrintOutZF;
+    ClearZF;
+    PrintOutZF;
+    SetZF;
+    PrintOutZF;
+    SetZF;
+    PrintOutZF;
+    ClearZF;
+    PrintOutZF;
+
+    SetZF;
+    IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
+    ClearZF;
+    IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
+
+    Mov r15, 5;
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble(debug => 0, eq => <<END);
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  Zero
+  NOT zero
+  Carry
+  NO carry
+  Carry
+  NO carry
+  END
+
+
+=head2 IfLt($then, $else)
+
+If less than execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    my $cmp = sub
+     {my ($a, $b) = @_;
+
+      for my $op(qw(eq ne lt le gt ge))
+       {Mov rax, $a;
+        Cmp rax, $b;
+        my $Op = ucfirst $op;
+        eval qq(If$Op Then {PrintOutStringNL("$a $op $b")}, Else {PrintOutStringNL("$a NOT $op $b")});
+        $@ and confess $@;
+       }
+     };
+    &$cmp(1,1);
+    &$cmp(1,2);
+    &$cmp(3,2);
+    Assemble(debug => 0, eq => <<END);
+  1 eq 1
+  1 NOT ne 1
+  1 NOT lt 1
+  1 le 1
+  1 NOT gt 1
+  1 ge 1
+  1 NOT eq 2
+  1 ne 2
+  1 lt 2
+  1 le 2
+  1 NOT gt 2
+  1 NOT ge 2
+  3 NOT eq 2
+  3 ne 2
+  3 NOT lt 2
+  3 NOT le 2
+  3 gt 2
+  3 ge 2
+  END
+
+
+=head2 IfLe($then, $else)
+
+If less than or equal execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    my $cmp = sub
+     {my ($a, $b) = @_;
+
+      for my $op(qw(eq ne lt le gt ge))
+       {Mov rax, $a;
+        Cmp rax, $b;
+        my $Op = ucfirst $op;
+        eval qq(If$Op Then {PrintOutStringNL("$a $op $b")}, Else {PrintOutStringNL("$a NOT $op $b")});
+        $@ and confess $@;
+       }
+     };
+    &$cmp(1,1);
+    &$cmp(1,2);
+    &$cmp(3,2);
+    Assemble(debug => 0, eq => <<END);
+  1 eq 1
+  1 NOT ne 1
+  1 NOT lt 1
+  1 le 1
+  1 NOT gt 1
+  1 ge 1
+  1 NOT eq 2
+  1 ne 2
+  1 lt 2
+  1 le 2
+  1 NOT gt 2
+  1 NOT ge 2
+  3 NOT eq 2
+  3 ne 2
+  3 NOT lt 2
+  3 NOT le 2
+  3 gt 2
+  3 ge 2
+  END
+
+
+=head2 IfGt($then, $else)
+
+If greater than execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    my $cmp = sub
+     {my ($a, $b) = @_;
+
+      for my $op(qw(eq ne lt le gt ge))
+       {Mov rax, $a;
+        Cmp rax, $b;
+        my $Op = ucfirst $op;
+        eval qq(If$Op Then {PrintOutStringNL("$a $op $b")}, Else {PrintOutStringNL("$a NOT $op $b")});
+        $@ and confess $@;
+       }
+     };
+    &$cmp(1,1);
+    &$cmp(1,2);
+    &$cmp(3,2);
+    Assemble(debug => 0, eq => <<END);
+  1 eq 1
+  1 NOT ne 1
+  1 NOT lt 1
+  1 le 1
+  1 NOT gt 1
+  1 ge 1
+  1 NOT eq 2
+  1 ne 2
+  1 lt 2
+  1 le 2
+  1 NOT gt 2
+  1 NOT ge 2
+  3 NOT eq 2
+  3 ne 2
+  3 NOT lt 2
+  3 NOT le 2
+  3 gt 2
+  3 ge 2
+  END
+
+
+=head2 IfGe($then, $else)
+
+If greater than or equal execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+B<Example:>
+
+
+    my $cmp = sub
+     {my ($a, $b) = @_;
+
+      for my $op(qw(eq ne lt le gt ge))
+       {Mov rax, $a;
+        Cmp rax, $b;
+        my $Op = ucfirst $op;
+        eval qq(If$Op Then {PrintOutStringNL("$a $op $b")}, Else {PrintOutStringNL("$a NOT $op $b")});
+        $@ and confess $@;
+       }
+     };
+    &$cmp(1,1);
+    &$cmp(1,2);
+    &$cmp(3,2);
+    Assemble(debug => 0, eq => <<END);
+  1 eq 1
+  1 NOT ne 1
+  1 NOT lt 1
+  1 le 1
+  1 NOT gt 1
+  1 ge 1
+  1 NOT eq 2
+  1 ne 2
+  1 lt 2
+  1 le 2
+  1 NOT gt 2
+  1 NOT ge 2
+  3 NOT eq 2
+  3 ne 2
+  3 NOT lt 2
+  3 NOT le 2
+  3 gt 2
+  3 ge 2
+  END
+
+
+=head2 IfS($then, $else)
+
+If signed greater than or equal execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+=head2 IfNs($then, $else)
+
+If signed less than execute the then block else the else block.
+
+     Parameter  Description
+  1  $then      Then - required
+  2  $else      Else - optional
+
+=head2 Pass($block)
+
+Pass block for an L<OrBlock>.
+
+     Parameter  Description
+  1  $block     Block
+
+B<Example:>
+
+
+    Mov rax, 1;
+    OrBlock
+     {my ($pass, $end, $start) = @_;
+      Cmp rax, 1;
+      Je  $pass;
+      Cmp rax, 2;
+      Je  $pass;
+      PrintOutStringNL "Fail";
+     }
+
+    Pass  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     {my ($end, $pass, $start) = @_;
+
+      PrintOutStringNL "Pass";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     };
+
+    ok Assemble(debug => 0, eq => <<END);
+
+  Pass  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+  END
+
+
+=head2 Fail($block)
+
+Fail block for an L<AndBlock>.
+
+     Parameter  Description
+  1  $block     Block
+
+B<Example:>
+
+
+    Mov rax, 1; Mov rdx, 2;
+    AndBlock
+     {my ($fail, $end, $start) = @_;
+      Cmp rax, 1;
+      Jne $fail;
+      Cmp rdx, 2;
+      Jne $fail;
+      PrintOutStringNL "Pass";
+     }
+
+    Fail  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     {my ($end, $fail, $start) = @_;
+
+      PrintOutStringNL "Fail";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     };
+
+    ok Assemble(debug => 0, eq => <<END);
+  Pass
+  END
+
+
+=head2 Block($code)
+
+Execute a block of code with labels supplied for the start and end of this code
+
+     Parameter  Description
+  1  $code      Block of code
+
+=head2 AndBlock($test, $fail)
+
+Short circuit B<and>: execute a block of code to test conditions which, if all of them pass, allows the first block to continue successfully else if one of the conditions fails we execute the optional fail block.
+
+     Parameter  Description
+  1  $test      Block
+  2  $fail      Optional failure block
+
+B<Example:>
+
+
+    Mov rax, 1; Mov rdx, 2;
+
+    AndBlock  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     {my ($fail, $end, $start) = @_;
+      Cmp rax, 1;
+      Jne $fail;
+      Cmp rdx, 2;
+      Jne $fail;
+      PrintOutStringNL "Pass";
+     }
+    Fail
+     {my ($end, $fail, $start) = @_;
+      PrintOutStringNL "Fail";
+     };
+
+    ok Assemble(debug => 0, eq => <<END);
+  Pass
+  END
+
+
+=head2 OrBlock($test, $pass)
+
+Short circuit B<or>: execute a block of code to test conditions which, if one of them is met, leads on to the execution of the pass block, if all of the tests fail we continue withe the test block.
+
+     Parameter  Description
+  1  $test      Tests
+  2  $pass      Optional block to execute on success
+
+B<Example:>
+
+
+    Mov rax, 1;
+
+    OrBlock  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     {my ($pass, $end, $start) = @_;
+      Cmp rax, 1;
+      Je  $pass;
+      Cmp rax, 2;
+      Je  $pass;
+      PrintOutStringNL "Fail";
+     }
+    Pass
+     {my ($end, $pass, $start) = @_;
+      PrintOutStringNL "Pass";
+     };
+
+    ok Assemble(debug => 0, eq => <<END);
+  Pass
+  END
+
+
+=head2 For($block, $register, $limit, $increment)
+
+For - iterate the block as long as register is less than limit incrementing by increment each time. Nota Bene: The register is not explicitly set to zero as you might want to start at some other number.
+
+     Parameter   Description
+  1  $block      Block
+  2  $register   Register
+  3  $limit      Limit on loop
+  4  $increment  Increment on each iteration
+
+B<Example:>
+
+
+
+    For  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     {my ($start, $end, $next) = @_;
+      Cmp rax, 3;
+      Jge $end;
+      PrintOutRegisterInHex rax;
+     } rax, 16, 1;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0000
+     rax: 0000 0000 0000 0001
+     rax: 0000 0000 0000 0002
+  END
+
+
+=head2 ForIn($full, $last, $register, $limitRegister, $increment)
+
+For - iterate the full block as long as register plus increment is less than than limit incrementing by increment each time then increment the last block for the last non full block.
+
+     Parameter       Description
+  1  $full           Block for full block
+  2  $last           Block for last block
+  3  $register       Register
+  4  $limitRegister  Register containing upper limit of loop
+  5  $increment      Increment on each iteration
+
+=head2 ForEver($block)
+
+Iterate for ever.
+
+     Parameter  Description
+  1  $block     Block to iterate
+
+=head2 Call
+
+Call a subroutine
+
+=head3 SubroutineStartStack()
+
+Initialize a new stack frame.  The first quad of each frame has the address of the name of the sub in the low dword, and the parameter count in the upper byte of the quad.  This field is all zeroes in the initial frame.
+
+
+=head3 Nasm::X86::Sub::call($sub, @parameters)
+
+Call a sub passing it some parameters.
+
+     Parameter    Description
+  1  $sub         Subroutine descriptor
+  2  @parameters  Parameter variables
+
+=head3 Nasm::X86::Sub::via($sub, $ref, @parameters)
+
+Call a sub by reference passing it some parameters.
+
+     Parameter    Description
+  1  $sub         Subroutine descriptor
+  2  $ref         Variable containing a reference to the sub
+  3  @parameters  Parameter variables
+
+=head3 Nasm::X86::Sub::V($sub)
+
+Put the address of a subroutine into a stack variable so that it can be passed as a parameter.
+
+     Parameter  Description
+  1  $sub       Subroutine descriptor
+
+=head3 Nasm::X86::Sub::dispatch($sub)
+
+Jump into the specified subroutine so that code of the target subroutine is executed instead of the code of the current subroutine allowing the target subroutine to be dispatched to process the parameter list of the current subroutine.  When the target subroutine returns it returns to the caller of the current sub, not to the current subroutine.
+
+     Parameter  Description
+  1  $sub       Subroutine descriptor of target subroutine
+
+B<Example:>
+
+
+    my $p = Subroutine                                                            # Prototype subroutine to establish parameter list
+     {} [qw(p)], name => 'prototype';
+
+    my $a = Subroutine                                                            # Subroutine we are actually going to call
+     {$p->variables->{p}->outNL;
+     } [], name => 'actual', with => $p;
+
+    my $d = Subroutine                                                            # Dispatcher
+     {my ($p, $s) = @_;
+      $a->dispatch;
+      PrintOutStringNL "This should NOT happen!";
+     } [], name => 'dispatch', with => $p;
+
+    $d->call(p => 0xcc);
+    PrintOutStringNL "This should happen!";
+
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+  p: 0000 0000 0000 00CC
+  This should happen!
+  END
+
+
+=head3 Nasm::X86::Sub::dispatchV($sub, $reference)
+
+L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specified register.
+
+     Parameter   Description
+  1  $sub        Subroutine descriptor
+  2  $reference  Variable referring to the target subroutine
+
+B<Example:>
+
+
+    my $s = Subroutine                                                            # Containing sub
+     {my ($parameters, $sub) = @_;
+
+      my $p = Subroutine                                                          # Prototype subroutine with cascading parameter lists
+       {} [qw(q)], with => $sub, name => 'prototype';
+
+      my $a = Subroutine                                                          # Subroutine we are actually going to call with extended parameter list
+       {$p->variables->{p}->outNL;
+        $p->variables->{q}->outNL;
+       } [], name => 'actual', with => $p;
+
+      my $d = Subroutine                                                          # Dispatcher
+       {my ($p, $s) = @_;
+        $a->dispatchV($a->V);
+        PrintOutStringNL "This should NOT happen!";
+       } [], name => 'dispatch', with => $p;
+
+      $d->call(q => 0xdd) ;                                                       # Extend cascading parameter list
+     } [qw(p)], name => 'outer';
+
+    $s->call(p => 0xcc);                                                          # Start cascading parameter list
+    PrintOutStringNL "This should happen!";
+
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+  p: 0000 0000 0000 00CC
+  q: 0000 0000 0000 00DD
+  This should happen!
+  END
+
+
+=head3 PrintTraceBack($channel)
+
+Trace the call stack.
+
+     Parameter  Description
+  1  $channel   Channel to write on
+
+=head3 PrintErrTraceBack($message)
+
+Print sub routine track back on stderr and then exit with a message.
+
+     Parameter  Description
+  1  $message   Reason why we are printing the trace back and then stopping
+
+=head3 PrintOutTraceBack($message)
+
+Print sub routine track back on stdout and then exit with a message.
+
+     Parameter  Description
+  1  $message   Reason why we are printing the trace back and then stopping
+
+B<Example:>
+
+
+    my $d = V depth => 3;                                                         # Create a variable on the stack
+
+    my $s = Subroutine
+     {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine descriptor
+
+      my $d = $$p{depth}->copy($$p{depth} - 1);                                   # Modify the variable referenced by the parameter
+
+      If $d > 0,
+      Then
+       {$sub->call(parameters => {depth => $d});                                  # Recurse
+       };
+
+
+      #PrintOutTraceBack 'AAAA';  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     } parameters =>[qw(depth)], name => 'ref';
+
+    $s->call(parameters=>{depth => V depth => 0});
+
+    ok Assemble(debug => 0, eq => <<END);
+
+  Subroutine trace back, depth:  3
+  0000 0000 0000 0001    ref
+  0000 0000 0000 0001    ref
+  0000 0000 0000 0001    ref
+  END
+
+
+=head3 OnSegv()
+
+Request a trace back followed by exit on a B<segv> signal.
+
+
+B<Example:>
+
+
+
+    OnSegv();                                                                     # Request a trace back followed by exit on a segv signal.  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    my $t = Subroutine                                                            # Subroutine that will cause an error to occur to force a trace back to be printed
+     {Mov r15, 0;
+      Mov r15, "[r15]";                                                           # Try to read an unmapped memory location
+     } [qw(in)], name => 'sub that causes a segv';                                # The name that will appear in the trace back
+
+    $t->call(K(in, 42));
+
+    ok Assemble(debug => 0, keep2 => 'signal', emulator=>0, eq => <<END);         # Cannot use the emulator because it does not understand signals
+
+  Subroutine trace back, depth:  1
+  0000 0000 0000 002A    sub that causes a segv
+
+  END
+
+
+=head3 copyStructureMinusVariables($s)
+
+Copy a non recursive structure ignoring variables
+
+     Parameter  Description
+  1  $s         Structure to copy
+
+=head3 Subroutine($block, %options)
+
+Create a subroutine that can be called in assembler code.
+
+     Parameter  Description
+  1  $block     Block of code as a sub
+  2  %options   Options
+
+B<Example:>
+
+
+    my $g = V g => 3;
+
+    my $s = Subroutine  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     {my ($p, $s, $sub) = @_;
+      my $g = $$p{g};
+      $g->copy($g - 1);
+      $g->outNL;
+      If ($g > 0,
+      Then
+       {$sub->call(parameters=>{g => $g});
+       });
+     } parameters=>[qw(g)], name => 'ref';
+
+    $s->call(parameters=>{g => $g});
+
+    ok Assemble(debug => 0, eq => <<END);
+  g: 0000 0000 0000 0002
+  g: 0000 0000 0000 0001
+  g: 0000 0000 0000 0000
+  END
+
+    my $g = V g, 2;
+    my $u = Subroutine33
+     {my ($p, $s) = @_;
+      $$p{g}->copy(K gg, 1);
+      PrintOutTraceBack '';
+     } [qw(g)], name => 'uuuu';
+    my $t = Subroutine33
+     {my ($p, $s) = @_;
+      $u->call($$p{g});
+     } [qw(g)], name => 'tttt';
+    my $s = Subroutine33
+     {my ($p, $s) = @_;
+      $t->call($$p{g});
+     } [qw(g)], name => 'ssss';
+
+    $g->outNL;
+    $s->call($g);
+    $g->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+
+  Subroutine trace back, depth:  3  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+  0000 0000 0000 0002    uuuu
+  0000 0000 0000 0002    tttt
+  0000 0000 0000 0002    ssss
+  END
+
+    my $r = V r, 2;
+
+    my $u = Subroutine33
+     {my ($p, $s) = @_;
+      $$p{u}->copy(K gg, 1);
+      PrintOutTraceBack '';
+     } [qw(u)], name => 'uuuu';
+
+    my $t = Subroutine33
+     {my ($p, $s) = @_;
+      $u->call(u => $$p{t});
+     } [qw(t)], name => 'tttt';
+
+    my $s = Subroutine33
+     {my ($p, $s) = @_;
+     $t->call(t => $$p{s});
+     } [qw(s)], name => 'ssss';
+
+    $r->outNL;
+    $s->call(s=>$r);
+    $r->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  r: 0000 0000 0000 0002
+
+
+  Subroutine trace back, depth:  3  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+  0000 0000 0000 0002    uuuu
+  0000 0000 0000 0002    tttt
+  0000 0000 0000 0002    ssss
+
+
+
+  Subroutine trace back, depth:  3  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+  0000 0000 0000 0001    uuuu
+  0000 0000 0000 0001    tttt
+  0000 0000 0000 0001    ssss
+
+  r: 0000 0000 0000 0001
+  END
+
+
+=head3 Nasm::X86::Subroutine::mapStructureVariables($sub, $S, @P)
+
+Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined
+
+     Parameter  Description
+  1  $sub       Sub definition
+  2  $S         Copies of source structures
+  3  @P         Path through copies of source structures to a variable that becomes a reference
+
+=head3 Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame($sub, $S, @P)
+
+Create references to variables in parameter structures from variables in the stack frame of the subroutine.
+
+     Parameter  Description
+  1  $sub       Sub definition
+  2  $S         Source tree of input structures
+  3  @P         Path through sourtce structures tree
+
+=head1 Comments
+
+Inserts comments into the generated assember code.
+
+=head2 CommentWithTraceBack(@comment)
+
+Insert a comment into the assembly code with a traceback showing how it was generated.
+
+     Parameter  Description
+  1  @comment   Text of comment
+
+=head2 Comment(@comment)
+
+Insert a comment into the assembly code.
+
+     Parameter  Description
+  1  @comment   Text of comment
+
+B<Example:>
+
+
+
+    Comment "Print a string from memory";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $s = "Hello World";
+    Mov rax, Rs($s);
+    Mov rdi, length $s;
+    PrintOutMemory;
+    Exit(0);
+
+    ok Assemble =~ m(Hello World);
+
+
+=head2 DComment(@comment)
+
+Insert a comment into the data segment.
+
+     Parameter  Description
+  1  @comment   Text of comment
+
+=head2 RComment(@comment)
+
+Insert a comment into the read only data segment.
+
+     Parameter  Description
+  1  @comment   Text of comment
+
+=head1 Print
+
+Print
+
+=head2 PrintNL($channel)
+
+Print a new line to stdout  or stderr.
+
+     Parameter  Description
+  1  $channel   Channel to write on
+
+=head2 PrintErrNL()
+
+Print a new line to stderr.
+
+
+=head2 PrintOutNL()
+
+Print a new line to stderr.
+
+
+B<Example:>
+
+
+    my $q = Rs('abababab');
+    Mov(rax, "[$q]");
+    PrintOutString "rax: ";
+    PrintOutRaxInHex;
+
+    PrintOutNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Xor rax, rax;
+    PrintOutString "rax: ";
+    PrintOutRaxInHex;
+
+    PrintOutNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble =~ m(rax: 6261 6261 6261 6261.*rax: 0000 0000 0000 0000)s;
+
+
+=head2 PrintString($channel, @string)
+
+Print a constant string to the specified channel.
+
+     Parameter  Description
+  1  $channel   Channel
+  2  @string    Strings
+
+=head2 PrintStringNL($channel, @string)
+
+Print a constant string to the specified channel followed by a new line.
+
+     Parameter  Description
+  1  $channel   Channel
+  2  @string    Strings
+
+=head2 PrintErrString(@string)
+
+Print a constant string to stderr.
+
+     Parameter  Description
+  1  @string    String
+
+=head2 PrintErrStringNL(@string)
+
+Print a constant string to stderr followed by a new line.
+
+     Parameter  Description
+  1  @string    String
+
+B<Example:>
+
+
+    PrintOutStringNL "Hello World";
+    PrintOutStringNL "Hello
+World";
+
+    PrintErrStringNL "Hello World";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble(debug => 0, eq => <<END);
+  Hello World
+  Hello
+  World
+  END
+
+
+=head2 PrintOutString(@string)
+
+Print a constant string to stdout.
+
+     Parameter  Description
+  1  @string    String
+
+B<Example:>
+
+
+    my $q = Rs('abababab');
+    Mov(rax, "[$q]");
+
+    PrintOutString "rax: ";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRaxInHex;
+    PrintOutNL;
+    Xor rax, rax;
+
+    PrintOutString "rax: ";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRaxInHex;
+    PrintOutNL;
+
+    ok Assemble =~ m(rax: 6261 6261 6261 6261.*rax: 0000 0000 0000 0000)s;
+
+
+=head2 PrintOutStringNL(@string)
+
+Print a constant string to stdout followed by a new line.
+
+     Parameter  Description
+  1  @string    String
+
+B<Example:>
+
+
+
+    PrintOutStringNL "Hello World";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    PrintOutStringNL "Hello
+World";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintErrStringNL "Hello World";
+
+    ok Assemble(debug => 0, eq => <<END);
+  Hello World
+  Hello
+  World
+  END
+
+
+=head2 PrintCString($channel, $string)
+
+Print a zero terminated C style string addressed by a variable on the specified channel.
+
+     Parameter  Description
+  1  $channel   Channel
+  2  $string    String
+
+=head2 PrintCStringNL($channel, $string)
+
+Print a zero terminated C style string addressed by a variable on the specified channel followed by a new line.
+
+     Parameter  Description
+  1  $channel   Channel
+  2  $string    Strings
+
+=head2 PrintSpace($channel, $spaces)
+
+Print a constant number of spaces to the specified channel.
+
+     Parameter  Description
+  1  $channel   Channel
+  2  $spaces    Number of spaces if not one.
+
+=head2 PrintErrSpace($spaces)
+
+Print  a constant number of spaces to stderr.
+
+     Parameter  Description
+  1  $spaces    Number of spaces if not one.
+
+=head2 PrintOutSpace($spaces)
+
+Print a constant number of spaces to stdout.
+
+     Parameter  Description
+  1  $spaces    Number of spaces if not one.
+
+=head2 PrintRaxInHex($channel, $end)
+
+Write the content of register rax in hexadecimal in big endian notation to the specified channel.
+
+     Parameter  Description
+  1  $channel   Channel
+  2  $end       Optional end byte
+
+=head2 PrintErrRaxInHex()
+
+Write the content of register rax in hexadecimal in big endian notation to stderr.
+
+
+=head2 PrintErrRaxInHexNL()
+
+Write the content of register rax in hexadecimal in big endian notation to stderr followed by a new line.
+
+
+=head2 PrintOutRaxInHex()
+
+Write the content of register rax in hexadecimal in big endian notation to stout.
+
+
+B<Example:>
+
+
+    my $q = Rs('abababab');
+    Mov(rax, "[$q]");
+    PrintOutString "rax: ";
+
+    PrintOutRaxInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutNL;
+    Xor rax, rax;
+    PrintOutString "rax: ";
+
+    PrintOutRaxInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutNL;
+
+    ok Assemble =~ m(rax: 6261 6261 6261 6261.*rax: 0000 0000 0000 0000)s;
+
+
+=head2 PrintOutRaxInHexNL()
+
+Write the content of register rax in hexadecimal in big endian notation to stdout followed by a new line.
+
+
+=head2 PrintRax_InHex($channel, $end)
+
+Write the content of register rax in hexadecimal in big endian notation to the specified channel replacing zero bytes with __.
+
+     Parameter  Description
+  1  $channel   Channel
+  2  $end       Optional end byte
+
+=head2 PrintErrRax_InHex()
+
+Write the content of register rax in hexadecimal in big endian notation to stderr.
+
+
+=head2 PrintErrRax_InHexNL()
+
+Write the content of register rax in hexadecimal in big endian notation to stderr followed by a new line.
+
+
+=head2 PrintOutRax_InHex()
+
+Write the content of register rax in hexadecimal in big endian notation to stout.
+
+
+=head2 PrintOutRax_InHexNL()
+
+Write the content of register rax in hexadecimal in big endian notation to stdout followed by a new line.
+
+
+=head2 PrintOutRaxInReverseInHex()
+
+Write the content of register rax to stderr in hexadecimal in little endian notation.
+
+
+B<Example:>
+
+
+    Mov rax, 0x07654321;
+    Shl rax, 32;
+    Or  rax, 0x07654321;
+    PushR rax;
+
+    PrintOutRaxInHex;
+    PrintOutNL;
+
+    PrintOutRaxInReverseInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutNL;
+
+    Mov rax, rsp;
+    Mov rdi, 8;
+    PrintOutMemoryInHex;
+    PrintOutNL;
+    PopR rax;
+
+    Mov rax, 4096;
+    PushR rax;
+    Mov rax, rsp;
+    Mov rdi, 8;
+    PrintOutMemoryInHex;
+    PrintOutNL;
+    PopR rax;
+
+    ok Assemble(debug => 0, eq => <<END);
+  0765 4321 0765 4321
+  2143 6507 2143 6507
+  2143 6507 2143 6507
+  0010 0000 0000 0000
+  END
+
+
+=head2 PrintOneRegisterInHex($channel, $r)
+
+Print the named register as a hex string.
+
+     Parameter  Description
+  1  $channel   Channel to print on
+  2  $r         Register to print
+
+=head2 PrintErrOneRegisterInHex($r)
+
+Print the named register as a hex string on stderr.
+
+     Parameter  Description
+  1  $r         Register to print
+
+=head2 PrintErrOneRegisterInHexNL($r)
+
+Print the named register as a hex string on stderr followed by new line.
+
+     Parameter  Description
+  1  $r         Register to print
+
+=head2 PrintOutOneRegisterInHex($r)
+
+Print the named register as a hex string on stdout.
+
+     Parameter  Description
+  1  $r         Register to print
+
+=head2 PrintOutOneRegisterInHexNL($r)
+
+Print the named register as a hex string on stdout followed by new line.
+
+     Parameter  Description
+  1  $r         Register to print
+
+=head2 PrintRegisterInHex($channel, @r)
+
+Print the named registers as hex strings.
+
+     Parameter  Description
+  1  $channel   Channel to print on
+  2  @r         Names of the registers to print
+
+=head2 PrintErrRegisterInHex(@r)
+
+Print the named registers as hex strings on stderr.
+
+     Parameter  Description
+  1  @r         Names of the registers to print
+
+=head2 PrintOutRegisterInHex(@r)
+
+Print the named registers as hex strings on stdout.
+
+     Parameter  Description
+  1  @r         Names of the registers to print
+
+B<Example:>
+
+
+    my $q = Rs(('a'..'p')x4);
+    Mov r8,"[$q]";
+
+    PrintOutRegisterInHex r8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble(debug => 0, eq => <<END);
+      r8: 6867 6665 6463 6261
+  END
+
+
+=head2 PrintOutRegistersInHex()
+
+Print the general purpose registers in hex.
+
+
+B<Example:>
+
+
+    my $q = Rs('abababab');
+    Mov(rax, 1);
+    Mov(rbx, 2);
+    Mov(rcx, 3);
+    Mov(rdx, 4);
+    Mov(r8,  5);
+    Lea r9,  "[rax+rbx]";
+
+    PrintOutRegistersInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    my $r = Assemble;
+    ok $r =~ m( r8: 0000 0000 0000 0005.* r9: 0000 0000 0000 0003.*rax: 0000 0000 0000 0001)s;
+    ok $r =~ m(rbx: 0000 0000 0000 0002.*rcx: 0000 0000 0000 0003.*rdx: 0000 0000 0000 0004)s;
+
+
+=head2 PrintErrZF()
+
+Print the zero flag without disturbing it on stderr.
+
+
+=head2 PrintOutZF()
+
+Print the zero flag without disturbing it on stdout.
+
+
+B<Example:>
+
+
+    SetZF;
+
+    PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    ClearZF;
+
+    PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    SetZF;
+
+    PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    SetZF;
+
+    PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    ClearZF;
+
+    PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    SetZF;
+    IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
+    ClearZF;
+    IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
+
+    Mov r15, 5;
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+    Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+    Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+
+    ok Assemble(debug => 0, eq => <<END);
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  Zero
+  NOT zero
+  Carry
+  NO carry
+  Carry
+  NO carry
+  END
+
+
+=head2 Print hexadecimal
+
+Print numbers in hexadecimal right justified in a field
+
+=head3 PrintRightInHex($channel, $number, $width)
+
+Print out a number in hex right justified in a field of specified width on the specified channel
+
+     Parameter  Description
+  1  $channel   Channel
+  2  $number    Number as a variable
+  3  $width     Width of output field as a variable
+
+=head3 PrintErrRightInHex($number, $width)
+
+Write the specified variable in hexadecimal right justified in a field of specified width on stderr.
+
+     Parameter  Description
+  1  $number    Number as a variable
+  2  $width     Width of output field as a variable
+
+=head3 PrintErrRightInHexNL($number, $width)
+
+Write the specified variable in hexadecimal right justified in a field of specified width on stderr followed by a new line.
+
+     Parameter  Description
+  1  $number    Number as a variable
+  2  $width     Width of output field as a variable
+
+=head3 PrintOutRightInHex($number, $width)
+
+Write the specified variable in hexadecimal right justified in a field of specified width on stdout.
+
+     Parameter  Description
+  1  $number    Number as a variable
+  2  $width     Width of output field as a variable
+
+=head3 PrintOutRightInHexNL($number, $width)
+
+Write the specified variable in hexadecimal right justified in a field of specified width on stdout followed by a new line.
+
+     Parameter  Description
+  1  $number    Number as a variable
+  2  $width     Width of output field as a variable
+
+B<Example:>
+
+
+    my $N = K number => 0x12345678;
+
+    for my $i(reverse 1..16)
+
+     {PrintOutRightInHexNL($N, K width => $i);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     }
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+          12345678
+         12345678
+        12345678
+       12345678
+      12345678
+     12345678
+    12345678
+   12345678
+  12345678
+  2345678
+  345678
+  45678
+  5678
+  678
+  78
+  8
+  END
+
+
+=head2 Print binary
+
+Print numbers in binary right justified in a field
+
+=head3 PrintRightInBin($channel, $number, $width)
+
+Print out a number in hex right justified in a field of specified width on the specified channel
+
+     Parameter  Description
+  1  $channel   Channel
+  2  $number    Number as a variable
+  3  $width     Width of output field as a variable
+
+=head3 PrintErrRightInBin($number, $width)
+
+Write the specified variable in binary right justified in a field of specified width on stderr.
+
+     Parameter  Description
+  1  $number    Number as a variable
+  2  $width     Width of output field as a variable
+
+=head3 PrintErrRightInBinNL($number, $width)
+
+Write the specified variable in binary right justified in a field of specified width on stderr followed by a new line.
+
+     Parameter  Description
+  1  $number    Number as a variable
+  2  $width     Width of output field as a variable
+
+=head3 PrintOutRightInBin($number, $width)
+
+Write the specified variable in binary right justified in a field of specified width on stdout.
+
+     Parameter  Description
+  1  $number    Number as a variable
+  2  $width     Width of output field as a variable
+
+=head3 PrintOutRightInBinNL($number, $width)
+
+Write the specified variable in binary right justified in a field of specified width on stdout followed by a new line.
+
+     Parameter  Description
+  1  $number    Number as a variable
+  2  $width     Width of output field as a variable
+
+B<Example:>
+
+
+    K(count => 64)->for(sub
+     {my ($index, $start, $next, $end) = @_;
+
+      PrintOutRightInBinNL K(number => 0x99), K(max => 64) - $index;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     });
+    ok Assemble(debug => 0, eq => <<END);
+                                                          10011001
+                                                         10011001
+                                                        10011001
+                                                       10011001
+                                                      10011001
+                                                     10011001
+                                                    10011001
+                                                   10011001
+                                                  10011001
+                                                 10011001
+                                                10011001
+                                               10011001
+                                              10011001
+                                             10011001
+                                            10011001
+                                           10011001
+                                          10011001
+                                         10011001
+                                        10011001
+                                       10011001
+                                      10011001
+                                     10011001
+                                    10011001
+                                   10011001
+                                  10011001
+                                 10011001
+                                10011001
+                               10011001
+                              10011001
+                             10011001
+                            10011001
+                           10011001
+                          10011001
+                         10011001
+                        10011001
+                       10011001
+                      10011001
+                     10011001
+                    10011001
+                   10011001
+                  10011001
+                 10011001
+                10011001
+               10011001
+              10011001
+             10011001
+            10011001
+           10011001
+          10011001
+         10011001
+        10011001
+       10011001
+      10011001
+     10011001
+    10011001
+   10011001
+  10011001
+  0011001
+  011001
+  11001
+  1001
+  001
+  01
+  1
+  END
+
+
+=head2 Print in decimal
+
+Print numbers in decimal right justified in fields of specified width.
+
+=head3 PrintRaxInDec($channel)
+
+Print rax in decimal on the specified channel.
+
+     Parameter  Description
+  1  $channel   Channel to write on
+
+=head3 PrintOutRaxInDec()
+
+Print rax in decimal on stdout.
+
+
+=head3 PrintOutRaxInDecNL()
+
+Print rax in decimal on stdout followed by a new line.
+
+
+B<Example:>
+
+
+    my $w = V width => 12;
+
+    Mov rax, 0;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 0x2a;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 1;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 255;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 123456;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 1234567890;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 0x2;
+    Shl rax, 16;
+    Mov rdx, 0xdfdc;
+    Or rax, rdx;
+    Shl rax, 16;
+    Mov rdx, 0x1c35;
+    Or rax, rdx;
+    PrintOutRaxRightInDecNL $w;
+
+  # 1C BE99 1A14
+    Mov rax, 0x1c;
+    Shl rax, 16;
+    Mov rdx, 0xbe99;
+    Or rax, rdx;
+    Shl rax, 16;
+    Mov rdx, 0x1a14;
+    Or rax, rdx;
+
+    PrintOutRaxInDecNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+  # 2 EE33 3961
+    Mov rax, 0x2;
+    Shl rax, 16;
+    Mov rdx, 0xee33;
+    Or rax, rdx;
+    Shl rax, 16;
+    Mov rdx, 0x3961;
+    Or rax, rdx;
+    PrintOutRaxRightInDecNL $w;
+
+    ok Assemble eq => <<END;
+             0
+            42
+             1
+           255
+        123456
+    1234567890
+   12345678901
+  123456789012
+   12586269025
+  END
+
+
+=head3 PrintErrRaxInDec()
+
+Print rax in decimal on stderr.
+
+
+=head3 PrintErrRaxInDecNL()
+
+Print rax in decimal on stderr followed by a new line.
+
+
+=head3 PrintRaxRightInDec($width, $channel)
+
+Print rax in decimal right justified in a field of the specified width on the specified channel.
+
+     Parameter  Description
+  1  $width     Width
+  2  $channel   Channel
+
+=head3 PrintErrRaxRightInDec($width)
+
+Print rax in decimal right justified in a field of the specified width on stderr.
+
+     Parameter  Description
+  1  $width     Width
+
+=head3 PrintErrRaxRightInDecNL($width)
+
+Print rax in decimal right justified in a field of the specified width on stderr followed by a new line.
+
+     Parameter  Description
+  1  $width     Width
+
+=head3 PrintOutRaxRightInDec($width)
+
+Print rax in decimal right justified in a field of the specified width on stdout.
+
+     Parameter  Description
+  1  $width     Width
+
+B<Example:>
+
+
+    my $w = V width => 12;
+
+    Mov rax, 0;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 0x2a;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 1;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 255;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 123456;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 1234567890;
+    PrintOutRaxRightInDecNL $w;
+
+    Mov rax, 0x2;
+    Shl rax, 16;
+    Mov rdx, 0xdfdc;
+    Or rax, rdx;
+    Shl rax, 16;
+    Mov rdx, 0x1c35;
+    Or rax, rdx;
+    PrintOutRaxRightInDecNL $w;
+
+  # 1C BE99 1A14
+    Mov rax, 0x1c;
+    Shl rax, 16;
+    Mov rdx, 0xbe99;
+    Or rax, rdx;
+    Shl rax, 16;
+    Mov rdx, 0x1a14;
+    Or rax, rdx;
+    PrintOutRaxInDecNL;
+
+  # 2 EE33 3961
+    Mov rax, 0x2;
+    Shl rax, 16;
+    Mov rdx, 0xee33;
+    Or rax, rdx;
+    Shl rax, 16;
+    Mov rdx, 0x3961;
+    Or rax, rdx;
+    PrintOutRaxRightInDecNL $w;
+
+    ok Assemble eq => <<END;
+             0
+            42
+             1
+           255
+        123456
+    1234567890
+   12345678901
+  123456789012
+   12586269025
+  END
+
+    Mov rax, 0x2a;
+
+    PrintOutRaxRightInDec   V width=> 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Shl rax, 1;
+    PrintOutRaxRightInDecNL V width=> 6;
+
+    ok Assemble eq => <<END;
+    42    84
+  END
+
+
+=head3 PrintOutRaxRightInDecNL($width)
+
+Print rax in decimal right justified in a field of the specified width on stdout followed by a new line.
+
+     Parameter  Description
+  1  $width     Width
+
+B<Example:>
+
+
+    Mov rax, 0x2a;
+    PrintOutRaxRightInDec   V width=> 4;
+    Shl rax, 1;
+
+    PrintOutRaxRightInDecNL V width=> 6;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble eq => <<END;
+    42    84
+  END
+
+
+=head3 PrintRaxAsText($channel)
+
+Print the string in rax on the specified channel.
+
+     Parameter  Description
+  1  $channel   Channel to write on
+
+=head3 PrintOutRaxAsText()
+
+Print rax as text on stdout.
+
+
+=head3 PrintOutRaxAsTextNL()
+
+Print rax as text on stdout followed by a new line.
+
+
+B<Example:>
+
+
+    my $t = Rs('abcdefghi');
+    Mov rax, $t;
+    Mov rax, "[rax]";
+
+    PrintOutRaxAsTextNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    ok Assemble eq => <<END;
+  abcdefgh
+  END
+  }
+
+  #latest:
+  if (1) {                                                                         ;
+    my $e = q(parameters);
+
+    (V string => "[rbp+8]")->outInDecNL;
+    (V string => "[rbp+16]")->outCStringNL;
+    (V string => "[rbp+24]")->outCStringNL;
+    (V string => "[rbp+32]")->outCStringNL;
+    (V string => "[rbp+40]")->outCStringNL;
+    (V string => "[rbp+48]")->outInDecNL;
+
+    (V string => "[rbp+8]")->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      $index->setReg(rax);
+      Inc rax;
+      PrintOutRaxInDec;
+      Inc rax;
+      PrintOutString " : ";
+      Shl rax, 3;
+      (V string => "[rbp+rax]")->outCStringNL;
+     });
+
+    Assemble keep => $e;
+
+    is_deeply scalar(qx(./$e AaAaAaAaAa BbCcDdEe 123456789)), <<END;
+  string: 4
+  ./parameters
+  AaAaAaAaAa
+  BbCcDdEe
+  123456789
+  string: 0
+  1 : ./parameters
+  2 : AaAaAaAaAa
+  3 : BbCcDdEe
+  4 : 123456789
+  END
+
+    unlink $e;
+
+    V( loop => 16)->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      $index->setReg(rax);
+      Add rax, 0xb0;   Shl rax, 16;
+      Mov  ax, 0x9d9d; Shl rax, 8;
+      Mov  al, 0xf0;
+      PrintOutRaxAsText;
+     });
+    PrintOutNL;
+
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+  𝝰𝝱𝝲𝝳𝝴𝝵𝝶𝝷𝝸𝝹𝝺𝝻𝝼𝝽𝝾𝝿
+  END
+
+
+=head3 PrintErrRaxAsText()
+
+Print rax as text on stderr.
+
+
+=head3 PrintErrRaxAsTextNL()
+
+Print rax as text on stderr followed by a new line.
+
+
+=head3 PrintRaxAsChar($channel)
+
+Print the ascii character in rax on the specified channel.
+
+     Parameter  Description
+  1  $channel   Channel to write on
+
+=head3 PrintOutRaxAsChar()
+
+Print the character in on stdout.
+
+
+B<Example:>
+
+
+    my $e = q(readChar);
+
+    ForEver
+     {my ($start, $end) = @_;
+      ReadChar;
+      Cmp rax, 0xa;
+      Jle $end;
+
+      PrintOutRaxAsChar;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+      PrintOutRaxAsChar;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     };
+    PrintOutNL;
+
+    Assemble keep => $e;
+
+    is_deeply qx(echo "ABCDCBA" | ./$e), <<END;
+  AABBCCDDCCBBAA
+  END
+    unlink $e;
+
+
+=head3 PrintOutRaxAsCharNL()
+
+Print the character in on stdout followed by a new line.
+
+
+=head3 PrintErrRaxAsChar()
+
+Print the character in on stderr.
+
+
+=head3 PrintErrRaxAsCharNL()
+
+Print the character in on stderr followed by a new line.
+
+
+=head1 Variables
+
+Variable definitions and operations
+
+=head2 Definitions
+
+Variable definitions
+
+=head3 Variable($name, $expr, %options)
+
+Create a new variable with the specified name initialized via an optional expression.
+
+     Parameter  Description
+  1  $name      Name of variable
+  2  $expr      Optional expression initializing variable
+  3  %options   Options
+
+=head3 K($name, $expr, %options)
+
+Define a constant variable.
+
+     Parameter  Description
+  1  $name      Name of variable
+  2  $expr      Initializing expression
+  3  %options   Options
+
+B<Example:>
+
+
+    my $s = Subroutine
+     {my ($p) = @_;
+      $$p{v}->copy($$p{v} + $$p{k} + $$p{g} + 1);
+     } name => 'add', parameters=>[qw(v k g)];
+
+    my $v = V(v, 1);
+
+    my $k = K(k, 2);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $g = V(g, 3);
+    $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
+    $v->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  v: 0000 0000 0000 0007
+  END
+
+    my $g = V g => 0;
+    my $s = Subroutine
+     {my ($p) = @_;
+
+      $$p{g}->copy(K value, 1);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     } name => 'ref2', parameters=>[qw(g)];
+
+    my $t = Subroutine
+     {my ($p) = @_;
+      $s->call(parameters=>{g=>$$p{g}});
+     } name => 'ref', parameters=>[qw(g)];
+
+    $t->call(parameters=>{g=>$g});
+    $g->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  g: 0000 0000 0000 0001
+  END
+
+    my $a = V(a, 3);  $a->outNL;
+
+    my $b = K(b, 2);  $b->outNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $c = $a +  $b; $c->outNL;
+    my $d = $c -  $a; $d->outNL;
+    my $g = $a *  $b; $g->outNL;
+    my $h = $g /  $b; $h->outNL;
+    my $i = $a %  $b; $i->outNL;
+
+    If ($a == 3,
+    Then
+     {PrintOutStringNL "a == 3"
+     },
+    Else
+     {PrintOutStringNL "a != 3"
+     });
+
+    ++$a; $a->outNL;
+    --$a; $a->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  a: 0000 0000 0000 0003
+  b: 0000 0000 0000 0002
+  (a add b): 0000 0000 0000 0005
+  ((a add b) sub a): 0000 0000 0000 0002
+  (a times b): 0000 0000 0000 0006
+  ((a times b) / b): 0000 0000 0000 0003
+  (a % b): 0000 0000 0000 0001
+  a == 3
+  a: 0000 0000 0000 0004
+  a: 0000 0000 0000 0003
+  END
+
+
+=head3 R($name)
+
+Define a reference variable.
+
+     Parameter  Description
+  1  $name      Name of variable
+
+=head3 V($name, $expr, %options)
+
+Define a variable.
+
+     Parameter  Description
+  1  $name      Name of variable
+  2  $expr      Initializing expression
+  3  %options   Options
+
+B<Example:>
+
+
+    my $s = Subroutine
+     {my ($p) = @_;
+      $$p{v}->copy($$p{v} + $$p{k} + $$p{g} + 1);
+     } name => 'add', parameters=>[qw(v k g)];
+
+
+    my $v = V(v, 1);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $k = K(k, 2);
+
+    my $g = V(g, 3);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
+    $v->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  v: 0000 0000 0000 0007
+  END
+
+
+    my $g = V g => 0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $s = Subroutine
+     {my ($p) = @_;
+      $$p{g}->copy(K value, 1);
+     } name => 'ref2', parameters=>[qw(g)];
+
+    my $t = Subroutine
+     {my ($p) = @_;
+      $s->call(parameters=>{g=>$$p{g}});
+     } name => 'ref', parameters=>[qw(g)];
+
+    $t->call(parameters=>{g=>$g});
+    $g->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  g: 0000 0000 0000 0001
+  END
+
+
+    my $a = V(a, 3);  $a->outNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    my $b = K(b, 2);  $b->outNL;
+    my $c = $a +  $b; $c->outNL;
+    my $d = $c -  $a; $d->outNL;
+    my $g = $a *  $b; $g->outNL;
+    my $h = $g /  $b; $h->outNL;
+    my $i = $a %  $b; $i->outNL;
+
+    If ($a == 3,
+    Then
+     {PrintOutStringNL "a == 3"
+     },
+    Else
+     {PrintOutStringNL "a != 3"
+     });
+
+    ++$a; $a->outNL;
+    --$a; $a->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  a: 0000 0000 0000 0003
+  b: 0000 0000 0000 0002
+  (a add b): 0000 0000 0000 0005
+  ((a add b) sub a): 0000 0000 0000 0002
+  (a times b): 0000 0000 0000 0006
+  ((a times b) / b): 0000 0000 0000 0003
+  (a % b): 0000 0000 0000 0001
+  a == 3
+  a: 0000 0000 0000 0004
+  a: 0000 0000 0000 0003
+  END
+
+
+=head2 Print variables
+
+Print the values of variables or the memory addressed by them
+
+=head3 Nasm::X86::Variable::err($left, $title1, $title2)
+
+Dump the value of a variable on stderr.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $title1    Optional leading title
+  3  $title2    Optional trailing title
+
+=head3 Nasm::X86::Variable::out($left, $title1, $title2)
+
+Dump the value of a variable on stdout.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $title1    Optional leading title
+  3  $title2    Optional trailing title
+
+=head3 Nasm::X86::Variable::errNL($left, $title1, $title2)
+
+Dump the value of a variable on stderr and append a new line.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $title1    Optional leading title
+  3  $title2    Optional trailing title
+
+=head3 Nasm::X86::Variable::d($left, $title1, $title2)
+
+Dump the value of a variable on stderr and append a new line.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $title1    Optional leading title
+  3  $title2    Optional trailing title
+
+=head3 Nasm::X86::Variable::outNL($left, $title1, $title2)
+
+Dump the value of a variable on stdout and append a new line.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $title1    Optional leading title
+  3  $title2    Optional trailing title
+
+=head3 Nasm::X86::Variable::debug($left)
+
+Dump the value of a variable on stdout with an indication of where the dump came from.
+
+     Parameter  Description
+  1  $left      Left variable
+
+=head3 Decimal representation
+
+Print out a variable as a decimal number
+
+=head4 Nasm::X86::Variable::errInDec($number, $title1, $title2)
+
+Dump the value of a variable on stderr in decimal.
+
+     Parameter  Description
+  1  $number    Number as variable
+  2  $title1    Optional leading title
+  3  $title2    Optional trailing title
+
+=head4 Nasm::X86::Variable::errInDecNL($number, $title1, $title2)
+
+Dump the value of a variable on stderr in decimal followed by a new line.
+
+     Parameter  Description
+  1  $number    Number as variable
+  2  $title1    Optional leading title
+  3  $title2    Optional trailing title
+
+=head4 Nasm::X86::Variable::outInDec($number, $title1, $title2)
+
+Dump the value of a variable on stdout in decimal.
+
+     Parameter  Description
+  1  $number    Number as variable
+  2  $title1    Optional leading title
+  3  $title2    Optional trailing title
+
+=head4 Nasm::X86::Variable::outInDecNL($number, $title1, $title2)
+
+Dump the value of a variable on stdout in decimal followed by a new line.
+
+     Parameter  Description
+  1  $number    Number as variable
+  2  $title1    Optional leading title
+  3  $title2    Optional trailing title
+
+B<Example:>
+
+
+    my $e = q(parameters);
+
+    (V string => "[rbp+8]")->outInDecNL;
+    (V string => "[rbp+16]")->outCStringNL;
+    (V string => "[rbp+24]")->outCStringNL;
+    (V string => "[rbp+32]")->outCStringNL;
+    (V string => "[rbp+40]")->outCStringNL;
+    (V string => "[rbp+48]")->outInDecNL;
+
+    (V string => "[rbp+8]")->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      $index->setReg(rax);
+      Inc rax;
+      PrintOutRaxInDec;
+      Inc rax;
+      PrintOutString " : ";
+      Shl rax, 3;
+      (V string => "[rbp+rax]")->outCStringNL;
+     });
+
+    Assemble keep => $e;
+
+    is_deeply scalar(qx(./$e AaAaAaAaAa BbCcDdEe 123456789)), <<END;
+  string: 4
+  ./parameters
+  AaAaAaAaAa
+  BbCcDdEe
+  123456789
+  string: 0
+  1 : ./parameters
+  2 : AaAaAaAaAa
+  3 : BbCcDdEe
+  4 : 123456789
+  END
+
+    unlink $e;
+
+
+=head3 Decimal representation right justified
+
+Print out a variable as a decimal number right adjusted in a field of specified width
+
+=head4 Nasm::X86::Variable::rightInDec($number, $channel, $width)
+
+Dump the value of a variable on the specified channel as a decimal  number right adjusted in a field of specified width.
+
+     Parameter  Description
+  1  $number    Number as variable
+  2  $channel   Channel
+  3  $width     Width
+
+=head4 Nasm::X86::Variable::errRightInDec($number, $width)
+
+Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width.
+
+     Parameter  Description
+  1  $number    Number
+  2  $width     Width
+
+=head4 Nasm::X86::Variable::errRightInDecNL($number, $width)
+
+Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width followed by a new line.
+
+     Parameter  Description
+  1  $number    Number
+  2  $width     Width
+
+=head4 Nasm::X86::Variable::outRightInDec($number, $width)
+
+Dump the value of a variable on stdout as a decimal number right adjusted in a field of specified width.
+
+     Parameter  Description
+  1  $number    Number
+  2  $width     Width
+
+=head4 Nasm::X86::Variable::outRightInDecNL($number, $width)
+
+Dump the value of a variable on stdout as a decimal number right adjusted in a field of specified width followed by a new line.
+
+     Parameter  Description
+  1  $number    Number
+  2  $width     Width
+
+=head2 Hexadecimal representation, right justified
+
+Print number variables in hexadecimal right justified in fields of specified width.
+
+=head3 Nasm::X86::Variable::rightInHex($number, $channel, $width)
+
+Write the specified variable number in hexadecimal right justified in a field of specified width to the specified channel.
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $channel   Channel to print on
+  3  $width     Width of output field
+
+=head3 Nasm::X86::Variable::errRightInHex($number, $width)
+
+Write the specified variable number in hexadecimal right justified in a field of specified width to stderr
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $width     Width of output field
+
+=head3 Nasm::X86::Variable::errRightInHexNL($number, $width)
+
+Write the specified variable number in hexadecimal right justified in a field of specified width to stderr followed by a new line
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $width     Width of output field
+
+=head3 Nasm::X86::Variable::outRightInHex($number, $width)
+
+Write the specified variable number in hexadecimal right justified in a field of specified width to stdout
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $width     Width of output field
+
+=head3 Nasm::X86::Variable::outRightInHexNL($number, $width)
+
+Write the specified variable number in hexadecimal right justified in a field of specified width to stdout followed by a new line
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $width     Width of output field
+
+=head2 Binary representation, right justified
+
+Print number variables in binary right justified in fields of specified width.
+
+=head3 Nasm::X86::Variable::rightInBin($number, $channel, $width)
+
+Write the specified variable number in binary right justified in a field of specified width to the specified channel.
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $channel   Channel to print on
+  3  $width     Width of output field
+
+=head3 Nasm::X86::Variable::errRightInBin($number, $width)
+
+Write the specified variable number in binary right justified in a field of specified width to stderr
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $width     Width of output field
+
+=head3 Nasm::X86::Variable::errRightInBinNL($number, $width)
+
+Write the specified variable number in binary right justified in a field of specified width to stderr followed by a new line
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $width     Width of output field
+
+=head3 Nasm::X86::Variable::outRightInBin($number, $width)
+
+Write the specified variable number in binary right justified in a field of specified width to stdout
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $width     Width of output field
+
+=head3 Nasm::X86::Variable::outRightInBinNL($number, $width)
+
+Write the specified variable number in binary right justified in a field of specified width to stdout followed by a new line
+
+     Parameter  Description
+  1  $number    Number to print as a variable
+  2  $width     Width of output field
+
+=head3 Spaces
+
+Print out a variable number of spaces
+
+=head4 Nasm::X86::Variable::spaces($count, $channel)
+
+Print the specified number of spaces to the specified channel.
+
+     Parameter  Description
+  1  $count     Number of spaces
+  2  $channel   Channel
+
+=head4 Nasm::X86::Variable::errSpaces($count)
+
+Print the specified number of spaces to stderr.
+
+     Parameter  Description
+  1  $count     Number of spaces
+
+=head4 Nasm::X86::Variable::outSpaces($count)
+
+Print the specified number of spaces to stdout.
+
+     Parameter  Description
+  1  $count     Number of spaces
+
+=head3 C style zero terminated strings
+
+Print out C style zero terminated strings.
+
+=head4 Nasm::X86::Variable::errCString($string)
+
+Print a zero terminated C style string addressed by a variable on stderr.
+
+     Parameter  Description
+  1  $string    String
+
+=head4 Nasm::X86::Variable::errCStringNL($string)
+
+Print a zero terminated C style string addressed by a variable on stderr followed by a new line.
+
+     Parameter  Description
+  1  $string    String
+
+=head4 Nasm::X86::Variable::outCString($string)
+
+Print a zero terminated C style string addressed by a variable on stdout.
+
+     Parameter  Description
+  1  $string    String
+
+=head4 Nasm::X86::Variable::outCStringNL($string)
+
+Print a zero terminated C style string addressed by a variable on stdout followed by a new line.
+
+     Parameter  Description
+  1  $string    String
+
+B<Example:>
+
+
+    my $s = Rutf8 '𝝰𝝱𝝲𝝳';
+    V(address, $s)->outCStringNL;
+
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+  𝝰𝝱𝝲𝝳
+  END
+
+    my $e = q(parameters);
+
+    (V string => "[rbp+8]")->outInDecNL;
+    (V string => "[rbp+16]")->outCStringNL;
+    (V string => "[rbp+24]")->outCStringNL;
+    (V string => "[rbp+32]")->outCStringNL;
+    (V string => "[rbp+40]")->outCStringNL;
+    (V string => "[rbp+48]")->outInDecNL;
+
+    (V string => "[rbp+8]")->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      $index->setReg(rax);
+      Inc rax;
+      PrintOutRaxInDec;
+      Inc rax;
+      PrintOutString " : ";
+      Shl rax, 3;
+      (V string => "[rbp+rax]")->outCStringNL;
+     });
+
+    Assemble keep => $e;
+
+    is_deeply scalar(qx(./$e AaAaAaAaAa BbCcDdEe 123456789)), <<END;
+  string: 4
+  ./parameters
+  AaAaAaAaAa
+  BbCcDdEe
+  123456789
+  string: 0
+  1 : ./parameters
+  2 : AaAaAaAaAa
+  3 : BbCcDdEe
+  4 : 123456789
+  END
+
+    unlink $e;
+
+
+=head2 Operations
+
+Variable operations
+
+=head3 Nasm::X86::Variable::call($target)
+
+Execute the call instruction for a target whose address is held in the specified variable.
+
+     Parameter  Description
+  1  $target    Variable containing the address of the code to call
+
+B<Example:>
+
+
+    my $l = "aaa.so";
+    Mov rax, 0x12345678;
+    Ret;
+
+    ok Assemble library => $l;                                                    # Create the library file
+    ok -e $l;
+
+    my ($address, $size) = ReadFile $l;                                           # Read library file into memory
+
+    Mov rax, 0;
+    PrintOutRaxInHexNL;
+
+    $address->call;                                                               # Call code in memory loaded from library file
+
+    PrintOutRaxInHexNL;                                                           # Print value set in library
+
+    ok Assemble eq =><<END;
+  0000 0000 0000 0000
+  0000 0000 1234 5678
+  END
+    unlink $l;
+
+
+=head3 Nasm::X86::Variable::address($left, $offset)
+
+Get the address of a variable with an optional offset.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $offset    Optional offset
+
+=head3 Nasm::X86::Variable::clone($variable, $name)
+
+Clone a variable to make a new variable.
+
+     Parameter  Description
+  1  $variable  Variable to clone
+  2  $name      New name for variable
+
+B<Example:>
+
+
+  if (11) {
+    my $a = V('a', 1);
+    my $b = $a->clone('a');
+
+    $_->outNL for $a, $b;
+
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+  a: 0000 0000 0000 0001
+  a: 0000 0000 0000 0001
+  END
+   }
+
+  #latest:
+  if (1) {                                                                         Nasm::X86::Variable::loadZmm
+    my $l = V('low',   Rd(2, 7, (0) x 14));
+    my $h = V('high' , Rd(3, 9, (0) x 14));
+    my $o = V('off',   Rd(2, 5, (0) x 14));
+    my $u = V('utf32', Dd(2, 3, 7, 8, 9, (0) x 11));
+
+
+    $l->loadZmm(0);
+    $h->loadZmm(1);
+    $o->loadZmm(2);
+
+    ClassifyWithInRangeAndSaveWordOffset($u, V('size', 5), V('classification', 7));
+    $u->loadZmm(3);
+
+    PrintOutRegisterInHex zmm 0..3;
+
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+    zmm0: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0007 0000 0002
+    zmm1: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0009 0000 0003
+    zmm2: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0005 0000 0002
+    zmm3: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0700 0004   0700 0003 0700 0002   0700 0001 0700 0000
+  END
+   }
+
+
+=head3 Nasm::X86::Variable::copy($left, $right)
+
+Copy one variable into another.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+B<Example:>
+
+
+    my $s = Subroutine
+     {my ($p) = @_;
+      $$p{v}->copy($$p{v} + $$p{k} + $$p{g} + 1);
+     } name => 'add', parameters=>[qw(v k g)];
+
+    my $v = V(v, 1);
+    my $k = K(k, 2);
+    my $g = V(g, 3);
+    $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
+    $v->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  v: 0000 0000 0000 0007
+  END
+
+    my $g = V g => 0;
+    my $s = Subroutine
+     {my ($p) = @_;
+      $$p{g}->copy(K value, 1);
+     } name => 'ref2', parameters=>[qw(g)];
+
+    my $t = Subroutine
+     {my ($p) = @_;
+      $s->call(parameters=>{g=>$$p{g}});
+     } name => 'ref', parameters=>[qw(g)];
+
+    $t->call(parameters=>{g=>$g});
+    $g->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  g: 0000 0000 0000 0001
+  END
+
+
+=head3 Nasm::X86::Variable::copyRef($left, $right)
+
+Copy a reference to a variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::copyZF($var)
+
+Copy the current state of the zero flag into a variable.
+
+     Parameter  Description
+  1  $var       Variable
+
+B<Example:>
+
+
+    Mov r15, 1;
+    my $z = V(zf);
+    Cmp r15, 1; $z->copyZF;         $z->outNL;
+    Cmp r15, 2; $z->copyZF;         $z->outNL;
+    Cmp r15, 1; $z->copyZFInverted; $z->outNL;
+    Cmp r15, 2; $z->copyZFInverted; $z->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  zf: 0000 0000 0000 0001
+  zf: 0000 0000 0000 0000
+  zf: 0000 0000 0000 0000
+  zf: 0000 0000 0000 0001
+  END
+
+
+=head3 Nasm::X86::Variable::copyZFInverted($var)
+
+Copy the opposite of the current state of the zero flag into a variable.
+
+     Parameter  Description
+  1  $var       Variable
+
+B<Example:>
+
+
+    Mov r15, 1;
+    my $z = V(zf);
+    Cmp r15, 1; $z->copyZF;         $z->outNL;
+    Cmp r15, 2; $z->copyZF;         $z->outNL;
+    Cmp r15, 1; $z->copyZFInverted; $z->outNL;
+    Cmp r15, 2; $z->copyZFInverted; $z->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  zf: 0000 0000 0000 0001
+  zf: 0000 0000 0000 0000
+  zf: 0000 0000 0000 0000
+  zf: 0000 0000 0000 0001
+  END
+
+
+=head3 Nasm::X86::Variable::equals($op, $left, $right)
+
+Equals operator.
+
+     Parameter  Description
+  1  $op        Operator
+  2  $left      Left variable
+  3  $right     Right variable
+
+=head3 Nasm::X86::Variable::assign($left, $op, $right)
+
+Assign to the left hand side the value of the right hand side.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $op        Operator
+  3  $right     Right variable
+
+=head3 Nasm::X86::Variable::plusAssign($left, $right)
+
+Implement plus and assign.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::minusAssign($left, $right)
+
+Implement minus and assign.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::arithmetic($op, $name, $left, $right)
+
+Return a variable containing the result of an arithmetic operation on the left hand and right hand side variables.
+
+     Parameter  Description
+  1  $op        Operator
+  2  $name      Operator name
+  3  $left      Left variable
+  4  $right     Right variable
+
+=head3 Nasm::X86::Variable::add($left, $right)
+
+Add the right hand variable to the left hand variable and return the result as a new variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::sub($left, $right)
+
+Subtract the right hand variable from the left hand variable and return the result as a new variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::times($left, $right)
+
+Multiply the left hand variable by the right hand variable and return the result as a new variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::division($op, $left, $right)
+
+Return a variable containing the result or the remainder that occurs when the left hand side is divided by the right hand side.
+
+     Parameter  Description
+  1  $op        Operator
+  2  $left      Left variable
+  3  $right     Right variable
+
+=head3 Nasm::X86::Variable::divide($left, $right)
+
+Divide the left hand variable by the right hand variable and return the result as a new variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::mod($left, $right)
+
+Divide the left hand variable by the right hand variable and return the remainder as a new variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::shiftLeft($left, $right)
+
+Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::shiftRight($left, $right)
+
+Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::not($left)
+
+Form two complement of left hand side and return it as a variable.
+
+     Parameter  Description
+  1  $left      Left variable
+
+=head2 Boolean
+
+Operations on variables that yield a boolean result
+
+=head3 Nasm::X86::Variable::boolean($sub, $op, $left, $right)
+
+Combine the left hand variable with the right hand variable via a boolean operator.
+
+     Parameter  Description
+  1  $sub       Operator
+  2  $op        Operator name
+  3  $left      Left variable
+  4  $right     Right variable
+
+=head3 Nasm::X86::Variable::booleanZF($sub, $op, $left, $right)
+
+Combine the left hand variable with the right hand variable via a boolean operator and indicate the result by setting the zero flag if the result is true.
+
+     Parameter  Description
+  1  $sub       Operator
+  2  $op        Operator name
+  3  $left      Left variable
+  4  $right     Right variable
+
+=head3 Nasm::X86::Variable::booleanC($cmov, $op, $left, $right)
+
+Combine the left hand variable with the right hand variable via a boolean operator using a conditional move instruction.
+
+     Parameter  Description
+  1  $cmov      Conditional move instruction name
+  2  $op        Operator name
+  3  $left      Left variable
+  4  $right     Right variable
+
+=head3 Nasm::X86::Variable::eq($left, $right)
+
+Check whether the left hand variable is equal to the right hand variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::ne($left, $right)
+
+Check whether the left hand variable is not equal to the right hand variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::ge($left, $right)
+
+Check whether the left hand variable is greater than or equal to the right hand variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::gt($left, $right)
+
+Check whether the left hand variable is greater than the right hand variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::le($left, $right)
+
+Check whether the left hand variable is less than or equal to the right hand variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::lt($left, $right)
+
+Check whether the left hand variable is less than the right hand variable.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::isRef($variable)
+
+Check whether the specified  variable is a reference to another variable.
+
+     Parameter  Description
+  1  $variable  Variable
+
+=head3 Nasm::X86::Variable::setReg($variable, $register)
+
+Set the named registers from the content of the variable.
+
+     Parameter  Description
+  1  $variable  Variable
+  2  $register  Register to load
+
+=head3 Nasm::X86::Variable::getReg($variable, $register)
+
+Load the variable from a register expression.
+
+     Parameter  Description
+  1  $variable  Variable
+  2  $register  Register expression to load
+
+=head3 Nasm::X86::Variable::getConst($variable, $constant)
+
+Load the variable from a constant in effect setting a variable to a specified value.
+
+     Parameter  Description
+  1  $variable  Variable
+  2  $constant  Constant to load
+
+=head3 Nasm::X86::Variable::incDec($left, $op)
+
+Increment or decrement a variable.
+
+     Parameter  Description
+  1  $left      Left variable operator
+  2  $op        Address of operator to perform inc or dec
+
+=head3 Nasm::X86::Variable::inc($left)
+
+Increment a variable.
+
+     Parameter  Description
+  1  $left      Variable
+
+=head3 Nasm::X86::Variable::dec($left)
+
+Decrement a variable.
+
+     Parameter  Description
+  1  $left      Variable
+
+=head3 Nasm::X86::Variable::str($left)
+
+The name of the variable.
+
+     Parameter  Description
+  1  $left      Variable
+
+=head3 Nasm::X86::Variable::min($left, $right)
+
+Minimum of two variables.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable or constant
+
+B<Example:>
+
+
+    my $a = V("a", 1);
+    my $b = V("b", 2);
+    my $c = $a->min($b);
+    my $d = $a->max($b);
+    $a->outNL;
+    $b->outNL;
+    $c->outNL;
+    $d->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  a: 0000 0000 0000 0001
+  b: 0000 0000 0000 0002
+  min: 0000 0000 0000 0001
+  max: 0000 0000 0000 0002
+  END
+
+
+=head3 Nasm::X86::Variable::max($left, $right)
+
+Maximum of two variables.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable or constant
+
+B<Example:>
+
+
+    my $a = V("a", 1);
+    my $b = V("b", 2);
+    my $c = $a->min($b);
+    my $d = $a->max($b);
+    $a->outNL;
+    $b->outNL;
+    $c->outNL;
+    $d->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  a: 0000 0000 0000 0001
+  b: 0000 0000 0000 0002
+  min: 0000 0000 0000 0001
+  max: 0000 0000 0000 0002
+  END
+
+
+=head3 Nasm::X86::Variable::and($left, $right)
+
+And two variables.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::or($left, $right)
+
+Or two variables.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $right     Right variable
+
+=head3 Nasm::X86::Variable::setMask($start, $length, $mask)
+
+Set the mask register to ones starting at the specified position for the specified length and zeroes elsewhere.
+
+     Parameter  Description
+  1  $start     Variable containing start of mask
+  2  $length    Variable containing length of mask
+  3  $mask      Mask register
+
+B<Example:>
+
+
+    my $start  = V("Start",  7);
+    my $length = V("Length", 3);
+    $start->setMask($length, k7);
+    PrintOutRegisterInHex k7;
+
+    ok Assemble(debug => 0, eq => <<END);
+      k7: 0000 0000 0000 0380
+  END
+
+    my $z = V('zero', 0);
+    my $o = V('one',  1);
+    my $t = V('two',  2);
+    $z->setMask($o,       k7); PrintOutRegisterInHex k7;
+    $z->setMask($t,       k6); PrintOutRegisterInHex k6;
+    $z->setMask($o+$t,    k5); PrintOutRegisterInHex k5;
+    $o->setMask($o,       k4); PrintOutRegisterInHex k4;
+    $o->setMask($t,       k3); PrintOutRegisterInHex k3;
+    $o->setMask($o+$t,    k2); PrintOutRegisterInHex k2;
+
+    $t->setMask($o,       k1); PrintOutRegisterInHex k1;
+    $t->setMask($t,       k0); PrintOutRegisterInHex k0;
+
+    ok Assemble(debug => 0, eq => <<END);
+      k7: 0000 0000 0000 0001
+      k6: 0000 0000 0000 0003
+      k5: 0000 0000 0000 0007
+      k4: 0000 0000 0000 0002
+      k3: 0000 0000 0000 0006
+      k2: 0000 0000 0000 000E
+      k1: 0000 0000 0000 0004
+      k0: 0000 0000 0000 000C
+  END
+
+
+=head3 Nasm::X86::Variable::setMaskFirst($length, $mask)
+
+Set the first bits in the specified mask register.
+
+     Parameter  Description
+  1  $length    Variable containing length to set
+  2  $mask      Mask register
+
+=head3 Nasm::X86::Variable::setMaskBit($index, $mask)
+
+Set a bit in the specified mask register retaining the other bits.
+
+     Parameter  Description
+  1  $index     Variable containing bit position to set
+  2  $mask      Mask register
+
+=head3 Nasm::X86::Variable::clearMaskBit($index, $mask)
+
+Clear a bit in the specified mask register retaining the other bits.
+
+     Parameter  Description
+  1  $index     Variable containing bit position to clear
+  2  $mask      Mask register
+
+=head3 Nasm::X86::Variable::setBit($index, $mask)
+
+Set a bit in the specified register retaining the other bits.
+
+     Parameter  Description
+  1  $index     Variable containing bit position to set
+  2  $mask      Mask register
+
+=head3 Nasm::X86::Variable::clearBit($index, $mask)
+
+Clear a bit in the specified mask register retaining the other bits.
+
+     Parameter  Description
+  1  $index     Variable containing bit position to clear
+  2  $mask      Mask register
+
+=head3 Nasm::X86::Variable::setZmm($source, $zmm, $offset, $length)
+
+Load bytes from the memory addressed by specified source variable into the numbered zmm register at the offset in the specified offset moving the number of bytes in the specified variable.
+
+     Parameter  Description
+  1  $source    Variable containing the address of the source
+  2  $zmm       Number of zmm to load
+  3  $offset    Variable containing offset in zmm to move to
+  4  $length    Variable containing length of move
+
+B<Example:>
+
+
+    my $s = Rb(0..128);
+    my $source = V(Source, $s);
+
+    if (1)                                                                        # First block
+     {my $offset = V(Offset, 7);
+      my $length = V(Length, 3);
+      $source->setZmm(0, $offset, $length);
+     }
+
+    if (1)                                                                        # Second block
+     {my $offset = V(Offset, 33);
+      my $length = V(Length, 12);
+      $source->setZmm(0, $offset, $length);
+     }
+
+    PrintOutRegisterInHex zmm0;
+
+    ok Assemble(debug => 0, eq => <<END);
+    zmm0: 0000 0000 0000 0000   0000 0000 0000 0000   0000 000B 0A09 0807   0605 0403 0201 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0201   0000 0000 0000 0000
+  END
+
+
+=head3 Nasm::X86::Variable::loadZmm($source, $zmm)
+
+Load bytes from the memory addressed by the specified source variable into the numbered zmm register.
+
+     Parameter  Description
+  1  $source    Variable containing the address of the source
+  2  $zmm       Number of zmm to get
+
+=head3 bRegFromZmm($register, $zmm, $offset)
+
+Load the specified register from the byte at the specified offset located in the numbered zmm.
+
+     Parameter  Description
+  1  $register  Register to load
+  2  $zmm       Numbered zmm register to load from
+  3  $offset    Constant offset in bytes
+
+=head3 bRegIntoZmm($register, $zmm, $offset)
+
+Put the byte content of the specified register into the byte in the numbered zmm at the specified offset in the zmm.
+
+     Parameter  Description
+  1  $register  Register to load
+  2  $zmm       Numbered zmm register to load from
+  3  $offset    Constant offset in bytes
+
+=head3 wRegFromZmm($register, $zmm, $offset)
+
+Load the specified register from the word at the specified offset located in the numbered zmm.
+
+     Parameter  Description
+  1  $register  Register to load
+  2  $zmm       Numbered zmm register to load from
+  3  $offset    Constant offset in bytes
+
+=head3 wRegIntoZmm($register, $zmm, $offset)
+
+Put the specified register into the word in the numbered zmm at the specified offset in the zmm.
+
+     Parameter  Description
+  1  $register  Register to load
+  2  $zmm       Numbered zmm register to load from
+  3  $offset    Constant offset in bytes
+
+=head3 LoadRegFromMm($mm, $offset, $reg)
+
+Load the specified register from the numbered zmm at the quad offset specified as a constant number.
+
+     Parameter  Description
+  1  $mm        Mm register
+  2  $offset    Offset in quads
+  3  $reg       General purpose register to load
+
+=head3 SaveRegIntoMm($mm, $offset, $reg)
+
+Save the specified register into the numbered zmm at the quad offset specified as a constant number.
+
+     Parameter  Description
+  1  $mm        Mm register
+  2  $offset    Offset in quads
+  3  $reg       General purpose register to load
+
+=head3 getBwdqFromMm($size, $mm, $offset)
+
+Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $size      Size of get
+  2  $mm        Mm register
+  3  $offset    Offset in bytes either as a constant or as a variable
+
+=head3 bFromX($xmm, $offset)
+
+Get the byte from the numbered xmm register and return it in a variable.
+
+     Parameter  Description
+  1  $xmm       Numbered xmm
+  2  $offset    Offset in bytes
+
+=head3 wFromX($xmm, $offset)
+
+Get the word from the numbered xmm register and return it in a variable.
+
+     Parameter  Description
+  1  $xmm       Numbered xmm
+  2  $offset    Offset in bytes
+
+=head3 dFromX($xmm, $offset)
+
+Get the double word from the numbered xmm register and return it in a variable.
+
+     Parameter  Description
+  1  $xmm       Numbered xmm
+  2  $offset    Offset in bytes
+
+=head3 qFromX($xmm, $offset)
+
+Get the quad word from the numbered xmm register and return it in a variable.
+
+     Parameter  Description
+  1  $xmm       Numbered xmm
+  2  $offset    Offset in bytes
+
+=head3 bFromZ($zmm, $offset)
+
+Get the byte from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $zmm       Numbered zmm
+  2  $offset    Offset in bytes
+
+=head3 wFromZ($zmm, $offset)
+
+Get the word from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $zmm       Numbered zmm
+  2  $offset    Offset in bytes
+
+=head3 dFromZ($zmm, $offset)
+
+Get the double word from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $zmm       Numbered zmm
+  2  $offset    Offset in bytes
+
+=head3 qFromZ($zmm, $offset)
+
+Get the quad word from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $zmm       Numbered zmm
+  2  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::bFromZ($variable, $zmm, $offset)
+
+Get the byte from the numbered zmm register and put it in a variable.
+
+     Parameter  Description
+  1  $variable  Variable
+  2  $zmm       Numbered zmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::wFromZ($variable, $zmm, $offset)
+
+Get the word from the numbered zmm register and put it in a variable.
+
+     Parameter  Description
+  1  $variable  Variable
+  2  $zmm       Numbered zmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::dFromZ($variable, $zmm, $offset)
+
+Get the double word from the numbered zmm register and put it in a variable.
+
+     Parameter  Description
+  1  $variable  Variable
+  2  $zmm       Numbered zmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::qFromZ($variable, $zmm, $offset)
+
+Get the quad word from the numbered zmm register and put it in a variable.
+
+     Parameter  Description
+  1  $variable  Variable
+  2  $zmm       Numbered zmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::dFromPointInZ($point, $zmm)
+
+Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
+
+     Parameter  Description
+  1  $point     Point
+  2  $zmm       Numbered zmm
+
+B<Example:>
+
+
+    my $tree = DescribeTree(length => 7);
+
+    my $K = 31;
+
+    K(K => Rd(0..15))->loadZmm($K);
+
+    PrintOutRegisterInHex zmm $K;
+    K( offset => 1 << 5)->dFromPointInZ($K)->outNL;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 000F 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+  d: 0000 0000 0000 0005
+  END
+
+
+=head3 Nasm::X86::Variable::dIntoPointInZ($point, $zmm, $content)
+
+Put the variable double word content into the numbered zmm register at a point specified by the variable.
+
+     Parameter  Description
+  1  $point     Point
+  2  $zmm       Numbered zmm
+  3  $content   Content to be inserted as a variable
+
+=head3 Nasm::X86::Variable::putBwdqIntoMm($content, $size, $mm, $offset)
+
+Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register.
+
+     Parameter  Description
+  1  $content   Variable with content
+  2  $size      Size of put
+  3  $mm        Numbered zmm
+  4  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::bIntoX($content, $xmm, $offset)
+
+Place the value of the content variable at the byte in the numbered xmm register.
+
+     Parameter  Description
+  1  $content   Variable with content
+  2  $xmm       Numbered xmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::wIntoX($content, $xmm, $offset)
+
+Place the value of the content variable at the word in the numbered xmm register.
+
+     Parameter  Description
+  1  $content   Variable with content
+  2  $xmm       Numbered xmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::dIntoX($content, $xmm, $offset)
+
+Place the value of the content variable at the double word in the numbered xmm register.
+
+     Parameter  Description
+  1  $content   Variable with content
+  2  $xmm       Numbered xmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::qIntoX($content, $xmm, $offset)
+
+Place the value of the content variable at the quad word in the numbered xmm register.
+
+     Parameter  Description
+  1  $content   Variable with content
+  2  $xmm       Numbered xmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::bIntoZ($content, $zmm, $offset)
+
+Place the value of the content variable at the byte in the numbered zmm register.
+
+     Parameter  Description
+  1  $content   Variable with content
+  2  $zmm       Numbered zmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::putWIntoZmm($content, $zmm, $offset)
+
+Place the value of the content variable at the word in the numbered zmm register.
+
+     Parameter  Description
+  1  $content   Variable with content
+  2  $zmm       Numbered zmm
+  3  $offset    Offset in bytes
+
+=head3 Nasm::X86::Variable::dIntoZ($content, $zmm, $offset)
+
+Place the value of the content variable at the double word in the numbered zmm register.
+
+     Parameter  Description
+  1  $content   Variable with content
+  2  $zmm       Numbered zmm
+  3  $offset    Offset in bytes
+
+B<Example:>
+
+
+    my $s = Rb(0..8);
+    my $c = V("Content",   "[$s]");
+       $c->bIntoZ(0,  4);
+       $c->putWIntoZmm(0,  6);
+       $c->dIntoZ(0, 10);
+       $c->qIntoZ(0, 16);
+    PrintOutRegisterInHex zmm0;
+    bFromZ(0, 12)->outNL;
+    wFromZ(0, 12)->outNL;
+    dFromZ(0, 12)->outNL;
+    qFromZ(0, 12)->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    zmm0: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0706 0504 0302 0100   0000 0302 0100 0000   0100 0000 0000 0000
+  b at offset 12 in zmm0: 0000 0000 0000 0002
+  w at offset 12 in zmm0: 0000 0000 0000 0302
+  d at offset 12 in zmm0: 0000 0000 0000 0302
+  q at offset 12 in zmm0: 0302 0100 0000 0302
+  END
+
+
+=head3 Nasm::X86::Variable::qIntoZ($content, $zmm, $offset)
+
+Place the value of the content variable at the quad word in the numbered zmm register.
+
+     Parameter  Description
+  1  $content   Variable with content
+  2  $zmm       Numbered zmm
+  3  $offset    Offset in bytes
+
+=head2 Memory
+
+Actions on memory described by variables
+
+=head3 Nasm::X86::Variable::clearMemory($address, $size)
+
+Clear the memory described in this variable.
+
+     Parameter  Description
+  1  $address   Address of memory to clear
+  2  $size      Size of the memory to clear
+
+=head3 Nasm::X86::Variable::copyMemory($target, $source, $size)
+
+Copy from one block of memory to another.
+
+     Parameter  Description
+  1  $target    Address of target
+  2  $source    Address of source
+  3  $size      Length to copy
+
+=head3 Nasm::X86::Variable::printMemoryInHexNL($address, $channel, $size)
+
+Write, in hexadecimal, the memory addressed by a variable to stdout or stderr.
+
+     Parameter  Description
+  1  $address   Address of memory
+  2  $channel   Channel to print on
+  3  $size      Number of bytes to print
+
+=head3 Nasm::X86::Variable::printErrMemoryInHexNL($address, $size)
+
+Write the memory addressed by a variable to stderr.
+
+     Parameter  Description
+  1  $address   Address of memory
+  2  $size      Number of bytes to print
+
+=head3 Nasm::X86::Variable::printOutMemoryInHexNL($address, $size)
+
+Write the memory addressed by a variable to stdout.
+
+     Parameter  Description
+  1  $address   Address of memory
+  2  $size      Number of bytes to print
+
+B<Example:>
+
+
+    my $u = Rd(ord('𝝰'), ord('𝝱'), ord('𝝲'), ord('𝝳'));
+    Mov rax, $u;
+    my $address = V(address)->getReg(rax);
+    $address->printOutMemoryInHexNL(K(size, 16));
+
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+  70D7 0100 71D7 0100  72D7 0100 73D7 0100
+  END
+
+    my $v = V(var, 2);
+
+    If  $v == 0, Then {Mov rax, 0},
+    Ef {$v == 1} Then {Mov rax, 1},
+    Ef {$v == 2} Then {Mov rax, 2},
+                 Else {Mov rax, 3};
+    PrintOutRegisterInHex rax;
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+     rax: 0000 0000 0000 0002
+  END
+
+
+=head3 Nasm::X86::Variable::freeMemory($address, $size)
+
+Free the memory addressed by this variable for the specified length.
+
+     Parameter  Description
+  1  $address   Address of memory to free
+  2  $size      Size of the memory to free
+
+B<Example:>
+
+
+    my $N = K size => 2048;
+    my $q = Rs('a'..'p');
+    my $address = AllocateMemory $N;
+
+    Vmovdqu8 xmm0, "[$q]";
+    $address->setReg(rax);
+    Vmovdqu8 "[rax]", xmm0;
+    Mov rdi, 16;
+    PrintOutMemory;
+    PrintOutNL;
+
+    FreeMemory $address, $N;
+
+    ok Assemble(debug => 0, eq => <<END);
+  abcdefghijklmnop
+  END
+
+
+=head3 Nasm::X86::Variable::allocateMemory($size)
+
+Allocate the specified amount of memory via mmap and return its address.
+
+     Parameter  Description
+  1  $size      Size
+
+=head2 Structured Programming with variables
+
+Structured programming operations driven off variables.
+
+=head3 Nasm::X86::Variable::for($limit, $block)
+
+Iterate a block a variable number of times.
+
+     Parameter  Description
+  1  $limit     Number of times
+  2  $block     Block
+
+B<Example:>
+
+
+    V(limit,10)->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $i->outNL;
+     });
+
+    ok Assemble(debug => 0, eq => <<END);
+  index: 0000 0000 0000 0000
+  index: 0000 0000 0000 0001
+  index: 0000 0000 0000 0002
+  index: 0000 0000 0000 0003
+  index: 0000 0000 0000 0004
+  index: 0000 0000 0000 0005
+  index: 0000 0000 0000 0006
+  index: 0000 0000 0000 0007
+  index: 0000 0000 0000 0008
+  index: 0000 0000 0000 0009
+  END
+
+
+=head1 Stack
+
+Manage data on the stack
+
+=head2 Push, Pop, Peek
+
+Generic versions of push, pop, peek
+
+=head3 PopR(@r)
+
+Pop registers from the stack. Use the last stored set if none explicitly supplied.  Pops are done in reverse order to match the original pushing order.
+
+     Parameter  Description
+  1  @r         Register
+
+B<Example:>
+
+
+    Mov rax, 0x11111111;
+    Mov rbx, 0x22222222;
+    PushR my @save = (rax, rbx);
+    Mov rax, 0x33333333;
+
+    PopR;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+    PrintOutRegisterInHex rbx;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 1111 1111
+     rbx: 0000 0000 2222 2222
+  END
+
+
+=head2 Declarations
+
+Declare variables and structures
+
+=head3 Structures
+
+Declare a structure
+
+=head4 Structure()
+
+Create a structure addressed by a register.
+
+
+=head4 Nasm::X86::Structure::field($structure, $length, $comment)
+
+Add a field of the specified length with an optional comment.
+
+     Parameter   Description
+  1  $structure  Structure data descriptor
+  2  $length     Length of data
+  3  $comment    Optional comment
+
+=head4 Nasm::X86::StructureField::addr($field, $register)
+
+Address a field in a structure by either the default register or the named register.
+
+     Parameter  Description
+  1  $field     Field
+  2  $register  Optional address register else rax
+
+=head4 All8Structure($N)
+
+Create a structure consisting of 8 byte fields.
+
+     Parameter  Description
+  1  $N         Number of variables required
+
+=head1 Operating system
+
+Interacting with the operating system.
+
+=head2 Processes
+
+Create and manage processes
+
+=head3 Fork()
+
+Fork: create and execute a copy of the current process.
+
+
+B<Example:>
+
+
+
+    Fork;                                                                         # Fork  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Test rax,rax;
+    IfNz                                                                          # Parent
+    Then
+     {Mov rbx, rax;
+      WaitPid;
+      GetPid;                                                                     # Pid of parent as seen in parent
+      Mov rcx,rax;
+      PrintOutRegisterInHex rax, rbx, rcx;
+     },
+    Else                                                                          # Child
+     {Mov r8,rax;
+      GetPid;                                                                     # Child pid as seen in child
+      Mov r9,rax;
+      GetPPid;                                                                    # Parent pid as seen in child
+      Mov r10,rax;
+      PrintOutRegisterInHex r8, r9, r10;
+     };
+
+    my $r = Assemble;
+
+  #    r8: 0000 0000 0000 0000   #1 Return from fork as seen by child
+  #    r9: 0000 0000 0003 0C63   #2 Pid of child
+  #   r10: 0000 0000 0003 0C60   #3 Pid of parent from child
+  #   rax: 0000 0000 0003 0C63   #4 Return from fork as seen by parent
+  #   rbx: 0000 0000 0003 0C63   #5 Wait for child pid result
+  #   rcx: 0000 0000 0003 0C60   #6 Pid of parent
+
+    if ($r =~ m(r8:( 0000){4}.*r9:(.*)\s{5,}r10:(.*)\s{5,}rax:(.*)\s{5,}rbx:(.*)\s{5,}rcx:(.*)\s{2,})s)
+     {ok $2 eq $4;
+      ok $2 eq $5;
+      ok $3 eq $6;
+      ok $2 gt $6;
+     }
+
+
+=head3 GetPid()
+
+Get process identifier.
+
+
+B<Example:>
+
+
+    Fork;                                                                         # Fork
+
+    Test rax,rax;
+    IfNz                                                                          # Parent
+    Then
+     {Mov rbx, rax;
+      WaitPid;
+
+      GetPid;                                                                     # Pid of parent as seen in parent  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+      Mov rcx,rax;
+      PrintOutRegisterInHex rax, rbx, rcx;
+     },
+    Else                                                                          # Child
+     {Mov r8,rax;
+
+      GetPid;                                                                     # Child pid as seen in child  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+      Mov r9,rax;
+      GetPPid;                                                                    # Parent pid as seen in child
+      Mov r10,rax;
+      PrintOutRegisterInHex r8, r9, r10;
+     };
+
+    my $r = Assemble;
+
+  #    r8: 0000 0000 0000 0000   #1 Return from fork as seen by child
+  #    r9: 0000 0000 0003 0C63   #2 Pid of child
+  #   r10: 0000 0000 0003 0C60   #3 Pid of parent from child
+  #   rax: 0000 0000 0003 0C63   #4 Return from fork as seen by parent
+  #   rbx: 0000 0000 0003 0C63   #5 Wait for child pid result
+  #   rcx: 0000 0000 0003 0C60   #6 Pid of parent
+
+    if ($r =~ m(r8:( 0000){4}.*r9:(.*)\s{5,}r10:(.*)\s{5,}rax:(.*)\s{5,}rbx:(.*)\s{5,}rcx:(.*)\s{2,})s)
+     {ok $2 eq $4;
+      ok $2 eq $5;
+      ok $3 eq $6;
+      ok $2 gt $6;
+     }
+
+
+=head3 GetPidInHex()
+
+Get process identifier in hex as 8 zero terminated bytes in rax.
+
+
+B<Example:>
+
+
+
+    GetPidInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+
+    ok Assemble =~ m(rax: 00);
+
+
+=head3 GetPPid()
+
+Get parent process identifier.
+
+
+B<Example:>
+
+
+    Fork;                                                                         # Fork
+
+    Test rax,rax;
+    IfNz                                                                          # Parent
+    Then
+     {Mov rbx, rax;
+      WaitPid;
+      GetPid;                                                                     # Pid of parent as seen in parent
+      Mov rcx,rax;
+      PrintOutRegisterInHex rax, rbx, rcx;
+     },
+    Else                                                                          # Child
+     {Mov r8,rax;
+      GetPid;                                                                     # Child pid as seen in child
+      Mov r9,rax;
+
+      GetPPid;                                                                    # Parent pid as seen in child  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+      Mov r10,rax;
+      PrintOutRegisterInHex r8, r9, r10;
+     };
+
+    my $r = Assemble;
+
+  #    r8: 0000 0000 0000 0000   #1 Return from fork as seen by child
+  #    r9: 0000 0000 0003 0C63   #2 Pid of child
+  #   r10: 0000 0000 0003 0C60   #3 Pid of parent from child
+  #   rax: 0000 0000 0003 0C63   #4 Return from fork as seen by parent
+  #   rbx: 0000 0000 0003 0C63   #5 Wait for child pid result
+  #   rcx: 0000 0000 0003 0C60   #6 Pid of parent
+
+    if ($r =~ m(r8:( 0000){4}.*r9:(.*)\s{5,}r10:(.*)\s{5,}rax:(.*)\s{5,}rbx:(.*)\s{5,}rcx:(.*)\s{2,})s)
+     {ok $2 eq $4;
+      ok $2 eq $5;
+      ok $3 eq $6;
+      ok $2 gt $6;
+     }
+
+
+=head3 GetUid()
+
+Get userid of current process.
+
+
+B<Example:>
+
+
+
+    GetUid;                                                                       # Userid  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+
+    my $r = Assemble;
+    ok $r =~ m(rax:( 0000){3});
+
+
+=head3 WaitPid()
+
+Wait for the pid in rax to complete.
+
+
+B<Example:>
+
+
+    Fork;                                                                         # Fork
+
+    Test rax,rax;
+    IfNz                                                                          # Parent
+    Then
+     {Mov rbx, rax;
+
+      WaitPid;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+      GetPid;                                                                     # Pid of parent as seen in parent
+      Mov rcx,rax;
+      PrintOutRegisterInHex rax, rbx, rcx;
+     },
+    Else                                                                          # Child
+     {Mov r8,rax;
+      GetPid;                                                                     # Child pid as seen in child
+      Mov r9,rax;
+      GetPPid;                                                                    # Parent pid as seen in child
+      Mov r10,rax;
+      PrintOutRegisterInHex r8, r9, r10;
+     };
+
+    my $r = Assemble;
+
+  #    r8: 0000 0000 0000 0000   #1 Return from fork as seen by child
+  #    r9: 0000 0000 0003 0C63   #2 Pid of child
+  #   r10: 0000 0000 0003 0C60   #3 Pid of parent from child
+  #   rax: 0000 0000 0003 0C63   #4 Return from fork as seen by parent
+  #   rbx: 0000 0000 0003 0C63   #5 Wait for child pid result
+  #   rcx: 0000 0000 0003 0C60   #6 Pid of parent
+
+    if ($r =~ m(r8:( 0000){4}.*r9:(.*)\s{5,}r10:(.*)\s{5,}rax:(.*)\s{5,}rbx:(.*)\s{5,}rcx:(.*)\s{2,})s)
+     {ok $2 eq $4;
+      ok $2 eq $5;
+      ok $3 eq $6;
+      ok $2 gt $6;
+     }
+
+
+=head3 ReadTimeStampCounter()
+
+Read the time stamp counter and return the time in nanoseconds in rax.
+
+
+B<Example:>
+
+
+    for(1..10)
+
+     {ReadTimeStampCounter;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+      PrintOutRegisterInHex rax;
+     }
+
+    my @s = split /
+/, Assemble;
+    my @S = sort @s;
+    is_deeply \@s, \@S;
+
+
+=head2 Memory
+
+Allocate and print memory
+
+=head3 PrintMemoryInHex($channel)
+
+Dump memory from the address in rax for the length in rdi on the specified channel. As this method prints in blocks of 8 up to 7 bytes will be missing from the end unless the length is a multiple of 8 .
+
+     Parameter  Description
+  1  $channel   Channel
+
+=head3 PrintErrMemoryInHex()
+
+Dump memory from the address in rax for the length in rdi on stderr.
+
+
+=head3 PrintOutMemoryInHex()
+
+Dump memory from the address in rax for the length in rdi on stdout.
+
+
+B<Example:>
+
+
+    Mov rax, 0x07654321;
+    Shl rax, 32;
+    Or  rax, 0x07654321;
+    PushR rax;
+
+    PrintOutRaxInHex;
+    PrintOutNL;
+    PrintOutRaxInReverseInHex;
+    PrintOutNL;
+
+    Mov rax, rsp;
+    Mov rdi, 8;
+
+    PrintOutMemoryInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutNL;
+    PopR rax;
+
+    Mov rax, 4096;
+    PushR rax;
+    Mov rax, rsp;
+    Mov rdi, 8;
+
+    PrintOutMemoryInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutNL;
+    PopR rax;
+
+    ok Assemble(debug => 0, eq => <<END);
+  0765 4321 0765 4321
+  2143 6507 2143 6507
+  2143 6507 2143 6507
+  0010 0000 0000 0000
+  END
+
+
+=head3 PrintErrMemoryInHexNL()
+
+Dump memory from the address in rax for the length in rdi and then print a new line.
+
+
+=head3 PrintOutMemoryInHexNL()
+
+Dump memory from the address in rax for the length in rdi and then print a new line.
+
+
+B<Example:>
+
+
+    my $N = 256;
+    my $s = Rb 0..$N-1;
+    my $a = AllocateMemory K size => $N;
+    CopyMemory(V(source => $s), $a, K(size => $N));
+
+    my $b = AllocateMemory K size => $N;
+    CopyMemory($a, $b, K size => $N);
+
+    $b->setReg(rax);
+    Mov rdi, $N;
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug=>0, eq => <<END);
+  __01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
+  END
+
+
+=head3 PrintMemory_InHex($channel)
+
+Dump memory from the address in rax for the length in rdi on the specified channel. As this method prints in blocks of 8 up to 7 bytes will be missing from the end unless the length is a multiple of 8 .
+
+     Parameter  Description
+  1  $channel   Channel
+
+=head3 PrintErrMemory_InHex()
+
+Dump memory from the address in rax for the length in rdi on stderr.
+
+
+=head3 PrintOutMemory_InHex()
+
+Dump memory from the address in rax for the length in rdi on stdout.
+
+
+=head3 PrintErrMemory_InHexNL()
+
+Dump memory from the address in rax for the length in rdi and then print a new line.
+
+
+=head3 PrintOutMemory_InHexNL()
+
+Dump memory from the address in rax for the length in rdi and then print a new line.
+
+
+=head3 PrintMemory($channel)
+
+Print the memory addressed by rax for a length of rdi on the specified channel.
+
+     Parameter  Description
+  1  $channel   Channel
+
+B<Example:>
+
+
+    my $file = V(file => Rs $0);
+    my ($address, $size) = ReadFile $file;                                        # Read file into memory
+    $address->setReg(rax);                                                        # Address of file in memory
+    $size   ->setReg(rdi);                                                        # Length  of file in memory
+    PrintOutMemory;                                                               # Print contents of memory to stdout
+
+    my $r = Assemble;                                                             # Assemble and execute
+    ok stringMd5Sum($r) eq fileMd5Sum($0);                                        # Output contains this file
+
+
+=head3 PrintMemoryNL()
+
+Print the memory addressed by rax for a length of rdi on the specified channel followed by a new line.
+
+
+=head3 PrintErrMemory()
+
+Print the memory addressed by rax for a length of rdi on stderr.
+
+
+=head3 PrintOutMemory()
+
+Print the memory addressed by rax for a length of rdi on stdout.
+
+
+B<Example:>
+
+
+    Comment "Print a string from memory";
+    my $s = "Hello World";
+    Mov rax, Rs($s);
+    Mov rdi, length $s;
+
+    PrintOutMemory;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Exit(0);
+
+    ok Assemble =~ m(Hello World);
+
+
+=head3 PrintErrMemoryNL()
+
+Print the memory addressed by rax for a length of rdi followed by a new line on stderr.
+
+
+=head3 PrintOutMemoryNL()
+
+Print the memory addressed by rax for a length of rdi followed by a new line on stdout.
+
+
+B<Example:>
+
+
+    my $s = Rs("Hello World
+
+Hello Skye");
+    my $l = StringLength(my $t = V string => $s);
+    $t->setReg(rax);
+    $l->setReg(rdi);
+
+    PrintOutMemoryNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble(debug => 0, eq => <<END);
+  Hello World
+
+  Hello Skye
+  END
+
+
+=head3 AllocateMemory($size)
+
+Allocate the variable specified amount of memory via mmap and return its address as a variable.
+
+     Parameter  Description
+  1  $size      Size as a variable
+
+B<Example:>
+
+
+    my $N = K size => 2048;
+    my $q = Rs('a'..'p');
+
+    my $address = AllocateMemory $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    Vmovdqu8 xmm0, "[$q]";
+    $address->setReg(rax);
+    Vmovdqu8 "[rax]", xmm0;
+    Mov rdi, 16;
+    PrintOutMemory;
+    PrintOutNL;
+
+    FreeMemory $address, $N;
+
+    ok Assemble(debug => 0, eq => <<END);
+  abcdefghijklmnop
+  END
+
+    my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
+
+
+    my $A = AllocateMemory $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ClearMemory($A, $N);
+
+    $A->setReg(rax);
+    Mov rdi, 128;
+    PrintOutMemory_InHexNL;
+
+    FreeMemory $A, $N;
+
+    ok Assemble(debug => 0, eq => <<END);
+  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  END
+
+    my $N = 256;
+    my $s = Rb 0..$N-1;
+
+    my $a = AllocateMemory K size => $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    CopyMemory(V(source => $s), $a, K(size => $N));
+
+
+    my $b = AllocateMemory K size => $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    CopyMemory($a, $b, K size => $N);
+
+    $b->setReg(rax);
+    Mov rdi, $N;
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug=>0, eq => <<END);
+  __01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
+  END
+
+
+=head3 FreeMemory($address, $size)
+
+Free memory specified by variables.
+
+     Parameter  Description
+  1  $address   Variable address of memory
+  2  $size      Variable size of memory
+
+B<Example:>
+
+
+    my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
+
+    my $A = AllocateMemory $N;
+
+    ClearMemory($A, $N);
+
+    $A->setReg(rax);
+    Mov rdi, 128;
+    PrintOutMemory_InHexNL;
+
+
+    FreeMemory $A, $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble(debug => 0, eq => <<END);
+  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  END
+
+
+=head3 ClearMemory($address, $size)
+
+Clear memory wit a variable address and variable length
+
+     Parameter  Description
+  1  $address   Address of memory as a variable
+  2  $size      Size of memory as a variable
+
+B<Example:>
+
+
+    K(loop, 8+1)->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      $index->setReg(15);
+      Push r15;
+     });
+
+    Mov rax, rsp;
+    Mov rdi, 8*9;
+    PrintOutMemory_InHexNL;
+
+    ClearMemory(V(address, rax), K(size, 8*9));  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  08__ ____ ____ ____  07__ ____ ____ ____  06__ ____ ____ ____  05__ ____ ____ ____  04__ ____ ____ ____  03__ ____ ____ ____  02__ ____ ____ ____  01__ ____ ____ ____  ____ ____ ____ ____
+  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  END
+
+    my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
+
+    my $A = AllocateMemory $N;
+
+
+    ClearMemory($A, $N);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    $A->setReg(rax);
+    Mov rdi, 128;
+    PrintOutMemory_InHexNL;
+
+    FreeMemory $A, $N;
+
+    ok Assemble(debug => 0, eq => <<END);
+  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  END
+
+
+=head3 CopyMemory($source, $target, $size)
+
+Copy memory.
+
+     Parameter  Description
+  1  $source    Source address variable
+  2  $target    Target address variable
+  3  $size      Length variable
+
+B<Example:>
+
+
+    my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
+    my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
+
+    Vmovdqu8 xmm0, "[$s]";
+    Vmovdqu8 xmm1, "[$t]";
+    PrintOutRegisterInHex xmm0;
+    PrintOutRegisterInHex xmm1;
+    Sub rsp, 16;
+
+    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rdi, 16;
+    Mov rsi, $s;
+
+    CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+    xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
+    xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
+  __01 02__ 03__ ____  04__ ____ ____ ____
+  END
+
+    my $N = 256;
+    my $s = Rb 0..$N-1;
+    my $a = AllocateMemory K size => $N;
+
+    CopyMemory(V(source => $s), $a, K(size => $N));  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    my $b = AllocateMemory K size => $N;
+
+    CopyMemory($a, $b, K size => $N);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    $b->setReg(rax);
+    Mov rdi, $N;
+    PrintOutMemory_InHexNL;
+
+    ok Assemble(debug=>0, eq => <<END);
+  __01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
+  END
+
+
+=head2 Files
+
+Interact with the operating system via files.
+
+=head3 OpenRead()
+
+Open a file, whose name is addressed by rax, for read and return the file descriptor in rax.
+
+
+B<Example:>
+
+
+    Mov rax, Rs($0);                                                              # File to read
+
+    OpenRead;                                                                     # Open file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+    CloseFile;                                                                    # Close file
+    PrintOutRegisterInHex rax;
+
+    Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
+    OpenWrite;                                                                    # Open file
+    CloseFile;                                                                    # Close file
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rax: 0000 0000 0000 0000
+  END
+    ok -e $f;                                                                     # Created file
+    unlink $f;
+
+
+=head3 OpenWrite()
+
+Create the file named by the terminated string addressed by rax for write.
+
+
+B<Example:>
+
+
+    Mov rax, Rs($0);                                                              # File to read
+    OpenRead;                                                                     # Open file
+    PrintOutRegisterInHex rax;
+    CloseFile;                                                                    # Close file
+    PrintOutRegisterInHex rax;
+
+    Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
+
+    OpenWrite;                                                                    # Open file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    CloseFile;                                                                    # Close file
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rax: 0000 0000 0000 0000
+  END
+    ok -e $f;                                                                     # Created file
+    unlink $f;
+
+
+=head3 CloseFile()
+
+Close the file whose descriptor is in rax.
+
+
+B<Example:>
+
+
+    Mov rax, Rs($0);                                                              # File to read
+    OpenRead;                                                                     # Open file
+    PrintOutRegisterInHex rax;
+
+    CloseFile;                                                                    # Close file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+
+    Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
+    OpenWrite;                                                                    # Open file
+
+    CloseFile;                                                                    # Close file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 0000 0003
+     rax: 0000 0000 0000 0000
+  END
+    ok -e $f;                                                                     # Created file
+    unlink $f;
+
+
+=head3 StatSize()
+
+Stat a file whose name is addressed by rax to get its size in rax.
+
+
+B<Example:>
+
+
+    Mov rax, Rs($0);                                                              # File to stat
+
+    StatSize;                                                                     # Stat the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+
+    my $r = Assemble =~ s( ) ()gsr;
+    if ($r =~ m(rax:([0-9a-f]{16}))is)                                            # Compare file size obtained with that from fileSize()
+     {is_deeply $1, sprintf("%016X", fileSize($0));
+     }
+
+
+=head3 ReadChar()
+
+Read a character from stdin and return it in rax else return -1 in rax if no character was read.
+
+
+=head3 ReadLine()
+
+Reads up to 8 characters followed by a terminating return and place them into rax.
+
+
+B<Example:>
+
+
+    my $e = q(readLine);
+    my $f = writeTempFile("hello
+world
+");
+
+
+    ReadLine;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRaxAsTextNL;
+
+    ReadLine;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRaxAsTextNL;
+
+    Assemble keep => $e;
+
+    is_deeply scalar(qx(./$e < $f)), <<END;
+  hello
+  world
+  END
+    unlink $f;
+  }
+
+  #latest:
+  if (1) {
+    my $e = q(readInteger);
+    my $f = writeTempFile("11
+22
+");
+
+    ReadInteger;
+    Shl rax, 1;
+    PrintOutRaxInDecNL;
+    ReadInteger;
+    Shl rax, 1;
+    PrintOutRaxInDecNL;
+
+    Assemble keep => $e;
+
+    is_deeply scalar(qx(./$e < $f)), <<END;
+  22
+  44
+  END
+
+    unlink $e, $f;
+
+
+=head3 ReadInteger()
+
+Reads an integer in decimal and returns it in rax.
+
+
+B<Example:>
+
+
+    my $e = q(readInteger);
+    my $f = writeTempFile("11
+22
+");
+
+
+    ReadInteger;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Shl rax, 1;
+    PrintOutRaxInDecNL;
+
+    ReadInteger;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Shl rax, 1;
+    PrintOutRaxInDecNL;
+
+    Assemble keep => $e;
+
+    is_deeply scalar(qx(./$e < $f)), <<END;
+  22
+  44
+  END
+
+    unlink $e, $f;
+
+
+=head3 ReadFile($File)
+
+Read a file into memory.
+
+     Parameter  Description
+  1  $File      Variable addressing a zero terminated string naming the file
+
+B<Example:>
+
+
+    my $file = V(file => Rs $0);
+
+    my ($address, $size) = ReadFile $file;                                        # Read file into memory  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    $address->setReg(rax);                                                        # Address of file in memory
+    $size   ->setReg(rdi);                                                        # Length  of file in memory
+    PrintOutMemory;                                                               # Print contents of memory to stdout
+
+    my $r = Assemble;                                                             # Assemble and execute
+    ok stringMd5Sum($r) eq fileMd5Sum($0);                                        # Output contains this file
+
+
+=head3 executeFileViaBash($file)
+
+Execute the file named in a variable
+
+     Parameter  Description
+  1  $file      File variable
+
+B<Example:>
+
+
+    my $s = CreateArea;                                                           # Create a string
+    $s->ql(<<END);                                                                # Write code to execute
+  #!/usr/bin/bash
+  whoami
+  ls -la
+  pwd
+  END
+    $s->write         (my $f = V('file', Rs("zzz.sh")));                          # Write code to a file
+
+    executeFileViaBash($f);                                                       # Execute the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    unlinkFile        ($f);                                                       # Delete the file
+
+    my $u = qx(whoami); chomp($u);
+    ok Assemble(emulator => 0) =~ m($u);                                          # The Intel Software Development Emulator is way too slow on these operations.
+
+
+=head3 unlinkFile($file)
+
+Unlink the named file.
+
+     Parameter  Description
+  1  $file      File variable
+
+B<Example:>
+
+
+    my $s = CreateArea;                                                           # Create a string
+    $s->ql(<<END);                                                                # Write code to execute
+  #!/usr/bin/bash
+  whoami
+  ls -la
+  pwd
+  END
+    $s->write         (my $f = V('file', Rs("zzz.sh")));                          # Write code to a file
+    executeFileViaBash($f);                                                       # Execute the file
+
+    unlinkFile        ($f);                                                       # Delete the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    my $u = qx(whoami); chomp($u);
+    ok Assemble(emulator => 0) =~ m($u);                                          # The Intel Software Development Emulator is way too slow on these operations.
+
+
+=head1 Hash functions
+
+Hash functions
+
+=head2 Hash()
+
+Hash a string addressed by rax with length held in rdi and return the hash code in r15.
+
+
+B<Example:>
+
+
+  # Make hash accept parameters at:
+
+    Mov rax, "[rbp+24]";                                                          # Address of string as parameter
+    StringLength(V string => rax)->setReg(rdi);                                   # Length of string to hash
+
+    Hash();                                                                       # Hash string  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    PrintOutRegisterInHex r15;
+
+    my $e = Assemble keep => 'hash';                                              # Assemble to the specified file name
+    say STDERR qx($e "");
+    say STDERR qx($e "a");
+    ok qx($e "")  =~ m(r15: 0000 3F80 0000 3F80);                                 # Test well known hashes
+    ok qx($e "a") =~ m(r15: 0000 3F80 C000 45B2);
+
+
+    if (0)                                                                        # Hash various strings  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+     {my %r; my %f; my $count = 0;
+      my $N = RegisterSize zmm0;
+
+      if (1)                                                                      # Fixed blocks
+       {for my $l(qw(a ab abc abcd), 'a a', 'a  a')
+         {for my $i(1..$N)
+           {my $t = $l x $i;
+            last if $N < length $t;
+            my $s = substr($t.(' ' x $N), 0, $N);
+            next if $f{$s}++;
+            my $r = qx($e "$s");
+            say STDERR "$count  $r";
+            if ($r =~ m(^.*r15:\s*(.*)$)m)
+             {push $r{$1}->@*, $s;
+              ++$count;
+             }
+           }
+         }
+       }
+
+      if (1)                                                                      # Variable blocks
+       {for my $l(qw(a ab abc abcd), '', 'a a', 'a  a')
+         {for my $i(1..$N)
+           {my $t = $l x $i;
+            next if $f{$t}++;
+            my $r = qx($e "$t");
+            say STDERR "$count  $r";
+            if ($r =~ m(^.*r15:\s*(.*)$)m)
+             {push $r{$1}->@*, $t;
+              ++$count;
+             }
+           }
+         }
+       }
+      for my $r(keys %r)
+       {delete $r{$r} if $r{$r}->@* < 2;
+       }
+
+      say STDERR dump(\%r);
+      say STDERR "Keys hashed: ", $count;
+      confess "Duplicates : ",  scalar keys(%r);
+     }
+
+    unlink 'hash';
+
+
+=head1 Unicode
+
+Convert between utf8 and utf32
+
+=head2 convert_rax_from_utf32_to_utf8()
+
+Convert a utf32 character held in rax to a utf8 character held in rax
+
+
+B<Example:>
+
+
+
+  # $ 	U+0024                 010 0100                00100100                     24
+  # £ 	U+00A3 	          000 1010 0011                11000010 10100011            C2 A3
+  # ह 	  U+0939    	0000 1001 0011 1001                11100000 10100100 10111001   E0 A4 B9
+  # € 	U+20AC    	0010 0000 1010 1100                11100010 10000010 10101100   E2 82 AC
+  # 한 	U+D55C     	1101 0101 0101 1100                11101101 10010101 10011100   ED 95 9C
+  # 𐍈   	U+10348 	0 0001 0000 0011 0100 1000 	11110000 10010000 10001101 10001000   F0 90 8D 88
+
+    Mov rax, 0x40;                                                                # 0x40
+
+    convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+
+    Mov rax, 0x03b1;                                                              # 0xCE 0xB1
+
+    convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+
+    Mov rax, 0x20ac;                                                              # 0xE2 0x82 0xAC;
+
+    convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+
+    Mov rax, 0x10348;                                                             # 0xf0 0x90 0x8d 0x88
+
+    convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    PrintOutRegisterInHex rax;
+
+    ok Assemble eq => <<END;
+     rax: 0000 0000 0000 0040
+     rax: 0000 0000 0000 B1CE
+     rax: 0000 0000 00AC 82E2
+     rax: 0000 0000 888D 90F0
+  END
+
+
+=head2 GetNextUtf8CharAsUtf32($in, $out, $size, $fail)
+
+Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+
+     Parameter  Description
+  1  $in        Address of character variable
+  2  $out       Output character variable
+  3  $size      Output size of input
+  4  $fail      Output error  if any
+
+=head2 ConvertUtf8ToUtf32($u8, $size8, $u32, $size32, $count)
+
+Convert a string of utf8 to an allocated block of utf32 and return its address and length.
+
+     Parameter  Description
+  1  $u8        Utf8 string address variable
+  2  $size8     Utf8 length variable
+  3  $u32       Utf32 string address variable
+  4  $size32    Utf32 length variable
+  5  $count     Number of utf8 characters converteed
+
+B<Example:>
+
+
+    my ($out, $size, $fail) = (V(out), V(size), V('fail'));
+
+    my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
+    my $chars = V(chars, $Chars);
+
+    GetNextUtf8CharAsUtf32 $chars+0, $out, $size, $fail;                          # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
+    $out->out('out1 : ');     $size->outNL(' size : ');
+
+    GetNextUtf8CharAsUtf32 $chars+1, $out, $size, $fail;                          # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
+    $out->out('out2 : ');     $size->outNL(' size : ');
+
+    GetNextUtf8CharAsUtf32 $chars+3, $out, $size, $fail;                          # Alpha                UTF-8 Encoding: 0xC9 0x91           UTF-32 Encoding: 0x00000251
+    $out->out('out3 : ');     $size->outNL(' size : ');
+
+    GetNextUtf8CharAsUtf32 $chars+5, $out, $size, $fail;                          # Euro                 UTF-8 Encoding: 0xE2 0x82 0xAC      UTF-32 Encoding: 0x000020AC
+    $out->out('out4 : ');     $size->outNL(' size : ');
+
+    GetNextUtf8CharAsUtf32 $chars+8, $out, $size, $fail;                          # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
+    $out->out('out5 : ');     $size->outNL(' size : ');
+
+    my $statement = qq(𝖺
+ 𝑎𝑠𝑠𝑖𝑔𝑛 【【𝖻 𝐩𝐥𝐮𝐬 𝖼】】
+AAAAAAAA);                        # A sample sentence to parse
+
+    my $s = K(statement, Rutf8($statement));
+    my $l = StringLength $s;
+
+    my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
+    CopyMemory($s, $address, $l);
+
+    GetNextUtf8CharAsUtf32 $address, $out, $size, $fail;
+    $out->out('outA : ');     $size->outNL(' size : ');
+
+    GetNextUtf8CharAsUtf32 $address+4, $out, $size, $fail;
+    $out->out('outB : ');     $size->outNL(' size : ');
+
+    GetNextUtf8CharAsUtf32 $address+5, $out, $size, $fail;
+    $out->out('outC : ');     $size->outNL(' size : ');
+
+    GetNextUtf8CharAsUtf32 $address+30, $out, $size, $fail;
+    $out->out('outD : ');     $size->outNL(' size : ');
+
+    GetNextUtf8CharAsUtf32 $address+35, $out, $size, $fail;
+    $out->out('outE : ');     $size->outNL(' size : ');
+
+    $address->printOutMemoryInHexNL($l);
+
+    ok Assemble(debug => 0, eq => <<END);
+  out1 : 0000 0000 0000 0024 size : 0000 0000 0000 0001
+  out2 : 0000 0000 0000 00A2 size : 0000 0000 0000 0002
+  out3 : 0000 0000 0000 0251 size : 0000 0000 0000 0002
+  out4 : 0000 0000 0000 20AC size : 0000 0000 0000 0003
+  out5 : 0000 0000 0001 0348 size : 0000 0000 0000 0004
+  outA : 0000 0000 0001 D5BA size : 0000 0000 0000 0004
+  outB : 0000 0000 0000 000A size : 0000 0000 0000 0001
+  outC : 0000 0000 0000 0020 size : 0000 0000 0000 0001
+  outD : 0000 0000 0000 0020 size : 0000 0000 0000 0001
+  outE : 0000 0000 0000 0010 size : 0000 0000 0000 0002
+  F09D 96BA 0A20 F09D  918E F09D 91A0 F09D  91A0 F09D 9196 F09D  9194 F09D 919B 20E3  8090 E380 90F0 9D96  BB20 F09D 90A9 F09D  90A5 F09D 90AE F09D  90AC 20F0 9D96 BCE3  8091 E380 910A 4141  4141 4141 4141 0000
+  END
+
+
+=head2 ClassifyInRange($address, $size)
+
+Character classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with each double word in zmm0 having the classification in the highest 8 bits and with zmm0 and zmm1 having the utf32 character at the start (zmm0) and end (zmm1) of each range in the lowest 18 bits.  The classification bits from the first matching range are copied into the high (unused) byte of each utf32 character in the block of memory.  The effect is to replace the high order byte of each utf32 character with a classification code saying what type of character we are working.
+
+     Parameter  Description
+  1  $address   Variable address of utf32 string to classify
+  2  $size      Variable length of utf32 string to classify
+
+=head2 ClassifyWithInRange($address, $size)
+
+Bracket classification: Classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification range in the high byte of each dword in zmm0 and the utf32 character at the start (zmm0) and end (zmm1) of each range in the lower 18 bits of each dword.  The classification bits from the position within the first matching range are copied into the high (unused) byte of each utf32 character in the block of memory.  With bracket matching this gives us a normalized bracket number.
+
+     Parameter  Description
+  1  $address   Variable address of utf32 string to classify
+  2  $size      Variable length of utf32 string to classify
+
+=head2 ClassifyWithInRangeAndSaveOffset($address, $size)
+
+Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification code in the highest byte of each double word in zmm0 and the offset of the first element in the range in the highest byte of each dword in zmm1.  The lowest 18 bits of each double word in zmm0 and zmm1  contain the utf32 characters marking the start and end of each range. The classification bits from zmm1 for the first matching range are copied into the high byte of each utf32 character in the block of memory.  The offset in the range is copied into the lowest byte of each utf32 character in the block of memory.  The middle two bytes are cleared.  The classification byte is placed in the lowest byte of the utf32 character.
+
+     Parameter  Description
+  1  $address   Variable address of utf32 string to classify
+  2  $size      Variable length of utf32 string to classify
+
+=head2 ClassifyWithInRangeAndSaveWordOffset($address, $size, $classification)
+
+Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1, zmm2 formatted in double words. Zmm0 contains the low end of the range, zmm1 the high end and zmm2 contains the range offset in the high word of each Dword and the lexical classification on the lowest byte of each dword. Each utf32 character recognized is replaced by a dword whose upper byte is the lexical classification and whose lowest word is the range offset.
+
+     Parameter        Description
+  1  $address         Variable address of string of utf32 characters
+  2  $size            Variable size of string in utf32 characters
+  3  $classification  Variable one byte classification code for this range
+
+=head1 C Strings
+
+C strings are a series of bytes terminated by a zero byte.
+
+=head2 StringLength($string)
+
+Length of a zero terminated string.
+
+     Parameter  Description
+  1  $string    String
+
+B<Example:>
+
+
+    my $s = Rs("Hello World
+
+Hello Skye");
+
+    my $l = StringLength(my $t = V string => $s);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    $t->setReg(rax);
+    $l->setReg(rdi);
+    PrintOutMemoryNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  Hello World
+
+  Hello Skye
+  END
+
+
+    StringLength(V(string, Rs("abcd")))->outNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Assemble(debug => 0, eq => <<END);
+  size: 0000 0000 0000 0004
+  END
+
+
+=head1 Areas
+
+An area is single extensible block of memory which contains other data structures such as strings, arrays, trees within it.
+
+=head2 DescribeArea(%options)
+
+Describe a relocatable area.
+
+     Parameter  Description
+  1  %options   Optional variable addressing the start of the area
+
+=head2 CreateArea(%options)
+
+Create an relocatable area and returns its address in rax. We add a chain header so that 64 byte blocks of memory can be freed and reused within the area.
+
+     Parameter  Description
+  1  %options   Free=>1 adds a free chain.
+
+=head2 Nasm::X86::Area::free($area)
+
+Free an area
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    $a->q("a" x 256);
+    $a->used->outNL;
+    $a->size->outNL;
+    $a->clear;
+    $a->used->outNL;
+    $a->size->outNL;
+
+    $a->q("a" x 5000);
+    $a->used->outNL;
+    $a->size->outNL;
+    $a->clear;
+    $a->used->outNL;
+    $a->size->outNL;
+
+    $a->free;
+
+    ok Assemble(debug => 0, eq => <<END);
+  area used up: 0000 0000 0000 0100
+  size of area: 0000 0000 0000 1000
+  area used up: 0000 0000 0000 0000
+  size of area: 0000 0000 0000 1000
+  area used up: 0000 0000 0000 1388
+  size of area: 0000 0000 0000 2000
+  area used up: 0000 0000 0000 0000
+  size of area: 0000 0000 0000 2000
+  END
+
+
+=head2 Nasm::X86::Area::used($area)
+
+Return the currently used size of an area as a variable.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    $a->q("a" x 256);
+    $a->used->outNL;
+    $a->size->outNL;
+    $a->clear;
+    $a->used->outNL;
+    $a->size->outNL;
+
+    $a->q("a" x 5000);
+    $a->used->outNL;
+    $a->size->outNL;
+    $a->clear;
+    $a->used->outNL;
+    $a->size->outNL;
+
+    $a->free;
+
+    ok Assemble(debug => 0, eq => <<END);
+  area used up: 0000 0000 0000 0100
+  size of area: 0000 0000 0000 1000
+  area used up: 0000 0000 0000 0000
+  size of area: 0000 0000 0000 1000
+  area used up: 0000 0000 0000 1388
+  size of area: 0000 0000 0000 2000
+  area used up: 0000 0000 0000 0000
+  size of area: 0000 0000 0000 2000
+  END
+
+
+=head2 Nasm::X86::Area::size($area)
+
+Get the size of an area as a variab;e.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    $a->q("a" x 256);
+    $a->used->outNL;
+    $a->size->outNL;
+    $a->clear;
+    $a->used->outNL;
+    $a->size->outNL;
+
+    $a->q("a" x 5000);
+    $a->used->outNL;
+    $a->size->outNL;
+    $a->clear;
+    $a->used->outNL;
+    $a->size->outNL;
+
+    $a->free;
+
+    ok Assemble(debug => 0, eq => <<END);
+  area used up: 0000 0000 0000 0100
+  size of area: 0000 0000 0000 1000
+  area used up: 0000 0000 0000 0000
+  size of area: 0000 0000 0000 1000
+  area used up: 0000 0000 0000 1388
+  size of area: 0000 0000 0000 2000
+  area used up: 0000 0000 0000 0000
+  size of area: 0000 0000 0000 2000
+  END
+
+
+=head2 Nasm::X86::Area::makeReadOnly($area)
+
+Make an area read only.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+=head2 Nasm::X86::Area::makeWriteable($area)
+
+Make an area writable.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+=head2 Alloc/Free
+
+Allocate and free memory in an area, either once only but in variable size blocks or reusably in zmm sized blocks via the free block chain.
+
+=head3 Nasm::X86::Area::allocate($area, $size)
+
+Allocate the variable amount of space in the variable addressed area and return the offset of the allocation in the area as a variable.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $size      Variable amount of allocation
+
+=head3 Nasm::X86::Area::allocZmmBlock($area)
+
+Allocate a block to hold a zmm register in the specified area and return the offset of the block as a variable.
+
+     Parameter  Description
+  1  $area      Area
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    my $m = $a->allocZmmBlock;
+    K(K => Rd(1..16))->loadZmm(31);
+
+    $a->putZmmBlock  ($m, 31);
+    $a->dump("A");
+
+    $a->getZmmBlock  ($m, 30);
+    $a->clearZmmBlock($m);
+    $a->getZmmBlock  ($m, 29);
+
+    $a->clearZmmBlock($m);
+    PrintOutRegisterInHex 31, 30, 29;
+
+    ok Assemble eq => <<END;
+  A
+  Area     Size:     4096    Used:      128
+  0000 0000 0000 0000 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+    my $a = CreateArea;
+
+    K(loop => 3)->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $i->outNL;
+      my $m1 = $a->allocZmmBlock;
+      my $m2 = $a->allocZmmBlock;
+
+      K(K => Rd(1..16))->loadZmm(31);
+      K(K => Rd(17..32))->loadZmm(30);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->putZmmBlock($m1, 31);
+      $a->putZmmBlock($m2, 30);
+      $a->dump("A");
+
+      $a->getZmmBlock($m1, 30);
+      $a->getZmmBlock($m2, 31);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->clearZmmBlock($m1);
+      $a->freeZmmBlock($m1);
+      $a->dump("B");
+
+      $a->freeZmmBlock($m2);
+      $a->dump("C");
+     });
+
+    ok Assemble eq => <<END;
+  index: 0000 0000 0000 0000
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0001
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0002
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  END
+
+
+=head3 Nasm::X86::Area::freeChainSpace($area)
+
+Count the number of blocks available on the free chain
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+    $t->clear;
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+    $t->clear;
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->free;
+    $a->used->out("Clear tree:            u: ");
+    $a->freeChainSpace->out(" f: ", " ");
+    $a->size->outNL;
+
+    $a->clear;
+    $a->used->out("Clear area:           u: ");
+    $a->freeChainSpace->out(" f: ", " ");
+    $a->size->outNL;
+
+    ok Assemble eq => <<END;
+  t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  Clear tree:            u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  Clear area:           u: 0000 0000 0000 0000 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  END
+
+
+=head2 Yggdrasil
+
+The world tree from which we can address so many other things
+
+=head2 Area as a String
+
+Use the memory supplied by the area as a string - however, in general, this is too slow unless coupled with another slow operation such as executing a command, mapping a file or writing to a file.
+
+=head3 Nasm::X86::Area::m($area, $address, $size)
+
+Append the variable addressed content of variable size to the specified area.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $address   Variable address of content
+  3  $size      Variable length of content
+
+=head3 Nasm::X86::Area::q($area, $string)
+
+Append a constant string to the area.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $string    String
+
+=head3 Nasm::X86::Area::ql($area, $const)
+
+Append a quoted string containing new line characters to the specified area.
+
+     Parameter  Description
+  1  $area      Area
+  2  $const     Constant
+
+=head3 Nasm::X86::Area::char($area, $char)
+
+Append a character expressed as a decimal number to the specified area.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $char      Number of character to be appended
+
+=head3 Nasm::X86::Area::nl($area)
+
+Append a new line to the area addressed by rax.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+=head3 Nasm::X86::Area::z($area)
+
+Append a trailing zero to the area addressed by rax.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+=head3 Nasm::X86::Area::append($target, $source)
+
+Append one area to another.
+
+     Parameter  Description
+  1  $target    Target area descriptor
+  2  $source    Source area descriptor
+
+=head3 Nasm::X86::Area::clear($area)
+
+Clear an area
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    $a->q("a" x 256);
+    $a->used->outNL;
+    $a->size->outNL;
+    $a->clear;
+    $a->used->outNL;
+    $a->size->outNL;
+
+    $a->q("a" x 5000);
+    $a->used->outNL;
+    $a->size->outNL;
+    $a->clear;
+    $a->used->outNL;
+    $a->size->outNL;
+
+    $a->free;
+
+    ok Assemble(debug => 0, eq => <<END);
+  area used up: 0000 0000 0000 0100
+  size of area: 0000 0000 0000 1000
+  area used up: 0000 0000 0000 0000
+  size of area: 0000 0000 0000 1000
+  area used up: 0000 0000 0000 1388
+  size of area: 0000 0000 0000 2000
+  area used up: 0000 0000 0000 0000
+  size of area: 0000 0000 0000 2000
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+    $t->clear;
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+    $t->clear;
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->free;
+    $a->used->out("Clear tree:            u: ");
+    $a->freeChainSpace->out(" f: ", " ");
+    $a->size->outNL;
+
+    $a->clear;
+    $a->used->out("Clear area:           u: ");
+    $a->freeChainSpace->out(" f: ", " ");
+    $a->size->outNL;
+
+    ok Assemble eq => <<END;
+  t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  Clear tree:            u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  Clear area:           u: 0000 0000 0000 0000 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  END
+
+
+=head3 Nasm::X86::Area::write($area, $file)
+
+Write the content of the specified area to a file specified by a zero terminated string.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $file      Variable addressing file name
+
+=head3 Nasm::X86::Area::read($area, $file)
+
+Read a file specified by a variable addressed zero terminated string and place the contents of the file into the named area.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $file      Variable addressing file name
+
+=head3 Nasm::X86::Area::out($area)
+
+Print the specified area on sysout.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+=head3 Nasm::X86::Area::outNL($area)
+
+Print the specified area on sysout followed by a new line.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+=head3 Nasm::X86::Area::dump($area, $title, $depth)
+
+Dump details of an area.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $title     Title string
+  3  $depth     Optional variable number of 64 byte blocks to dump
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    my $m = $a->allocZmmBlock;
+    K(K => Rd(1..16))->loadZmm(31);
+
+    $a->putZmmBlock  ($m, 31);
+    $a->dump("A");
+
+    $a->getZmmBlock  ($m, 30);
+    $a->clearZmmBlock($m);
+    $a->getZmmBlock  ($m, 29);
+
+    $a->clearZmmBlock($m);
+    PrintOutRegisterInHex 31, 30, 29;
+
+    ok Assemble eq => <<END;
+  A
+  Area     Size:     4096    Used:      128
+  0000 0000 0000 0000 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+    my $a = CreateArea;
+
+    K(loop => 3)->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $i->outNL;
+      my $m1 = $a->allocZmmBlock;
+      my $m2 = $a->allocZmmBlock;
+
+      K(K => Rd(1..16))->loadZmm(31);
+      K(K => Rd(17..32))->loadZmm(30);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->putZmmBlock($m1, 31);
+      $a->putZmmBlock($m2, 30);
+      $a->dump("A");
+
+      $a->getZmmBlock($m1, 30);
+      $a->getZmmBlock($m2, 31);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->clearZmmBlock($m1);
+      $a->freeZmmBlock($m1);
+      $a->dump("B");
+
+      $a->freeZmmBlock($m2);
+      $a->dump("C");
+     });
+
+    ok Assemble eq => <<END;
+  index: 0000 0000 0000 0000
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0001
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0002
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  END
+
+
+=head1 Tree
+
+Tree constructed as sets of blocks in an area.
+
+=head2 Nasm::X86::Area::CreateTree($area, %options)
+
+Create a tree in an area.
+
+     Parameter  Description
+  1  $area      Area description
+  2  %options   Tree options
+
+=head2 Nasm::X86::Tree::size($tree)
+
+Return in a variable the number of elements currently in the tree.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+
+=head2 Insert
+
+Insert a key into the tree.
+
+=head3 Nasm::X86::Tree::put($tree, $key, $data)
+
+Put a variable key and data into a tree. The data could be a tree descriptor to place a sub tree into a tree at the indicated key.
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $key       Key as a variable
+  3  $data      Data as a variable or a tree descriptor
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    $t->put(K(key=>1), K(data=>0x11));
+    $t->put(K(key=>2), K(data=>0x22));
+    $t->put(K(key=>3), K(data=>0x33));
+    $t->put(K(key=>4), K(data=>0x44));
+    $a->dump("4444", K depth => 11);
+    $t->dump("4444");
+
+    ok Assemble eq => <<END;
+  4444
+  Area     Size:     4096    Used:      704
+  0000 0000 0000 0000 | __10 ____ ____ ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | __02 ____ ____ ____  04__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+  0000 0000 0000 00C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+  0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0140 | 03__ ____ 04__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ 8001 ____
+  0000 0000 0000 0180 | 33__ ____ 44__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+  0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0200 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
+  0000 0000 0000 0240 | 22__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+  0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  4444
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :   34
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :   17
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    3    4
+        Data :   51   68
+      end
+  end
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    $t->put(K(key=>1), K(data=>0x11));
+    $t->put(K(key=>2), K(data=>0x22));
+    $t->put(K(key=>3), K(data=>0x33));
+    $t->put(K(key=>4), K(data=>0x44));
+    $t->put(K(key=>5), K(data=>0x55));
+    $a->dump("5555",   K depth => 11);
+
+    ok Assemble eq => <<END;
+  5555
+  Area     Size:     4096    Used:      704
+  0000 0000 0000 0000 | __10 ____ ____ ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | __02 ____ ____ ____  05__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+  0000 0000 0000 00C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+  0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0140 | 03__ ____ 04__ ____  05__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  03__ ____ 8001 ____
+  0000 0000 0000 0180 | 33__ ____ 44__ ____  55__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+  0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0200 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
+  0000 0000 0000 0240 | 22__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+  0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    $t->put(K(key=>1), K(data=>0x11));
+    $t->put(K(key=>2), K(data=>0x22));
+    $t->put(K(key=>3), K(data=>0x33));
+    $t->put(K(key=>4), K(data=>0x44));
+    $t->put(K(key=>5), K(data=>0x55));
+    $t->splitNode(K split => 0x140);
+    $a->dump("6666",   K depth => 14);
+
+    ok Assemble eq => <<END;
+  6666
+  Area     Size:     4096    Used:      896
+  0000 0000 0000 0000 | __10 ____ ____ ____  8003 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | __02 ____ ____ ____  05__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+  0000 0000 0000 00C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+  0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0140 | 03__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 8001 ____
+  0000 0000 0000 0180 | 33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+  0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0200 | 02__ ____ 04__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ 4002 ____
+  0000 0000 0000 0240 | 22__ ____ 44__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+  0000 0000 0000 0280 | 80__ ____ 4001 ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 02C0 | 05__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ __03 ____
+  0000 0000 0000 0300 | 55__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ 4003 ____
+  0000 0000 0000 0340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    $t->put(K(key=>1), K(data=>0x11));
+    $t->put(K(key=>2), K(data=>0x22));
+    $t->put(K(key=>3), K(data=>0x33));
+    $t->put(K(key=>4), K(data=>0x44));
+    $t->put(K(key=>5), K(data=>0x55));
+    $t->put(K(key=>6), K(data=>0x66));
+    $a->dump("6666",   K depth => 14);
+
+    ok Assemble eq => <<END;
+  6666
+  Area     Size:     4096    Used:      896
+  0000 0000 0000 0000 | __10 ____ ____ ____  8003 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | __02 ____ ____ ____  06__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+  0000 0000 0000 00C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+  0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0140 | 03__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 8001 ____
+  0000 0000 0000 0180 | 33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+  0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0200 | 02__ ____ 04__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ 4002 ____
+  0000 0000 0000 0240 | 22__ ____ 44__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+  0000 0000 0000 0280 | 80__ ____ 4001 ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 02C0 | 05__ ____ 06__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ __03 ____
+  0000 0000 0000 0300 | 55__ ____ 66__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ 4003 ____
+  0000 0000 0000 0340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    $t->put(K(key=>1), K(data=>0x11));
+    $t->put(K(key=>2), K(data=>0x22));
+    $t->put(K(key=>3), K(data=>0x33));
+    $t->put(K(key=>4), K(data=>0x44));
+    $t->put(K(key=>5), K(data=>0x55));
+    $t->put(K(key=>6), K(data=>0x66));
+    $t->put(K(key=>7), K(data=>0x77));
+    $a->dump("7777",   K depth => 14);
+
+    ok Assemble eq => <<END;
+  7777
+  Area     Size:     4096    Used:      896
+  0000 0000 0000 0000 | __10 ____ ____ ____  8003 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | __02 ____ ____ ____  07__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+  0000 0000 0000 00C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+  0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0140 | 03__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 8001 ____
+  0000 0000 0000 0180 | 33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+  0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0200 | 02__ ____ 04__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ 4002 ____
+  0000 0000 0000 0240 | 22__ ____ 44__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+  0000 0000 0000 0280 | 80__ ____ 4001 ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 02C0 | 05__ ____ 06__ ____  07__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  03__ ____ __03 ____
+  0000 0000 0000 0300 | 55__ ____ 66__ ____  77__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ 4003 ____
+  0000 0000 0000 0340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    $t->put(K(key=>1), K(data=>0x11));
+    $t->put(K(key=>2), K(data=>0x22));
+    $t->put(K(key=>3), K(data=>0x33));
+    $t->put(K(key=>4), K(data=>0x44));
+    $t->put(K(key=>5), K(data=>0x55));
+    $t->put(K(key=>6), K(data=>0x66));
+    $t->put(K(key=>7), K(data=>0x77));
+    $t->put(K(key=>8), K(data=>0x88));
+    $t->dump("8888");
+
+    ok Assemble eq => <<END;
+  8888
+  At:  500                    length:    1,  data:  540,  nodes:  580,  first:   40, root, parent
+    Index:    0
+    Keys :    4
+    Data :   68
+    Nodes:  200  440
+      At:  200                length:    1,  data:  240,  nodes:  280,  first:   40,  up:  500, parent
+        Index:    0
+        Keys :    2
+        Data :   34
+        Nodes:   80  140
+          At:   80            length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+            Index:    0
+            Keys :    1
+            Data :   17
+          end
+          At:  140            length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+            Index:    0
+            Keys :    3
+            Data :   51
+          end
+      end
+      At:  440                length:    1,  data:  480,  nodes:  4C0,  first:   40,  up:  500, parent
+        Index:    0
+        Keys :    6
+        Data :  102
+        Nodes:  2C0  380
+          At:  2C0            length:    1,  data:  300,  nodes:  340,  first:   40,  up:  440, leaf
+            Index:    0
+            Keys :    5
+            Data :   85
+          end
+          At:  380            length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  440, leaf
+            Index:    0    1
+            Keys :    7    8
+            Data :  119  136
+          end
+      end
+  end
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K count => 128;
+
+    $N->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      my $l = $N-$index;
+      $t->put($l, $l * 2);
+      my $h = $N+$index;
+      $t->put($h, $h * 2);
+     });
+    $t->put(K(zero=>0), K(zero=>0));
+    $t->printInOrder("AAAA");
+
+    PrintOutStringNL 'Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512';
+    $N->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      my $i = $index;
+      my $j = $i * 2;
+      my $k = $j * 2;
+      my $l = $k * 2;
+      my $m = $l * 2;
+      my $n = $m * 2;
+      my $o = $n * 2;
+      my $p = $o * 2;
+      my $q = $p * 2;
+      $t->find($i); $i->outRightInDec(K width => 4); $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($j);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($k);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($l);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($m);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($n);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($o);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($p);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($q);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDecNL(K width => 8);
+     });
+
+    ok Assemble eq => <<END;
+  AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+  Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512
+     0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0
+     1      10      80       2       1     200       4       1     500       8       1     B00      16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0
+     2       1     200       4       1     500       8       1     B00      16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0
+     3       1    B540       6       1    B600      12       1    B6C0      24       1    B780      48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0
+     4       1     500       8       1     B00      16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0               0       0
+     5       1    B3C0      10       1    B180      20       1    AC40      40       1    A100      80       1    89C0     160       1    5E40     320               0       0               0       0               0       0
+     6       1    B600      12       1    B6C0      24       1    B780      48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0               0       0
+     7       1    B0C0      14       1    AB80      28       1    A040      56       1    8900     112       1    59C0     224      10    8D80     448               0       0               0       0               0       0
+     8       1     B00      16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0               0       0               0       0
+     9       1    AF40      18       1    A700      36       1    95C0      72       1    7280     144       1    2E40     288               0       0               0       0               0       0               0       0
+    10       1    B180      20       1    AC40      40       1    A100      80       1    89C0     160       1    5E40     320               0       0               0       0               0       0               0       0
+    11       1    AAC0      22       1    9F80      44       1    8840      88       1    5900     176       1    5D80     352               0       0               0       0               0       0               0       0
+    12       1    B6C0      24       1    B780      48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0               0       0               0       0
+    13       1    A940      26       1    9B00      52       1    7DC0     104       1    4280     208       1    8D80     416               0       0               0       0               0       0               0       0
+    14       1    AB80      28       1    A040      56       1    8900     112       1    59C0     224      10    8D80     448               0       0               0       0               0       0               0       0
+    15       1    A640      30       1    9500      60       1    71C0     120       1    2A80     240      10    A400     480               0       0               0       0               0       0               0       0
+    16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0               0       0               0       0               0       0
+    17       1    A4C0      34       1    9080      68       1    6740     136       1    1640     272               0       0               0       0               0       0               0       0               0       0
+    18       1    A700      36       1    95C0      72       1    7280     144       1    2E40     288               0       0               0       0               0       0               0       0               0       0
+    19       1    9EC0      38       1    8780      76       1    5840     152       1    2D80     304               0       0               0       0               0       0               0       0               0       0
+    20       1    AC40      40       1    A100      80       1    89C0     160       1    5E40     320               0       0               0       0               0       0               0       0               0       0
+    21       1    9D40      42       1    8300      84       1    4DC0     168       1    4580     336               0       0               0       0               0       0               0       0               0       0
+    22       1    9F80      44       1    8840      88       1    5900     176       1    5D80     352               0       0               0       0               0       0               0       0               0       0
+    23       1    9A40      46       1    7D00      92       1    41C0     184       1    5CC0     368               0       0               0       0               0       0               0       0               0       0
+    24       1    B780      48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0               0       0               0       0               0       0
+    25       1    98C0      50       1    7880     100       1    3740     200       1    7580     400               0       0               0       0               0       0               0       0               0       0
+    26       1    9B00      52       1    7DC0     104       1    4280     208       1    8D80     416               0       0               0       0               0       0               0       0               0       0
+    27       1    9440      54       1    7100     108       1    29C0     216       1    8CC0     432               0       0               0       0               0       0               0       0               0       0
+    28       1    A040      56       1    8900     112       1    59C0     224      10    8D80     448               0       0               0       0               0       0               0       0               0       0
+    29       1    92C0      58       1    6C80     116       1    1F40     232       1    A400     464               0       0               0       0               0       0               0       0               0       0
+    30       1    9500      60       1    71C0     120       1    2A80     240      10    A400     480               0       0               0       0               0       0               0       0               0       0
+    31       1    8FC0      62       1    6680     124       1    1340     248      10    AE80     496               0       0               0       0               0       0               0       0               0       0
+    32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0               0       0               0       0               0       0               0       0
+    33       1    8E40      66       1    6200     132       1     A40     264               0       0               0       0               0       0               0       0               0       0               0       0
+    34       1    9080      68       1    6740     136       1    1640     272               0       0               0       0               0       0               0       0               0       0               0       0
+    35       1    86C0      70       1    5780     140       1    1580     280               0       0               0       0               0       0               0       0               0       0               0       0
+    36       1    95C0      72       1    7280     144       1    2E40     288               0       0               0       0               0       0               0       0               0       0               0       0
+    37       1    8540      74       1    5300     148       1    2180     296               0       0               0       0               0       0               0       0               0       0               0       0
+    38       1    8780      76       1    5840     152       1    2D80     304               0       0               0       0               0       0               0       0               0       0               0       0
+    39       1    8240      78       1    4D00     156       1    2CC0     312               0       0               0       0               0       0               0       0               0       0               0       0
+    40       1    A100      80       1    89C0     160       1    5E40     320               0       0               0       0               0       0               0       0               0       0               0       0
+    41       1    80C0      82       1    4880     164       1    3980     328               0       0               0       0               0       0               0       0               0       0               0       0
+    42       1    8300      84       1    4DC0     168       1    4580     336               0       0               0       0               0       0               0       0               0       0               0       0
+    43       1    7C40      86       1    4100     172       1    44C0     344               0       0               0       0               0       0               0       0               0       0               0       0
+    44       1    8840      88       1    5900     176       1    5D80     352               0       0               0       0               0       0               0       0               0       0               0       0
+    45       1    7AC0      90       1    3C80     180       1    5000     360               0       0               0       0               0       0               0       0               0       0               0       0
+    46       1    7D00      92       1    41C0     184       1    5CC0     368               0       0               0       0               0       0               0       0               0       0               0       0
+    47       1    77C0      94       1    3680     188       1    5C00     376               0       0               0       0               0       0               0       0               0       0               0       0
+    48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0               0       0               0       0               0       0               0       0
+    49       1    7640      98       1    3200     196       1    6980     392               0       0               0       0               0       0               0       0               0       0               0       0
+    50       1    7880     100       1    3740     200       1    7580     400               0       0               0       0               0       0               0       0               0       0               0       0
+    51       1    7040     102       1    2900     204       1    74C0     408               0       0               0       0               0       0               0       0               0       0               0       0
+    52       1    7DC0     104       1    4280     208       1    8D80     416               0       0               0       0               0       0               0       0               0       0               0       0
+    53       1    6EC0     106       1    2480     212       1    8000     424               0       0               0       0               0       0               0       0               0       0               0       0
+    54       1    7100     108       1    29C0     216       1    8CC0     432               0       0               0       0               0       0               0       0               0       0               0       0
+    55       1    6BC0     110       1    1E80     220       1    8C00     440               0       0               0       0               0       0               0       0               0       0               0       0
+    56       1    8900     112       1    59C0     224      10    8D80     448               0       0               0       0               0       0               0       0               0       0               0       0
+    57       1    6A40     114       1    1A00     228       1    9800     456               0       0               0       0               0       0               0       0               0       0               0       0
+    58       1    6C80     116       1    1F40     232       1    A400     464               0       0               0       0               0       0               0       0               0       0               0       0
+    59       1    65C0     118       1    1280     236       1    A340     472               0       0               0       0               0       0               0       0               0       0               0       0
+    60       1    71C0     120       1    2A80     240      10    A400     480               0       0               0       0               0       0               0       0               0       0               0       0
+    61       1    6440     122       1     E00     244       1    AE80     488               0       0               0       0               0       0               0       0               0       0               0       0
+    62       1    6680     124       1    1340     248      10    AE80     496               0       0               0       0               0       0               0       0               0       0               0       0
+    63       1    6140     126       1     800     252      10    B300     504               0       0               0       0               0       0               0       0               0       0               0       0
+    64       1    5F00     128      10    5F00     256               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    65       1    5FC0     130       1     440     260               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    66       1    6200     132       1     A40     264               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    67       1    56C0     134       1     980     268               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    68       1    6740     136       1    1640     272               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    69       1    5540     138       1     F80     276               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    70       1    5780     140       1    1580     280               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    71       1    5240     142       1    14C0     284               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    72       1    7280     144       1    2E40     288               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    73       1    50C0     146       1    1B80     292               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    74       1    5300     148       1    2180     296               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    75       1    4C40     150       1    20C0     300               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    76       1    5840     152       1    2D80     304               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    77       1    4AC0     154       1    2600     308               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    78       1    4D00     156       1    2CC0     312               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    79       1    47C0     158       1    2C00     316               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    80       1    89C0     160       1    5E40     320               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    81       1    4640     162       1    3380     324               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    82       1    4880     164       1    3980     328               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    83       1    4040     166       1    38C0     332               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    84       1    4DC0     168       1    4580     336               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    85       1    3EC0     170       1    3E00     340               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    86       1    4100     172       1    44C0     344               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    87       1    3BC0     174       1    4400     348               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    88       1    5900     176       1    5D80     352               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    89       1    3A40     178       1    4A00     356               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    90       1    3C80     180       1    5000     360               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    91       1    35C0     182       1    4F40     364               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    92       1    41C0     184       1    5CC0     368               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    93       1    3440     186       1    5480     372               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    94       1    3680     188       1    5C00     376               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    95       1    3140     190       1    5B40     380               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    96       1    B900     192      10    5E40     384               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    97       1    2FC0     194       1    6380     388               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    98       1    3200     196       1    6980     392               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    99       1    2840     198       1    68C0     396               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   100       1    3740     200       1    7580     400               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   101       1    26C0     202       1    6E00     404               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   102       1    2900     204       1    74C0     408               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   103       1    23C0     206       1    7400     412               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   104       1    4280     208       1    8D80     416               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   105       1    2240     210       1    7A00     420               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   106       1    2480     212       1    8000     424               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   107       1    1DC0     214       1    7F40     428               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   108       1    29C0     216       1    8CC0     432               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   109       1    1C40     218       1    8480     436               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   110       1    1E80     220       1    8C00     440               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   111       1    1940     222       1    8B40     444               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   112       1    59C0     224      10    8D80     448               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   113       1    17C0     226       1    9200     452               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   114       1    1A00     228       1    9800     456               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   115       1    11C0     230       1    9740     460               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   116       1    1F40     232       1    A400     464               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   117       1    1040     234       1    9C80     468               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   118       1    1280     236       1    A340     472               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   119       1     D40     238       1    A280     476               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   120       1    2A80     240      10    A400     480               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   121       1     BC0     242       1    A880     484               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   122       1     E00     244       1    AE80     488               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   123       1     740     246       1    ADC0     492               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   124       1    1340     248      10    AE80     496               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   125       1     5C0     250       1    B300     500               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   126       1     800     252      10    B300     504               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   127       1     2C0     254      10    B480     508               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  END
+
+
+=head2 Find
+
+Find a key in the tree. Trees have dword integer keys and so can act as arrays as well.
+
+=head3 Nasm::X86::Tree::find($tree, $key)
+
+Find a key in a tree and tests whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $key       Key field to search for
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K count => 128;
+
+    $N->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      my $l = $N-$index;
+      $t->put($l, $l * 2);
+      my $h = $N+$index;
+      $t->put($h, $h * 2);
+     });
+    $t->put(K(zero=>0), K(zero=>0));
+    $t->printInOrder("AAAA");
+
+    PrintOutStringNL 'Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512';
+    $N->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      my $i = $index;
+      my $j = $i * 2;
+      my $k = $j * 2;
+      my $l = $k * 2;
+      my $m = $l * 2;
+      my $n = $m * 2;
+      my $o = $n * 2;
+      my $p = $o * 2;
+      my $q = $p * 2;
+      $t->find($i); $i->outRightInDec(K width => 4); $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($j);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($k);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($l);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($m);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($n);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($o);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($p);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+      $t->find($q);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDecNL(K width => 8);
+     });
+
+    ok Assemble eq => <<END;
+  AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+  Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512
+     0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0
+     1      10      80       2       1     200       4       1     500       8       1     B00      16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0
+     2       1     200       4       1     500       8       1     B00      16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0
+     3       1    B540       6       1    B600      12       1    B6C0      24       1    B780      48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0
+     4       1     500       8       1     B00      16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0               0       0
+     5       1    B3C0      10       1    B180      20       1    AC40      40       1    A100      80       1    89C0     160       1    5E40     320               0       0               0       0               0       0
+     6       1    B600      12       1    B6C0      24       1    B780      48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0               0       0
+     7       1    B0C0      14       1    AB80      28       1    A040      56       1    8900     112       1    59C0     224      10    8D80     448               0       0               0       0               0       0
+     8       1     B00      16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0               0       0               0       0
+     9       1    AF40      18       1    A700      36       1    95C0      72       1    7280     144       1    2E40     288               0       0               0       0               0       0               0       0
+    10       1    B180      20       1    AC40      40       1    A100      80       1    89C0     160       1    5E40     320               0       0               0       0               0       0               0       0
+    11       1    AAC0      22       1    9F80      44       1    8840      88       1    5900     176       1    5D80     352               0       0               0       0               0       0               0       0
+    12       1    B6C0      24       1    B780      48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0               0       0               0       0
+    13       1    A940      26       1    9B00      52       1    7DC0     104       1    4280     208       1    8D80     416               0       0               0       0               0       0               0       0
+    14       1    AB80      28       1    A040      56       1    8900     112       1    59C0     224      10    8D80     448               0       0               0       0               0       0               0       0
+    15       1    A640      30       1    9500      60       1    71C0     120       1    2A80     240      10    A400     480               0       0               0       0               0       0               0       0
+    16       1    1700      32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0               0       0               0       0               0       0
+    17       1    A4C0      34       1    9080      68       1    6740     136       1    1640     272               0       0               0       0               0       0               0       0               0       0
+    18       1    A700      36       1    95C0      72       1    7280     144       1    2E40     288               0       0               0       0               0       0               0       0               0       0
+    19       1    9EC0      38       1    8780      76       1    5840     152       1    2D80     304               0       0               0       0               0       0               0       0               0       0
+    20       1    AC40      40       1    A100      80       1    89C0     160       1    5E40     320               0       0               0       0               0       0               0       0               0       0
+    21       1    9D40      42       1    8300      84       1    4DC0     168       1    4580     336               0       0               0       0               0       0               0       0               0       0
+    22       1    9F80      44       1    8840      88       1    5900     176       1    5D80     352               0       0               0       0               0       0               0       0               0       0
+    23       1    9A40      46       1    7D00      92       1    41C0     184       1    5CC0     368               0       0               0       0               0       0               0       0               0       0
+    24       1    B780      48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0               0       0               0       0               0       0
+    25       1    98C0      50       1    7880     100       1    3740     200       1    7580     400               0       0               0       0               0       0               0       0               0       0
+    26       1    9B00      52       1    7DC0     104       1    4280     208       1    8D80     416               0       0               0       0               0       0               0       0               0       0
+    27       1    9440      54       1    7100     108       1    29C0     216       1    8CC0     432               0       0               0       0               0       0               0       0               0       0
+    28       1    A040      56       1    8900     112       1    59C0     224      10    8D80     448               0       0               0       0               0       0               0       0               0       0
+    29       1    92C0      58       1    6C80     116       1    1F40     232       1    A400     464               0       0               0       0               0       0               0       0               0       0
+    30       1    9500      60       1    71C0     120       1    2A80     240      10    A400     480               0       0               0       0               0       0               0       0               0       0
+    31       1    8FC0      62       1    6680     124       1    1340     248      10    AE80     496               0       0               0       0               0       0               0       0               0       0
+    32       1    2F00      64       1    5F00     128      10    5F00     256               0       0               0       0               0       0               0       0               0       0               0       0
+    33       1    8E40      66       1    6200     132       1     A40     264               0       0               0       0               0       0               0       0               0       0               0       0
+    34       1    9080      68       1    6740     136       1    1640     272               0       0               0       0               0       0               0       0               0       0               0       0
+    35       1    86C0      70       1    5780     140       1    1580     280               0       0               0       0               0       0               0       0               0       0               0       0
+    36       1    95C0      72       1    7280     144       1    2E40     288               0       0               0       0               0       0               0       0               0       0               0       0
+    37       1    8540      74       1    5300     148       1    2180     296               0       0               0       0               0       0               0       0               0       0               0       0
+    38       1    8780      76       1    5840     152       1    2D80     304               0       0               0       0               0       0               0       0               0       0               0       0
+    39       1    8240      78       1    4D00     156       1    2CC0     312               0       0               0       0               0       0               0       0               0       0               0       0
+    40       1    A100      80       1    89C0     160       1    5E40     320               0       0               0       0               0       0               0       0               0       0               0       0
+    41       1    80C0      82       1    4880     164       1    3980     328               0       0               0       0               0       0               0       0               0       0               0       0
+    42       1    8300      84       1    4DC0     168       1    4580     336               0       0               0       0               0       0               0       0               0       0               0       0
+    43       1    7C40      86       1    4100     172       1    44C0     344               0       0               0       0               0       0               0       0               0       0               0       0
+    44       1    8840      88       1    5900     176       1    5D80     352               0       0               0       0               0       0               0       0               0       0               0       0
+    45       1    7AC0      90       1    3C80     180       1    5000     360               0       0               0       0               0       0               0       0               0       0               0       0
+    46       1    7D00      92       1    41C0     184       1    5CC0     368               0       0               0       0               0       0               0       0               0       0               0       0
+    47       1    77C0      94       1    3680     188       1    5C00     376               0       0               0       0               0       0               0       0               0       0               0       0
+    48       1    B840      96       1    B900     192      10    5E40     384               0       0               0       0               0       0               0       0               0       0               0       0
+    49       1    7640      98       1    3200     196       1    6980     392               0       0               0       0               0       0               0       0               0       0               0       0
+    50       1    7880     100       1    3740     200       1    7580     400               0       0               0       0               0       0               0       0               0       0               0       0
+    51       1    7040     102       1    2900     204       1    74C0     408               0       0               0       0               0       0               0       0               0       0               0       0
+    52       1    7DC0     104       1    4280     208       1    8D80     416               0       0               0       0               0       0               0       0               0       0               0       0
+    53       1    6EC0     106       1    2480     212       1    8000     424               0       0               0       0               0       0               0       0               0       0               0       0
+    54       1    7100     108       1    29C0     216       1    8CC0     432               0       0               0       0               0       0               0       0               0       0               0       0
+    55       1    6BC0     110       1    1E80     220       1    8C00     440               0       0               0       0               0       0               0       0               0       0               0       0
+    56       1    8900     112       1    59C0     224      10    8D80     448               0       0               0       0               0       0               0       0               0       0               0       0
+    57       1    6A40     114       1    1A00     228       1    9800     456               0       0               0       0               0       0               0       0               0       0               0       0
+    58       1    6C80     116       1    1F40     232       1    A400     464               0       0               0       0               0       0               0       0               0       0               0       0
+    59       1    65C0     118       1    1280     236       1    A340     472               0       0               0       0               0       0               0       0               0       0               0       0
+    60       1    71C0     120       1    2A80     240      10    A400     480               0       0               0       0               0       0               0       0               0       0               0       0
+    61       1    6440     122       1     E00     244       1    AE80     488               0       0               0       0               0       0               0       0               0       0               0       0
+    62       1    6680     124       1    1340     248      10    AE80     496               0       0               0       0               0       0               0       0               0       0               0       0
+    63       1    6140     126       1     800     252      10    B300     504               0       0               0       0               0       0               0       0               0       0               0       0
+    64       1    5F00     128      10    5F00     256               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    65       1    5FC0     130       1     440     260               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    66       1    6200     132       1     A40     264               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    67       1    56C0     134       1     980     268               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    68       1    6740     136       1    1640     272               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    69       1    5540     138       1     F80     276               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    70       1    5780     140       1    1580     280               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    71       1    5240     142       1    14C0     284               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    72       1    7280     144       1    2E40     288               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    73       1    50C0     146       1    1B80     292               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    74       1    5300     148       1    2180     296               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    75       1    4C40     150       1    20C0     300               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    76       1    5840     152       1    2D80     304               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    77       1    4AC0     154       1    2600     308               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    78       1    4D00     156       1    2CC0     312               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    79       1    47C0     158       1    2C00     316               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    80       1    89C0     160       1    5E40     320               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    81       1    4640     162       1    3380     324               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    82       1    4880     164       1    3980     328               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    83       1    4040     166       1    38C0     332               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    84       1    4DC0     168       1    4580     336               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    85       1    3EC0     170       1    3E00     340               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    86       1    4100     172       1    44C0     344               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    87       1    3BC0     174       1    4400     348               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    88       1    5900     176       1    5D80     352               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    89       1    3A40     178       1    4A00     356               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    90       1    3C80     180       1    5000     360               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    91       1    35C0     182       1    4F40     364               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    92       1    41C0     184       1    5CC0     368               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    93       1    3440     186       1    5480     372               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    94       1    3680     188       1    5C00     376               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    95       1    3140     190       1    5B40     380               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    96       1    B900     192      10    5E40     384               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    97       1    2FC0     194       1    6380     388               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    98       1    3200     196       1    6980     392               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+    99       1    2840     198       1    68C0     396               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   100       1    3740     200       1    7580     400               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   101       1    26C0     202       1    6E00     404               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   102       1    2900     204       1    74C0     408               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   103       1    23C0     206       1    7400     412               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   104       1    4280     208       1    8D80     416               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   105       1    2240     210       1    7A00     420               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   106       1    2480     212       1    8000     424               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   107       1    1DC0     214       1    7F40     428               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   108       1    29C0     216       1    8CC0     432               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   109       1    1C40     218       1    8480     436               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   110       1    1E80     220       1    8C00     440               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   111       1    1940     222       1    8B40     444               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   112       1    59C0     224      10    8D80     448               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   113       1    17C0     226       1    9200     452               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   114       1    1A00     228       1    9800     456               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   115       1    11C0     230       1    9740     460               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   116       1    1F40     232       1    A400     464               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   117       1    1040     234       1    9C80     468               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   118       1    1280     236       1    A340     472               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   119       1     D40     238       1    A280     476               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   120       1    2A80     240      10    A400     480               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   121       1     BC0     242       1    A880     484               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   122       1     E00     244       1    AE80     488               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   123       1     740     246       1    ADC0     492               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   124       1    1340     248      10    AE80     496               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   125       1     5C0     250       1    B300     500               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   126       1     800     252      10    B300     504               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+   127       1     2C0     254      10    B480     508               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  END
+
+
+=head3 Nasm::X86::Tree::findFirst($tree)
+
+Find the first element in a tree
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+
+B<Example:>
+
+
+    my $N = K(key => 32);
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    $N->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $t->put($i, $i);
+     });
+
+    $N->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $t->put($N + $i, $N + $i);
+      $t->findFirst;
+
+      If $t->key != $i,
+      Then
+       {PrintOutTraceBack "Reverse queue first failed at: "; $i->outNL;
+       };
+      $t->delete($i);
+      If $t->size != $N,
+      Then
+       {PrintOutTraceBack "Reverse queue size failed at: "; $i->outNL;
+       };
+      $t->printInOrder("A");
+     });
+
+    ok Assemble eq => <<END;
+  A  32:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
+  A  32:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
+  A  32:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
+  A  32:    4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+  A  32:    5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24
+  A  32:    6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25
+  A  32:    7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26
+  A  32:    8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27
+  A  32:    9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28
+  A  32:    A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29
+  A  32:    B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A
+  A  32:    C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B
+  A  32:    D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C
+  A  32:    E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D
+  A  32:    F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E
+  A  32:   10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F
+  A  32:   11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30
+  A  32:   12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31
+  A  32:   13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32
+  A  32:   14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33
+  A  32:   15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34
+  A  32:   16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35
+  A  32:   17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36
+  A  32:   18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37
+  A  32:   19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38
+  A  32:   1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39
+  A  32:   1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A
+  A  32:   1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B
+  A  32:   1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C
+  A  32:   1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D
+  A  32:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
+  A  32:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F
+  END
+
+
+=head3 Nasm::X86::Tree::findLast($tree)
+
+Find the last key in a tree
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+
+B<Example:>
+
+
+    my $N = K(key => 32);
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    $N->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $t->put($N + $i, $N + $i);
+     });
+
+    $N->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $t->put($N - $i, $N - $i);
+      $t->findLast;
+
+      $t->delete($t->key);
+       If $t->size != $N - 1,
+       Then
+        {PrintOutTraceBack "Queued size failed at: "; $i->outNL;
+        };
+      $t->printInOrder("A");
+     });
+
+    ok Assemble eq => <<END;
+  A  31:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
+  A  31:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D
+  A  31:   1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C
+  A  31:   1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B
+  A  31:   1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A
+  A  31:   1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39
+  A  31:   1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38
+  A  31:   19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37
+  A  31:   18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36
+  A  31:   17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35
+  A  31:   16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34
+  A  31:   15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33
+  A  31:   14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32
+  A  31:   13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31
+  A  31:   12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30
+  A  31:   11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F
+  A  31:   10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E
+  A  31:    F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D
+  A  31:    E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C
+  A  31:    D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B
+  A  31:    C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A
+  A  31:    B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29
+  A  31:    A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28
+  A  31:    9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27
+  A  31:    8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26
+  A  31:    7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25
+  A  31:    6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24
+  A  31:    5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+  A  31:    4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
+  A  31:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
+  A  31:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
+  A  31:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F
+  END
+
+
+=head3 Nasm::X86::Tree::findNext($tree, $key)
+
+Find the next key greater than the one specified.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $key       Key
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 8;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->put(2*$i, 2*$i);
+     });
+
+    (2*$N)->for(sub
+     {my ($i) = @_;
+      $i->outRightInDec(K(key => 4)); PrintOutString " -> ";
+      $t->findNext($i);
+      $t->found->out("f: ", " ");
+      If $t->found > 0, Then {$t->key->out};
+      PrintOutStringNL '.';
+     });
+
+    ok Assemble eq => <<END;
+     0 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0002.
+     1 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0002.
+     2 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0004.
+     3 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0004.
+     4 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0006.
+     5 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0006.
+     6 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0008.
+     7 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0008.
+     8 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000A.
+     9 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000A.
+    10 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000C.
+    11 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000C.
+    12 -> f: 0000 0000 0000 0002 key: 0000 0000 0000 000E.
+    13 -> f: 0000 0000 0000 0002 key: 0000 0000 0000 000E.
+    14 -> f: 0000 0000 0000 0000 .
+    15 -> f: 0000 0000 0000 0000 .
+  END
+
+
+=head3 Nasm::X86::Tree::findPrev($tree, $key)
+
+Find the previous key less than the one specified.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $key       Key
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 8;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->put(2*$i, 2*$i);
+     });
+
+    (2*$N)->for(sub
+     {my ($i) = @_;
+      $i->outRightInDec(K(key => 4)); PrintOutString " -> ";
+      $t->findPrev($i);
+      $t->found->out("f: ", " ");
+      If $t->found > 0, Then {$t->key->out};
+      PrintOutStringNL '.';
+     });
+
+    ok Assemble eq => <<END;
+     0 -> f: 0000 0000 0000 0000 .
+     1 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0000.
+     2 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0000.
+     3 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0002.
+     4 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0002.
+     5 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0004.
+     6 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0004.
+     7 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0006.
+     8 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0006.
+     9 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0008.
+    10 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 0008.
+    11 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000A.
+    12 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000A.
+    13 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000C.
+    14 -> f: 0000 0000 0000 0001 key: 0000 0000 0000 000C.
+    15 -> f: 0000 0000 0000 0002 key: 0000 0000 0000 000E.
+  END
+
+
+=head3 Nasm::X86::Tree::findShortString($tree, $string)
+
+Find the data at the end of a key chain held in a short string.  Return a tree descriptor referencing the data located or marked as failed to find.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $string    Short string
+
+=head3 Nasm::X86::Tree::insertShortString($tree, $string, $data)
+
+Insert some data at the end of a chain of sub trees keyed by the contents of a short string.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $string    Short string
+  3  $data      Data as a dword
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree;
+
+    my $s = CreateShortString(0);
+    my $d = Rb(1..63);
+    $s->load(K (address=>$d), K size => 9);
+
+    $t->insertShortString($s, K(data,42));
+
+    $t->dump;
+
+    ok Assemble(debug => 0, trace => 0, eq => <<END);
+  Tree at:  0000 0000 0000 0018  length: 0000 0000 0000 0001
+    Keys: 0000 0058 0001 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0403 0201
+    Data: 0000 0000 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0098
+    Node: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+      index: 0000 0000 0000 0000   key: 0000 0000 0403 0201   data: 0000 0000 0000 0098 subTree
+    Tree at:  0000 0000 0000 0098  length: 0000 0000 0000 0001
+      Keys: 0000 00D8 0001 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0807 0605
+      Data: 0000 0000 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0118
+      Node: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+        index: 0000 0000 0000 0000   key: 0000 0000 0807 0605   data: 0000 0000 0000 0118 subTree
+      Tree at:  0000 0000 0000 0118  length: 0000 0000 0000 0001
+        Keys: 0000 0158 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0009
+        Data: 0000 0000 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 002A
+        Node: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+          index: 0000 0000 0000 0000   key: 0000 0000 0000 0009   data: 0000 0000 0000 002A
+      end
+    end
+  end
+  END
+
+
+=head3 Nasm::X86::Tree::depth($tree, $node)
+
+Return the depth of a node within a tree.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $node      Node
+
+=head2 Sub trees
+
+Construct trees of trees.
+
+=head2 Delete
+
+Delete a key from the tree
+
+=head3 Nasm::X86::Tree::delete($tree, $key)
+
+Find a key in a tree and delete it
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $key       Key field to delete
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $i2 = V  k => 2; $t->put($i2, $i2);
+    my $i3 = V  k => 3; $t->put($i3, $i3);
+    my $i4 = V  k => 4; $t->put($i4, $i4);
+    my $i1 = V  k => 1; $t->put($i1, $i1);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+    ok Assemble eq => <<END;
+     4
+  4
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    3
+    Data :    3
+    Nodes:   80  140
+      At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    1    2
+        Data :    1    2
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    4
+        Data :    4
+      end
+  end
+     3
+  X
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :    2
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    3
+        Data :    3
+      end
+  end
+  X   3:    1   2   3
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $i20 = V  k => 20; $t->put($i20, $i20);
+    my $i30 = V  k => 30; $t->put($i30, $i30);
+    my $i40 = V  k => 40; $t->put($i40, $i40);
+    my $i10 = V  k => 10; $t->put($i10, $i10);
+    my $i31 = V  k => 31; $t->put($i31, $i31);
+    my $i32 = V  k => 32; $t->put($i32, $i32);
+    my $i33 = V  k => 33; $t->put($i33, $i33);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("33"); $t->delete($i33);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("40"); $t->delete($i40);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+    ok Assemble eq => <<END;
+     7
+  33
+  At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0    1
+    Keys :   1E   20
+    Data :   30   32
+    Nodes:   80  140  2C0
+      At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    A   14
+        Data :   10   20
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :   1F
+        Data :   31
+      end
+      At:  2C0                length:    2,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :   21   28
+        Data :   33   40
+      end
+  end
+     6
+  40
+  At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0    1
+    Keys :   1E   20
+    Data :   30   32
+    Nodes:   80  140  2C0
+      At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    A   14
+        Data :   10   20
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :   1F
+        Data :   31
+      end
+      At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :   28
+        Data :   40
+      end
+  end
+     5
+  X
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :   1E
+    Data :   30
+    Nodes:   80  140
+      At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    A   14
+        Data :   10   20
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :   1F   20
+        Data :   31   32
+      end
+  end
+  X   5:    A  14  1E  1F  20
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $i1 = V  k =>  0; $t->put($i1, $i1);
+    my $i2 = V  k => 11; $t->put($i2, $i2);
+    my $i3 = V  k => 13; $t->put($i3, $i3);
+    my $i4 = V  k => 15; $t->put($i4, $i4);
+    $t->size->outRightInDecNL(K width => 4);
+    $t->dump("1");
+    $a->dump("AAA", K blocks => 12);
+    $t->delete($i2);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+    ok Assemble eq => <<END;
+     4
+  1
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    B
+    Data :   11
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    0
+        Data :    0
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    D    F
+        Data :   13   15
+      end
+  end
+  AAA
+  Area     Size:     4096    Used:      704
+  0000 0000 0000 0000 | __10 ____ ____ ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | __02 ____ ____ ____  04__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+  0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0140 | 0D__ ____ 0F__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ 8001 ____
+  0000 0000 0000 0180 | 0D__ ____ 0F__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+  0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0200 | 0B__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
+  0000 0000 0000 0240 | 0B__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+  0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 02C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+     3
+  X
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    D
+    Data :   13
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    0
+        Data :    0
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    F
+        Data :   15
+      end
+  end
+  X   3:    0   D   F
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $i1 = V  k => 1; $t->put($i1, $i1);
+    my $i2 = V  k => 2; $t->put($i2, $i2);
+    my $i3 = V  k => 3; $t->put($i3, $i3);
+    my $i4 = V  k => 4; $t->put($i4, $i4);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $a->dump("AAA", K blocks => 12); $t->delete($i1);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+    ok Assemble eq => <<END;
+     4
+  1
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :    2
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    3    4
+        Data :    3    4
+      end
+  end
+  AAA
+  Area     Size:     4096    Used:      704
+  0000 0000 0000 0000 | __10 ____ ____ ____  C002 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | __02 ____ ____ ____  04__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ C0__ ____
+  0000 0000 0000 00C0 | 01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ __01 ____
+  0000 0000 0000 0100 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0140 | 03__ ____ 04__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  02__ ____ 8001 ____
+  0000 0000 0000 0180 | 03__ ____ 04__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  __02 ____ C001 ____
+  0000 0000 0000 01C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 0200 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  01__ ____ 4002 ____
+  0000 0000 0000 0240 | 02__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 8002 ____
+  0000 0000 0000 0280 | 80__ ____ 4001 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+  0000 0000 0000 02C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+     3
+  X
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    3
+    Data :    3
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    2
+        Data :    2
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    4
+        Data :    4
+      end
+  end
+  X   3:    2   3   4
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $i1 = V  k => 1; $t->put($i1, $i1);
+    my $i2 = V  k => 2; $t->put($i2, $i2);
+    my $i3 = V  k => 3; $t->put($i3, $i3);
+    my $i4 = V  k => 4; $t->put($i4, $i4);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i2);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+    ok Assemble eq => <<END;
+     4
+  2
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :    2
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    3    4
+        Data :    3    4
+      end
+  end
+     3
+  X
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    3
+    Data :    3
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    4
+        Data :    4
+      end
+  end
+  X   3:    1   3   4
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $i1 = V  k => 1; $t->put($i1, $i1);
+    my $i2 = V  k => 2; $t->put($i2, $i2);
+    my $i3 = V  k => 3; $t->put($i3, $i3);
+    my $i4 = V  k => 4; $t->put($i4, $i4);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i3);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+    ok Assemble eq => <<END;
+     4
+  3
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :    2
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    3    4
+        Data :    3    4
+      end
+  end
+     3
+  X
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :    2
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    4
+        Data :    4
+      end
+  end
+  X   3:    1   2   4
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $i1 = V  k => 1; $t->put($i1, $i1);
+    my $i2 = V  k => 2; $t->put($i2, $i2);
+    my $i3 = V  k => 3; $t->put($i3, $i3);
+    my $i4 = V  k => 4; $t->put($i4, $i4);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+    ok Assemble eq => <<END;
+     4
+  4
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :    2
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    3    4
+        Data :    3    4
+      end
+  end
+     3
+  X
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :    2
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    3
+        Data :    3
+      end
+  end
+  X   3:    1   2   3
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $i2 = V  k => 2; $t->put($i2, $i2);
+    my $i1 = V  k => 1; $t->put($i1, $i1);
+    my $i3 = V  k => 3; $t->put($i3, $i3);
+    my $i4 = V  k => 4; $t->put($i4, $i4);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("0"); $t->delete($i2);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i3);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i4);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i1);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("1");
+
+    ok Assemble eq => <<END;
+     4
+  0
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :    2
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    3    4
+        Data :    3    4
+      end
+  end
+     3
+  2
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    3
+    Data :    3
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :    1
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    4
+        Data :    4
+      end
+  end
+     2
+  3
+  At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0    1
+    Keys :    1    4
+    Data :    1    4
+  end
+     1
+  4
+  At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0
+    Keys :    1
+    Data :    1
+  end
+     0
+  1
+  - empty
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    $t->put(   K(k=>1), K(d=>11));
+    $t->put(   K(k=>2), K(d=>22));
+    $t->put(   K(k=>3), K(d=>33));
+    $t->delete(K k=>1);  $t->dump("1");
+    $t->delete(K k=>3);  $t->dump("3");
+    $t->delete(K k=>2);  $t->dump("2");
+    ok Assemble eq => <<END;
+  1
+  At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0    1
+    Keys :    2    3
+    Data :   22   33
+  end
+  3
+  At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0
+    Keys :    2
+    Data :   22
+  end
+  2
+  - empty
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    $t->put(   K(k=>1), K(d=>11));
+    $t->put(   K(k=>2), K(d=>22));
+    $t->put(   K(k=>3), K(d=>33));
+    $t->put(   K(k=>4), K(d=>44));
+    $t->dump("0");
+    $t->delete(K k=>1);
+    $t->dump("1");
+    $t->delete(K k=>2);
+    $t->dump("2");
+    $t->delete(K k=>3);
+    $t->dump("3");
+    $t->delete(K k=>4);
+    $t->dump("4");
+    ok Assemble eq => <<END;
+  0
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :   22
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :   11
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    3    4
+        Data :   33   44
+      end
+  end
+  1
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    3
+    Data :   33
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    2
+        Data :   22
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    4
+        Data :   44
+      end
+  end
+  2
+  At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0    1
+    Keys :    3    4
+    Data :   33   44
+  end
+  3
+  At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0
+    Keys :    4
+    Data :   44
+  end
+  4
+  - empty
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    $t->put(   K(k=>1), K(d=>11));
+    $t->put(   K(k=>2), K(d=>22));
+    $t->put(   K(k=>3), K(d=>33));
+    $t->put(   K(k=>4), K(d=>44));
+    $t->dump("0");
+    $t->delete(K k=>3);
+    $t->dump("3");
+    $t->delete(K k=>4);
+    $t->dump("4");
+    $t->delete(K k=>2);
+    $t->dump("2");
+    $t->delete(K k=>1);
+    $t->dump("1");
+    ok Assemble eq => <<END;
+  0
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :   22
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :   11
+      end
+      At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    3    4
+        Data :   33   44
+      end
+  end
+  3
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :   22
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :   11
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    4
+        Data :   44
+      end
+  end
+  4
+  At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0    1
+    Keys :    1    2
+    Data :   11   22
+  end
+  2
+  At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0
+    Keys :    1
+    Data :   11
+  end
+  1
+  - empty
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $i1 = V  k => 1; $t->put($i1, $i1);
+    my $i2 = V  k => 2; $t->put($i2, $i2);
+    my $i3 = V  k => 3; $t->put($i3, $i3);
+    my $i4 = V  k => 4; $t->put($i4, $i4);
+    my $i5 = V  k => 5; $t->put($i5, $i5);
+    my $i6 = V  k => 6; $t->put($i6, $i6);
+    my $i7 = V  k => 7; $t->put($i7, $i7);
+    my $i8 = V  k => 8; $t->put($i8, $i8);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $t->delete($i1);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i2);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i3);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("5"); $t->delete($i5);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("6"); $t->delete($i6);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("7"); $t->delete($i7);
+    $t->size->outRightInDecNL(K width => 4);  $t->dump("8"); $t->delete($i8);
+    $t->size->outRightInDecNL(K width => 4);
+    $t->dump("X");
+
+    ok Assemble eq => <<END;
+     8
+  1
+  At:  500                    length:    1,  data:  540,  nodes:  580,  first:   40, root, parent
+    Index:    0
+    Keys :    4
+    Data :    4
+    Nodes:  200  440
+      At:  200                length:    1,  data:  240,  nodes:  280,  first:   40,  up:  500, parent
+        Index:    0
+        Keys :    2
+        Data :    2
+        Nodes:   80  140
+          At:   80            length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+            Index:    0
+            Keys :    1
+            Data :    1
+          end
+          At:  140            length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+            Index:    0
+            Keys :    3
+            Data :    3
+          end
+      end
+      At:  440                length:    1,  data:  480,  nodes:  4C0,  first:   40,  up:  500, parent
+        Index:    0
+        Keys :    6
+        Data :    6
+        Nodes:  2C0  380
+          At:  2C0            length:    1,  data:  300,  nodes:  340,  first:   40,  up:  440, leaf
+            Index:    0
+            Keys :    5
+            Data :    5
+          end
+          At:  380            length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  440, leaf
+            Index:    0    1
+            Keys :    7    8
+            Data :    7    8
+          end
+      end
+  end
+     7
+  2
+  At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0    1
+    Keys :    4    6
+    Data :    4    6
+    Nodes:   80  2C0  380
+      At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    2    3
+        Data :    2    3
+      end
+      At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    5
+        Data :    5
+      end
+      At:  380                length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    7    8
+        Data :    7    8
+      end
+  end
+     6
+  3
+  At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0    1
+    Keys :    4    6
+    Data :    4    6
+    Nodes:   80  2C0  380
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    3
+        Data :    3
+      end
+      At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    5
+        Data :    5
+      end
+      At:  380                length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    7    8
+        Data :    7    8
+      end
+  end
+     5
+  4
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    6
+    Data :    6
+    Nodes:   80  380
+      At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    4    5
+        Data :    4    5
+      end
+      At:  380                length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    7    8
+        Data :    7    8
+      end
+  end
+     4
+  5
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    6
+    Data :    6
+    Nodes:   80  380
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    5
+        Data :    5
+      end
+      At:  380                length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
+        Index:    0    1
+        Keys :    7    8
+        Data :    7    8
+      end
+  end
+     3
+  6
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    7
+    Data :    7
+    Nodes:   80  380
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    6
+        Data :    6
+      end
+      At:  380                length:    1,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    8
+        Data :    8
+      end
+  end
+     2
+  7
+  At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0    1
+    Keys :    7    8
+    Data :    7    8
+  end
+     1
+  8
+  At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0
+    Keys :    8
+    Data :    8
+  end
+     0
+  X
+  - empty
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 20;
+    $N->for(sub                                                                   # Load tree
+     {my ($i) = @_;
+      $t->put($i, $i);
+     });
+    $t->size->outNL;        $t->printInOrder("AA");
+    $t->delete(K k =>  0);  $t->printInOrder(" 0");
+    $t->delete(K k =>  9);  $t->printInOrder(" 9");
+    $t->delete(K k =>  1);  $t->printInOrder(" 1");
+    $t->delete(K k =>  8);  $t->printInOrder(" 8");
+    $t->delete(K k =>  2);  $t->printInOrder(" 2");
+    $t->delete(K k =>  7);  $t->printInOrder(" 7");
+    $t->delete(K k =>  3);  $t->printInOrder(" 3");
+    $t->delete(K k =>  6);  $t->printInOrder(" 6");
+    $t->delete(K k =>  4);  $t->printInOrder(" 4");
+    $t->delete(K k =>  5);  $t->printInOrder(" 5");
+    $t->delete(K k => 10);  $t->printInOrder("10");
+    $t->delete(K k => 19);  $t->printInOrder("19");
+    $t->delete(K k => 11);  $t->printInOrder("11");
+    $t->delete(K k => 18);  $t->printInOrder("18");
+    $t->delete(K k => 12);  $t->printInOrder("12");
+    $t->delete(K k => 17);  $t->printInOrder("17");
+    $t->delete(K k => 13);  $t->printInOrder("13");
+    $t->delete(K k => 16);  $t->printInOrder("16");
+    $t->delete(K k => 14);  $t->printInOrder("14");
+    $t->delete(K k => 15);  $t->printInOrder("15");
+
+    ok Assemble eq => <<END;
+  size of tree: 0000 0000 0000 0014
+  AA  20:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
+   0  19:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
+   9  18:    1   2   3   4   5   6   7   8   A   B   C   D   E   F  10  11  12  13
+   1  17:    2   3   4   5   6   7   8   A   B   C   D   E   F  10  11  12  13
+   8  16:    2   3   4   5   6   7   A   B   C   D   E   F  10  11  12  13
+   2  15:    3   4   5   6   7   A   B   C   D   E   F  10  11  12  13
+   7  14:    3   4   5   6   A   B   C   D   E   F  10  11  12  13
+   3  13:    4   5   6   A   B   C   D   E   F  10  11  12  13
+   6  12:    4   5   A   B   C   D   E   F  10  11  12  13
+   4  11:    5   A   B   C   D   E   F  10  11  12  13
+   5  10:    A   B   C   D   E   F  10  11  12  13
+  10   9:    B   C   D   E   F  10  11  12  13
+  19   8:    B   C   D   E   F  10  11  12
+  11   7:    C   D   E   F  10  11  12
+  18   6:    C   D   E   F  10  11
+  12   5:    D   E   F  10  11
+  17   4:    D   E   F  10
+  13   3:    E   F  10
+  16   2:    E   F
+  14   1:    F
+  15- empty
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->put($i, $i);
+     });
+    $t->printInOrder(" 0"); $t->delete(K k =>  0);
+    $t->printInOrder(" 2"); $t->delete(K k =>  2);
+    $t->printInOrder(" 4"); $t->delete(K k =>  4);
+    $t->printInOrder(" 6"); $t->delete(K k =>  6);
+    $t->printInOrder(" 8"); $t->delete(K k =>  8);
+    $t->printInOrder("10"); $t->delete(K k => 10);
+    $t->printInOrder("12"); $t->delete(K k => 12);
+    $t->printInOrder("14"); $t->delete(K k => 14);
+    $t->printInOrder(" 1"); $t->delete(K k =>  1);
+    $t->printInOrder(" 3"); $t->delete(K k =>  3);
+    $t->printInOrder(" 5"); $t->delete(K k =>  5);
+    $t->printInOrder(" 7"); $t->delete(K k =>  7);
+    $t->printInOrder(" 9"); $t->delete(K k =>  9);
+    $t->printInOrder("11"); $t->delete(K k => 11);
+    $t->printInOrder("13"); $t->delete(K k => 13);
+    $t->printInOrder("15"); $t->delete(K k => 15);
+    $t->printInOrder("XX");
+
+    ok Assemble eq => <<END;
+   0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+   2  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+   4  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
+   6  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
+   8  12:    1   3   5   7   8   9   A   B   C   D   E   F
+  10  11:    1   3   5   7   9   A   B   C   D   E   F
+  12  10:    1   3   5   7   9   B   C   D   E   F
+  14   9:    1   3   5   7   9   B   D   E   F
+   1   8:    1   3   5   7   9   B   D   F
+   3   7:    3   5   7   9   B   D   F
+   5   6:    5   7   9   B   D   F
+   7   5:    7   9   B   D   F
+   9   4:    9   B   D   F
+  11   3:    B   D   F
+  13   2:    D   F
+  15   1:    F
+  XX- empty
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K max => 8;
+
+    $N->for(sub                                                                   # Load tree
+     {my ($i) = @_;
+      $t->put(         $i,     2 *        $i);
+      $t->put(2 * $N - $i - 1, 2 * ($N -  $i));
+     });
+  #  $t->printInOrder("Full");
+
+    ($N-1)->for(sub                                                               # Delete elements
+     {my ($i) = @_;
+      my $n1 = ($N + $i)->clone("1111"); my $n2 = ($N - $i - 1)->clone("2222");
+
+      $n1->outNL;
+      $t->delete($n1);
+      $t->printInOrder("1111");
+
+      $n2->outNL;
+      $t->delete($n2);
+      $t->printInOrder("2222");
+     });
+    $t->dump("Two:");
+    $t->size->outRightInDecNL(K width => 4);
+
+    ok Assemble eq => <<END;
+  1111: 0000 0000 0000 0008
+  1111  15:    0   1   2   3   4   5   6   7   9   A   B   C   D   E   F
+  2222: 0000 0000 0000 0007
+  2222  14:    0   1   2   3   4   5   6   9   A   B   C   D   E   F
+  1111: 0000 0000 0000 0009
+  1111  13:    0   1   2   3   4   5   6   A   B   C   D   E   F
+  2222: 0000 0000 0000 0006
+  2222  12:    0   1   2   3   4   5   A   B   C   D   E   F
+  1111: 0000 0000 0000 000A
+  1111  11:    0   1   2   3   4   5   B   C   D   E   F
+  2222: 0000 0000 0000 0005
+  2222  10:    0   1   2   3   4   B   C   D   E   F
+  1111: 0000 0000 0000 000B
+  1111   9:    0   1   2   3   4   C   D   E   F
+  2222: 0000 0000 0000 0004
+  2222   8:    0   1   2   3   C   D   E   F
+  1111: 0000 0000 0000 000C
+  1111   7:    0   1   2   3   D   E   F
+  2222: 0000 0000 0000 0003
+  2222   6:    0   1   2   D   E   F
+  1111: 0000 0000 0000 000D
+  1111   5:    0   1   2   E   F
+  2222: 0000 0000 0000 0002
+  2222   4:    0   1   E   F
+  1111: 0000 0000 0000 000E
+  1111   3:    0   1   F
+  2222: 0000 0000 0000 0001
+  2222   2:    0   F
+  Two:
+  At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    Index:    0    1
+    Keys :    0    F
+    Data :    0   16
+  end
+     2
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K max => 100;
+
+    $N->for(sub                                                                   # Load tree
+     {my ($index, $start, $next, $end) = @_;
+      $t->put($index, 2 * $index);
+      If $t->size != $index + 1,
+      Then
+       {PrintOutStringNL "SSSS"; $index->outNL; Exit(0);
+       };
+     });
+
+    $N->for(sub                                                                   # Check elements
+     {my ($i) = @_;
+      $t->find($i);
+      If $t->found == 0,
+      Then
+       {PrintOutStringNL "AAAA"; $i->outNL; Exit(0);
+       };
+     });
+
+    $N->for(sub                                                                   # Delete elements
+     {my ($i) = @_;
+      $t->delete($i);
+
+      If $t->size != $N - $i - 1,
+      Then
+       {PrintOutStringNL "TTTT"; $i->outNL; Exit(0);
+       };
+
+      $N->for(sub                                                                 # Check elements
+       {my ($j) = @_;
+        $t->find($j);
+        If $t->found == 0,
+        Then
+         {If $j > $i,
+          Then
+           {PrintOutStringNL "BBBBB"; $j->outNL; Exit(0);                         # Not deleted yet so it should be findable
+           };
+         },
+        Else
+         {If $j <= $i,
+          Then
+           {PrintOutStringNL "CCCCC"; $j->outNL; Exit(0);                         # Deleted so should not be findable
+           };
+         };
+       });
+     });
+
+    ok Assemble eq => <<END;
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->put($i, $i);
+     });
+    ($N/2)->for(sub
+     {my ($i) = @_;
+      $t->printInOrder("AAAA");
+      $t->delete($i * 2);
+     });
+    ($N/2)->for(sub
+     {my ($i) = @_;
+      $t->printInOrder("BBBB");
+      $t->delete($i * 2 + 1);
+     });
+    $t->printInOrder("CCCC");
+
+    ok Assemble eq => <<END;
+  AAAA  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+  AAAA  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+  AAAA  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
+  AAAA  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
+  AAAA  12:    1   3   5   7   8   9   A   B   C   D   E   F
+  AAAA  11:    1   3   5   7   9   A   B   C   D   E   F
+  AAAA  10:    1   3   5   7   9   B   C   D   E   F
+  AAAA   9:    1   3   5   7   9   B   D   E   F
+  BBBB   8:    1   3   5   7   9   B   D   F
+  BBBB   7:    3   5   7   9   B   D   F
+  BBBB   6:    5   7   9   B   D   F
+  BBBB   5:    7   9   B   D   F
+  BBBB   4:    9   B   D   F
+  BBBB   3:    B   D   F
+  BBBB   2:    D   F
+  BBBB   1:    F
+  CCCC- empty
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 36;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->put($i, $i);
+     });
+    $t->delete(K 1 =>  0); $t->printInOrder(" 0");
+    $t->delete(K 1 =>  5); $t->printInOrder(" 5");
+    $t->delete(K 1 => 10); $t->printInOrder("10");
+    $t->delete(K 1 => 15); $t->printInOrder("15");
+    $t->delete(K 1 => 20); $t->printInOrder("20");
+    $t->delete(K 1 => 25); $t->printInOrder("25");
+    $t->delete(K 1 => 30); $t->printInOrder("30");
+    $t->delete(K 1 => 35); $t->printInOrder("35");
+
+    $t->delete(K 1 =>  1); $t->printInOrder(" 1");
+    $t->delete(K 1 =>  6); $t->printInOrder(" 6");
+    $t->delete(K 1 => 11); $t->printInOrder("11");
+    $t->delete(K 1 => 16); $t->printInOrder("16");
+    $t->delete(K 1 => 21); $t->printInOrder("21");
+    $t->delete(K 1 => 26); $t->printInOrder("26");
+    $t->delete(K 1 => 31); $t->printInOrder("31");
+
+    $t->delete(K 1 =>  2); $t->printInOrder(" 2");
+    $t->delete(K 1 =>  7); $t->printInOrder(" 7");
+    $t->delete(K 1 => 12); $t->printInOrder("12");
+    $t->delete(K 1 => 17); $t->printInOrder("17");
+    $t->delete(K 1 => 22); $t->printInOrder("22");
+    $t->delete(K 1 => 27); $t->printInOrder("27");
+    $t->delete(K 1 => 32); $t->printInOrder("32");
+
+    $t->delete(K 1 =>  3); $t->printInOrder(" 3");
+    $t->delete(K 1 =>  8); $t->printInOrder(" 8");
+    $t->delete(K 1 => 13); $t->printInOrder("13");
+    $t->delete(K 1 => 18); $t->printInOrder("18");
+    $t->delete(K 1 => 23); $t->printInOrder("23");
+    $t->delete(K 1 => 28); $t->printInOrder("28");
+    $t->delete(K 1 => 33); $t->printInOrder("33");
+
+    $t->delete(K 1 =>  4); $t->printInOrder(" 4");
+    $t->delete(K 1 =>  9); $t->printInOrder(" 9");
+    $t->delete(K 1 => 14); $t->printInOrder("14");
+    $t->delete(K 1 => 19); $t->printInOrder("19");
+    $t->delete(K 1 => 24); $t->printInOrder("24");
+    $t->delete(K 1 => 29); $t->printInOrder("29");
+    $t->delete(K 1 => 34); $t->printInOrder("34");
+
+    ok Assemble eq => <<END;
+   0  35:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+   5  34:    1   2   3   4   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+  10  33:    1   2   3   4   6   7   8   9   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+  15  32:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+  20  31:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+  25  30:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1E  1F  20  21  22  23
+  30  29:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22  23
+  35  28:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+   1  27:    2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+   6  26:    2   3   4   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+  11  25:    2   3   4   7   8   9   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+  16  24:    2   3   4   7   8   9   C   D   E  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+  21  23:    2   3   4   7   8   9   C   D   E  11  12  13  16  17  18  1A  1B  1C  1D  1F  20  21  22
+  26  22:    2   3   4   7   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  1F  20  21  22
+  31  21:    2   3   4   7   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+   2  20:    3   4   7   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+   7  19:    3   4   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+  12  18:    3   4   8   9   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+  17  17:    3   4   8   9   D   E  12  13  16  17  18  1B  1C  1D  20  21  22
+  22  16:    3   4   8   9   D   E  12  13  17  18  1B  1C  1D  20  21  22
+  27  15:    3   4   8   9   D   E  12  13  17  18  1C  1D  20  21  22
+  32  14:    3   4   8   9   D   E  12  13  17  18  1C  1D  21  22
+   3  13:    4   8   9   D   E  12  13  17  18  1C  1D  21  22
+   8  12:    4   9   D   E  12  13  17  18  1C  1D  21  22
+  13  11:    4   9   E  12  13  17  18  1C  1D  21  22
+  18  10:    4   9   E  13  17  18  1C  1D  21  22
+  23   9:    4   9   E  13  18  1C  1D  21  22
+  28   8:    4   9   E  13  18  1D  21  22
+  33   7:    4   9   E  13  18  1D  22
+   4   6:    9   E  13  18  1D  22
+   9   5:    E  13  18  1D  22
+  14   4:   13  18  1D  22
+  19   3:   18  1D  22
+  24   2:   1D  22
+  29   1:   22
+  34- empty
+  END
+
+
+=head2 Print
+
+Print a tree
+
+=head3 Nasm::X86::Tree::dump($tree, $title)
+
+Dump a tree and all its sub trees.
+
+     Parameter  Description
+  1  $tree      Tree
+  2  $title     Title
+
+=head3 Nasm::X86::Tree::printInOrder($tree, $title)
+
+Print a tree in order
+
+     Parameter  Description
+  1  $tree      Tree
+  2  $title     Title
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K count => 128;
+
+    $N->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      my $l0 = ($N-$index) / 2;
+      my $l1 = ($N+$index) / 2;
+      my $h0 =  $N-$index;
+      my $h1 =  $N+$index;
+      $t->put($l0, $l0 * 2);
+      $t->put($h1, $h1 * 2);
+      $t->put($l1, $l1 * 2);
+      $t->put($h0, $h0 * 2);
+     });
+    $t->printInOrder("AAAA");
+
+    ok Assemble eq => <<END;
+  AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+  END
+
+
+=head3 Nasm::X86::Tree::clear($tree)
+
+Delete everything in the tree recording the memory so liberated to the free chain for reuse by other trees.
+
+     Parameter  Description
+  1  $tree      Tree
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+    $t->clear;
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+    $t->clear;
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->free;
+    $a->used->out("Clear tree:            u: ");
+    $a->freeChainSpace->out(" f: ", " ");
+    $a->size->outNL;
+
+    $a->clear;
+    $a->used->out("Clear area:           u: ");
+    $a->freeChainSpace->out(" f: ", " ");
+    $a->size->outNL;
+
+    ok Assemble eq => <<END;
+  t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  Clear tree:            u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  Clear area:           u: 0000 0000 0000 0000 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  END
+
+
+=head3 Nasm::X86::Tree::free($tree)
+
+Free all the memory used by a tree
+
+     Parameter  Description
+  1  $tree      Tree
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+    $t->clear;
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+    $t->clear;
+    $t->size->out("t: ", " ");
+    $a->used->out("u: ", " ");
+    $a->freeChainSpace->out("f: ", " ");
+    $a->size->outNL;
+
+    $N->for(sub {my ($i) = @_; $t->push($i+1)});
+    $t->free;
+    $a->used->out("Clear tree:            u: ");
+    $a->freeChainSpace->out(" f: ", " ");
+    $a->size->outNL;
+
+    $a->clear;
+    $a->used->out("Clear area:           u: ");
+    $a->freeChainSpace->out(" f: ", " ");
+    $a->size->outNL;
+
+    ok Assemble eq => <<END;
+  t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0010 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  t: 0000 0000 0000 0000 u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  Clear tree:            u: 0000 0000 0000 0B80 f: 0000 0000 0000 0B40 size of area: 0000 0000 0000 1000
+  Clear area:           u: 0000 0000 0000 0000 f: 0000 0000 0000 0000 size of area: 0000 0000 0000 1000
+  END
+
+
+=head2 Iteration
+
+Iterate through a tree non recursively
+
+=head3 Nasm::X86::Tree::by($tree, $block)
+
+Call the specified block with each element of the specified tree in ascending order.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $block     Block to execute
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->put($i, 2 * $i);
+     });
+
+    $t->by(sub
+     {my ($tree, $start, $next, $end) = @_;
+      $tree->key->out("");  $tree->data->outNL(" ");
+     });
+
+    ok Assemble eq => <<END;
+  0000 0000 0000 0000 0000 0000 0000 0000
+  0000 0000 0000 0001 0000 0000 0000 0002
+  0000 0000 0000 0002 0000 0000 0000 0004
+  0000 0000 0000 0003 0000 0000 0000 0006
+  0000 0000 0000 0004 0000 0000 0000 0008
+  0000 0000 0000 0005 0000 0000 0000 000A
+  0000 0000 0000 0006 0000 0000 0000 000C
+  0000 0000 0000 0007 0000 0000 0000 000E
+  0000 0000 0000 0008 0000 0000 0000 0010
+  0000 0000 0000 0009 0000 0000 0000 0012
+  0000 0000 0000 000A 0000 0000 0000 0014
+  0000 0000 0000 000B 0000 0000 0000 0016
+  0000 0000 0000 000C 0000 0000 0000 0018
+  0000 0000 0000 000D 0000 0000 0000 001A
+  0000 0000 0000 000E 0000 0000 0000 001C
+  0000 0000 0000 000F 0000 0000 0000 001E
+  END
+
+
+=head3 Nasm::X86::Tree::yb($tree, $block)
+
+Call the specified block with each element of the specified tree in descending order.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $block     Block to execute
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->put($i, 2* $i);
+     });
+
+    $t->yb(sub
+     {my ($tree, $start, $prev, $end) = @_;
+      $tree->key->out("");  $tree->data->outNL(" ");
+     });
+
+    ok Assemble eq => <<END;
+  0000 0000 0000 000F 0000 0000 0000 001E
+  0000 0000 0000 000E 0000 0000 0000 001C
+  0000 0000 0000 000D 0000 0000 0000 001A
+  0000 0000 0000 000C 0000 0000 0000 0018
+  0000 0000 0000 000B 0000 0000 0000 0016
+  0000 0000 0000 000A 0000 0000 0000 0014
+  0000 0000 0000 0009 0000 0000 0000 0012
+  0000 0000 0000 0008 0000 0000 0000 0010
+  0000 0000 0000 0007 0000 0000 0000 000E
+  0000 0000 0000 0006 0000 0000 0000 000C
+  0000 0000 0000 0005 0000 0000 0000 000A
+  0000 0000 0000 0004 0000 0000 0000 0008
+  0000 0000 0000 0003 0000 0000 0000 0006
+  0000 0000 0000 0002 0000 0000 0000 0004
+  0000 0000 0000 0001 0000 0000 0000 0002
+  0000 0000 0000 0000 0000 0000 0000 0000
+  END
+
+
+=head2 Push and Pop
+
+Use a tree as a stack: Push elements on to a tree with the next available key; Pop the last element in a tree.
+
+=head3 Nasm::X86::Tree::pop($tree)
+
+Pop the last value out of a tree and return the key/data/subTree in the tree descriptor.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->push($i);
+     });
+
+    $t->size->outNL;
+    $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+
+    $N->for(sub
+     {my ($i) = @_;
+      $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+     });
+    $t->pop; $t->found->outNL("f: ");
+
+    ok Assemble eq => <<END;
+  size of tree: 0000 0000 0000 0010
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000F data: 0000 0000 0000 000F
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000E data: 0000 0000 0000 000E
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000D data: 0000 0000 0000 000D
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000C data: 0000 0000 0000 000C
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000B data: 0000 0000 0000 000B
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000A data: 0000 0000 0000 000A
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0009 data: 0000 0000 0000 0009
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0007 data: 0000 0000 0000 0007
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0006 data: 0000 0000 0000 0006
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0005 data: 0000 0000 0000 0005
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0004 data: 0000 0000 0000 0004
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0003 data: 0000 0000 0000 0003
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0002 data: 0000 0000 0000 0002
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0001 data: 0000 0000 0000 0001
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0000 data: 0000 0000 0000 0000
+  f: 0000 0000 0000 0000
+  END
+
+
+=head3 Nasm::X86::Tree::get($tree, $key)
+
+Retrieves the element at the specified zero based index in the stack.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $key       Zero based index
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->push($i);
+     });
+
+    $t->size->outNL;
+    $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+
+    $N->for(sub
+     {my ($i) = @_;
+      $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+     });
+    $t->pop; $t->found->outNL("f: ");
+
+    ok Assemble eq => <<END;
+  size of tree: 0000 0000 0000 0010
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000F data: 0000 0000 0000 000F
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000E data: 0000 0000 0000 000E
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000D data: 0000 0000 0000 000D
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000C data: 0000 0000 0000 000C
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000B data: 0000 0000 0000 000B
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000A data: 0000 0000 0000 000A
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0009 data: 0000 0000 0000 0009
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0007 data: 0000 0000 0000 0007
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0006 data: 0000 0000 0000 0006
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0005 data: 0000 0000 0000 0005
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0004 data: 0000 0000 0000 0004
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0003 data: 0000 0000 0000 0003
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0002 data: 0000 0000 0000 0002
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0001 data: 0000 0000 0000 0001
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0000 data: 0000 0000 0000 0000
+  f: 0000 0000 0000 0000
+  END
+
+
+=head2 Trees as Strings
+
+Use trees as a strings. The characters of the string are stored as an array of characters.  The indices of the array run from 1 to the length of the string.
+
+=head3 Nasm::X86::Tree::append($string, $append)
+
+Append the second source string to the first target string renumbering the keys of the source string to follow on from those of the target string.  A string can safely be appended to itself.
+
+     Parameter  Description
+  1  $string    Tree descriptor of string to append to
+  2  $append    Tree descriptor of string to append from
+
+=head3 Nasm::X86::Tree::clone($string)
+
+Clone a string.
+
+     Parameter  Description
+  1  $string    Tree descriptor
+
+=head3 Nasm::X86::Tree::substring($string, $start, $finish)
+
+Create the substring of the specified string between the specified start and end keys.
+
+     Parameter  Description
+  1  $string    Tree descriptor of string to extract from
+  2  $start     Start key
+  3  $finish    End key
+
+=head3 Nasm::X86::Tree::reverse($string)
+
+Create a clone of the sstring in reverse order
+
+     Parameter  Description
+  1  $string    Tree descriptor of string
+
+=head3 Nasm::X86::Tree::outAsUtf8($string)
+
+Print the data values of the specified string on stdout assuming each data value is a utf32 character and that the output device supports utf8
+
+     Parameter  Description
+  1  $string    Tree descriptor of string
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    $t->push(K alpha => 0x03b1);
+    $t->push(K beta  => 0x03b2);
+    $t->push(K gamma => 0x03b3);
+    $t->push(K delta => 0x03b4);
+
+    $t->outAsUtf8NL;
+
+    $t->append($t);
+    $t->outAsUtf8NL;
+
+    $t->append($t);
+    $t->outAsUtf8NL;
+
+    my $T = $t->substring(K(key => 4), K(key => 8));
+    $T->outAsUtf8NL;
+
+    my $r = $T->reverse;
+    $r->outAsUtf8NL;
+
+    ok Assemble eq => <<END;
+  αβγδ
+  αβγδαβγδ
+  αβγδαβγδαβγδαβγδ
+  αβγδ
+  δγβα
+  END
+
+
+=head3 Nasm::X86::Tree::outAsUtf8NL($string)
+
+Print the data values of the specified string on stdout assuming each data value is a utf32 character and that the output device supports utf8. Follow the print with a new line character.
+
+     Parameter  Description
+  1  $string    Tree descriptor of string
+
+=head1 Assemble
+
+Assemble generated code
+
+=head2 CallC($sub, @parameters)
+
+Call a C subroutine.
+
+     Parameter    Description
+  1  $sub         Name of the sub to call
+  2  @parameters  Parameters
+
+B<Example:>
+
+
+    my $format = Rs "Hello %s
+";
+    my $data   = Rs "World";
+
+    Extern qw(printf exit malloc strcpy); Link 'c';
+
+
+    CallC 'malloc', length($format)+1;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov r15, rax;
+
+    CallC 'strcpy', r15, $format;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    CallC 'printf', r15, $data;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    CallC 'exit', 0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble eq => <<END;
+  Hello World
+  END
+
+
+=head2 Extern(@externalReferences)
+
+Name external references.
+
+     Parameter            Description
+  1  @externalReferences  External references
+
+B<Example:>
+
+
+    my $format = Rs "Hello %s
+";
+    my $data   = Rs "World";
+
+
+    Extern qw(printf exit malloc strcpy); Link 'c';  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    CallC 'malloc', length($format)+1;
+    Mov r15, rax;
+    CallC 'strcpy', r15, $format;
+    CallC 'printf', r15, $data;
+    CallC 'exit', 0;
+
+    ok Assemble eq => <<END;
+  Hello World
+  END
+
+
+=head2 Link(@libraries)
+
+Libraries to link with.
+
+     Parameter   Description
+  1  @libraries  External references
+
+B<Example:>
+
+
+    my $format = Rs "Hello %s
+";
+    my $data   = Rs "World";
+
+
+    Extern qw(printf exit malloc strcpy); Link 'c';  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    CallC 'malloc', length($format)+1;
+    Mov r15, rax;
+    CallC 'strcpy', r15, $format;
+    CallC 'printf', r15, $data;
+    CallC 'exit', 0;
+
+    ok Assemble eq => <<END;
+  Hello World
+  END
+
+
+=head2 Start()
+
+Initialize the assembler.
+
+
+=head2 Exit($c)
+
+Exit with the specified return code or zero if no return code supplied.  Assemble() automatically adds a call to Exit(0) if the last operation in the program is not a call to Exit.
+
+     Parameter  Description
+  1  $c         Return code
+
+B<Example:>
+
+
+    Comment "Print a string from memory";
+    my $s = "Hello World";
+    Mov rax, Rs($s);
+    Mov rdi, length $s;
+    PrintOutMemory;
+
+    Exit(0);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+
+    ok Assemble =~ m(Hello World);
+
+
+=head2 Assemble(%options)
+
+Assemble the generated code.
+
+     Parameter  Description
+  1  %options   Options
+
+B<Example:>
+
+
+    PrintOutStringNL "Hello World";
+    PrintOutStringNL "Hello
+World";
+    PrintErrStringNL "Hello World";
+
+
+    ok Assemble(debug => 0, eq => <<END);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+  Hello World
+  Hello
+  World
+  END
+
+
+=head2 CreateLibrary(%library)
+
+Create a library.
+
+     Parameter  Description
+  1  %library   Library definition
+
+=head2 NasmX86::Library::load($library)
+
+Load a library and return the addresses of its subroutines as variables.
+
+     Parameter  Description
+  1  $library   Description of library to load
+
+
+=head1 Hash Definitions
+
+
+
+
+=head2 Nasm::X86 Definition
+
+
+Tree
+
+
+
+
+=head3 Output fields
+
+
+=head4 N
+
+Initial allocation
+
+=head4 address
+
+Variable that addresses the memory containing the area
+
+=head4 area
+
+Area definition.
+
+=head4 compare
+
+Last comparison result -1, 0, +1
+
+=head4 constant
+
+Constant if true
+
+=head4 data
+
+Variable containing the current data
+
+=head4 dataOffset
+
+The start of the data
+
+=head4 debug
+
+Write debug trace if true
+
+=head4 end
+
+End label for this subroutine
+
+=head4 expr
+
+Expression that initializes the variable
+
+=head4 first
+
+Variable addressing offset to first block of the tree which is the header block
+
+=head4 found
+
+Variable indicating whether the last find was successful or not
+
+=head4 freeOffset
+
+Free chain offset
+
+=head4 global
+
+Global if true
+
+=head4 index
+
+Index of key in last node found
+
+=head4 key
+
+Variable containing the current key
+
+=head4 keyDataMask
+
+Key data mask
+
+=head4 label
+
+Address in memory
+
+=head4 length
+
+Number of keys in a maximal block
+
+=head4 lengthLeft
+
+Left minimal number of keys
+
+=head4 lengthMiddle
+
+Number of splitting key counting from 1
+
+=head4 lengthMin
+
+The smallest number of keys we are allowed in any node other than a root node.
+
+=head4 lengthOffset
+
+Offset of length in keys block.  The length field is a word - see: "MultiWayTree.svg"
+
+=head4 lengthRight
+
+Right minimal number of keys
+
+=head4 level
+
+Lexical level
+
+=head4 loop
+
+Offset of keys, data, node loop.
+
+=head4 maxKeys
+
+Maximum number of keys allowed in this tree which might well ne less than the maximum we can store in a zmm.
+
+=head4 maxKeysZ
+
+The maximum possible number of keys in a zmm register
+
+=head4 maxNodesZ
+
+The maximum possible number of nodes in a zmm register
+
+=head4 middleOffset
+
+Offset of the middle slot in bytes
+
+=head4 name
+
+Name of the variable
+
+=head4 nameString
+
+Name of the sub as a string constant in read only storage
+
+=head4 nextOffset
+
+Position of next offset on free chain
+
+=head4 nodeMask
+
+Node mask
+
+=head4 offset
+
+Variable containing the offset of the block containing the current key
+
+=head4 options
+
+Options used by the author of the subroutine
+
+=head4 parameters
+
+Parameters definitions supplied by the author of the subroutine which get mapped in to parameter variables.
+
+=head4 reference
+
+Reference to another variable
+
+=head4 rightOffset
+
+Offset of the first right slot in bytes
+
+=head4 rootOffset
+
+Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
+
+=head4 sizeOffset
+
+Offset of the size field which tells us the number of  keys in the tree
+
+=head4 splittingKey
+
+Offset at which to split a full block
+
+=head4 start
+
+Start label for this subroutine which includes the enter instruction used to create a new stack frame
+
+=head4 structureCopies
+
+Copies of the structures passed to this subroutine with their variables replaced with references
+
+=head4 structureVariables
+
+Map structure variables to references at known positions in the sub
+
+=head4 subTree
+
+Variable indicating whether the last find found a sub tree
+
+=head4 treeBits
+
+Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
+
+=head4 treeBitsMask
+
+Total of 14 tree bits
+
+=head4 treeOffset
+
+Yggdrasil - a tree of global variables in this area
+
+=head4 up
+
+Offset of up in data block.
+
+=head4 upOffset
+
+Offset of the up field which points to any containing tree
+
+=head4 usedOffset
+
+Used field offset
+
+=head4 variables
+
+Map parameters to references at known positions in the sub
+
+=head4 vars
+
+Number of variables in subroutine
+
+=head4 width
+
+Width of a key or data slot.
+
+=head4 zWidth
+
+Width of a zmm register
+
+=head4 zWidthD
+
+Width of a zmm in double words being the element size
+
+=head4 zmmBlock
+
+Size of a zmm block - 64 bytes
+
+
+
+=head1 Attributes
+
+
+The following is a list of all the attributes in this package.  A method coded
+with the same name in your package will over ride the method of the same name
+in this package and thus provide your value for the attribute in place of the
+default value supplied for this attribute by this package.
+
+=head2 Replaceable Attribute List
+
+
+Pi32 Pi64
+
+
+=head2 Pi32
+
+Pi as a 32 bit float.
+
+
+=head2 Pi64
+
+Pi as a 64 bit float.
+
+
+
+
+=head1 Private Methods
+
+=head2 Label({return "l".++$Labels unless @_;)
+
+Create a unique label or reuse the one supplied.
+
+     Parameter                         Description
+  1  {return "l".++$Labels unless @_;  Generate a label
+
+=head2 Dbwdq($s, @d)
+
+Layout data.
+
+     Parameter  Description
+  1  $s         Element size
+  2  @d         Data to be laid out
+
+=head2 Rbwdq($s, @d)
+
+Layout data.
+
+     Parameter  Description
+  1  $s         Element size
+  2  @d         Data to be laid out
+
+=head2 Nasm::X86::Sub::callTo($sub, $mode, $label, @parameters)
+
+Call a sub passing it some parameters.
+
+     Parameter    Description
+  1  $sub         Subroutine descriptor
+  2  $mode        Mode 0 - direct call or 1 - indirect call
+  3  $label       Label of sub
+  4  @parameters  Parameter variables
+
+=head2 Nasm::X86::Subroutine::uploadToNewStackFrame($sub, $source, $target)
+
+Map a variable in the current stack into a reference in the next stack frame being the one that will be used by this sub
+
+     Parameter  Description
+  1  $sub       Subroutine descriptor
+  2  $source    Source variable in the current stack frame
+  3  $target    The reference in the new stack frame
+
+=head2 Nasm::X86::Subroutine::call($sub, %options)
+
+Call a sub optionally passing it parameters.
+
+     Parameter  Description
+  1  $sub       Subroutine descriptor
+  2  %options   Options
+
+=head2 hexTranslateTable()
+
+Create/address a hex translate table and return its label.
+
+
+=head2 PrintOutRipInHex()
+
+Print the instruction pointer in hex.
+
+
+=head2 PrintOutRflagsInHex()
+
+Print the flags register in hex.
+
+
+=head2 Nasm::X86::Variable::dump($left, $channel, $newLine, $title1, $title2)
+
+Dump the value of a variable to the specified channel adding an optional title and new line if requested.
+
+     Parameter  Description
+  1  $left      Left variable
+  2  $channel   Channel
+  3  $newLine   New line required
+  4  $title1    Optional leading title
+  5  $title2    Optional trailing title
+
+B<Example:>
+
+
+    my $a = V(a, 3);  $a->outNL;
+    my $b = K(b, 2);  $b->outNL;
+    my $c = $a +  $b; $c->outNL;
+    my $d = $c -  $a; $d->outNL;
+    my $g = $a *  $b; $g->outNL;
+    my $h = $g /  $b; $h->outNL;
+    my $i = $a %  $b; $i->outNL;
+
+    If ($a == 3,
+    Then
+     {PrintOutStringNL "a == 3"
+     },
+    Else
+     {PrintOutStringNL "a != 3"
+     });
+
+    ++$a; $a->outNL;
+    --$a; $a->outNL;
+
+    ok Assemble(debug => 0, eq => <<END);
+  a: 0000 0000 0000 0003
+  b: 0000 0000 0000 0002
+  (a add b): 0000 0000 0000 0005
+  ((a add b) sub a): 0000 0000 0000 0002
+  (a times b): 0000 0000 0000 0006
+  ((a times b) / b): 0000 0000 0000 0003
+  (a % b): 0000 0000 0000 0001
+  a == 3
+  a: 0000 0000 0000 0004
+  a: 0000 0000 0000 0003
+  END
+
+
+=head2 PushRR(@r)
+
+Push registers onto the stack without tracking.
+
+     Parameter  Description
+  1  @r         Register
+
+=head2 PushR(@r)
+
+Push registers onto the stack.
+
+     Parameter  Description
+  1  @r         Registers
+
+B<Example:>
+
+
+    Mov rax, 0x11111111;
+    Mov rbx, 0x22222222;
+
+    PushR my @save = (rax, rbx);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+
+    Mov rax, 0x33333333;
+    PopR;
+    PrintOutRegisterInHex rax;
+    PrintOutRegisterInHex rbx;
+
+    ok Assemble(debug => 0, eq => <<END);
+     rax: 0000 0000 1111 1111
+     rbx: 0000 0000 2222 2222
+  END
+
+
+=head2 PopRR(@r)
+
+Pop registers from the stack without tracking.
+
+     Parameter  Description
+  1  @r         Register
+
+=head2 ClassifyRange($recordOffsetInRange, $address, $size)
+
+Implementation of ClassifyInRange and ClassifyWithinRange.
+
+     Parameter             Description
+  1  $recordOffsetInRange  Record offset in classification in high byte if 1 else in classification if 2
+  2  $address              Variable address of utf32 string to classify
+  3  $size                 Variable length of utf32 string to classify
+
+=head2 Cstrlen()
+
+Length of the C style string addressed by rax returning the length in r15.
+
+
+=head2 Nasm::X86::Area::updateSpace($area, $size)
+
+Make sure that the variable addressed area has enough space to accommodate content of the variable size.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $size      Variable size needed
+
+=head2 Nasm::X86::Area::freeZmmBlock($area, $offset)
+
+Free a block in an area by placing it on the free chain.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $offset    Offset of zmm block to be freed
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    my $m = $a->allocZmmBlock;
+    K(K => Rd(1..16))->loadZmm(31);
+
+    $a->putZmmBlock  ($m, 31);
+    $a->dump("A");
+
+    $a->getZmmBlock  ($m, 30);
+    $a->clearZmmBlock($m);
+    $a->getZmmBlock  ($m, 29);
+
+    $a->clearZmmBlock($m);
+    PrintOutRegisterInHex 31, 30, 29;
+
+    ok Assemble eq => <<END;
+  A
+  Area     Size:     4096    Used:      128
+  0000 0000 0000 0000 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+    my $a = CreateArea;
+
+    K(loop => 3)->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $i->outNL;
+      my $m1 = $a->allocZmmBlock;
+      my $m2 = $a->allocZmmBlock;
+
+      K(K => Rd(1..16))->loadZmm(31);
+      K(K => Rd(17..32))->loadZmm(30);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->putZmmBlock($m1, 31);
+      $a->putZmmBlock($m2, 30);
+      $a->dump("A");
+
+      $a->getZmmBlock($m1, 30);
+      $a->getZmmBlock($m2, 31);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->clearZmmBlock($m1);
+      $a->freeZmmBlock($m1);
+      $a->dump("B");
+
+      $a->freeZmmBlock($m2);
+      $a->dump("C");
+     });
+
+    ok Assemble eq => <<END;
+  index: 0000 0000 0000 0000
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0001
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0002
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  END
+
+
+=head2 Nasm::X86::Area::getZmmBlock($area, $block, $zmm)
+
+Get the block with the specified offset in the specified string and return it in the numbered zmm.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $block     Offset of the block as a variable
+  3  $zmm       Number of zmm register to contain block
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    my $m = $a->allocZmmBlock;
+    K(K => Rd(1..16))->loadZmm(31);
+
+    $a->putZmmBlock  ($m, 31);
+    $a->dump("A");
+
+    $a->getZmmBlock  ($m, 30);
+    $a->clearZmmBlock($m);
+    $a->getZmmBlock  ($m, 29);
+
+    $a->clearZmmBlock($m);
+    PrintOutRegisterInHex 31, 30, 29;
+
+    ok Assemble eq => <<END;
+  A
+  Area     Size:     4096    Used:      128
+  0000 0000 0000 0000 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+    my $a = CreateArea;
+
+    K(loop => 3)->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $i->outNL;
+      my $m1 = $a->allocZmmBlock;
+      my $m2 = $a->allocZmmBlock;
+
+      K(K => Rd(1..16))->loadZmm(31);
+      K(K => Rd(17..32))->loadZmm(30);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->putZmmBlock($m1, 31);
+      $a->putZmmBlock($m2, 30);
+      $a->dump("A");
+
+      $a->getZmmBlock($m1, 30);
+      $a->getZmmBlock($m2, 31);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->clearZmmBlock($m1);
+      $a->freeZmmBlock($m1);
+      $a->dump("B");
+
+      $a->freeZmmBlock($m2);
+      $a->dump("C");
+     });
+
+    ok Assemble eq => <<END;
+  index: 0000 0000 0000 0000
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0001
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0002
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  END
+
+
+=head2 Nasm::X86::Area::putZmmBlock($area, $block, $zmm)
+
+Write the numbered zmm to the block at the specified offset in the specified area.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $block     Offset of the block as a variable
+  3  $zmm       Number of zmm register to contain block
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    my $m = $a->allocZmmBlock;
+    K(K => Rd(1..16))->loadZmm(31);
+
+    $a->putZmmBlock  ($m, 31);
+    $a->dump("A");
+
+    $a->getZmmBlock  ($m, 30);
+    $a->clearZmmBlock($m);
+    $a->getZmmBlock  ($m, 29);
+
+    $a->clearZmmBlock($m);
+    PrintOutRegisterInHex 31, 30, 29;
+
+    ok Assemble eq => <<END;
+  A
+  Area     Size:     4096    Used:      128
+  0000 0000 0000 0000 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+    my $a = CreateArea;
+
+    K(loop => 3)->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $i->outNL;
+      my $m1 = $a->allocZmmBlock;
+      my $m2 = $a->allocZmmBlock;
+
+      K(K => Rd(1..16))->loadZmm(31);
+      K(K => Rd(17..32))->loadZmm(30);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->putZmmBlock($m1, 31);
+      $a->putZmmBlock($m2, 30);
+      $a->dump("A");
+
+      $a->getZmmBlock($m1, 30);
+      $a->getZmmBlock($m2, 31);
+      PrintOutRegisterInHex 31, 30;
+
+      $a->clearZmmBlock($m1);
+      $a->freeZmmBlock($m1);
+      $a->dump("B");
+
+      $a->freeZmmBlock($m2);
+      $a->dump("C");
+     });
+
+    ok Assemble eq => <<END;
+  index: 0000 0000 0000 0000
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0001
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  index: 0000 0000 0000 0002
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+  A
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0020 0000 001F   0000 001E 0000 001D   0000 001C 0000 001B   0000 001A 0000 0019   0000 0018 0000 0017   0000 0016 0000 0015   0000 0014 0000 0013   0000 0012 0000 0011
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  B
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  C
+  Area     Size:     4096    Used:      192
+  0000 0000 0000 0000 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  END
+
+
+=head2 Nasm::X86::Area::clearZmmBlock($area, $offset)
+
+Clear the zmm block at the specified offset in the area
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  $offset    Offset of the block as a variable
+
+B<Example:>
+
+
+    my $a = CreateArea;
+
+    my $m = $a->allocZmmBlock;
+    K(K => Rd(1..16))->loadZmm(31);
+
+    $a->putZmmBlock  ($m, 31);
+    $a->dump("A");
+
+    $a->getZmmBlock  ($m, 30);
+    $a->clearZmmBlock($m);
+    $a->getZmmBlock  ($m, 29);
+
+    $a->clearZmmBlock($m);
+    PrintOutRegisterInHex 31, 30, 29;
+
+    ok Assemble eq => <<END;
+  A
+  Area     Size:     4096    Used:      128
+  0000 0000 0000 0000 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 01__ ____ 02__ ____  03__ ____ 04__ ____  05__ ____ 06__ ____  07__ ____ 08__ ____  09__ ____ 0A__ ____  0B__ ____ 0C__ ____  0D__ ____ 0E__ ____  0F__ ____ 10__ ____
+  0000 0000 0000 0080 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   zmm31: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+
+=head2 Nasm::X86::Area::checkYggdrasilCreated($area)
+
+Return a tree descriptor to the Yggdrasil world tree for an area.  If Yggdrasil has not been created the B<found> variable will be zero else one.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+B<Example:>
+
+
+    my $A = CreateArea;
+    my $t = $A->checkYggdrasilCreated;
+       $t->found->outNL;
+    my $y = $A->establishYggdrasil;
+    my $T = $A->checkYggdrasilCreated;
+       $T->found->outNL;
+    ok Assemble(debug => 0, eq => <<END);
+  found: 0000 0000 0000 0000
+  found: 0000 0000 0000 0001
+  END
+
+
+=head2 Nasm::X86::Area::establishYggdrasil($area)
+
+Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
+
+     Parameter  Description
+  1  $area      Area descriptor
+
+B<Example:>
+
+
+    my $A = CreateArea;
+    my $t = $A->checkYggdrasilCreated;
+       $t->found->outNL;
+    my $y = $A->establishYggdrasil;
+    my $T = $A->checkYggdrasilCreated;
+       $T->found->outNL;
+    ok Assemble(debug => 0, eq => <<END);
+  found: 0000 0000 0000 0000
+  found: 0000 0000 0000 0001
+  END
+
+
+=head2 DescribeTree(%options)
+
+Return a descriptor for a tree with the specified options.
+
+     Parameter  Description
+  1  %options   Tree description options
+
+=head2 Nasm::X86::Area::DescribeTree($area, %options)
+
+Return a descriptor for a tree in the specified area with the specified options.
+
+     Parameter  Description
+  1  $area      Area descriptor
+  2  %options   Options for tree
+
+=head2 Nasm::X86::Tree::describeTree($tree, %options)
+
+Create a a description of a tree
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  %options   {first=>first node of tree if not the existing first node; area=>area used by tree if not the existing area}
+
+=head2 Nasm::X86::Tree::copyDescription($tree)
+
+Make a copy of a tree descriptor
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+
+=head2 Nasm::X86::Tree::firstFromMemory($tree, $zmm)
+
+Load the first block for a tree into the numbered zmm.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm to contain first block
+
+=head2 Nasm::X86::Tree::firstIntoMemory($tree, $zmm)
+
+Save the first block of a tree in the numbered zmm back into memory.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm containing first block
+
+=head2 Nasm::X86::Tree::rootIntoFirst($tree, $zmm, $value)
+
+Put the contents of a variable into the root field of the first block of a tree when held in a zmm register.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm containing first block
+  3  $value     Variable containing value to put
+
+=head2 Nasm::X86::Tree::rootFromFirst($tree, $zmm)
+
+Return a variable containing the offset of the root block of a tree from the first block when held in a zmm register.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm containing first block
+
+=head2 Nasm::X86::Tree::root($t, $F, $offset)
+
+Check whether the specified offset refers to the root of a tree when the first block is held in a zmm register. The result is returned by setting the zero flag to one if the offset is the root, else to zero.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $F         Zmm register holding first block
+  3  $offset    Offset of block as a variable
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree;
+    my $b = $t->allocBlock(31, 30, 29);
+    K(data => 0x33)->dIntoZ(31, 4);
+    $t->lengthIntoKeys(31, K length =>0x9);
+    $t->putBlock($b, 31, 30, 29);
+    $t->getBlock($b, 25, 24, 23);
+    PrintOutRegisterInHex 25;
+    $t->lengthFromKeys(25)->outNL;
+
+
+    $t->firstFromMemory(28);
+    $t->incSizeInFirst (28);
+    $t->rootIntoFirst  (28, K value => 0x2222);
+    $t->root           (28, K value => 0x2222);  PrintOutZF;
+    $t->root           (28, K value => 0x2221);  PrintOutZF;
+    $t->root           (28, K value => 0x2222);  PrintOutZF;
+    $t->firstIntoMemory(28);
+
+    $t->first->outNL;
+    $b->outNL;
+    $a->dump("1111");
+    PrintOutRegisterInHex 31, 30, 29, 28;
+
+
+    my $l = $t->leafFromNodes(29); If $l > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
+    my $r = $t->leafFromNodes(28); If $r > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
+
+
+    ok Assemble eq => <<END;
+   zmm25: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
+  b at offset 56 in zmm25: 0000 0000 0000 0009
+  ZF=1
+  ZF=0
+  ZF=1
+  first: 0000 0000 0000 0040
+  address: 0000 0000 0000 0080
+  1111
+  Area     Size:     4096    Used:      320
+  0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 2222 ____ ____ ____  01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ 33__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  09__ ____ C0__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
+   zmm31: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
+   zmm30: 0000 0100 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm29: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm28: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001   0000 0000 0000 2222
+  29 Leaf
+  28 Branch
+  END
+
+
+=head2 Nasm::X86::Tree::sizeFromFirst($tree, $zmm)
+
+Return a variable containing the number of keys in the specified tree when the first block is held in a zmm register..
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm containing first block
+
+=head2 Nasm::X86::Tree::sizeIntoFirst($tree, $zmm, $value)
+
+Put the contents of a variable into the size field of the first block of a tree  when the first block is held in a zmm register.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm containing first block
+  3  $value     Variable containing value to put
+
+=head2 Nasm::X86::Tree::incSizeInFirst($tree, $zmm)
+
+Increment the size field in the first block of a tree when the first block is held in a zmm register.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm containing first block
+
+=head2 Nasm::X86::Tree::incSize($tree)
+
+Increment the size of a tree
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+
+=head2 Nasm::X86::Tree::decSizeInFirst($tree, $zmm)
+
+Decrement the size field in the first block of a tree when the first block is held in a zmm register.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm containing first block
+
+=head2 Nasm::X86::Tree::decSize($tree)
+
+Decrement the size of a tree
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+
+=head2 Nasm::X86::Tree::allocBlock($tree, $K, $D, $N)
+
+Allocate a keys/data/node block and place it in the numbered zmm registers.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $K         Numbered zmm for keys
+  3  $D         Numbered zmm for data
+  4  $N         Numbered zmm for children
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree;
+    my $b = $t->allocBlock(31, 30, 29);
+    K(data => 0x33)->dIntoZ(31, 4);
+    $t->lengthIntoKeys(31, K length =>0x9);
+    $t->putBlock($b, 31, 30, 29);
+    $t->getBlock($b, 25, 24, 23);
+    PrintOutRegisterInHex 25;
+    $t->lengthFromKeys(25)->outNL;
+
+
+    $t->firstFromMemory(28);
+    $t->incSizeInFirst (28);
+    $t->rootIntoFirst  (28, K value => 0x2222);
+    $t->root           (28, K value => 0x2222);  PrintOutZF;
+    $t->root           (28, K value => 0x2221);  PrintOutZF;
+    $t->root           (28, K value => 0x2222);  PrintOutZF;
+    $t->firstIntoMemory(28);
+
+    $t->first->outNL;
+    $b->outNL;
+    $a->dump("1111");
+    PrintOutRegisterInHex 31, 30, 29, 28;
+
+
+    my $l = $t->leafFromNodes(29); If $l > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
+    my $r = $t->leafFromNodes(28); If $r > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
+
+
+    ok Assemble eq => <<END;
+   zmm25: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
+  b at offset 56 in zmm25: 0000 0000 0000 0009
+  ZF=1
+  ZF=0
+  ZF=1
+  first: 0000 0000 0000 0040
+  address: 0000 0000 0000 0080
+  1111
+  Area     Size:     4096    Used:      320
+  0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 2222 ____ ____ ____  01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ 33__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  09__ ____ C0__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
+   zmm31: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
+   zmm30: 0000 0100 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm29: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm28: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001   0000 0000 0000 2222
+  29 Leaf
+  28 Branch
+  END
+
+
+=head2 Nasm::X86::Tree::freeBlock($tree, $k, $K, $D, $N)
+
+Free a keys/data/node block whise keys  block entry is located at the specified offset.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $k         Offset of keys block
+  3  $K         Numbered zmm for keys
+  4  $D         Numbered zmm for data
+  5  $N         Numbered zmm for children
+
+=head2 Nasm::X86::Tree::upFromData($tree, $zmm)
+
+Up from the data zmm in a block in a tree
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm containing data block
+
+=head2 Nasm::X86::Tree::upIntoData($tree, $value, $zmm)
+
+Up into the data zmm in a block in a tree
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $value     Variable containing value to put
+  3  $zmm       Number of zmm containing first block
+
+=head2 Nasm::X86::Tree::lengthFromKeys($t, $zmm)
+
+Get the length of the keys block in the numbered zmm and return it as a variable.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Zmm number
+
+=head2 Nasm::X86::Tree::lengthIntoKeys($t, $zmm, $length)
+
+Get the length of the block in the numbered zmm from the specified variable.
+
+     Parameter  Description
+  1  $t         Tree
+  2  $zmm       Zmm number
+  3  $length    Length variable
+
+=head2 Nasm::X86::Tree::incLengthInKeys($t, $K)
+
+Increment the number of keys in a keys block or complain if such is not possible
+
+     Parameter  Description
+  1  $t         Tree
+  2  $K         Zmm number
+
+=head2 Nasm::X86::Tree::decLengthInKeys($t, $K)
+
+Decrement the number of keys in a keys block or complain if such is not possible
+
+     Parameter  Description
+  1  $t         Tree
+  2  $K         Zmm number
+
+=head2 Nasm::X86::Tree::leafFromNodes($tree, $zmm)
+
+Return a variable containing true if we are on a leaf.  We determine whether we are on a leaf by checking the offset of the first sub node.  If it is zero we are on a leaf otherwise not.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $zmm       Number of zmm containing node block
+
+=head2 Nasm::X86::Tree::getLoop($t, $zmm)
+
+Return the value of the loop field as a variable.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm
+
+=head2 Nasm::X86::Tree::putLoop($t, $value, $zmm)
+
+Set the value of the loop field from a variable.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $value     Variable containing offset of next loop entry
+  3  $zmm       Numbered zmm
+
+=head2 Nasm::X86::Tree::maskForFullKeyArea()
+
+Place a mask for the full key area in the numbered mask register
+
+
+=head2 Nasm::X86::Tree::maskForFullNodesArea()
+
+Place a mask for the full nodes area in the numbered mask register
+
+
+=head2 Nasm::X86::Tree::getBlock($t, $offset, $K, $D, $N)
+
+Get the keys, data and child nodes for a tree node from the specified offset in the area for the tree.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $offset    Offset of block as a variable
+  3  $K         Numbered zmm for keys
+  4  $D         Numbered data for keys
+  5  $N         Numbered zmm for nodes
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree;
+    my $b = $t->allocBlock(31, 30, 29);
+    K(data => 0x33)->dIntoZ(31, 4);
+    $t->lengthIntoKeys(31, K length =>0x9);
+    $t->putBlock($b, 31, 30, 29);
+    $t->getBlock($b, 25, 24, 23);
+    PrintOutRegisterInHex 25;
+    $t->lengthFromKeys(25)->outNL;
+
+
+    $t->firstFromMemory(28);
+    $t->incSizeInFirst (28);
+    $t->rootIntoFirst  (28, K value => 0x2222);
+    $t->root           (28, K value => 0x2222);  PrintOutZF;
+    $t->root           (28, K value => 0x2221);  PrintOutZF;
+    $t->root           (28, K value => 0x2222);  PrintOutZF;
+    $t->firstIntoMemory(28);
+
+    $t->first->outNL;
+    $b->outNL;
+    $a->dump("1111");
+    PrintOutRegisterInHex 31, 30, 29, 28;
+
+
+    my $l = $t->leafFromNodes(29); If $l > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
+    my $r = $t->leafFromNodes(28); If $r > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
+
+
+    ok Assemble eq => <<END;
+   zmm25: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
+  b at offset 56 in zmm25: 0000 0000 0000 0009
+  ZF=1
+  ZF=0
+  ZF=1
+  first: 0000 0000 0000 0040
+  address: 0000 0000 0000 0080
+  1111
+  Area     Size:     4096    Used:      320
+  0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 2222 ____ ____ ____  01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ 33__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  09__ ____ C0__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
+   zmm31: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
+   zmm30: 0000 0100 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm29: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm28: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001   0000 0000 0000 2222
+  29 Leaf
+  28 Branch
+  END
+
+
+=head2 Nasm::X86::Tree::putBlock($t, $offset, $K, $D, $N)
+
+Put a tree block held in three zmm registers back into the area holding the tree at the specified offset.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $offset    Offset of block as a variable
+  3  $K         Numbered zmm for keys
+  4  $D         Numbered data for keys
+  5  $N         Numbered zmm for nodes
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree;
+    my $b = $t->allocBlock(31, 30, 29);
+    K(data => 0x33)->dIntoZ(31, 4);
+    $t->lengthIntoKeys(31, K length =>0x9);
+    $t->putBlock($b, 31, 30, 29);
+    $t->getBlock($b, 25, 24, 23);
+    PrintOutRegisterInHex 25;
+    $t->lengthFromKeys(25)->outNL;
+
+
+    $t->firstFromMemory(28);
+    $t->incSizeInFirst (28);
+    $t->rootIntoFirst  (28, K value => 0x2222);
+    $t->root           (28, K value => 0x2222);  PrintOutZF;
+    $t->root           (28, K value => 0x2221);  PrintOutZF;
+    $t->root           (28, K value => 0x2222);  PrintOutZF;
+    $t->firstIntoMemory(28);
+
+    $t->first->outNL;
+    $b->outNL;
+    $a->dump("1111");
+    PrintOutRegisterInHex 31, 30, 29, 28;
+
+
+    my $l = $t->leafFromNodes(29); If $l > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
+    my $r = $t->leafFromNodes(28); If $r > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
+
+
+    ok Assemble eq => <<END;
+   zmm25: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
+  b at offset 56 in zmm25: 0000 0000 0000 0009
+  ZF=1
+  ZF=0
+  ZF=1
+  first: 0000 0000 0000 0040
+  address: 0000 0000 0000 0080
+  1111
+  Area     Size:     4096    Used:      320
+  0000 0000 0000 0000 | __10 ____ ____ ____  4001 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0040 | 2222 ____ ____ ____  01__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  0000 0000 0000 0080 | ____ ____ 33__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  09__ ____ C0__ ____
+  0000 0000 0000 00C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __01 ____
+   zmm31: 0000 00C0 0000 0009   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0033 0000 0000
+   zmm30: 0000 0100 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm29: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm28: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001   0000 0000 0000 2222
+  29 Leaf
+  28 Branch
+  END
+
+
+=head2 Nasm::X86::Tree::firstNode($tree, $K, $D, $N)
+
+Return as a variable the last node block in the specified tree node held in a zmm
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $K         Key zmm
+  3  $D         Data zmm
+  4  $N         Node zmm for a node block
+
+B<Example:>
+
+
+    my $L = 13;
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => $L);
+
+    my ($K, $D, $N) = (31, 30, 29);
+
+    K(K => Rd( 1..16))->loadZmm($K);
+    K(K => Rd( 1..16))->loadZmm($N);
+
+    $t->lengthIntoKeys($K, K length => $t->length);
+
+    PrintOutRegisterInHex 31, 29;
+    my $f = $t->firstNode($K, $D, $N);
+    my $l = $t-> lastNode($K, $D, $N);
+    $f->outNL;
+    $l->outNL;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 0010 0000 000D   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  d at offset 0 in zmm29: 0000 0000 0000 0001
+  d at offset (b at offset 56 in zmm31 times 4) in zmm29: 0000 0000 0000 000E
+  END
+
+    my $L = 13;
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => $L);
+
+    my ($K, $D, $N) = (31, 30, 29);
+
+    K(K => Rd( 1..16))->loadZmm($K);
+    K(K => Rd( 1..16))->loadZmm($N);
+
+    $t->lengthIntoKeys($K, K length => $t->length);
+
+    PrintOutRegisterInHex 31, 29;
+    my $f = $t->firstNode($K, $D, $N);
+    my $l = $t-> lastNode($K, $D, $N);
+    $f->outNL;
+    $l->outNL;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 0010 0000 000D   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  d at offset 0 in zmm29: 0000 0000 0000 0001
+  d at offset (b at offset 56 in zmm31 times 4) in zmm29: 0000 0000 0000 000E
+  END
+
+
+=head2 Nasm::X86::Tree::lastNode($tree, $K, $D, $N)
+
+Return as a variable the last node block in the specified tree node held in a zmm
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $K         Key zmm
+  3  $D         Data zmm
+  4  $N         Node zmm for a node block
+
+B<Example:>
+
+
+    my $L = 13;
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => $L);
+
+    my ($K, $D, $N) = (31, 30, 29);
+
+    K(K => Rd( 1..16))->loadZmm($K);
+    K(K => Rd( 1..16))->loadZmm($N);
+
+    $t->lengthIntoKeys($K, K length => $t->length);
+
+    PrintOutRegisterInHex 31, 29;
+    my $f = $t->firstNode($K, $D, $N);
+    my $l = $t-> lastNode($K, $D, $N);
+    $f->outNL;
+    $l->outNL;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 0010 0000 000D   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  d at offset 0 in zmm29: 0000 0000 0000 0001
+  d at offset (b at offset 56 in zmm31 times 4) in zmm29: 0000 0000 0000 000E
+  END
+
+    my $L = 13;
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => $L);
+
+    my ($K, $D, $N) = (31, 30, 29);
+
+    K(K => Rd( 1..16))->loadZmm($K);
+    K(K => Rd( 1..16))->loadZmm($N);
+
+    $t->lengthIntoKeys($K, K length => $t->length);
+
+    PrintOutRegisterInHex 31, 29;
+    my $f = $t->firstNode($K, $D, $N);
+    my $l = $t-> lastNode($K, $D, $N);
+    $f->outNL;
+    $l->outNL;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 0010 0000 000D   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+  d at offset 0 in zmm29: 0000 0000 0000 0001
+  d at offset (b at offset 56 in zmm31 times 4) in zmm29: 0000 0000 0000 000E
+  END
+
+
+=head2 Nasm::X86::Tree::relativeNode($tree, $offset, $relative, $K, $N)
+
+Return as a variable a node offset relative (specified as ac constant) to another offset in the same node in the specified zmm
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $offset    Offset
+  3  $relative  Relative location
+  4  $K         Key zmm
+  5  $N         Node zmm
+
+=head2 Nasm::X86::Tree::nextNode($tree, $offset, $K, $N)
+
+Return as a variable the next node block offset after the specified one in the specified zmm
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $offset    Offset
+  3  $K         Key zmm
+  4  $N         Node zmm
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 13);
+
+    K(loop => 66)->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      $t->put($index, 2 * $index);
+     });
+    $t->getBlock(K(offset=>0x200), 31, 30, 29);
+    $t->nextNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
+    $t->prevNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
+
+    ok Assemble eq => <<END;
+  500
+  380
+  END
+
+
+=head2 Nasm::X86::Tree::prevNode($tree, $offset, $K, $N)
+
+Return as a variable the previous node block offset after the specified one in the specified zmm
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $offset    Offset
+  3  $K         Key zmm
+  4  $N         Node zmm
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 13);
+
+    K(loop => 66)->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      $t->put($index, 2 * $index);
+     });
+    $t->getBlock(K(offset=>0x200), 31, 30, 29);
+    $t->nextNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
+    $t->prevNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
+
+    ok Assemble eq => <<END;
+  500
+  380
+  END
+
+
+=head2 Nasm::X86::Tree::indexNode($tree, $offset, $K, $N)
+
+Return, as a variable, the point mask obtained by testing the nodes in a block for specified offset. We have to supply the keys as well so that we can find the number of nodes. We need the number of nodes so that we only search the valid area not all possible node positions in the zmm.
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $offset    Key as a variable
+  3  $K         Zmm containing keys
+  4  $N         Comparison from B<Vpcmp>
+
+=head2 Nasm::X86::Tree::expand($tree, $offset)
+
+Expand the node at the specified offset in the specified tree if it needs to be expanded and is not the root node (which cannot be expanded because it has no siblings to take substance from whereas as all other nodes do).  Set tree.found to the offset of the left sibling if the node at the specified offset was merged into it and freed else set tree.found to zero.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $offset    Offset of node block to expand
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+
+    my ($PK, $PD, $PN) = (31, 30, 29);
+    my ($LK, $LD, $LN) = (28, 27, 26);
+    my ($RK, $RD, $RN) = (25, 24, 23);
+    my ($lK, $lD, $lN) = (22, 21, 20);
+    my ($rK, $rD, $rN) = (19, 18, 17);
+    my $F = 16;
+
+    my $P  = $t->allocBlock($PK, $PD, $PN);
+    my $L  = $t->allocBlock($LK, $LD, $LN);
+    my $R  = $t->allocBlock($RK, $RD, $RN);
+    my $l  = $t->allocBlock($lK, $lD, $lN);
+    my $r  = $t->allocBlock($rK, $rD, $rN);
+
+    $t->lengthIntoKeys($PK, K length => 1);
+    $t->lengthIntoKeys($LK, K length => 1);
+    $t->lengthIntoKeys($RK, K length => 1);
+
+    K(key=>1)->dIntoZ($LK, 0);  K(key=>1)->dIntoZ($LD, 0);
+    K(key=>2)->dIntoZ($PK, 0);  K(key=>2)->dIntoZ($PD, 0);
+    K(key=>3)->dIntoZ($RK, 0);  K(key=>3)->dIntoZ($RD, 0);
+
+    $L->dIntoZ($PN, 0);
+    $R->dIntoZ($PN, 4);
+    $l->dIntoZ($LN, 0); $l->dIntoZ($LN, 4);
+    $r->dIntoZ($RN, 0); $r->dIntoZ($RN, 4);
+
+    $t->upIntoData($P, $LD);
+    $t->upIntoData($P, $RD);
+    $t->upIntoData($L, $lD);
+    $t->upIntoData($R, $rD);
+
+    $t->firstFromMemory($F);
+    $t->rootIntoFirst($F, $P);
+    $t->sizeIntoFirst($F, K size => 3);
+
+    $t->firstIntoMemory($F);
+    $t->putBlock($P, $PK, $PD, $PN);
+    $t->putBlock($L, $LK, $LD, $LN);
+    $t->putBlock($R, $RK, $RD, $RN);
+    $t->putBlock($l, $lK, $lD, $lN);
+    $t->putBlock($r, $rK, $rD, $rN);
+
+    PrintOutStringNL "Start";
+    PrintOutRegisterInHex reverse $F..$PK;
+
+    $t->expand($L);
+
+    $t->firstFromMemory($F);
+    $t->getBlock($P, $PK, $PD, $PN);
+    $t->getBlock($L, $LK, $LD, $LN);
+    $t->getBlock($R, $RK, $RD, $RN);
+
+    PrintOutStringNL "Finish";
+    PrintOutRegisterInHex reverse $LN..$LK;
+
+    PrintOutStringNL "Children";
+    PrintOutRegisterInHex reverse $LN..$LK;
+
+    ok Assemble eq => <<END;
+  Start
+   zmm31: 0000 00C0 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0002
+   zmm30: 0000 0100 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0002
+   zmm29: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0200 0000 0140
+   zmm28: 0000 0180 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001
+   zmm27: 0000 01C0 0000 0080   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0001
+   zmm26: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 02C0 0000 02C0
+   zmm25: 0000 0240 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003
+   zmm24: 0000 0280 0000 0080   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003
+   zmm23: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0380 0000 0380
+   zmm22: 0000 0300 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm21: 0000 0340 0000 0140   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm20: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm19: 0000 03C0 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm18: 0000 0400 0000 0200   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm17: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm16: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0000 0000 0080
+  Finish
+   zmm28: 0000 0180 0000 0003   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0002 0000 0001
+   zmm27: 0000 01C0 0000 0080   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0002 0000 0001
+   zmm26: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0380 0000 0380   0000 02C0 0000 02C0
+  Children
+   zmm28: 0000 0180 0000 0003   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0002 0000 0001
+   zmm27: 0000 01C0 0000 0080   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0003   0000 0002 0000 0001
+   zmm26: 0000 0040 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0380 0000 0380   0000 02C0 0000 02C0
+  END
+
+
+=head2 Nasm::X86::Tree::replace($tree, $point, $K, $D)
+
+Replace the key/data/subTree at the specified point in the specified zmm with the values found in the tree key/data/sub tree fields.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $point     Point at which to extract
+  3  $K         Keys zmm
+  4  $D         Data zmm
+
+B<Example:>
+
+
+    my ($K, $D) = (31, 30);
+
+    K(K => Rd(reverse 1..16))->loadZmm($K);
+    K(K => Rd(reverse 1..16))->loadZmm($D);
+    PrintOutStringNL "Start";
+    PrintOutRegisterInHex $K, $D;
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 13);
+
+    K(loop => 14)->for(sub
+     {my ($index, $start, $next, $end) = @_;
+
+      $t->key    ->copy($index);
+      $t->data   ->copy($index * 2);
+      $t->subTree->copy($index % 2);
+
+      $t->replace(K(one=>1)<<$index, $K, $D);
+
+      $index->outNL;
+      PrintOutRegisterInHex $K, $D;
+     });
+
+    ok Assemble eq => <<END;
+  Start
+   zmm31: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 000D 0000 000E   0000 000F 0000 0010
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 000D 0000 000E   0000 000F 0000 0010
+  index: 0000 0000 0000 0000
+   zmm31: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 000D 0000 000E   0000 000F 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 000D 0000 000E   0000 000F 0000 0000
+  index: 0000 0000 0000 0001
+   zmm31: 0000 0001 0002 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 000D 0000 000E   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 000D 0000 000E   0000 0002 0000 0000
+  index: 0000 0000 0000 0002
+   zmm31: 0000 0001 0002 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 000D 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 000D 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 0003
+   zmm31: 0000 0001 000A 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 000C   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 0004
+   zmm31: 0000 0001 000A 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000B 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 0005
+   zmm31: 0000 0001 002A 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000A   0000 000A 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 0006
+   zmm31: 0000 0001 002A 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0009 0000 000C   0000 000A 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 0007
+   zmm31: 0000 0001 00AA 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 000E 0000 000C   0000 000A 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 0008
+   zmm31: 0000 0001 00AA 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0007 0000 0010   0000 000E 0000 000C   0000 000A 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 0009
+   zmm31: 0000 0001 02AA 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0006   0000 0012 0000 0010   0000 000E 0000 000C   0000 000A 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 000A
+   zmm31: 0000 0001 02AA 0002   0000 0003 0000 0004   0000 0005 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0005 0000 0014   0000 0012 0000 0010   0000 000E 0000 000C   0000 000A 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 000B
+   zmm31: 0000 0001 0AAA 0002   0000 0003 0000 0004   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0004   0000 0016 0000 0014   0000 0012 0000 0010   0000 000E 0000 000C   0000 000A 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 000C
+   zmm31: 0000 0001 0AAA 0002   0000 0003 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 0003 0000 0018   0000 0016 0000 0014   0000 0012 0000 0010   0000 000E 0000 000C   0000 000A 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  index: 0000 0000 0000 000D
+   zmm31: 0000 0001 2AAA 0002   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002   0000 0001 0000 0000
+   zmm30: 0000 0001 0000 0002   0000 001A 0000 0018   0000 0016 0000 0014   0000 0012 0000 0010   0000 000E 0000 000C   0000 000A 0000 0008   0000 0006 0000 0004   0000 0002 0000 0000
+  END
+
+
+=head2 Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($tree, $point, $K, $D, $IK, $ID, $subTree)
+
+Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $point     Point at which to overwrite formatted as a one in a sea of zeros
+  3  $K         Key
+  4  $D         Data
+  5  $IK        Insert key
+  6  $ID        Insert data
+  7  $subTree   Sub tree if tree.
+
+=head2 Nasm::X86::Tree::indexXX($tree, $key, $K, $cmp)
+
+Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $key       Key as a variable
+  3  $K         Zmm containing keys
+  4  $cmp       Comparison from B<Vpcmp>
+
+=head2 Nasm::X86::Tree::indexEq($tree, $key, $K)
+
+Return the  position of a key in a zmm equal to the specified key as a point in a variable.
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $key       Key as a variable
+  3  $K         Zmm containing keys
+
+B<Example:>
+
+
+    my $tree = DescribeTree(length => 7);
+
+    my $K = 31;
+
+    K(K => Rd(0..15))->loadZmm($K);
+    $tree->lengthIntoKeys($K, K length => 13);
+
+    K(loop => 16)->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      my $f = $tree->indexEq ($index, $K);
+      $index->outRightInDec(K width =>  2);
+      $f    ->outRightInBin(K width => 14);
+      PrintOutStringNL " |"
+     });
+
+    ok Assemble eq => <<END;
+   0             1 |
+   1            10 |
+   2           100 |
+   3          1000 |
+   4         10000 |
+   5        100000 |
+   6       1000000 |
+   7      10000000 |
+   8     100000000 |
+   9    1000000000 |
+  10   10000000000 |
+  11  100000000000 |
+  12 1000000000000 |
+  13               |
+  14               |
+  15               |
+  END
+
+    my $tree = DescribeTree();
+    $tree->maskForFullKeyArea(7);                                                 # Mask for full key area
+    PrintOutRegisterInHex k7;
+    $tree->maskForFullNodesArea(7);                                               # Mask for full nodes area
+    PrintOutRegisterInHex k7;
+    ok Assemble eq => <<END;
+      k7: 0000 0000 0000 3FFF
+      k7: 0000 0000 0000 7FFF
+  END
+
+
+=head2 Nasm::X86::Tree::insertionPoint($tree, $key, $K)
+
+Return the position at which a key should be inserted into a zmm as a point in a variable.
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $key       Key as a variable
+  3  $K         Zmm containing keys
+
+B<Example:>
+
+
+    my $tree = DescribeTree(length => 7);
+
+    my $K = 31;
+
+    K(K => Rd(map {2*$_} 1..16))->loadZmm($K);
+    $tree->lengthIntoKeys($K, K length => 13);
+
+    K(loop => 32)->for(sub
+     {my ($index, $start, $next, $end) = @_;
+      my $f = $tree->insertionPoint($index, $K);
+      $index->outRightInDec(K width =>  2);
+      $f    ->outRightInBin(K width => 16);
+      PrintOutStringNL " |"
+     });
+
+    ok Assemble eq => <<END;
+   0               1 |
+   1               1 |
+   2              10 |
+   3              10 |
+   4             100 |
+   5             100 |
+   6            1000 |
+   7            1000 |
+   8           10000 |
+   9           10000 |
+  10          100000 |
+  11          100000 |
+  12         1000000 |
+  13         1000000 |
+  14        10000000 |
+  15        10000000 |
+  16       100000000 |
+  17       100000000 |
+  18      1000000000 |
+  19      1000000000 |
+  20     10000000000 |
+  21     10000000000 |
+  22    100000000000 |
+  23    100000000000 |
+  24   1000000000000 |
+  25   1000000000000 |
+  26  10000000000000 |
+  27  10000000000000 |
+  28  10000000000000 |
+  29  10000000000000 |
+  30  10000000000000 |
+  31  10000000000000 |
+  END
+
+
+=head2 Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($tree, $point, $F, $K, $D, $IK, $ID, $subTree)
+
+Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $point     Point at which to insert formatted as a one in a sea of zeros
+  3  $F         First
+  4  $K         Key
+  5  $D         Data
+  6  $IK        Insert key
+  7  $ID        Insert data
+  8  $subTree   Sub tree if tree.
+
+=head2 Nasm::X86::Tree::splitNode($tree, $offset)
+
+Split a node if it it is full returning a variable that indicates whether a split occurred or not.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $offset    Offset of block in area of tree as a variable
+
+=head2 Nasm::X86::Tree::splitNotRoot($tree, $newRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)
+
+Split a non root left node pushing its excess right and up.
+
+      Parameter  Description
+   1  $tree      Tree definition
+   2  $newRight  Variable offset in area of right node block
+   3  $PK        Parent keys zmm
+   4  $PD        Data zmm
+   5  $PN        Nodes zmm
+   6  $LK        Left keys zmm
+   7  $LD        Data zmm
+   8  $LN        Nodes zmm
+   9  $RK        Right keys
+  10  $RD        Data
+  11  $RN        Node zmm
+
+=head2 Nasm::X86::Tree::splitRoot($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)
+
+Split a non root node into left and right nodes with the left half left in the left node and splitting key/data pushed into the parent node with the remainder pushed into the new right node
+
+      Parameter  Description
+   1  $tree      Tree definition
+   2  $nLeft     Variable offset in area of new left node block
+   3  $nRight    Variable offset in area of new right node block
+   4  $PK        Parent keys zmm
+   5  $PD        Data zmm
+   6  $PN        Nodes zmm
+   7  $LK        Left keys zmm
+   8  $LD        Data zmm
+   9  $LN        Nodes zmm
+  10  $RK        Right keys
+  11  $RD        Data
+  12  $RN        Nodes zmm
+
+=head2 Nasm::X86::Tree::findAndReload($t, $key)
+
+Find a key in the specified tree and clone it is it is a sub tree.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $key       Key as a dword
+
+B<Example:>
+
+
+  if (00) {
+    my $L = K(loop, 4);
+    my $b = CreateArea;
+    my $T = $b->CreateTree;
+    my $t = $T->describeTreereload;
+
+    $L->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $t->insertTreeAndReload($i);
+      $t->first->outNL;
+     });
+
+    $t->insert($L, $L*2);
+
+    my $f = $T->reload;
+    $L->for(sub
+     {my ($i, $start, $next, $end) = @_;
+      $f->findAndReload($i);
+      $i->out('i: '); $f->found->out('  f: '); $f->data->out('  d: '); $f->subTree->outNL('  s: ');
+     });
+    $f->find($L);
+    $L->out('N: '); $f->found->out('  f: '); $f->data->out('  d: ');   $f->subTree->outNL('  s: ');
+
+    ok Assemble(debug => 0, eq => <<END);
+  first: 0000 0000 0000 0098
+  first: 0000 0000 0000 0118
+  first: 0000 0000 0000 0198
+  first: 0000 0000 0000 0218
+  i: 0000 0000 0000 0000  f: 0000 0000 0000 0001  d: 0000 0000 0000 0098  s: 0000 0000 0000 0001
+  i: 0000 0000 0000 0001  f: 0000 0000 0000 0001  d: 0000 0000 0000 0118  s: 0000 0000 0000 0001
+  i: 0000 0000 0000 0002  f: 0000 0000 0000 0001  d: 0000 0000 0000 0198  s: 0000 0000 0000 0001
+  i: 0000 0000 0000 0003  f: 0000 0000 0000 0001  d: 0000 0000 0000 0218  s: 0000 0000 0000 0001
+  N: 0000 0000 0000 0004  f: 0000 0000 0000 0001  d: 0000 0000 0000 0008  s: 0000 0000 0000 0000
+  END
+   }
+
+
+=head2 Nasm::X86::Tree::leftOrRightMost($tree, $dir, $node, $offset)
+
+Return the offset of the left most or right most node.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $dir       Direction: left = 0 or right = 1
+  3  $node      Start node
+  4  $offset    Offset of located node
+
+=head2 Nasm::X86::Tree::leftMost($t, $node, $offset)
+
+Return the offset of the left most node from the specified node.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $node      Start node
+  3  $offset    Returned offset
+
+=head2 Nasm::X86::Tree::rightMost($t, $node, $offset)
+
+Return the offset of the left most node from the specified node.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $node      Start node
+  3  $offset    Returned offset
+
+=head2 Nasm::X86::Tree::isTree($t, $zmm, $point)
+
+Set the Zero Flag to oppose the tree bit in the numbered zmm register holding the keys of a node to indicate whether the data element indicated by the specified register is an offset to a sub tree in the containing area or not.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm register holding the keys for a node in the tree
+  3  $point     Register showing point to test
+
+B<Example:>
+
+
+
+    my $t = DescribeTree;
+    Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
+
+                                                       $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+
+    $t->getTreeBits(31, r8);
+    V(TreeBits => r8)->outRightInHexNL(K width => 4);
+    PrintOutRegisterInHex 31;
+
+    Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 0000 0004 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0006 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0007 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0005 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+               101
+              1001
+             10011
+    13
+   zmm31: 0000 0000 0013 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  ZF=0
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+   zmm31: 0000 0000 3FFF 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+
+=head2 Nasm::X86::Tree::getTreeBit($t, $zmm, $point)
+
+Get the tree bit from the numbered zmm at the specified point and return it in a variable as a one or a zero.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Register showing point to test
+  3  $point     Numbered zmm register holding the keys for a node in the tree
+
+=head2 Nasm::X86::Tree::setOrClearTreeBit($t, $set, $point, $zmm)
+
+Set or clear the tree bit selected by the specified point in the numbered zmm register holding the keys of a node to indicate that the data element indicated by the specified register is an offset to a sub tree in the containing area.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $set       Set if true else clear
+  3  $point     Register holding point to set
+  4  $zmm       Numbered zmm register holding the keys for a node in the tree
+
+=head2 Nasm::X86::Tree::setTreeBit($t, $zmm, $point)
+
+Set the tree bit in the numbered zmm register holding the keys of a node to indicate that the data element indexed by the specified register is an offset to a sub tree in the containing area.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm register holding the keys for a node in the tree
+  3  $point     Register holding the point to clear
+
+=head2 Nasm::X86::Tree::clearTreeBit($t, $zmm, $point)
+
+Clear the tree bit in the numbered zmm register holding the keys of a node to indicate that the data element indexed by the specified register is an offset to a sub tree in the containing area.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm register holding the keys for a node in the tree
+  3  $point     Register holding register holding the point to set
+
+=head2 Nasm::X86::Tree::setOrClearTreeBitToMatchContent($t, $zmm, $point, $content)
+
+Set or clear the tree bit pointed to by the specified register depending on the content of the specified variable.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm
+  3  $point     Register indicating point
+  4  $content   Content indicating zero or one
+
+=head2 Nasm::X86::Tree::getTreeBits($t, $zmm, $register)
+
+Load the tree bits from the numbered zmm into the specified register.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm
+  3  $register  Target register
+
+B<Example:>
+
+
+
+    my $t = DescribeTree;
+    Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
+
+                                                       $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+
+    $t->getTreeBits(31, r8);
+    V(TreeBits => r8)->outRightInHexNL(K width => 4);
+    PrintOutRegisterInHex 31;
+
+    Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 0000 0004 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0006 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0007 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0005 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+               101
+              1001
+             10011
+    13
+   zmm31: 0000 0000 0013 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  ZF=0
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+   zmm31: 0000 0000 3FFF 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+
+=head2 Nasm::X86::Tree::setTreeBits($t, $zmm, $register)
+
+Put the tree bits in the specified register into the numbered zmm.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm
+  3  $register  Target register
+
+B<Example:>
+
+
+
+    my $t = DescribeTree;
+    Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
+
+                                                       $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+
+    $t->getTreeBits(31, r8);
+    V(TreeBits => r8)->outRightInHexNL(K width => 4);
+    PrintOutRegisterInHex 31;
+
+    Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 0000 0004 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0006 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0007 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0005 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+               101
+              1001
+             10011
+    13
+   zmm31: 0000 0000 0013 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  ZF=0
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+   zmm31: 0000 0000 3FFF 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+
+=head2 Nasm::X86::Tree::insertTreeBit($t, $onz, $zmm, $point)
+
+Insert a zero or one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $onz       0 - zero or 1 - one
+  3  $zmm       Numbered zmm
+  4  $point     Register indicating point
+
+=head2 Nasm::X86::Tree::insertZeroIntoTreeBits($t, $zmm, $point)
+
+Insert a zero into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm
+  3  $point     Register indicating point
+
+B<Example:>
+
+
+
+    my $t = DescribeTree;
+    Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
+
+                                                       $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+
+    $t->getTreeBits(31, r8);
+    V(TreeBits => r8)->outRightInHexNL(K width => 4);
+    PrintOutRegisterInHex 31;
+
+    Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 0000 0004 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0006 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0007 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0005 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+               101
+              1001
+             10011
+    13
+   zmm31: 0000 0000 0013 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  ZF=0
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+   zmm31: 0000 0000 3FFF 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+
+=head2 Nasm::X86::Tree::insertOneIntoTreeBits($t, $zmm, $point)
+
+Insert a one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm
+  3  $point     Register indicating point
+
+B<Example:>
+
+
+
+    my $t = DescribeTree;
+    Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+    Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
+
+                                                       $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+    Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+
+    $t->getTreeBits(31, r8);
+    V(TreeBits => r8)->outRightInHexNL(K width => 4);
+    PrintOutRegisterInHex 31;
+
+    Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+    Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+    Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
+
+    ok Assemble eq => <<END;
+   zmm31: 0000 0000 0004 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0006 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0007 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+   zmm31: 0000 0000 0005 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+               101
+              1001
+             10011
+    13
+   zmm31: 0000 0000 0013 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  ZF=0
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=0
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+  ZF=1
+   zmm31: 0000 0000 3FFF 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+
+=head2 Nasm::X86::Tree::insertIntoTreeBits($t, $zmm, $point, $content)
+
+Insert a one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
+
+     Parameter  Description
+  1  $t         Tree descriptor
+  2  $zmm       Numbered zmm
+  3  $point     Register indicating point
+  4  $content   Bit to insert
+
+=head2 Nasm::X86::Tree::extract($tree, $point, $K, $D, $N)
+
+Extract the key/data/node and tree bit at the specified point from the block held in the specified zmm registers.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $point     Point at which to extract
+  3  $K         Keys zmm
+  4  $D         Data zmm
+  5  $N         Node zmm
+
+B<Example:>
+
+
+    my ($K, $D, $N) = (31, 30, 29);
+
+    K(K => Rd( 1..16))->loadZmm($K);
+    K(K => Rd( 1..16))->loadZmm($D);
+    K(K => Rd(map {0} 1..16))->loadZmm($N);
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 13);
+
+    my $p = K(one => 1) << K three => 3;
+    Mov r15, 0xAAAA;
+    $t->setTreeBits($K, r15);
+
+    PrintOutStringNL "Start";
+    PrintOutRegisterInHex 31, 30, 29;
+
+    $t->extract($p, $K, $D, $N);
+
+    PrintOutStringNL "Finish";
+    PrintOutRegisterInHex 31, 30, 29;
+
+    ok Assemble eq => <<END;
+  Start
+   zmm31: 0000 0010 2AAA 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  Finish
+   zmm31: 0000 0010 2AAA 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  END
+
+
+=head2 Nasm::X86::Tree::extractFirst($tree, $K, $D, $N)
+
+Extract the first key/data and tree bit at the specified point from the block held in the specified zmm registers and place the extracted data/bit in tree data/subTree.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $K         Keys zmm
+  3  $D         Data zmm
+  4  $N         Node zmm
+
+B<Example:>
+
+
+    my ($K, $D, $N) = (31, 30, 29);
+
+    K(K => Rd( 1..16))       ->loadZmm($K);
+    K(K => Rd( 1..16))       ->loadZmm($D);
+    K(K => Rd(map {0} 1..16))->loadZmm($N);
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 13);
+
+    my $p = K(one => 1) << K three => 3;
+    Mov r15, 0xAAAA;
+    $t->setTreeBits($K, r15);
+
+    PrintOutStringNL "Start";
+    PrintOutRegisterInHex 31, 30, 29;
+
+    K(n=>4)->for(sub
+     {my ($index, $start, $next, $end) = @_;
+
+      $t->extractFirst($K, $D, $N);
+
+      PrintOutStringNL "-------------";
+      $index->outNL;
+      PrintOutRegisterInHex 31, 30, 29;
+
+      $t->data->outNL;
+      $t->subTree->outNL;
+      $t->lengthFromKeys($K)->outNL;
+     });
+
+    ok Assemble eq => <<END;
+  Start
+   zmm31: 0000 0010 2AAA 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003   0000 0002 0000 0001
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  -------------
+  index: 0000 0000 0000 0000
+   zmm31: 0000 0010 1555 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004   0000 0003 0000 0002
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  data: 0000 0000 0000 0001
+  subTree: 0000 0000 0000 0000
+  b at offset 56 in zmm31: 0000 0000 0000 000E
+  -------------
+  index: 0000 0000 0000 0001
+   zmm31: 0000 0010 0AAA 000D   0000 000E 0000 000E   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005   0000 0004 0000 0003
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  data: 0000 0000 0000 0002
+  subTree: 0000 0000 0000 0001
+  b at offset 56 in zmm31: 0000 0000 0000 000D
+  -------------
+  index: 0000 0000 0000 0002
+   zmm31: 0000 0010 0555 000C   0000 000E 0000 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000E 0000 000E   0000 000D 0000 000C   0000 000B 0000 000A   0000 0009 0000 0008   0000 0007 0000 0006   0000 0005 0000 0004
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  data: 0000 0000 0000 0003
+  subTree: 0000 0000 0000 0000
+  b at offset 56 in zmm31: 0000 0000 0000 000C
+  -------------
+  index: 0000 0000 0000 0003
+   zmm31: 0000 0010 02AA 000B   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005
+   zmm30: 0000 0010 0000 000F   0000 000E 0000 000E   0000 000E 0000 000E   0000 000E 0000 000D   0000 000C 0000 000B   0000 000A 0000 0009   0000 0008 0000 0007   0000 0006 0000 0005
+   zmm29: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
+  data: 0000 0000 0000 0004
+  subTree: 0000 0000 0000 0001
+  b at offset 56 in zmm31: 0000 0000 0000 000B
+  END
+
+
+=head2 Nasm::X86::Tree::mergeOrSteal($tree, $offset)
+
+Merge the block at the specified offset with its right sibling or steal from it. If there is no  right sibling then do the same thing but with the left sibling.  The supplied block must not be the root. The key we ae looking for must be in the tree key field.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $offset    Offset of non root block that might need to merge or steal
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    $t->put(   K(k=>1), K(d=>11));
+    $t->put(   K(k=>2), K(d=>22));
+    $t->put(   K(k=>3), K(d=>33));
+    $t->put(   K(k=>4), K(d=>44));
+    $t->put(   K(k=>5), K(d=>55));
+    $t->put(   K(k=>6), K(d=>56));
+
+    $t->getBlock(K(o=>0x2C0), 31, 30, 29);
+    $t->lengthIntoKeys(31, K 1 => 1);
+    $t->putBlock(K(o=>0x2C0), 31, 30, 29);
+    $t->dump("6");
+
+    $t->key->copy(K k => 4);
+    $t->mergeOrSteal(K o => 0x140);
+    $t->dump("5");
+
+    ok Assemble eq => <<END;
+  6
+  At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0    1
+    Keys :    2    4
+    Data :   22   44
+    Nodes:   80  140  2C0
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :   11
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    3
+        Data :   33
+      end
+      At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    5
+        Data :   55
+      end
+  end
+  5
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :   22
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :   11
+      end
+      At:  140                length:    3,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1    2
+        Keys :    3    4    5
+        Data :   33   44   55
+      end
+  end
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    $t->put(   K(k=>1), K(d=>11));
+    $t->put(   K(k=>2), K(d=>22));
+    $t->put(   K(k=>3), K(d=>33));
+    $t->put(   K(k=>4), K(d=>44));
+    $t->put(   K(k=>5), K(d=>55));
+    $t->put(   K(k=>6), K(d=>56));
+
+    $t->getBlock(K(o=>0x2C0), 31, 30, 29);
+    $t->lengthIntoKeys(31, K 1 => 1);
+    $t->putBlock(K(o=>0x2C0), 31, 30, 29);
+    $t->dump("6");
+
+    $t->key->copy(K k => 4);
+    $t->mergeOrSteal(K o => 0x140);
+    $t->dump("5");
+
+    ok Assemble eq => <<END;
+  6
+  At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0    1
+    Keys :    2    4
+    Data :   22   44
+    Nodes:   80  140  2C0
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :   11
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    3
+        Data :   33
+      end
+      At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    5
+        Data :   55
+      end
+  end
+  5
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    2
+    Data :   22
+    Nodes:   80  140
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :   11
+      end
+      At:  140                length:    3,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0    1    2
+        Keys :    3    4    5
+        Data :   33   44   55
+      end
+  end
+  END
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    $t->put(   K(k=>1), K(d=>11));
+    $t->put(   K(k=>2), K(d=>22));
+    $t->put(   K(k=>3), K(d=>33));
+    $t->put(   K(k=>4), K(d=>44));
+    $t->put(   K(k=>5), K(d=>55));
+    $t->put(   K(k=>6), K(d=>56));
+
+    $t->getBlock(K(o=>0x2C0), 31, 30, 29);
+    $t->lengthIntoKeys(31, K 1 => 1);
+    $t->putBlock(K(o=>0x2C0), 31, 30, 29);
+    $t->dump("6");
+
+    $t->key->copy(K k => 2);
+    $t->mergeOrSteal(K o => 0x80);
+    $t->dump("5");
+
+    ok Assemble eq => <<END;
+  6
+  At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0    1
+    Keys :    2    4
+    Data :   22   44
+    Nodes:   80  140  2C0
+      At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    1
+        Data :   11
+      end
+      At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    3
+        Data :   33
+      end
+      At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    5
+        Data :   55
+      end
+  end
+  5
+  At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
+    Index:    0
+    Keys :    4
+    Data :   44
+    Nodes:   80  2C0
+      At:   80                length:    3,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
+        Index:    0    1    2
+        Keys :    1    2    3
+        Data :   11   22   33
+      end
+      At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
+        Index:    0
+        Keys :    5
+        Data :   55
+      end
+  end
+  END
+
+
+=head2 Nasm::X86::Tree::stealFromRight($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)
+
+Steal one key from the node on the right where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else zero.
+
+      Parameter  Description
+   1  $tree      Tree definition
+   2  $PK        Parent keys zmm
+   3  $PD        Data zmm
+   4  $PN        Nodes zmm
+   5  $LK        Left keys zmm
+   6  $LD        Data zmm
+   7  $LN        Nodes zmm
+   8  $RK        Right keys
+   9  $RD        Data
+  10  $RN        Nodes zmm.
+
+=head2 Nasm::X86::Tree::stealFromLeft($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)
+
+Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
+
+      Parameter  Description
+   1  $tree      Tree definition
+   2  $PK        Parent keys zmm
+   3  $PD        Data zmm
+   4  $PN        Nodes zmm
+   5  $LK        Left keys zmm
+   6  $LD        Data zmm
+   7  $LN        Nodes zmm
+   8  $RK        Right keys
+   9  $RD        Data
+  10  $RN        Nodes zmm.
+
+=head2 Nasm::X86::Tree::merge($tree, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)
+
+Merge a left and right node if they are at minimum size.
+
+      Parameter  Description
+   1  $tree      Tree definition
+   2  $PK        Parent keys zmm
+   3  $PD        Data zmm
+   4  $PN        Nodes zmm
+   5  $LK        Left keys zmm
+   6  $LD        Data zmm
+   7  $LN        Nodes zmm
+   8  $RK        Right keys
+   9  $RD        Data
+  10  $RN        Nodes zmm.
+
+=head2 Nasm::X86::Tree::deleteFirstKeyAndData($tree, $K, $D)
+
+Delete the first element of a leaf mode returning its characteristics in the calling tree descriptor.
+
+     Parameter  Description
+  1  $tree      Tree definition
+  2  $K         Keys zmm
+  3  $D         Data zmm
+
+=head2 Nasm::X86::Tree::push($tree, $data)
+
+Push a data value onto a tree. If teh data is a reference to a tree then the offset of the first block of the tree is pushed.
+
+     Parameter  Description
+  1  $tree      Tree descriptor
+  2  $data      Variable data
+
+B<Example:>
+
+
+    my $a = CreateArea;
+    my $t = $a->CreateTree(length => 3);
+    my $N = K loop => 16;
+    $N->for(sub
+     {my ($i) = @_;
+      $t->push($i);
+     });
+
+    $t->size->outNL;
+    $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+
+    $N->for(sub
+     {my ($i) = @_;
+      $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+     });
+    $t->pop; $t->found->outNL("f: ");
+
+    ok Assemble eq => <<END;
+  size of tree: 0000 0000 0000 0010
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000F data: 0000 0000 0000 000F
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000E data: 0000 0000 0000 000E
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000D data: 0000 0000 0000 000D
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000C data: 0000 0000 0000 000C
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000B data: 0000 0000 0000 000B
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 000A data: 0000 0000 0000 000A
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0009 data: 0000 0000 0000 0009
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0007 data: 0000 0000 0000 0007
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0006 data: 0000 0000 0000 0006
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0005 data: 0000 0000 0000 0005
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0004 data: 0000 0000 0000 0004
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0003 data: 0000 0000 0000 0003
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0002 data: 0000 0000 0000 0002
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0001 data: 0000 0000 0000 0001
+  f: 0000 0000 0000 0001 i: 0000 0000 0000 0000 data: 0000 0000 0000 0000
+  f: 0000 0000 0000 0000
+  END
+
+
+=head2 LocateIntelEmulator()
+
+Locate the Intel Software Development Emulator.
+
+
+=head2 getInstructionCount()
+
+Get the number of instructions executed from the emulator mix file.
+
+
+=head2 Optimize(%options)
+
+Perform code optimizations.
+
+     Parameter  Description
+  1  %options   Options
+
+=head2 removeNonAsciiChars($string)
+
+Return a copy of the specified string with all the non ascii characters removed.
+
+     Parameter  Description
+  1  $string    String
+
+=head2 totalBytesAssembled()
+
+Total size in bytes of all files assembled during testing.
+
+
+
+=head1 Index
+
+
+1 L<All8Structure|/All8Structure> - Create a structure consisting of 8 byte fields.
+
+2 L<AllocateMemory|/AllocateMemory> - Allocate the variable specified amount of memory via mmap and return its address as a variable.
+
+3 L<AndBlock|/AndBlock> - Short circuit B<and>: execute a block of code to test conditions which, if all of them pass, allows the first block to continue successfully else if one of the conditions fails we execute the optional fail block.
+
+4 L<Assemble|/Assemble> - Assemble the generated code.
+
+5 L<bFromX|/bFromX> - Get the byte from the numbered xmm register and return it in a variable.
+
+6 L<bFromZ|/bFromZ> - Get the byte from the numbered zmm register and return it in a variable.
+
+7 L<Block|/Block> - Execute a block of code with labels supplied for the start and end of this code
+
+8 L<bRegFromZmm|/bRegFromZmm> - Load the specified register from the byte at the specified offset located in the numbered zmm.
+
+9 L<bRegIntoZmm|/bRegIntoZmm> - Put the byte content of the specified register into the byte in the numbered zmm at the specified offset in the zmm.
+
+10 L<CallC|/CallC> - Call a C subroutine.
+
+11 L<CheckIfMaskRegisterNumber|/CheckIfMaskRegisterNumber> - Check that a register is in fact a mask register.
+
+12 L<CheckMaskRegister|/CheckMaskRegister> - Check that a register is in fact a numbered mask register
+
+13 L<CheckMaskRegisterNumber|/CheckMaskRegisterNumber> - Check that a register is in fact a mask register and confess if it is not.
+
+14 L<checkZmmRegister|/checkZmmRegister> - Check that a register is a zmm register
+
+15 L<ChooseRegisters|/ChooseRegisters> - Choose the specified numbers of registers excluding those on the specified list.
+
+16 L<ClassifyInRange|/ClassifyInRange> - Character classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with each double word in zmm0 having the classification in the highest 8 bits and with zmm0 and zmm1 having the utf32 character at the start (zmm0) and end (zmm1) of each range in the lowest 18 bits.
+
+17 L<ClassifyRange|/ClassifyRange> - Implementation of ClassifyInRange and ClassifyWithinRange.
+
+18 L<ClassifyWithInRange|/ClassifyWithInRange> - Bracket classification: Classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification range in the high byte of each dword in zmm0 and the utf32 character at the start (zmm0) and end (zmm1) of each range in the lower 18 bits of each dword.
+
+19 L<ClassifyWithInRangeAndSaveOffset|/ClassifyWithInRangeAndSaveOffset> - Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification code in the highest byte of each double word in zmm0 and the offset of the first element in the range in the highest byte of each dword in zmm1.
+
+20 L<ClassifyWithInRangeAndSaveWordOffset|/ClassifyWithInRangeAndSaveWordOffset> - Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1, zmm2 formatted in double words.
+
+21 L<ClearMemory|/ClearMemory> - Clear memory wit a variable address and variable length
+
+22 L<ClearRegisters|/ClearRegisters> - Clear registers by setting them to zero.
+
+23 L<ClearZF|/ClearZF> - Clear the zero flag.
+
+24 L<CloseFile|/CloseFile> - Close the file whose descriptor is in rax.
+
+25 L<Comment|/Comment> - Insert a comment into the assembly code.
+
+26 L<CommentWithTraceBack|/CommentWithTraceBack> - Insert a comment into the assembly code with a traceback showing how it was generated.
+
+27 L<convert_rax_from_utf32_to_utf8|/convert_rax_from_utf32_to_utf8> - Convert a utf32 character held in rax to a utf8 character held in rax
+
+28 L<ConvertUtf8ToUtf32|/ConvertUtf8ToUtf32> - Convert a string of utf8 to an allocated block of utf32 and return its address and length.
+
+29 L<CopyMemory|/CopyMemory> - Copy memory.
+
+30 L<copyStructureMinusVariables|/copyStructureMinusVariables> - Copy a non recursive structure ignoring variables
+
+31 L<CreateArea|/CreateArea> - Create an relocatable area and returns its address in rax.
+
+32 L<createBitNumberFromAlternatingPattern|/createBitNumberFromAlternatingPattern> - Create a number from a bit pattern.
+
+33 L<CreateLibrary|/CreateLibrary> - Create a library.
+
+34 L<Cstrlen|/Cstrlen> - Length of the C style string addressed by rax returning the length in r15.
+
+35 L<Db|/Db> - Layout bytes in the data segment and return their label.
+
+36 L<Dbwdq|/Dbwdq> - Layout data.
+
+37 L<DComment|/DComment> - Insert a comment into the data segment.
+
+38 L<Dd|/Dd> - Layout double words in the data segment and return their label.
+
+39 L<DescribeArea|/DescribeArea> - Describe a relocatable area.
+
+40 L<DescribeTree|/DescribeTree> - Return a descriptor for a tree with the specified options.
+
+41 L<dFromX|/dFromX> - Get the double word from the numbered xmm register and return it in a variable.
+
+42 L<dFromZ|/dFromZ> - Get the double word from the numbered zmm register and return it in a variable.
+
+43 L<Dq|/Dq> - Layout quad words in the data segment and return their label.
+
+44 L<Ds|/Ds> - Layout bytes in memory and return their label.
+
+45 L<Dw|/Dw> - Layout words in the data segment and return their label.
+
+46 L<Ef|/Ef> - Else if block for an If statement.
+
+47 L<Else|/Else> - Else block for an If statement.
+
+48 L<executeFileViaBash|/executeFileViaBash> - Execute the file named in a variable
+
+49 L<Exit|/Exit> - Exit with the specified return code or zero if no return code supplied.
+
+50 L<Extern|/Extern> - Name external references.
+
+51 L<Fail|/Fail> - Fail block for an L<AndBlock>.
+
+52 L<For|/For> - For - iterate the block as long as register is less than limit incrementing by increment each time.
+
+53 L<ForEver|/ForEver> - Iterate for ever.
+
+54 L<ForIn|/ForIn> - For - iterate the full block as long as register plus increment is less than than limit incrementing by increment each time then increment the last block for the last non full block.
+
+55 L<Fork|/Fork> - Fork: create and execute a copy of the current process.
+
+56 L<FreeMemory|/FreeMemory> - Free memory specified by variables.
+
+57 L<getBwdqFromMm|/getBwdqFromMm> - Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
+
+58 L<getInstructionCount|/getInstructionCount> - Get the number of instructions executed from the emulator mix file.
+
+59 L<GetNextUtf8CharAsUtf32|/GetNextUtf8CharAsUtf32> - Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+
+60 L<GetPid|/GetPid> - Get process identifier.
+
+61 L<GetPidInHex|/GetPidInHex> - Get process identifier in hex as 8 zero terminated bytes in rax.
+
+62 L<GetPPid|/GetPPid> - Get parent process identifier.
+
+63 L<GetUid|/GetUid> - Get userid of current process.
+
+64 L<Hash|/Hash> - Hash a string addressed by rax with length held in rdi and return the hash code in r15.
+
+65 L<hexTranslateTable|/hexTranslateTable> - Create/address a hex translate table and return its label.
+
+66 L<If|/If> - If statement.
+
+67 L<IfC|/IfC> - If the carry flag is set then execute the then block else the else block.
+
+68 L<IfEq|/IfEq> - If equal execute the then block else the else block.
+
+69 L<IfGe|/IfGe> - If greater than or equal execute the then block else the else block.
+
+70 L<IfGt|/IfGt> - If greater than execute the then block else the else block.
+
+71 L<IfLe|/IfLe> - If less than or equal execute the then block else the else block.
+
+72 L<IfLt|/IfLt> - If less than execute the then block else the else block.
+
+73 L<IfNc|/IfNc> - If the carry flag is not set then execute the then block else the else block.
+
+74 L<IfNe|/IfNe> - If not equal execute the then block else the else block.
+
+75 L<IfNs|/IfNs> - If signed less than execute the then block else the else block.
+
+76 L<IfNz|/IfNz> - If the zero flag is not set then execute the then block else the else block.
+
+77 L<IfS|/IfS> - If signed greater than or equal execute the then block else the else block.
+
+78 L<IfZ|/IfZ> - If the zero flag is set then execute the then block else the else block.
+
+79 L<InsertOneIntoRegisterAtPoint|/InsertOneIntoRegisterAtPoint> - Insert a one into the specified register at the point indicated by another register.
+
+80 L<InsertZeroIntoRegisterAtPoint|/InsertZeroIntoRegisterAtPoint> - Insert a zero into the specified register at the point indicated by another general purpose or mask register moving the higher bits one position to the left.
+
+81 L<K|/K> - Define a constant variable.
+
+82 L<Label|/Label> - Create a unique label or reuse the one supplied.
+
+83 L<Link|/Link> - Libraries to link with.
+
+84 L<LoadBitsIntoMaskRegister|/LoadBitsIntoMaskRegister> - Load a bit string specification into a mask register in two clocks.
+
+85 L<LoadConstantIntoMaskRegister|/LoadConstantIntoMaskRegister> - Set a mask register equal to a constant.
+
+86 L<LoadRegFromMm|/LoadRegFromMm> - Load the specified register from the numbered zmm at the quad offset specified as a constant number.
+
+87 L<LoadZmm|/LoadZmm> - Load a numbered zmm with the specified bytes.
+
+88 L<LocateIntelEmulator|/LocateIntelEmulator> - Locate the Intel Software Development Emulator.
+
+89 L<Nasm::X86::Area::allocate|/Nasm::X86::Area::allocate> - Allocate the variable amount of space in the variable addressed area and return the offset of the allocation in the area as a variable.
+
+90 L<Nasm::X86::Area::allocZmmBlock|/Nasm::X86::Area::allocZmmBlock> - Allocate a block to hold a zmm register in the specified area and return the offset of the block as a variable.
+
+91 L<Nasm::X86::Area::append|/Nasm::X86::Area::append> - Append one area to another.
+
+92 L<Nasm::X86::Area::char|/Nasm::X86::Area::char> - Append a character expressed as a decimal number to the specified area.
+
+93 L<Nasm::X86::Area::checkYggdrasilCreated|/Nasm::X86::Area::checkYggdrasilCreated> - Return a tree descriptor to the Yggdrasil world tree for an area.
+
+94 L<Nasm::X86::Area::clear|/Nasm::X86::Area::clear> - Clear an area
+
+95 L<Nasm::X86::Area::clearZmmBlock|/Nasm::X86::Area::clearZmmBlock> - Clear the zmm block at the specified offset in the area
+
+96 L<Nasm::X86::Area::CreateTree|/Nasm::X86::Area::CreateTree> - Create a tree in an area.
+
+97 L<Nasm::X86::Area::DescribeTree|/Nasm::X86::Area::DescribeTree> - Return a descriptor for a tree in the specified area with the specified options.
+
+98 L<Nasm::X86::Area::dump|/Nasm::X86::Area::dump> - Dump details of an area.
+
+99 L<Nasm::X86::Area::establishYggdrasil|/Nasm::X86::Area::establishYggdrasil> - Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
+
+100 L<Nasm::X86::Area::free|/Nasm::X86::Area::free> - Free an area
+
+101 L<Nasm::X86::Area::freeChainSpace|/Nasm::X86::Area::freeChainSpace> - Count the number of blocks available on the free chain
+
+102 L<Nasm::X86::Area::freeZmmBlock|/Nasm::X86::Area::freeZmmBlock> - Free a block in an area by placing it on the free chain.
+
+103 L<Nasm::X86::Area::getZmmBlock|/Nasm::X86::Area::getZmmBlock> - Get the block with the specified offset in the specified string and return it in the numbered zmm.
+
+104 L<Nasm::X86::Area::m|/Nasm::X86::Area::m> - Append the variable addressed content of variable size to the specified area.
+
+105 L<Nasm::X86::Area::makeReadOnly|/Nasm::X86::Area::makeReadOnly> - Make an area read only.
+
+106 L<Nasm::X86::Area::makeWriteable|/Nasm::X86::Area::makeWriteable> - Make an area writable.
+
+107 L<Nasm::X86::Area::nl|/Nasm::X86::Area::nl> - Append a new line to the area addressed by rax.
+
+108 L<Nasm::X86::Area::out|/Nasm::X86::Area::out> - Print the specified area on sysout.
+
+109 L<Nasm::X86::Area::outNL|/Nasm::X86::Area::outNL> - Print the specified area on sysout followed by a new line.
+
+110 L<Nasm::X86::Area::putZmmBlock|/Nasm::X86::Area::putZmmBlock> - Write the numbered zmm to the block at the specified offset in the specified area.
+
+111 L<Nasm::X86::Area::q|/Nasm::X86::Area::q> - Append a constant string to the area.
+
+112 L<Nasm::X86::Area::ql|/Nasm::X86::Area::ql> - Append a quoted string containing new line characters to the specified area.
+
+113 L<Nasm::X86::Area::read|/Nasm::X86::Area::read> - Read a file specified by a variable addressed zero terminated string and place the contents of the file into the named area.
+
+114 L<Nasm::X86::Area::size|/Nasm::X86::Area::size> - Get the size of an area as a variab;e.
+
+115 L<Nasm::X86::Area::updateSpace|/Nasm::X86::Area::updateSpace> - Make sure that the variable addressed area has enough space to accommodate content of the variable size.
+
+116 L<Nasm::X86::Area::used|/Nasm::X86::Area::used> - Return the currently used size of an area as a variable.
+
+117 L<Nasm::X86::Area::write|/Nasm::X86::Area::write> - Write the content of the specified area to a file specified by a zero terminated string.
+
+118 L<Nasm::X86::Area::z|/Nasm::X86::Area::z> - Append a trailing zero to the area addressed by rax.
+
+119 L<Nasm::X86::Structure::field|/Nasm::X86::Structure::field> - Add a field of the specified length with an optional comment.
+
+120 L<Nasm::X86::StructureField::addr|/Nasm::X86::StructureField::addr> - Address a field in a structure by either the default register or the named register.
+
+121 L<Nasm::X86::Sub::call|/Nasm::X86::Sub::call> - Call a sub passing it some parameters.
+
+122 L<Nasm::X86::Sub::callTo|/Nasm::X86::Sub::callTo> - Call a sub passing it some parameters.
+
+123 L<Nasm::X86::Sub::dispatch|/Nasm::X86::Sub::dispatch> - Jump into the specified subroutine so that code of the target subroutine is executed instead of the code of the current subroutine allowing the target subroutine to be dispatched to process the parameter list of the current subroutine.
+
+124 L<Nasm::X86::Sub::dispatchV|/Nasm::X86::Sub::dispatchV> - L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specified register.
+
+125 L<Nasm::X86::Sub::V|/Nasm::X86::Sub::V> - Put the address of a subroutine into a stack variable so that it can be passed as a parameter.
+
+126 L<Nasm::X86::Sub::via|/Nasm::X86::Sub::via> - Call a sub by reference passing it some parameters.
+
+127 L<Nasm::X86::Subroutine::call|/Nasm::X86::Subroutine::call> - Call a sub optionally passing it parameters.
+
+128 L<Nasm::X86::Subroutine::mapStructureVariables|/Nasm::X86::Subroutine::mapStructureVariables> - Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined
+
+129 L<Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame|/Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame> - Create references to variables in parameter structures from variables in the stack frame of the subroutine.
+
+130 L<Nasm::X86::Subroutine::uploadToNewStackFrame|/Nasm::X86::Subroutine::uploadToNewStackFrame> - Map a variable in the current stack into a reference in the next stack frame being the one that will be used by this sub
+
+131 L<Nasm::X86::Tree::allocBlock|/Nasm::X86::Tree::allocBlock> - Allocate a keys/data/node block and place it in the numbered zmm registers.
+
+132 L<Nasm::X86::Tree::append|/Nasm::X86::Tree::append> - Append the second source string to the first target string renumbering the keys of the source string to follow on from those of the target string.
+
+133 L<Nasm::X86::Tree::by|/Nasm::X86::Tree::by> - Call the specified block with each element of the specified tree in ascending order.
+
+134 L<Nasm::X86::Tree::clear|/Nasm::X86::Tree::clear> - Delete everything in the tree recording the memory so liberated to the free chain for reuse by other trees.
+
+135 L<Nasm::X86::Tree::clearTreeBit|/Nasm::X86::Tree::clearTreeBit> - Clear the tree bit in the numbered zmm register holding the keys of a node to indicate that the data element indexed by the specified register is an offset to a sub tree in the containing area.
+
+136 L<Nasm::X86::Tree::clone|/Nasm::X86::Tree::clone> - Clone a string.
+
+137 L<Nasm::X86::Tree::copyDescription|/Nasm::X86::Tree::copyDescription> - Make a copy of a tree descriptor
+
+138 L<Nasm::X86::Tree::decLengthInKeys|/Nasm::X86::Tree::decLengthInKeys> - Decrement the number of keys in a keys block or complain if such is not possible
+
+139 L<Nasm::X86::Tree::decSize|/Nasm::X86::Tree::decSize> - Decrement the size of a tree
+
+140 L<Nasm::X86::Tree::decSizeInFirst|/Nasm::X86::Tree::decSizeInFirst> - Decrement the size field in the first block of a tree when the first block is held in a zmm register.
+
+141 L<Nasm::X86::Tree::delete|/Nasm::X86::Tree::delete> - Find a key in a tree and delete it
+
+142 L<Nasm::X86::Tree::deleteFirstKeyAndData|/Nasm::X86::Tree::deleteFirstKeyAndData> - Delete the first element of a leaf mode returning its characteristics in the calling tree descriptor.
+
+143 L<Nasm::X86::Tree::depth|/Nasm::X86::Tree::depth> - Return the depth of a node within a tree.
+
+144 L<Nasm::X86::Tree::describeTree|/Nasm::X86::Tree::describeTree> - Create a a description of a tree
+
+145 L<Nasm::X86::Tree::dump|/Nasm::X86::Tree::dump> - Dump a tree and all its sub trees.
+
+146 L<Nasm::X86::Tree::expand|/Nasm::X86::Tree::expand> - Expand the node at the specified offset in the specified tree if it needs to be expanded and is not the root node (which cannot be expanded because it has no siblings to take substance from whereas as all other nodes do).
+
+147 L<Nasm::X86::Tree::extract|/Nasm::X86::Tree::extract> - Extract the key/data/node and tree bit at the specified point from the block held in the specified zmm registers.
+
+148 L<Nasm::X86::Tree::extractFirst|/Nasm::X86::Tree::extractFirst> - Extract the first key/data and tree bit at the specified point from the block held in the specified zmm registers and place the extracted data/bit in tree data/subTree.
+
+149 L<Nasm::X86::Tree::find|/Nasm::X86::Tree::find> - Find a key in a tree and tests whether the found data is a sub tree.
+
+150 L<Nasm::X86::Tree::findAndReload|/Nasm::X86::Tree::findAndReload> - Find a key in the specified tree and clone it is it is a sub tree.
+
+151 L<Nasm::X86::Tree::findFirst|/Nasm::X86::Tree::findFirst> - Find the first element in a tree
+
+152 L<Nasm::X86::Tree::findLast|/Nasm::X86::Tree::findLast> - Find the last key in a tree
+
+153 L<Nasm::X86::Tree::findNext|/Nasm::X86::Tree::findNext> - Find the next key greater than the one specified.
+
+154 L<Nasm::X86::Tree::findPrev|/Nasm::X86::Tree::findPrev> - Find the previous key less than the one specified.
+
+155 L<Nasm::X86::Tree::findShortString|/Nasm::X86::Tree::findShortString> - Find the data at the end of a key chain held in a short string.
+
+156 L<Nasm::X86::Tree::firstFromMemory|/Nasm::X86::Tree::firstFromMemory> - Load the first block for a tree into the numbered zmm.
+
+157 L<Nasm::X86::Tree::firstIntoMemory|/Nasm::X86::Tree::firstIntoMemory> - Save the first block of a tree in the numbered zmm back into memory.
+
+158 L<Nasm::X86::Tree::firstNode|/Nasm::X86::Tree::firstNode> - Return as a variable the last node block in the specified tree node held in a zmm
+
+159 L<Nasm::X86::Tree::free|/Nasm::X86::Tree::free> - Free all the memory used by a tree
+
+160 L<Nasm::X86::Tree::freeBlock|/Nasm::X86::Tree::freeBlock> - Free a keys/data/node block whise keys  block entry is located at the specified offset.
+
+161 L<Nasm::X86::Tree::get|/Nasm::X86::Tree::get> - Retrieves the element at the specified zero based index in the stack.
+
+162 L<Nasm::X86::Tree::getBlock|/Nasm::X86::Tree::getBlock> - Get the keys, data and child nodes for a tree node from the specified offset in the area for the tree.
+
+163 L<Nasm::X86::Tree::getLoop|/Nasm::X86::Tree::getLoop> - Return the value of the loop field as a variable.
+
+164 L<Nasm::X86::Tree::getTreeBit|/Nasm::X86::Tree::getTreeBit> - Get the tree bit from the numbered zmm at the specified point and return it in a variable as a one or a zero.
+
+165 L<Nasm::X86::Tree::getTreeBits|/Nasm::X86::Tree::getTreeBits> - Load the tree bits from the numbered zmm into the specified register.
+
+166 L<Nasm::X86::Tree::incLengthInKeys|/Nasm::X86::Tree::incLengthInKeys> - Increment the number of keys in a keys block or complain if such is not possible
+
+167 L<Nasm::X86::Tree::incSize|/Nasm::X86::Tree::incSize> - Increment the size of a tree
+
+168 L<Nasm::X86::Tree::incSizeInFirst|/Nasm::X86::Tree::incSizeInFirst> - Increment the size field in the first block of a tree when the first block is held in a zmm register.
+
+169 L<Nasm::X86::Tree::indexEq|/Nasm::X86::Tree::indexEq> - Return the  position of a key in a zmm equal to the specified key as a point in a variable.
+
+170 L<Nasm::X86::Tree::indexNode|/Nasm::X86::Tree::indexNode> - Return, as a variable, the point mask obtained by testing the nodes in a block for specified offset.
+
+171 L<Nasm::X86::Tree::indexXX|/Nasm::X86::Tree::indexXX> - Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
+
+172 L<Nasm::X86::Tree::insertIntoTreeBits|/Nasm::X86::Tree::insertIntoTreeBits> - Insert a one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
+
+173 L<Nasm::X86::Tree::insertionPoint|/Nasm::X86::Tree::insertionPoint> - Return the position at which a key should be inserted into a zmm as a point in a variable.
+
+174 L<Nasm::X86::Tree::insertKeyDataTreeIntoLeaf|/Nasm::X86::Tree::insertKeyDataTreeIntoLeaf> - Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
+
+175 L<Nasm::X86::Tree::insertOneIntoTreeBits|/Nasm::X86::Tree::insertOneIntoTreeBits> - Insert a one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
+
+176 L<Nasm::X86::Tree::insertShortString|/Nasm::X86::Tree::insertShortString> - Insert some data at the end of a chain of sub trees keyed by the contents of a short string.
+
+177 L<Nasm::X86::Tree::insertTreeBit|/Nasm::X86::Tree::insertTreeBit> - Insert a zero or one into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
+
+178 L<Nasm::X86::Tree::insertZeroIntoTreeBits|/Nasm::X86::Tree::insertZeroIntoTreeBits> - Insert a zero into the tree bits field in the numbered zmm at the specified point moving the bits at and beyond point one position to the right.
+
+179 L<Nasm::X86::Tree::isTree|/Nasm::X86::Tree::isTree> - Set the Zero Flag to oppose the tree bit in the numbered zmm register holding the keys of a node to indicate whether the data element indicated by the specified register is an offset to a sub tree in the containing area or not.
+
+180 L<Nasm::X86::Tree::lastNode|/Nasm::X86::Tree::lastNode> - Return as a variable the last node block in the specified tree node held in a zmm
+
+181 L<Nasm::X86::Tree::leafFromNodes|/Nasm::X86::Tree::leafFromNodes> - Return a variable containing true if we are on a leaf.
+
+182 L<Nasm::X86::Tree::leftMost|/Nasm::X86::Tree::leftMost> - Return the offset of the left most node from the specified node.
+
+183 L<Nasm::X86::Tree::leftOrRightMost|/Nasm::X86::Tree::leftOrRightMost> - Return the offset of the left most or right most node.
+
+184 L<Nasm::X86::Tree::lengthFromKeys|/Nasm::X86::Tree::lengthFromKeys> - Get the length of the keys block in the numbered zmm and return it as a variable.
+
+185 L<Nasm::X86::Tree::lengthIntoKeys|/Nasm::X86::Tree::lengthIntoKeys> - Get the length of the block in the numbered zmm from the specified variable.
+
+186 L<Nasm::X86::Tree::maskForFullKeyArea|/Nasm::X86::Tree::maskForFullKeyArea> - Place a mask for the full key area in the numbered mask register
+
+187 L<Nasm::X86::Tree::maskForFullNodesArea|/Nasm::X86::Tree::maskForFullNodesArea> - Place a mask for the full nodes area in the numbered mask register
+
+188 L<Nasm::X86::Tree::merge|/Nasm::X86::Tree::merge> - Merge a left and right node if they are at minimum size.
+
+189 L<Nasm::X86::Tree::mergeOrSteal|/Nasm::X86::Tree::mergeOrSteal> - Merge the block at the specified offset with its right sibling or steal from it.
+
+190 L<Nasm::X86::Tree::nextNode|/Nasm::X86::Tree::nextNode> - Return as a variable the next node block offset after the specified one in the specified zmm
+
+191 L<Nasm::X86::Tree::outAsUtf8|/Nasm::X86::Tree::outAsUtf8> - Print the data values of the specified string on stdout assuming each data value is a utf32 character and that the output device supports utf8
+
+192 L<Nasm::X86::Tree::outAsUtf8NL|/Nasm::X86::Tree::outAsUtf8NL> - Print the data values of the specified string on stdout assuming each data value is a utf32 character and that the output device supports utf8.
+
+193 L<Nasm::X86::Tree::overWriteKeyDataTreeInLeaf|/Nasm::X86::Tree::overWriteKeyDataTreeInLeaf> - Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
+
+194 L<Nasm::X86::Tree::pop|/Nasm::X86::Tree::pop> - Pop the last value out of a tree and return the key/data/subTree in the tree descriptor.
+
+195 L<Nasm::X86::Tree::prevNode|/Nasm::X86::Tree::prevNode> - Return as a variable the previous node block offset after the specified one in the specified zmm
+
+196 L<Nasm::X86::Tree::printInOrder|/Nasm::X86::Tree::printInOrder> - Print a tree in order
+
+197 L<Nasm::X86::Tree::push|/Nasm::X86::Tree::push> - Push a data value onto a tree.
+
+198 L<Nasm::X86::Tree::put|/Nasm::X86::Tree::put> - Put a variable key and data into a tree.
+
+199 L<Nasm::X86::Tree::putBlock|/Nasm::X86::Tree::putBlock> - Put a tree block held in three zmm registers back into the area holding the tree at the specified offset.
+
+200 L<Nasm::X86::Tree::putLoop|/Nasm::X86::Tree::putLoop> - Set the value of the loop field from a variable.
+
+201 L<Nasm::X86::Tree::relativeNode|/Nasm::X86::Tree::relativeNode> - Return as a variable a node offset relative (specified as ac constant) to another offset in the same node in the specified zmm
+
+202 L<Nasm::X86::Tree::replace|/Nasm::X86::Tree::replace> - Replace the key/data/subTree at the specified point in the specified zmm with the values found in the tree key/data/sub tree fields.
+
+203 L<Nasm::X86::Tree::reverse|/Nasm::X86::Tree::reverse> - Create a clone of the sstring in reverse order
+
+204 L<Nasm::X86::Tree::rightMost|/Nasm::X86::Tree::rightMost> - Return the offset of the left most node from the specified node.
+
+205 L<Nasm::X86::Tree::root|/Nasm::X86::Tree::root> - Check whether the specified offset refers to the root of a tree when the first block is held in a zmm register.
+
+206 L<Nasm::X86::Tree::rootFromFirst|/Nasm::X86::Tree::rootFromFirst> - Return a variable containing the offset of the root block of a tree from the first block when held in a zmm register.
+
+207 L<Nasm::X86::Tree::rootIntoFirst|/Nasm::X86::Tree::rootIntoFirst> - Put the contents of a variable into the root field of the first block of a tree when held in a zmm register.
+
+208 L<Nasm::X86::Tree::setOrClearTreeBit|/Nasm::X86::Tree::setOrClearTreeBit> - Set or clear the tree bit selected by the specified point in the numbered zmm register holding the keys of a node to indicate that the data element indicated by the specified register is an offset to a sub tree in the containing area.
+
+209 L<Nasm::X86::Tree::setOrClearTreeBitToMatchContent|/Nasm::X86::Tree::setOrClearTreeBitToMatchContent> - Set or clear the tree bit pointed to by the specified register depending on the content of the specified variable.
+
+210 L<Nasm::X86::Tree::setTreeBit|/Nasm::X86::Tree::setTreeBit> - Set the tree bit in the numbered zmm register holding the keys of a node to indicate that the data element indexed by the specified register is an offset to a sub tree in the containing area.
+
+211 L<Nasm::X86::Tree::setTreeBits|/Nasm::X86::Tree::setTreeBits> - Put the tree bits in the specified register into the numbered zmm.
+
+212 L<Nasm::X86::Tree::size|/Nasm::X86::Tree::size> - Return in a variable the number of elements currently in the tree.
+
+213 L<Nasm::X86::Tree::sizeFromFirst|/Nasm::X86::Tree::sizeFromFirst> - Return a variable containing the number of keys in the specified tree when the first block is held in a zmm register.
+
+214 L<Nasm::X86::Tree::sizeIntoFirst|/Nasm::X86::Tree::sizeIntoFirst> - Put the contents of a variable into the size field of the first block of a tree  when the first block is held in a zmm register.
+
+215 L<Nasm::X86::Tree::splitNode|/Nasm::X86::Tree::splitNode> - Split a node if it it is full returning a variable that indicates whether a split occurred or not.
+
+216 L<Nasm::X86::Tree::splitNotRoot|/Nasm::X86::Tree::splitNotRoot> - Split a non root left node pushing its excess right and up.
+
+217 L<Nasm::X86::Tree::splitRoot|/Nasm::X86::Tree::splitRoot> - Split a non root node into left and right nodes with the left half left in the left node and splitting key/data pushed into the parent node with the remainder pushed into the new right node
+
+218 L<Nasm::X86::Tree::stealFromLeft|/Nasm::X86::Tree::stealFromLeft> - Steal one key from the node on the left where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else  zero.
+
+219 L<Nasm::X86::Tree::stealFromRight|/Nasm::X86::Tree::stealFromRight> - Steal one key from the node on the right where the current left node,parent node and right node are held in zmm registers and return one if the steal was performed, else zero.
+
+220 L<Nasm::X86::Tree::substring|/Nasm::X86::Tree::substring> - Create the substring of the specified string between the specified start and end keys.
+
+221 L<Nasm::X86::Tree::upFromData|/Nasm::X86::Tree::upFromData> - Up from the data zmm in a block in a tree
+
+222 L<Nasm::X86::Tree::upIntoData|/Nasm::X86::Tree::upIntoData> - Up into the data zmm in a block in a tree
+
+223 L<Nasm::X86::Tree::yb|/Nasm::X86::Tree::yb> - Call the specified block with each element of the specified tree in descending order.
+
+224 L<Nasm::X86::Variable::add|/Nasm::X86::Variable::add> - Add the right hand variable to the left hand variable and return the result as a new variable.
+
+225 L<Nasm::X86::Variable::address|/Nasm::X86::Variable::address> - Get the address of a variable with an optional offset.
+
+226 L<Nasm::X86::Variable::allocateMemory|/Nasm::X86::Variable::allocateMemory> - Allocate the specified amount of memory via mmap and return its address.
+
+227 L<Nasm::X86::Variable::and|/Nasm::X86::Variable::and> - And two variables.
+
+228 L<Nasm::X86::Variable::arithmetic|/Nasm::X86::Variable::arithmetic> - Return a variable containing the result of an arithmetic operation on the left hand and right hand side variables.
+
+229 L<Nasm::X86::Variable::assign|/Nasm::X86::Variable::assign> - Assign to the left hand side the value of the right hand side.
+
+230 L<Nasm::X86::Variable::bFromZ|/Nasm::X86::Variable::bFromZ> - Get the byte from the numbered zmm register and put it in a variable.
+
+231 L<Nasm::X86::Variable::bIntoX|/Nasm::X86::Variable::bIntoX> - Place the value of the content variable at the byte in the numbered xmm register.
+
+232 L<Nasm::X86::Variable::bIntoZ|/Nasm::X86::Variable::bIntoZ> - Place the value of the content variable at the byte in the numbered zmm register.
+
+233 L<Nasm::X86::Variable::boolean|/Nasm::X86::Variable::boolean> - Combine the left hand variable with the right hand variable via a boolean operator.
+
+234 L<Nasm::X86::Variable::booleanC|/Nasm::X86::Variable::booleanC> - Combine the left hand variable with the right hand variable via a boolean operator using a conditional move instruction.
+
+235 L<Nasm::X86::Variable::booleanZF|/Nasm::X86::Variable::booleanZF> - Combine the left hand variable with the right hand variable via a boolean operator and indicate the result by setting the zero flag if the result is true.
+
+236 L<Nasm::X86::Variable::call|/Nasm::X86::Variable::call> - Execute the call instruction for a target whose address is held in the specified variable.
+
+237 L<Nasm::X86::Variable::clearBit|/Nasm::X86::Variable::clearBit> - Clear a bit in the specified mask register retaining the other bits.
+
+238 L<Nasm::X86::Variable::clearMaskBit|/Nasm::X86::Variable::clearMaskBit> - Clear a bit in the specified mask register retaining the other bits.
+
+239 L<Nasm::X86::Variable::clearMemory|/Nasm::X86::Variable::clearMemory> - Clear the memory described in this variable.
+
+240 L<Nasm::X86::Variable::clone|/Nasm::X86::Variable::clone> - Clone a variable to make a new variable.
+
+241 L<Nasm::X86::Variable::copy|/Nasm::X86::Variable::copy> - Copy one variable into another.
+
+242 L<Nasm::X86::Variable::copyMemory|/Nasm::X86::Variable::copyMemory> - Copy from one block of memory to another.
+
+243 L<Nasm::X86::Variable::copyRef|/Nasm::X86::Variable::copyRef> - Copy a reference to a variable.
+
+244 L<Nasm::X86::Variable::copyZF|/Nasm::X86::Variable::copyZF> - Copy the current state of the zero flag into a variable.
+
+245 L<Nasm::X86::Variable::copyZFInverted|/Nasm::X86::Variable::copyZFInverted> - Copy the opposite of the current state of the zero flag into a variable.
+
+246 L<Nasm::X86::Variable::d|/Nasm::X86::Variable::d> - Dump the value of a variable on stderr and append a new line.
+
+247 L<Nasm::X86::Variable::debug|/Nasm::X86::Variable::debug> - Dump the value of a variable on stdout with an indication of where the dump came from.
+
+248 L<Nasm::X86::Variable::dec|/Nasm::X86::Variable::dec> - Decrement a variable.
+
+249 L<Nasm::X86::Variable::dFromPointInZ|/Nasm::X86::Variable::dFromPointInZ> - Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
+
+250 L<Nasm::X86::Variable::dFromZ|/Nasm::X86::Variable::dFromZ> - Get the double word from the numbered zmm register and put it in a variable.
+
+251 L<Nasm::X86::Variable::dIntoPointInZ|/Nasm::X86::Variable::dIntoPointInZ> - Put the variable double word content into the numbered zmm register at a point specified by the variable.
+
+252 L<Nasm::X86::Variable::dIntoX|/Nasm::X86::Variable::dIntoX> - Place the value of the content variable at the double word in the numbered xmm register.
+
+253 L<Nasm::X86::Variable::dIntoZ|/Nasm::X86::Variable::dIntoZ> - Place the value of the content variable at the double word in the numbered zmm register.
+
+254 L<Nasm::X86::Variable::divide|/Nasm::X86::Variable::divide> - Divide the left hand variable by the right hand variable and return the result as a new variable.
+
+255 L<Nasm::X86::Variable::division|/Nasm::X86::Variable::division> - Return a variable containing the result or the remainder that occurs when the left hand side is divided by the right hand side.
+
+256 L<Nasm::X86::Variable::dump|/Nasm::X86::Variable::dump> - Dump the value of a variable to the specified channel adding an optional title and new line if requested.
+
+257 L<Nasm::X86::Variable::eq|/Nasm::X86::Variable::eq> - Check whether the left hand variable is equal to the right hand variable.
+
+258 L<Nasm::X86::Variable::equals|/Nasm::X86::Variable::equals> - Equals operator.
+
+259 L<Nasm::X86::Variable::err|/Nasm::X86::Variable::err> - Dump the value of a variable on stderr.
+
+260 L<Nasm::X86::Variable::errCString|/Nasm::X86::Variable::errCString> - Print a zero terminated C style string addressed by a variable on stderr.
+
+261 L<Nasm::X86::Variable::errCStringNL|/Nasm::X86::Variable::errCStringNL> - Print a zero terminated C style string addressed by a variable on stderr followed by a new line.
+
+262 L<Nasm::X86::Variable::errInDec|/Nasm::X86::Variable::errInDec> - Dump the value of a variable on stderr in decimal.
+
+263 L<Nasm::X86::Variable::errInDecNL|/Nasm::X86::Variable::errInDecNL> - Dump the value of a variable on stderr in decimal followed by a new line.
+
+264 L<Nasm::X86::Variable::errNL|/Nasm::X86::Variable::errNL> - Dump the value of a variable on stderr and append a new line.
+
+265 L<Nasm::X86::Variable::errRightInBin|/Nasm::X86::Variable::errRightInBin> - Write the specified variable number in binary right justified in a field of specified width to stderr
+
+266 L<Nasm::X86::Variable::errRightInBinNL|/Nasm::X86::Variable::errRightInBinNL> - Write the specified variable number in binary right justified in a field of specified width to stderr followed by a new line
+
+267 L<Nasm::X86::Variable::errRightInDec|/Nasm::X86::Variable::errRightInDec> - Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width.
+
+268 L<Nasm::X86::Variable::errRightInDecNL|/Nasm::X86::Variable::errRightInDecNL> - Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width followed by a new line.
+
+269 L<Nasm::X86::Variable::errRightInHex|/Nasm::X86::Variable::errRightInHex> - Write the specified variable number in hexadecimal right justified in a field of specified width to stderr
+
+270 L<Nasm::X86::Variable::errRightInHexNL|/Nasm::X86::Variable::errRightInHexNL> - Write the specified variable number in hexadecimal right justified in a field of specified width to stderr followed by a new line
+
+271 L<Nasm::X86::Variable::errSpaces|/Nasm::X86::Variable::errSpaces> - Print the specified number of spaces to stderr.
+
+272 L<Nasm::X86::Variable::for|/Nasm::X86::Variable::for> - Iterate a block a variable number of times.
+
+273 L<Nasm::X86::Variable::freeMemory|/Nasm::X86::Variable::freeMemory> - Free the memory addressed by this variable for the specified length.
+
+274 L<Nasm::X86::Variable::ge|/Nasm::X86::Variable::ge> - Check whether the left hand variable is greater than or equal to the right hand variable.
+
+275 L<Nasm::X86::Variable::getConst|/Nasm::X86::Variable::getConst> - Load the variable from a constant in effect setting a variable to a specified value.
+
+276 L<Nasm::X86::Variable::getReg|/Nasm::X86::Variable::getReg> - Load the variable from a register expression.
+
+277 L<Nasm::X86::Variable::gt|/Nasm::X86::Variable::gt> - Check whether the left hand variable is greater than the right hand variable.
+
+278 L<Nasm::X86::Variable::inc|/Nasm::X86::Variable::inc> - Increment a variable.
+
+279 L<Nasm::X86::Variable::incDec|/Nasm::X86::Variable::incDec> - Increment or decrement a variable.
+
+280 L<Nasm::X86::Variable::isRef|/Nasm::X86::Variable::isRef> - Check whether the specified  variable is a reference to another variable.
+
+281 L<Nasm::X86::Variable::le|/Nasm::X86::Variable::le> - Check whether the left hand variable is less than or equal to the right hand variable.
+
+282 L<Nasm::X86::Variable::loadZmm|/Nasm::X86::Variable::loadZmm> - Load bytes from the memory addressed by the specified source variable into the numbered zmm register.
+
+283 L<Nasm::X86::Variable::lt|/Nasm::X86::Variable::lt> - Check whether the left hand variable is less than the right hand variable.
+
+284 L<Nasm::X86::Variable::max|/Nasm::X86::Variable::max> - Maximum of two variables.
+
+285 L<Nasm::X86::Variable::min|/Nasm::X86::Variable::min> - Minimum of two variables.
+
+286 L<Nasm::X86::Variable::minusAssign|/Nasm::X86::Variable::minusAssign> - Implement minus and assign.
+
+287 L<Nasm::X86::Variable::mod|/Nasm::X86::Variable::mod> - Divide the left hand variable by the right hand variable and return the remainder as a new variable.
+
+288 L<Nasm::X86::Variable::ne|/Nasm::X86::Variable::ne> - Check whether the left hand variable is not equal to the right hand variable.
+
+289 L<Nasm::X86::Variable::not|/Nasm::X86::Variable::not> - Form two complement of left hand side and return it as a variable.
+
+290 L<Nasm::X86::Variable::or|/Nasm::X86::Variable::or> - Or two variables.
+
+291 L<Nasm::X86::Variable::out|/Nasm::X86::Variable::out> - Dump the value of a variable on stdout.
+
+292 L<Nasm::X86::Variable::outCString|/Nasm::X86::Variable::outCString> - Print a zero terminated C style string addressed by a variable on stdout.
+
+293 L<Nasm::X86::Variable::outCStringNL|/Nasm::X86::Variable::outCStringNL> - Print a zero terminated C style string addressed by a variable on stdout followed by a new line.
+
+294 L<Nasm::X86::Variable::outInDec|/Nasm::X86::Variable::outInDec> - Dump the value of a variable on stdout in decimal.
+
+295 L<Nasm::X86::Variable::outInDecNL|/Nasm::X86::Variable::outInDecNL> - Dump the value of a variable on stdout in decimal followed by a new line.
+
+296 L<Nasm::X86::Variable::outNL|/Nasm::X86::Variable::outNL> - Dump the value of a variable on stdout and append a new line.
+
+297 L<Nasm::X86::Variable::outRightInBin|/Nasm::X86::Variable::outRightInBin> - Write the specified variable number in binary right justified in a field of specified width to stdout
+
+298 L<Nasm::X86::Variable::outRightInBinNL|/Nasm::X86::Variable::outRightInBinNL> - Write the specified variable number in binary right justified in a field of specified width to stdout followed by a new line
+
+299 L<Nasm::X86::Variable::outRightInDec|/Nasm::X86::Variable::outRightInDec> - Dump the value of a variable on stdout as a decimal number right adjusted in a field of specified width.
+
+300 L<Nasm::X86::Variable::outRightInDecNL|/Nasm::X86::Variable::outRightInDecNL> - Dump the value of a variable on stdout as a decimal number right adjusted in a field of specified width followed by a new line.
+
+301 L<Nasm::X86::Variable::outRightInHex|/Nasm::X86::Variable::outRightInHex> - Write the specified variable number in hexadecimal right justified in a field of specified width to stdout
+
+302 L<Nasm::X86::Variable::outRightInHexNL|/Nasm::X86::Variable::outRightInHexNL> - Write the specified variable number in hexadecimal right justified in a field of specified width to stdout followed by a new line
+
+303 L<Nasm::X86::Variable::outSpaces|/Nasm::X86::Variable::outSpaces> - Print the specified number of spaces to stdout.
+
+304 L<Nasm::X86::Variable::plusAssign|/Nasm::X86::Variable::plusAssign> - Implement plus and assign.
+
+305 L<Nasm::X86::Variable::printErrMemoryInHexNL|/Nasm::X86::Variable::printErrMemoryInHexNL> - Write the memory addressed by a variable to stderr.
+
+306 L<Nasm::X86::Variable::printMemoryInHexNL|/Nasm::X86::Variable::printMemoryInHexNL> - Write, in hexadecimal, the memory addressed by a variable to stdout or stderr.
+
+307 L<Nasm::X86::Variable::printOutMemoryInHexNL|/Nasm::X86::Variable::printOutMemoryInHexNL> - Write the memory addressed by a variable to stdout.
+
+308 L<Nasm::X86::Variable::putBwdqIntoMm|/Nasm::X86::Variable::putBwdqIntoMm> - Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register.
+
+309 L<Nasm::X86::Variable::putWIntoZmm|/Nasm::X86::Variable::putWIntoZmm> - Place the value of the content variable at the word in the numbered zmm register.
+
+310 L<Nasm::X86::Variable::qFromZ|/Nasm::X86::Variable::qFromZ> - Get the quad word from the numbered zmm register and put it in a variable.
+
+311 L<Nasm::X86::Variable::qIntoX|/Nasm::X86::Variable::qIntoX> - Place the value of the content variable at the quad word in the numbered xmm register.
+
+312 L<Nasm::X86::Variable::qIntoZ|/Nasm::X86::Variable::qIntoZ> - Place the value of the content variable at the quad word in the numbered zmm register.
+
+313 L<Nasm::X86::Variable::rightInBin|/Nasm::X86::Variable::rightInBin> - Write the specified variable number in binary right justified in a field of specified width to the specified channel.
+
+314 L<Nasm::X86::Variable::rightInDec|/Nasm::X86::Variable::rightInDec> - Dump the value of a variable on the specified channel as a decimal  number right adjusted in a field of specified width.
+
+315 L<Nasm::X86::Variable::rightInHex|/Nasm::X86::Variable::rightInHex> - Write the specified variable number in hexadecimal right justified in a field of specified width to the specified channel.
+
+316 L<Nasm::X86::Variable::setBit|/Nasm::X86::Variable::setBit> - Set a bit in the specified register retaining the other bits.
+
+317 L<Nasm::X86::Variable::setMask|/Nasm::X86::Variable::setMask> - Set the mask register to ones starting at the specified position for the specified length and zeroes elsewhere.
+
+318 L<Nasm::X86::Variable::setMaskBit|/Nasm::X86::Variable::setMaskBit> - Set a bit in the specified mask register retaining the other bits.
+
+319 L<Nasm::X86::Variable::setMaskFirst|/Nasm::X86::Variable::setMaskFirst> - Set the first bits in the specified mask register.
+
+320 L<Nasm::X86::Variable::setReg|/Nasm::X86::Variable::setReg> - Set the named registers from the content of the variable.
+
+321 L<Nasm::X86::Variable::setZmm|/Nasm::X86::Variable::setZmm> - Load bytes from the memory addressed by specified source variable into the numbered zmm register at the offset in the specified offset moving the number of bytes in the specified variable.
+
+322 L<Nasm::X86::Variable::shiftLeft|/Nasm::X86::Variable::shiftLeft> - Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
+
+323 L<Nasm::X86::Variable::shiftRight|/Nasm::X86::Variable::shiftRight> - Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
+
+324 L<Nasm::X86::Variable::spaces|/Nasm::X86::Variable::spaces> - Print the specified number of spaces to the specified channel.
+
+325 L<Nasm::X86::Variable::str|/Nasm::X86::Variable::str> - The name of the variable.
+
+326 L<Nasm::X86::Variable::sub|/Nasm::X86::Variable::sub> - Subtract the right hand variable from the left hand variable and return the result as a new variable.
+
+327 L<Nasm::X86::Variable::times|/Nasm::X86::Variable::times> - Multiply the left hand variable by the right hand variable and return the result as a new variable.
+
+328 L<Nasm::X86::Variable::wFromZ|/Nasm::X86::Variable::wFromZ> - Get the word from the numbered zmm register and put it in a variable.
+
+329 L<Nasm::X86::Variable::wIntoX|/Nasm::X86::Variable::wIntoX> - Place the value of the content variable at the word in the numbered xmm register.
+
+330 L<NasmX86::Library::load|/NasmX86::Library::load> - Load a library and return the addresses of its subroutines as variables.
+
+331 L<OnSegv|/OnSegv> - Request a trace back followed by exit on a B<segv> signal.
+
+332 L<OpenRead|/OpenRead> - Open a file, whose name is addressed by rax, for read and return the file descriptor in rax.
+
+333 L<OpenWrite|/OpenWrite> - Create the file named by the terminated string addressed by rax for write.
+
+334 L<Optimize|/Optimize> - Perform code optimizations.
+
+335 L<OrBlock|/OrBlock> - Short circuit B<or>: execute a block of code to test conditions which, if one of them is met, leads on to the execution of the pass block, if all of the tests fail we continue withe the test block.
+
+336 L<Pass|/Pass> - Pass block for an L<OrBlock>.
+
+337 L<PopR|/PopR> - Pop registers from the stack.
+
+338 L<PopRR|/PopRR> - Pop registers from the stack without tracking.
+
+339 L<PrintCString|/PrintCString> - Print a zero terminated C style string addressed by a variable on the specified channel.
+
+340 L<PrintCStringNL|/PrintCStringNL> - Print a zero terminated C style string addressed by a variable on the specified channel followed by a new line.
+
+341 L<PrintErrMemory|/PrintErrMemory> - Print the memory addressed by rax for a length of rdi on stderr.
+
+342 L<PrintErrMemory_InHex|/PrintErrMemory_InHex> - Dump memory from the address in rax for the length in rdi on stderr.
+
+343 L<PrintErrMemory_InHexNL|/PrintErrMemory_InHexNL> - Dump memory from the address in rax for the length in rdi and then print a new line.
+
+344 L<PrintErrMemoryInHex|/PrintErrMemoryInHex> - Dump memory from the address in rax for the length in rdi on stderr.
+
+345 L<PrintErrMemoryInHexNL|/PrintErrMemoryInHexNL> - Dump memory from the address in rax for the length in rdi and then print a new line.
+
+346 L<PrintErrMemoryNL|/PrintErrMemoryNL> - Print the memory addressed by rax for a length of rdi followed by a new line on stderr.
+
+347 L<PrintErrNL|/PrintErrNL> - Print a new line to stderr.
+
+348 L<PrintErrOneRegisterInHex|/PrintErrOneRegisterInHex> - Print the named register as a hex string on stderr.
+
+349 L<PrintErrOneRegisterInHexNL|/PrintErrOneRegisterInHexNL> - Print the named register as a hex string on stderr followed by new line.
+
+350 L<PrintErrRax_InHex|/PrintErrRax_InHex> - Write the content of register rax in hexadecimal in big endian notation to stderr.
+
+351 L<PrintErrRax_InHexNL|/PrintErrRax_InHexNL> - Write the content of register rax in hexadecimal in big endian notation to stderr followed by a new line.
+
+352 L<PrintErrRaxAsChar|/PrintErrRaxAsChar> - Print the character in on stderr.
+
+353 L<PrintErrRaxAsCharNL|/PrintErrRaxAsCharNL> - Print the character in on stderr followed by a new line.
+
+354 L<PrintErrRaxAsText|/PrintErrRaxAsText> - Print rax as text on stderr.
+
+355 L<PrintErrRaxAsTextNL|/PrintErrRaxAsTextNL> - Print rax as text on stderr followed by a new line.
+
+356 L<PrintErrRaxInDec|/PrintErrRaxInDec> - Print rax in decimal on stderr.
+
+357 L<PrintErrRaxInDecNL|/PrintErrRaxInDecNL> - Print rax in decimal on stderr followed by a new line.
+
+358 L<PrintErrRaxInHex|/PrintErrRaxInHex> - Write the content of register rax in hexadecimal in big endian notation to stderr.
+
+359 L<PrintErrRaxInHexNL|/PrintErrRaxInHexNL> - Write the content of register rax in hexadecimal in big endian notation to stderr followed by a new line.
+
+360 L<PrintErrRaxRightInDec|/PrintErrRaxRightInDec> - Print rax in decimal right justified in a field of the specified width on stderr.
+
+361 L<PrintErrRaxRightInDecNL|/PrintErrRaxRightInDecNL> - Print rax in decimal right justified in a field of the specified width on stderr followed by a new line.
+
+362 L<PrintErrRegisterInHex|/PrintErrRegisterInHex> - Print the named registers as hex strings on stderr.
+
+363 L<PrintErrRightInBin|/PrintErrRightInBin> - Write the specified variable in binary right justified in a field of specified width on stderr.
+
+364 L<PrintErrRightInBinNL|/PrintErrRightInBinNL> - Write the specified variable in binary right justified in a field of specified width on stderr followed by a new line.
+
+365 L<PrintErrRightInHex|/PrintErrRightInHex> - Write the specified variable in hexadecimal right justified in a field of specified width on stderr.
+
+366 L<PrintErrRightInHexNL|/PrintErrRightInHexNL> - Write the specified variable in hexadecimal right justified in a field of specified width on stderr followed by a new line.
+
+367 L<PrintErrSpace|/PrintErrSpace> - Print  a constant number of spaces to stderr.
+
+368 L<PrintErrString|/PrintErrString> - Print a constant string to stderr.
+
+369 L<PrintErrStringNL|/PrintErrStringNL> - Print a constant string to stderr followed by a new line.
+
+370 L<PrintErrTraceBack|/PrintErrTraceBack> - Print sub routine track back on stderr and then exit with a message.
+
+371 L<PrintErrZF|/PrintErrZF> - Print the zero flag without disturbing it on stderr.
+
+372 L<PrintMemory|/PrintMemory> - Print the memory addressed by rax for a length of rdi on the specified channel.
+
+373 L<PrintMemory_InHex|/PrintMemory_InHex> - Dump memory from the address in rax for the length in rdi on the specified channel.
+
+374 L<PrintMemoryInHex|/PrintMemoryInHex> - Dump memory from the address in rax for the length in rdi on the specified channel.
+
+375 L<PrintMemoryNL|/PrintMemoryNL> - Print the memory addressed by rax for a length of rdi on the specified channel followed by a new line.
+
+376 L<PrintNL|/PrintNL> - Print a new line to stdout  or stderr.
+
+377 L<PrintOneRegisterInHex|/PrintOneRegisterInHex> - Print the named register as a hex string.
+
+378 L<PrintOutMemory|/PrintOutMemory> - Print the memory addressed by rax for a length of rdi on stdout.
+
+379 L<PrintOutMemory_InHex|/PrintOutMemory_InHex> - Dump memory from the address in rax for the length in rdi on stdout.
+
+380 L<PrintOutMemory_InHexNL|/PrintOutMemory_InHexNL> - Dump memory from the address in rax for the length in rdi and then print a new line.
+
+381 L<PrintOutMemoryInHex|/PrintOutMemoryInHex> - Dump memory from the address in rax for the length in rdi on stdout.
+
+382 L<PrintOutMemoryInHexNL|/PrintOutMemoryInHexNL> - Dump memory from the address in rax for the length in rdi and then print a new line.
+
+383 L<PrintOutMemoryNL|/PrintOutMemoryNL> - Print the memory addressed by rax for a length of rdi followed by a new line on stdout.
+
+384 L<PrintOutNL|/PrintOutNL> - Print a new line to stderr.
+
+385 L<PrintOutOneRegisterInHex|/PrintOutOneRegisterInHex> - Print the named register as a hex string on stdout.
+
+386 L<PrintOutOneRegisterInHexNL|/PrintOutOneRegisterInHexNL> - Print the named register as a hex string on stdout followed by new line.
+
+387 L<PrintOutRax_InHex|/PrintOutRax_InHex> - Write the content of register rax in hexadecimal in big endian notation to stout.
+
+388 L<PrintOutRax_InHexNL|/PrintOutRax_InHexNL> - Write the content of register rax in hexadecimal in big endian notation to stdout followed by a new line.
+
+389 L<PrintOutRaxAsChar|/PrintOutRaxAsChar> - Print the character in on stdout.
+
+390 L<PrintOutRaxAsCharNL|/PrintOutRaxAsCharNL> - Print the character in on stdout followed by a new line.
+
+391 L<PrintOutRaxAsText|/PrintOutRaxAsText> - Print rax as text on stdout.
+
+392 L<PrintOutRaxAsTextNL|/PrintOutRaxAsTextNL> - Print rax as text on stdout followed by a new line.
+
+393 L<PrintOutRaxInDec|/PrintOutRaxInDec> - Print rax in decimal on stdout.
+
+394 L<PrintOutRaxInDecNL|/PrintOutRaxInDecNL> - Print rax in decimal on stdout followed by a new line.
+
+395 L<PrintOutRaxInHex|/PrintOutRaxInHex> - Write the content of register rax in hexadecimal in big endian notation to stout.
+
+396 L<PrintOutRaxInHexNL|/PrintOutRaxInHexNL> - Write the content of register rax in hexadecimal in big endian notation to stdout followed by a new line.
+
+397 L<PrintOutRaxInReverseInHex|/PrintOutRaxInReverseInHex> - Write the content of register rax to stderr in hexadecimal in little endian notation.
+
+398 L<PrintOutRaxRightInDec|/PrintOutRaxRightInDec> - Print rax in decimal right justified in a field of the specified width on stdout.
+
+399 L<PrintOutRaxRightInDecNL|/PrintOutRaxRightInDecNL> - Print rax in decimal right justified in a field of the specified width on stdout followed by a new line.
+
+400 L<PrintOutRegisterInHex|/PrintOutRegisterInHex> - Print the named registers as hex strings on stdout.
+
+401 L<PrintOutRegistersInHex|/PrintOutRegistersInHex> - Print the general purpose registers in hex.
+
+402 L<PrintOutRflagsInHex|/PrintOutRflagsInHex> - Print the flags register in hex.
+
+403 L<PrintOutRightInBin|/PrintOutRightInBin> - Write the specified variable in binary right justified in a field of specified width on stdout.
+
+404 L<PrintOutRightInBinNL|/PrintOutRightInBinNL> - Write the specified variable in binary right justified in a field of specified width on stdout followed by a new line.
+
+405 L<PrintOutRightInHex|/PrintOutRightInHex> - Write the specified variable in hexadecimal right justified in a field of specified width on stdout.
+
+406 L<PrintOutRightInHexNL|/PrintOutRightInHexNL> - Write the specified variable in hexadecimal right justified in a field of specified width on stdout followed by a new line.
+
+407 L<PrintOutRipInHex|/PrintOutRipInHex> - Print the instruction pointer in hex.
+
+408 L<PrintOutSpace|/PrintOutSpace> - Print a constant number of spaces to stdout.
+
+409 L<PrintOutString|/PrintOutString> - Print a constant string to stdout.
+
+410 L<PrintOutStringNL|/PrintOutStringNL> - Print a constant string to stdout followed by a new line.
+
+411 L<PrintOutTraceBack|/PrintOutTraceBack> - Print sub routine track back on stdout and then exit with a message.
+
+412 L<PrintOutZF|/PrintOutZF> - Print the zero flag without disturbing it on stdout.
+
+413 L<PrintRax_InHex|/PrintRax_InHex> - Write the content of register rax in hexadecimal in big endian notation to the specified channel replacing zero bytes with __.
+
+414 L<PrintRaxAsChar|/PrintRaxAsChar> - Print the ascii character in rax on the specified channel.
+
+415 L<PrintRaxAsText|/PrintRaxAsText> - Print the string in rax on the specified channel.
+
+416 L<PrintRaxInDec|/PrintRaxInDec> - Print rax in decimal on the specified channel.
+
+417 L<PrintRaxInHex|/PrintRaxInHex> - Write the content of register rax in hexadecimal in big endian notation to the specified channel.
+
+418 L<PrintRaxRightInDec|/PrintRaxRightInDec> - Print rax in decimal right justified in a field of the specified width on the specified channel.
+
+419 L<PrintRegisterInHex|/PrintRegisterInHex> - Print the named registers as hex strings.
+
+420 L<PrintRightInBin|/PrintRightInBin> - Print out a number in hex right justified in a field of specified width on the specified channel
+
+421 L<PrintRightInHex|/PrintRightInHex> - Print out a number in hex right justified in a field of specified width on the specified channel
+
+422 L<PrintSpace|/PrintSpace> - Print a constant number of spaces to the specified channel.
+
+423 L<PrintString|/PrintString> - Print a constant string to the specified channel.
+
+424 L<PrintStringNL|/PrintStringNL> - Print a constant string to the specified channel followed by a new line.
+
+425 L<PrintTraceBack|/PrintTraceBack> - Trace the call stack.
+
+426 L<PushR|/PushR> - Push registers onto the stack.
+
+427 L<PushRR|/PushRR> - Push registers onto the stack without tracking.
+
+428 L<qFromX|/qFromX> - Get the quad word from the numbered xmm register and return it in a variable.
+
+429 L<qFromZ|/qFromZ> - Get the quad word from the numbered zmm register and return it in a variable.
+
+430 L<R|/R> - Define a reference variable.
+
+431 L<Rb|/Rb> - Layout bytes in the data segment and return their label.
+
+432 L<Rbwdq|/Rbwdq> - Layout data.
+
+433 L<RComment|/RComment> - Insert a comment into the read only data segment.
+
+434 L<Rd|/Rd> - Layout double words in the data segment and return their label.
+
+435 L<ReadChar|/ReadChar> - Read a character from stdin and return it in rax else return -1 in rax if no character was read.
+
+436 L<ReadFile|/ReadFile> - Read a file into memory.
+
+437 L<ReadInteger|/ReadInteger> - Reads an integer in decimal and returns it in rax.
+
+438 L<ReadLine|/ReadLine> - Reads up to 8 characters followed by a terminating return and place them into rax.
+
+439 L<ReadTimeStampCounter|/ReadTimeStampCounter> - Read the time stamp counter and return the time in nanoseconds in rax.
+
+440 L<registerNameFromNumber|/registerNameFromNumber> - Register name from number where possible
+
+441 L<RegisterSize|/RegisterSize> - Return the size of a register.
+
+442 L<removeNonAsciiChars|/removeNonAsciiChars> - Return a copy of the specified string with all the non ascii characters removed.
+
+443 L<RestoreFirstFour|/RestoreFirstFour> - Restore the first 4 parameter registers.
+
+444 L<RestoreFirstFourExceptRax|/RestoreFirstFourExceptRax> - Restore the first 4 parameter registers except rax so it can return its value.
+
+445 L<RestoreFirstFourExceptRaxAndRdi|/RestoreFirstFourExceptRaxAndRdi> - Restore the first 4 parameter registers except rax  and rdi so we can return a pair of values.
+
+446 L<RestoreFirstSeven|/RestoreFirstSeven> - Restore the first 7 parameter registers.
+
+447 L<RestoreFirstSevenExceptRax|/RestoreFirstSevenExceptRax> - Restore the first 7 parameter registers except rax which is being used to return the result.
+
+448 L<RestoreFirstSevenExceptRaxAndRdi|/RestoreFirstSevenExceptRaxAndRdi> - Restore the first 7 parameter registers except rax and rdi which are being used to return the results.
+
+449 L<Rq|/Rq> - Layout quad words in the data segment and return their label.
+
+450 L<Rs|/Rs> - Layout bytes in read only memory and return their label.
+
+451 L<Rutf8|/Rutf8> - Layout a utf8 encoded string as bytes in read only memory and return their label.
+
+452 L<Rw|/Rw> - Layout words in the data segment and return their label.
+
+453 L<SaveFirstFour|/SaveFirstFour> - Save the first 4 parameter registers making any parameter registers read only.
+
+454 L<SaveFirstSeven|/SaveFirstSeven> - Save the first 7 parameter registers.
+
+455 L<SaveRegIntoMm|/SaveRegIntoMm> - Save the specified register into the numbered zmm at the quad offset specified as a constant number.
+
+456 L<SetLabel|/SetLabel> - Create (if necessary) and set a label in the code section returning the label so set.
+
+457 L<SetMaskRegister|/SetMaskRegister> - Set the mask register to ones starting at the specified position for the specified length and zeroes elsewhere.
+
+458 L<SetZF|/SetZF> - Set the zero flag.
+
+459 L<Start|/Start> - Initialize the assembler.
+
+460 L<StatSize|/StatSize> - Stat a file whose name is addressed by rax to get its size in rax.
+
+461 L<StringLength|/StringLength> - Length of a zero terminated string.
+
+462 L<Structure|/Structure> - Create a structure addressed by a register.
+
+463 L<Subroutine|/Subroutine> - Create a subroutine that can be called in assembler code.
+
+464 L<SubroutineStartStack|/SubroutineStartStack> - Initialize a new stack frame.
+
+465 L<Then|/Then> - Then block for an If statement.
+
+466 L<totalBytesAssembled|/totalBytesAssembled> - Total size in bytes of all files assembled during testing.
+
+467 L<unlinkFile|/unlinkFile> - Unlink the named file.
+
+468 L<V|/V> - Define a variable.
+
+469 L<Variable|/Variable> - Create a new variable with the specified name initialized via an optional expression.
+
+470 L<WaitPid|/WaitPid> - Wait for the pid in rax to complete.
+
+471 L<wFromX|/wFromX> - Get the word from the numbered xmm register and return it in a variable.
+
+472 L<wFromZ|/wFromZ> - Get the word from the numbered zmm register and return it in a variable.
+
+473 L<wRegFromZmm|/wRegFromZmm> - Load the specified register from the word at the specified offset located in the numbered zmm.
+
+474 L<wRegIntoZmm|/wRegIntoZmm> - Put the specified register into the word in the numbered zmm at the specified offset in the zmm.
+
+475 L<xmm|/xmm> - Add xmm to the front of a list of register expressions.
+
+476 L<ymm|/ymm> - Add ymm to the front of a list of register expressions.
+
+477 L<zmm|/zmm> - Add zmm to the front of a list of register expressions.
+
+478 L<zmmM|/zmmM> - Add zmm to the front of a register number and a mask after it
+
+479 L<zmmMZ|/zmmMZ> - Add zmm to the front of a register number and mask and zero after it
+
+=head1 Installation
+
+This module is written in 100% Pure Perl and, thus, it is easy to read,
+comprehend, use, modify and install via B<cpan>:
+
+  sudo cpan install Nasm::X86
+
+=head1 Author
+
+L<philiprbrenan@gmail.com|mailto:philiprbrenan@gmail.com>
+
+L<http://www.appaapps.com|http://www.appaapps.com>
+
+=head1 Copyright
+
+Copyright (c) 2016-2021 Philip R Brenan.
+
+This module is free software. It may be used, redistributed and/or modified
+under the same terms as Perl itself.
 
 =cut
 
@@ -11799,242 +25819,6 @@ END
  }
 
 #latest:
-if (0) {                                                                        #TCreateShortString #TNasm::X86::ShortString::load #TNasm::X86::ShortString::append #TNasm::X86::ShortString::getLength #TNasm::X86::ShortString::setLength #TNasm::X86::ShortString::appendVar
-  my $s = CreateShortString(0);
-  my $d = Rb(1..63);
-  $s->load(K(address, $d), K(size, 9));
-  PrintOutRegisterInHex xmm0;
-
-  $s->len->outNL;
-
-  $s->setLength(K(size, 7));
-  PrintOutRegisterInHex xmm0;
-  $s->len->outNL;
-
-  if (my $r = $s->append($s))
-   {PrintOutRegisterInHex ymm0;
-    $r->outNL;
-    $s->len->outNL;
-   }
-
-  if (my $r = $s->appendByte(V append => 0xaa))
-   {PrintOutRegisterInHex ymm0;
-    $r->outNL;
-    $s->len->outNL;
-   }
-
-  if (my $r = $s->appendByte(V append => 0xbb))
-   {PrintOutRegisterInHex ymm0;
-    $r->outNL;
-    $s->len->outNL;
-   }
-
-  if (my $r = $s->appendVar(V value => -2))
-   {PrintOutRegisterInHex ymm0;
-    $r->outNL;
-    $s->len->outNL;
-   }
-
-  if (my $r = $s->append($s))
-   {PrintOutRegisterInHex zmm0;
-    $r->outNL;
-    $s->len->outNL;
-   }
-
-  if (my $r = $s->append($s))
-   {PrintOutRegisterInHex zmm0;
-    $r->outNL;
-    $s->len->outNL;
-   }
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-  xmm0: 0000 0000 0000 0908   0706 0504 0302 0109
-size: 0000 0000 0000 0009
-  xmm0: 0000 0000 0000 0908   0706 0504 0302 0107
-size: 0000 0000 0000 0007
-  ymm0: 0000 0000 0000 0000   0000 0000 0000 0000   0007 0605 0403 0201   0706 0504 0302 010E
-result: 0000 0000 0000 0001
-size: 0000 0000 0000 000E
-  ymm0: 0000 0000 0000 0000   0000 0000 0000 0000   AA07 0605 0403 0201   0706 0504 0302 010F
-result: 0000 0000 0000 0001
-size: 0000 0000 0000 000F
-  ymm0: 0000 0000 0000 0000   0000 0000 0000 00BB   AA07 0605 0403 0201   0706 0504 0302 0110
-result: 0000 0000 0000 0001
-size: 0000 0000 0000 0010
-  ymm0: 0000 0000 0000 00FF   FFFF FFFF FFFF FEBB   AA07 0605 0403 0201   0706 0504 0302 0118
-result: 0000 0000 0000 0001
-size: 0000 0000 0000 0018
-  zmm0: 0000 0000 0000 0000   0000 0000 0000 00FF   FFFF FFFF FFFF FEBB   AA07 0605 0403 0201   0706 0504 0302 01FF   FFFF FFFF FFFF FEBB   AA07 0605 0403 0201   0706 0504 0302 0130
-result: 0000 0000 0000 0001
-size: 0000 0000 0000 0030
-  zmm0: 0000 0000 0000 0000   0000 0000 0000 00FF   FFFF FFFF FFFF FEBB   AA07 0605 0403 0201   0706 0504 0302 01FF   FFFF FFFF FFFF FEBB   AA07 0605 0403 0201   0706 0504 0302 0130
-result: 0000 0000 0000 0000
-size: 0000 0000 0000 0030
-END
- }
-
-#latest:
-if (0) {                                                                        #TNasm::X86::String::appendShortString
-  my $a = CreateArea;
-  my $S = $a->CreateString;
-
-  my $s = CreateShortString(0);
-  my $d = Rb(1..63);
-  $s->load(K(address, $d), K(size, 9));
-  $s->append($s);
-
-  $S->appendShortString($s);
-
-  $S->dump;
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-String Dump      Total Length:       18
-Offset: 0000 0000 0000 0040  Length: 18  0000 0040 0000 0040   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0009 0807   0605 0403 0201 0908   0706 0504 0302 0112
-
-END
- }
-
-#latest:
-if (0) {                                                                        #TNasm::X86::Tree::insertShortString
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-
-  my $s = CreateShortString(0);
-  my $d = Rb(1..63);
-  $s->load(K (address=>$d), K size => 9);
-
-  $t->insertShortString($s, K(data,42));
-
-  $t->dump;
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-Tree at:  0000 0000 0000 0018  length: 0000 0000 0000 0001
-  Keys: 0000 0058 0001 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0403 0201
-  Data: 0000 0000 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0098
-  Node: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-    index: 0000 0000 0000 0000   key: 0000 0000 0403 0201   data: 0000 0000 0000 0098 subTree
-  Tree at:  0000 0000 0000 0098  length: 0000 0000 0000 0001
-    Keys: 0000 00D8 0001 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0807 0605
-    Data: 0000 0000 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0118
-    Node: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-      index: 0000 0000 0000 0000   key: 0000 0000 0807 0605   data: 0000 0000 0000 0118 subTree
-    Tree at:  0000 0000 0000 0118  length: 0000 0000 0000 0001
-      Keys: 0000 0158 0000 0001   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0009
-      Data: 0000 0000 0000 0002   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 002A
-      Node: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000
-        index: 0000 0000 0000 0000   key: 0000 0000 0000 0009   data: 0000 0000 0000 002A
-    end
-  end
-end
-END
- }
-
-#latest:
-if (0) {                                                                        #TNasm::X86::Area::CreateQuarks #TNasm::X86::Quarks::quarkFromShortString #TNasm::X86::Quarks::shortStringFromQuark
-  my $N = 5;
-  my $a = CreateArea;                                                           # Area containing quarks
-  my $Q = $a->CreateQuarks;                                                     # Quarks
-
-  my $s = CreateShortString(0);                                                 # Short string used to load and unload quarks
-  my $d = Rb(1..63);
-
-  for my $i(1..$N)                                                              # Load a set of quarks
-   {my $j = $i - 1;
-    $s->load(K(address, $d), K(size, 4+$i));
-    my $q = $Q->quarkFromShortString($s);
-    $q->outNL("New quark    $j: ");                                             # New quark, new number
-   }
-  PrintOutNL;
-
-  for my $i(reverse 1..$N)                                                      # Reload a set of quarks
-   {my $j = $i - 1;
-    $s->load(K(address, $d), K(size, 4+$i));
-    my $q = $Q->quarkFromShortString($s);
-    $q->outNL("Old quark    $j: ");                                             # Old quark, old number
-   }
-  PrintOutNL;
-
-  for my $i(1..$N)                                                              # Dump quarks
-   {my $j = $i - 1;
-    $s->clear;
-    $Q->shortStringFromQuark(K(quark, $j), $s);
-    PrintOutString "Quark string $j: ";
-    PrintOutRegisterInHex xmm0;
-   }
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-New quark    0: 0000 0000 0000 0000
-New quark    1: 0000 0000 0000 0001
-New quark    2: 0000 0000 0000 0002
-New quark    3: 0000 0000 0000 0003
-New quark    4: 0000 0000 0000 0004
-
-Old quark    4: 0000 0000 0000 0004
-Old quark    3: 0000 0000 0000 0003
-Old quark    2: 0000 0000 0000 0002
-Old quark    1: 0000 0000 0000 0001
-Old quark    0: 0000 0000 0000 0000
-
-Quark string 0:   xmm0: 0000 0000 0000 0000   0000 0504 0302 0105
-Quark string 1:   xmm0: 0000 0000 0000 0000   0006 0504 0302 0106
-Quark string 2:   xmm0: 0000 0000 0000 0000   0706 0504 0302 0107
-Quark string 3:   xmm0: 0000 0000 0000 0008   0706 0504 0302 0108
-Quark string 4:   xmm0: 0000 0000 0000 0908   0706 0504 0302 0109
-END
- }
-
-#latest:
-if (0) {                                                                        #TNasm::X86::Area::CreateQuarks #TNasm::X86::Quarks::quarkFromShortString #TNasm::X86::Quarks::shortStringFromQuark
-  my $N  = 5;
-  my $a  = CreateArea;                                                          # Area containing quarks
-  my $Q1 = $a->CreateQuarks;                                                    # Quarks
-  my $Q2 = $a->CreateQuarks;                                                    # Quarks
-
-  my $s = CreateShortString(0);                                                 # Short string used to load and unload quarks
-  my $d = Rb(1..63);
-
-  for my $i(1..$N)                                                              # Load first set of quarks
-   {my $j = $i - 1;
-    $s->load(K(address, $d), K(size, 4+$i));
-    my $q = $Q1->quarkFromShortString($s);
-    $q->outNL("Q1 $j: ");
-   }
-  PrintOutNL;
-
-  for my $i(1..$N)                                                              # Load second set of quarks
-   {my $j = $i - 1;
-    $s->load(K(address, $d), K(size, 5+$i));
-    my $q = $Q2->quarkFromShortString($s);
-    $q->outNL("Q2 $j: ");
-   }
-  PrintOutNL;
-
-  $Q1->quarkToQuark(K(three,3), $Q1)->outNL;
-  $Q1->quarkToQuark(K(three,3), $Q2)->outNL;
-  $Q2->quarkToQuark(K(two,  2), $Q1)->outNL;
-  $Q2->quarkToQuark(K(two,  2), $Q2)->outNL;
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-Q1 0: 0000 0000 0000 0000
-Q1 1: 0000 0000 0000 0001
-Q1 2: 0000 0000 0000 0002
-Q1 3: 0000 0000 0000 0003
-Q1 4: 0000 0000 0000 0004
-
-Q2 0: 0000 0000 0000 0000
-Q2 1: 0000 0000 0000 0001
-Q2 2: 0000 0000 0000 0002
-Q2 3: 0000 0000 0000 0003
-Q2 4: 0000 0000 0000 0004
-
-found: 0000 0000 0000 0003
-found: 0000 0000 0000 0002
-found: 0000 0000 0000 0003
-found: 0000 0000 0000 0002
-END
- }
-
-#latest:
 if (1) {                                                                        #TNasm::Variable::copy  #TNasm::Variable::copyRef
   my $a = V('a', 1);
   my $r = R('r')->copyRef($a);
@@ -12075,76 +25859,6 @@ R: 0000 0000 0000 0003
 a: 0000 0000 0000 0004
 r: 0000 0000 0000 0004
 R: 0000 0000 0000 0004
-END
- }
-
-#latest:
-if (0) {                                                                        #TNasm::X86::String::getQ1
-  my $a  = CreateArea;
-
-  my $s = $a->CreateString;
-  my $i = Rb(0..255);
-  $s->append(V(source => $i), V(size => 63)); $s->dump;
-
-  my $q = $s->getQ1;
-  $q->outNL;
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-String Dump      Total Length:       63
-Offset: 0000 0000 0000 0018  Length: 55  0000 0058 0000 0058   3635 3433 3231 302F   2E2D 2C2B 2A29 2827   2625 2423 2221 201F   1E1D 1C1B 1A19 1817   1615 1413 1211 100F   0E0D 0C0B 0A09 0807   0605 0403 0201 0037
-Offset: 0000 0000 0000 0058  Length:  8  0000 0018 0000 0018   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 003E   3D3C 3B3A 3938 3708
-
-q1: 0706 0504 0302 0100
-END
- }
-
-#latest:
-if (0) {                                                                        #TNasm::X86::Quarks::quarkFromSub #TNasm::X86::Quarks::subFromQuark #TNasm::X86::Quarks::loadConstantString
-  my $s1 = Subroutine33
-   {PrintOutStringNL "11111";
-   } [], name => 'test1';
-
-  my $s2 = Subroutine33
-   {PrintOutStringNL "22222";
-   } [], name => 'test2';
-
-  my $s  = CreateShortString(0);
-
-  my $a  = CreateArea;
-  my $q  = $a->CreateQuarks;
-
-  $s->loadConstantString("add");
-  my $n1 = $q->quarkFromSub($s1->V, $s);
-
-  $s->loadConstantString("assign");
-  my $n2 = $q->quarkFromSub($s2->V, $s);
-
-  $s->loadConstantString("add");
-  my $S1 = $q->subFromQuark($n1);
-  my $T1 = $q->subFromShortString($s);
-  $s1->V->outNL;
-  $S1   ->outNL(" sub: ");
-  $T1   ->outNL(" sub: ");
-
-  $s->loadConstantString("assign");
-  my $S2 = $q->subFromQuark($n2);
-  my $T2 = $q->subFromShortString($s);
-  $s2->V->outNL;
-  $S2   ->outNL(" sub: ");
-  $T2   ->outNL(" sub: ");
-
-  $q->call($n1);
-  $q->call($n2);
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-call: 0000 0000 0040 1009
- sub: 0000 0000 0040 1009
- sub: 0000 0000 0040 1009
-call: 0000 0000 0040 10B9
- sub: 0000 0000 0040 10B9
- sub: 0000 0000 0040 10B9
-11111
-22222
 END
  }
 
@@ -16579,7 +30293,7 @@ Area     Size:     4096    Used:      192
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #Tconvert_rax_from_utf32_to_utf8
 
 # $ 	U+0024                 010 0100                00100100                     24
