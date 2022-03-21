@@ -2032,86 +2032,6 @@ sub PrintOutRightInBinNL($$)                                                    
   PrintOutNL;
  }
 
-#D2 Print UTF strings                                                           # Print utf-8 and iutf-32 strings
-
-sub PrintUtf8Char($)                                                            # Print the utf-8 character held by rax to the specified channel. The character must be in little endian form.
- {my ($channel) = @_;                                                           # Channel
-
-  Subroutine
-   {my ($p, $s) = @_;                                                           # Parameters
-    PushR rax, rdi, r15;
-    Mov r15d, eax;                                                              # Load character
-    Lzcnt r15, r15;                                                             # Find width of utf-8 character
-    Shr r15, 3;                                                                 # From bits to bytes
-    Mov rdi, RegisterSize r15;                                                  # Maximum number of bytes
-    Sub rdi, r15;                                                               # Width in bytes
-    PushR rax;                                                                  # Place content of rax on stack
-    Mov rax, rsp;                                                               # Address content of rax on stack
-    PrintMemory($channel);                                                      # Print letter from stack
-    PopR;
-    PopR;
-   } name => qq(Nasm::X86::printUtf8Char_$channel), call=>1;
- }
-
-sub PrintErrUtf8Char()                                                          # Print the utf-8 character addressed by rax to stderr.
- {PrintUtf8Char($stdout);
- }
-
-sub PrintOutUtf8Char()                                                          # Print the utf-8 character addressed by rax to stdout.
- {PrintUtf8Char($stdout);
- }
-=pod
-
-sub PrintUtf32($$$)                                                             #P Print the specified number of utf32 characters at the specified address to the specified channel.
- {my ($channel, $size, $address) = @_;                                          # Channel, variable: number of characters to print, variable: address of memory
-  @_ == 3 or confess "Three parameters";
-
-  Subroutine
-   {my ($p, $s) = @_;                                                           # Parameters, subroutine description
-
-    PushR (rax, r14, r15);
-    my $count = $$p{size} / 2; my $count1 = $count - 1;
-    $count->for(sub
-     {my ($index, $start, $next, $end) = @_;
-      my $a = $$p{address} + $index * 8;
-      $a->setReg(rax);
-      Mov rax, "[rax]";
-      Mov r14, rax;
-      Mov r15, rax;
-      Shl r15, 32;
-      Shr r14, 32;
-      Or r14,r15;
-      Mov rax, r14;
-      PrintOutRaxInHex;
-      If $index % 8 == 7,
-      Then
-       {PrintOutNL;
-       },
-      Else
-       {If $index != $count1, sub
-         {PrintOutString "  ";
-         };
-       };
-     });
-    PrintOutNL;
-    PopR;
-   } structures=>{size => $size, address => $address}, call=>1,
-     name => qq(Nasm::X86::printUtf32_$channel);
- }
-
-sub PrintErrUtf32($$)                                                           # Print the utf-8 character addressed by rax to stderr.
- {my ($size, $address) = @_;                                                    # Variable: number of characters to print, variable: address of memory
-  @_ == 2 or confess "Two parameters";
-  PrintUtf32($stderr, $size, $address);
- }
-
-sub PrintOutUtf32($$)                                                           # Print the utf-8 character addressed by rax to stdout.
- {my ($size, $address) = @_;                                                    # Variable: number of characters to print, variable: address of memory
-  @_ == 2 or confess "Two parameters";
-  PrintUtf32($stderr, $size, $address);
- }
-=cut
-
 #D2 Print in decimal                                                            # Print numbers in decimal right justified in fields of specified width.
 
 sub PrintRaxInDec($)                                                            # Print rax in decimal on the specified channel.
@@ -9117,7 +9037,7 @@ sub Nasm::X86::Tree::push($$)                                                   
   $tree->findLast;                                                              # Last element
   If $tree->found == 0,
   Then                                                                          # Empty tree
-   {$tree->put(K(key => 1), $data);                                             # First element in tree
+   {$tree->put(K(key => 0), $data);                                             # First element in tree
    },
   Else                                                                          # Non empty tree
    {$tree->put($tree->key + 1, $data);                                          # Last element in tree
@@ -9158,8 +9078,8 @@ sub Nasm::X86::Tree::append($$)                                                 
   my $ls = $append->size;                                                       # Source tree size
   $ls->for(sub                                                                  # Look up each character
    {my ($i, $start, $next, $end) = @_;
-    $tree->get($i);
-    $tree->put($lt+$i, $tree->key);
+    $tree->get($i+1);
+    $tree->put($lt+$tree->key, $tree->data);
    });
   $tree                                                                         # Chain from the target tree
  }
@@ -13382,19 +13302,7 @@ if (1) {                                                                        
  }
 
 #latest:
-if (1) {                                                                        #TPrintOutUtf8Char
-  my $u = Rd(convertUtf32ToUtf8LE(ord('α')));
-  Mov rax, $u;
-  PrintOutUtf8Char;
-  PrintOutNL;
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-α
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Variable::outZeroString
+if (1) {                                                                        #TNasm::X86::Variable::outCStringNL
   my $s = Rutf8 '𝝰𝝱𝝲𝝳';
   V(address, $s)->outCStringNL;
 
@@ -18039,7 +17947,7 @@ if (1) {                                                                        
   my $N = K loop => 16;
   $N->for(sub
    {my ($i) = @_;
-    $t->push($i+1);
+    $t->push($i);
    });
 
   $t->size->outNL;
@@ -18054,7 +17962,6 @@ if (1) {                                                                        
   ok Assemble eq => <<END;
 size of tree: 0000 0000 0000 0010
 f: 0000 0000 0000 0001 i: 0000 0000 0000 0008 data: 0000 0000 0000 0008
-f: 0000 0000 0000 0001 i: 0000 0000 0000 0010 data: 0000 0000 0000 0010
 f: 0000 0000 0000 0001 i: 0000 0000 0000 000F data: 0000 0000 0000 000F
 f: 0000 0000 0000 0001 i: 0000 0000 0000 000E data: 0000 0000 0000 000E
 f: 0000 0000 0000 0001 i: 0000 0000 0000 000D data: 0000 0000 0000 000D
@@ -18070,6 +17977,7 @@ f: 0000 0000 0000 0001 i: 0000 0000 0000 0004 data: 0000 0000 0000 0004
 f: 0000 0000 0000 0001 i: 0000 0000 0000 0003 data: 0000 0000 0000 0003
 f: 0000 0000 0000 0001 i: 0000 0000 0000 0002 data: 0000 0000 0000 0002
 f: 0000 0000 0000 0001 i: 0000 0000 0000 0001 data: 0000 0000 0000 0001
+f: 0000 0000 0000 0001 i: 0000 0000 0000 0000 data: 0000 0000 0000 0000
 f: 0000 0000 0000 0000
 END
  }
@@ -18266,32 +18174,32 @@ if (1) {                                                                        
 # 한 	U+D55C     	1101 0101 0101 1100                11101101 10010101 10011100   ED 95 9C
 # 𐍈   	U+10348 	0 0001 0000 0011 0100 1000 	11110000 10010000 10001101 10001000   F0 90 8D 88
 
-  Mov rax, 0x40; # 0x40
+  Mov rax, 0x40;                                                                # 0x40
   convert_rax_from_utf32_to_utf8;
   PrintOutRegisterInHex rax;
 
-  Mov rax, 0x03b1; # 0xCE 0xB1
+  Mov rax, 0x03b1;                                                              # 0xCE 0xB1
   convert_rax_from_utf32_to_utf8;
   PrintOutRegisterInHex rax;
 
-  Mov rax, 0x20ac; # 0xE2 0x82 0xAC;
+  Mov rax, 0x20ac;                                                              # 0xE2 0x82 0xAC;
   convert_rax_from_utf32_to_utf8;
   PrintOutRegisterInHex rax;
 
-  Mov rax, 0x10348; # 0xf0 0x90 0x8d 0x88
+  Mov rax, 0x10348;                                                             # 0xf0 0x90 0x8d 0x88
   convert_rax_from_utf32_to_utf8;
   PrintOutRegisterInHex rax;
 
   ok Assemble eq => <<END;
    rax: 0000 0000 0000 0040
-   rax: 0000 0000 0000 31CE
+   rax: 0000 0000 0000 B1CE
    rax: 0000 0000 00AC 82E2
    rax: 0000 0000 888D 90F0
 END
  }
 
-latest:
-if (1) {                                                                        #T#TNasm::X86::Tree::outAsUtf8
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8#TNasm::X86::Tree::append
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
@@ -18302,8 +18210,16 @@ if (1) {                                                                        
 
   $t->outAsUtf8NL;
 
+  $t->append($t);
+  $t->outAsUtf8NL;
+
+  $t->append($t);
+  $t->outAsUtf8NL;
+
   ok Assemble eq => <<END;
 αβγδ
+αβγδβγδ
+αβγδβγδβγδβγδ
 END
  }
 
