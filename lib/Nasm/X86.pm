@@ -2034,18 +2034,21 @@ sub PrintOutRightInBinNL($$)                                                    
 
 #D2 Print UTF strings                                                           # Print utf-8 and iutf-32 strings
 
-sub PrintUtf8Char($)                                                            # Print the utf-8 character addressed by rax to the specified channel. The character must be in little endian form.
+sub PrintUtf8Char($)                                                            # Print the utf-8 character held by rax to the specified channel. The character must be in little endian form.
  {my ($channel) = @_;                                                           # Channel
 
   Subroutine
    {my ($p, $s) = @_;                                                           # Parameters
     PushR rax, rdi, r15;
-    Mov r15d, "[rax]";                                                          # Load character - this assumes that each utf8 character sits by itself, right adjusted, in a block of 4 bytes
+    Mov r15d, eax;                                                              # Load character
     Lzcnt r15, r15;                                                             # Find width of utf-8 character
     Shr r15, 3;                                                                 # From bits to bytes
     Mov rdi, RegisterSize r15;                                                  # Maximum number of bytes
     Sub rdi, r15;                                                               # Width in bytes
+    PushR rax;                                                                  # Place content of rax on stack
+    Mov rax, rsp;                                                               # Address content of rax on stack
     PrintMemory($channel);                                                      # Print letter from stack
+    PopR;
     PopR;
    } name => qq(Nasm::X86::printUtf8Char_$channel), call=>1;
  }
@@ -2057,6 +2060,7 @@ sub PrintErrUtf8Char()                                                          
 sub PrintOutUtf8Char()                                                          # Print the utf-8 character addressed by rax to stdout.
  {PrintUtf8Char($stdout);
  }
+=pod
 
 sub PrintUtf32($$$)                                                             #P Print the specified number of utf32 characters at the specified address to the specified channel.
  {my ($channel, $size, $address) = @_;                                          # Channel, variable: number of characters to print, variable: address of memory
@@ -2106,6 +2110,7 @@ sub PrintOutUtf32($$)                                                           
   @_ == 2 or confess "Two parameters";
   PrintUtf32($stderr, $size, $address);
  }
+=cut
 
 #D2 Print in decimal                                                            # Print numbers in decimal right justified in fields of specified width.
 
@@ -2234,25 +2239,25 @@ sub PrintRaxAsText($)                                                           
   PopR;
  }
 
-sub PrintOutRaxAsText                                                           # Print rax in decimal on stdout.
+sub PrintOutRaxAsText                                                           # Print rax as text on stdout.
  {PrintRaxAsText($stdout);
  }
 
-sub PrintOutRaxAsTextNL                                                         # Print rax in decimal on stdout followed by a new line.
+sub PrintOutRaxAsTextNL                                                         # Print rax as text on stdout followed by a new line.
  {PrintRaxAsText($stdout);
   PrintOutNL;
  }
 
-sub PrintErrRaxAsText                                                           # Print rax in decimal on stderr.
+sub PrintErrRaxAsText                                                           # Print rax as text on stderr.
  {PrintRaxAsText($stderr);
  }
 
-sub PrintErrRaxAsTextNL                                                         # Print rax in decimal on stderr followed by a new line.
+sub PrintErrRaxAsTextNL                                                         # Print rax as text on stderr followed by a new line.
  {PrintRaxAsText($stderr);
   PrintOutNL;
  }
 
-sub PrintRaxAsChar($)                                                           # Print the character in rax on the specified channel.
+sub PrintRaxAsChar($)                                                           # Print the ascii character in rax on the specified channel.
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
@@ -4440,9 +4445,9 @@ sub convert_rax_from_utf32_to_utf8                                              
 
       Mov r14, rax;                                                             # Low byte
       And r14, 0x3f;
+      Or  r14, 0x80;
       Shl r14, 8;
       Or r15, r14;
-
       Mov rax, r15;
       Jmp $success;
      };
@@ -9159,7 +9164,7 @@ sub Nasm::X86::Tree::append($$)                                                 
   $tree                                                                         # Chain from the target tree
  }
 
-sub Nasm::X86::Tree::outAsUtf8($)                                               # Print the data values of the specified string on stdout assuming each data value is one ascii character
+sub Nasm::X86::Tree::outAsUtf8($)                                               # Print the data values of the specified string on stdout assuming each data value is a utf32 character and that the output device supports utf8
  {my ($tree) = @_;                                                              # Tree descriptor of string
   @_ == 1 or confess "One parameter";
 
@@ -9168,8 +9173,16 @@ sub Nasm::X86::Tree::outAsUtf8($)                                               
     PushR rax;
     $tree->data->setReg(rax);
     convert_rax_from_utf32_to_utf8;
-
+    PrintOutRaxAsText;
    });
+  $tree                                                                         # Chain from the target tree
+ }
+
+sub Nasm::X86::Tree::outAsUtf8NL($)                                             # Print the data values of the specified string on stdout assuming each data value is a utf32 character and that the output device supports utf8. Follow the print with a new line character.
+ {my ($tree) = @_;                                                              # Tree descriptor of string
+  @_ == 1 or confess "One parameter";
+  $tree->outAsUtf8;
+  PrintOutNL;
   $tree                                                                         # Chain from the target tree
  }
 
@@ -18244,7 +18257,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #
+if (1) {                                                                        #Tconvert_rax_from_utf32_to_utf8
 
 # $ 	U+0024                 010 0100                00100100                     24
 # £ 	U+00A3 	          000 1010 0011                11000010 10100011            C2 A3
@@ -18274,6 +18287,23 @@ if (1) {                                                                        
    rax: 0000 0000 0000 31CE
    rax: 0000 0000 00AC 82E2
    rax: 0000 0000 888D 90F0
+END
+ }
+
+latest:
+if (1) {                                                                        #T#TNasm::X86::Tree::outAsUtf8
+  my $a = CreateArea;
+  my $t = $a->CreateTree(length => 3);
+
+  $t->push(K alpha => 0x03b1);
+  $t->push(K beta  => 0x03b2);
+  $t->push(K gamma => 0x03b3);
+  $t->push(K delta => 0x03b4);
+
+  $t->outAsUtf8NL;
+
+  ok Assemble eq => <<END;
+αβγδ
 END
  }
 
