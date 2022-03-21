@@ -4420,18 +4420,11 @@ sub Hash()                                                                      
 
 #D1 Unicode                                                                     # Convert between utf8 and utf32
 
-sub convert_rax_from_utf32_to_utf8                                              # Convert a utf32  character held in rax to a utf8 character held in rax
+sub convert_rax_from_utf32_to_utf8                                              # Convert a utf32 character held in rax to a utf8 character held in rax
  {@_ and confess "Zero parameters";
 
-=pod
-U+0000  U+007F   0xxxxxxx
-U+0080  U+07FF   110xxxxx  10xxxxxx
-U+0800  U+FFFF   1110xxxx  10xxxxxx  10xxxxxx
-U+10000 U+10FFFF 11110xxx  10xxxxxx  10xxxxxx  10xxxxxx
-=cut
-
   my $s = Subroutine
-   {PushR 11, 12, 13, 14, 15;
+   {PushR 14, 15;
     my $success = Label;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
     Cmp rax, 0x7f;                                                              # Ascii
     IfLe Then {Jmp $success};
@@ -4440,12 +4433,16 @@ U+10000 U+10FFFF 11110xxx  10xxxxxx  10xxxxxx  10xxxxxx
     IfLe
     Then
      {Mov r15, rax;
+
+      Shr r15, 6;                                                               # High byte
       And r15, 0x1f;
-      Mov r14, rax;                                                             # Byte 2
-      Shr r14, 8;
+      Or  r15, 0xc0;
+
+      Mov r14, rax;                                                             # Low byte
       And r14, 0x3f;
-      Shl r14, 5;
+      Shl r14, 8;
       Or r15, r14;
+
       Mov rax, r15;
       Jmp $success;
      };
@@ -4454,52 +4451,56 @@ U+10000 U+10FFFF 11110xxx  10xxxxxx  10xxxxxx  10xxxxxx
     IfLe
     Then
      {Mov r15, rax;
-      And r15, 0xf;
 
-      Mov r14, rax;                                                             # Byte 2
-      Shr r14, 8;
+      Shr r15, 12;                                                              # High byte
+      And r15, 0x0f;
+      Or  r15, 0xe0;
+
+      Mov r14, rax;                                                             # Middle byte
+      Shr r14, 6;
       And r14, 0x3f;
-      Shl r14, 4;
-PrintErrStringNL "BBBB111";
-      PrintErrRegisterInHex rax, 14, 15;
+      Or  r14, 0x80;
+      Shl r14, 8;
       Or r15, r14;
 
-      Mov r14, rax;                                                             # Byte 3
-      Shr r14, 16;
+      Mov r14, rax;                                                             # Low byte
       And r14, 0x3f;
-      Shl r14, 10;
-PrintErrStringNL "BBBB222";
-      PrintErrRegisterInHex rax, 14, 15;
-      Or  r15, r14;
+      Or  r14, 0x80;
+      Shl r14, 16;
+      Or r15, r14;
 
       Mov rax, r15;
       Jmp $success;
      };
 
-    Cmp rax, 0xffff;                                                            # Char size is: 4 bytes
+    Cmp rax, 0x10ffff;                                                          # Char size is: 4 bytes
     IfLe
     Then
      {Mov r15, rax;
-      And r15, 0x7;
 
-      Mov r14, rax;                                                             # Byte 2
-      Shr r14, 8;
+      Shr r15, 18;                                                              # High byte
+      And r15, 0x03;
+      Or  r15, 0xf0;
+
+      Mov r14, rax;                                                             # Middle byte
+      Shr r14, 12;
       And r14, 0x3f;
-      Shl r14, 3;
-      Or  r15, r14;
+      Or  r14, 0x80;
+      Shl r14, 8;
+      Or r15, r14;
 
-      Mov r14, rax;                                                             # Byte 3
-      Shr r14, 16;
+      Mov r14, rax;                                                             # Middle byte
+      Shr r14, 6;
       And r14, 0x3f;
-      Shl r14, 9;
-      Or  r15, r14;
+      Or  r14, 0x80;
+      Shl r14, 16;
+      Or r15, r14;
 
-      Mov r14, rax;                                                             # Byte 4
-      Shr r14, 24;
+      Mov r14, rax;                                                             # Low byte
       And r14, 0x3f;
-      Shl r14, 15;
-      Or  r15, r14;
-
+      Or  r14, 0x80;
+      Shl r14, 24;
+      Or r15, r14;
       Mov rax, r15;
       Jmp $success;
      };
@@ -9164,6 +9165,10 @@ sub Nasm::X86::Tree::outAsUtf8($)                                               
 
   $tree->by(sub                                                                 # Each character
    {my ($i, $start, $next, $end) = @_;
+    PushR rax;
+    $tree->data->setReg(rax);
+    convert_rax_from_utf32_to_utf8;
+
    });
   $tree                                                                         # Chain from the target tree
  }
@@ -18238,14 +18243,37 @@ Area     Size:     4096    Used:      192
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #
 
-  Mov rax, 0xCEB1; # 0x03B1
+# $ 	U+0024                 010 0100                00100100                     24
+# £ 	U+00A3 	          000 1010 0011                11000010 10100011            C2 A3
+# ह 	  U+0939    	0000 1001 0011 1001                11100000 10100100 10111001   E0 A4 B9
+# € 	U+20AC    	0010 0000 1010 1100                11100010 10000010 10101100   E2 82 AC
+# 한 	U+D55C     	1101 0101 0101 1100                11101101 10010101 10011100   ED 95 9C
+# 𐍈   	U+10348 	0 0001 0000 0011 0100 1000 	11110000 10010000 10001101 10001000   F0 90 8D 88
+
+  Mov rax, 0x40; # 0x40
   convert_rax_from_utf32_to_utf8;
-  PrintErrRegisterInHex rax;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, 0x03b1; # 0xCE 0xB1
+  convert_rax_from_utf32_to_utf8;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, 0x20ac; # 0xE2 0x82 0xAC;
+  convert_rax_from_utf32_to_utf8;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, 0x10348; # 0xf0 0x90 0x8d 0x88
+  convert_rax_from_utf32_to_utf8;
+  PrintOutRegisterInHex rax;
 
   ok Assemble eq => <<END;
+   rax: 0000 0000 0000 0040
+   rax: 0000 0000 0000 31CE
+   rax: 0000 0000 00AC 82E2
+   rax: 0000 0000 888D 90F0
 END
  }
 
