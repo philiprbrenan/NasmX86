@@ -8481,7 +8481,7 @@ END
       say STDERR "Got  $b2\n", firstNChars($G, 80);
       say STDERR "Want: ", dump($e);
       say STDERR "Got : ", dump($g);
-      confess "Test failed" unless env{GITHUB_REPOSITORY_OWNER];                # Test failed unless we are debugging test failures
+      confess "Test failed" unless env{GITHUB_REPOSITORY_OWNER};                # Test failed unless we are debugging test failures
      }
     return 1;                                                                   # Test passed
    }
