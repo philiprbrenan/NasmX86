@@ -24046,9 +24046,11 @@ if (1) {                                                                        
   $s->makeReadOnly;                                                             # Make area read only - tested above
   $s->makeWriteable;                                                            # Make area writable again
   $s->q(" World");                                                              # Try to write to area
-  $s->out;
+  $s->outNL;
 
-  ok Assemble(avx512=>0) =~ m(Hello World);
+  ok Assemble(avx512=>0, eq => <<END);
+Hello World
+END
  }
 
 #latest:;
