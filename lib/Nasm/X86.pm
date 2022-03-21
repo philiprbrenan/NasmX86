@@ -299,10 +299,6 @@ sub dWordRegister($)                                                            
   $r."d"
  }
 
-sub Comment(@);                                                                 # Insert a comment into the assembly code.
-sub PopR(@);                                                                    # Pop a list of registers off the stack.
-sub PushR(@);                                                                   # Push a list of registers onto the stack.
-sub RegisterSize($);                                                             # Return the size of a register.
 sub Subroutine(&%);                                                             # Create a subroutine that can be called in assembler code.
 
 #D1 Data                                                                        # Layout data
@@ -447,6 +443,76 @@ sub Pi64 {Rq("__float32__($Pi)")}                                               
 
 #D1 Registers                                                                   # Operations on registers
 
+#D2 Size                                                                        # Sizes of each register
+
+sub RegisterSize($)                                                             # Return the size of a register.
+ {my ($r) = @_;                                                                 # Register
+  $r = &registerNameFromNumber($r);
+  defined($r) or confess;
+  defined($Registers{$r}) or confess "No such registers as: $r";
+  eval "${r}Size()";
+ }
+
+#D2 Push, Pop, Peek                                                             # Generic versions of push, pop, peek
+
+sub PushRR(@)                                                                   #P Push registers onto the stack without tracking.
+ {my (@r) = @_;                                                                 # Register
+  my $w = RegisterSize rax;
+  for my $r(map {&registerNameFromNumber($_)} @r)
+   {my $size = RegisterSize $r;
+    $size or confess "No such register: $r";
+    if    ($size > $w)                                                          # Wide registers
+     {Sub rsp, $size;
+      Vmovdqu32 "[rsp]", $r;
+     }
+    elsif ($r =~ m(\Ak))                                                        # Mask as they do not respond to push
+     {Sub rsp, $size;
+      Kmovq "[rsp]", $r;
+     }
+    else                                                                        # Normal register
+     {Push $r;
+     }
+   }
+ }
+
+my @PushR;                                                                      # Track pushes
+
+sub PushR(@)                                                                    #P Push registers onto the stack.
+ {my (@r) = @_;                                                                 # Registers
+  push @PushR, [@r];
+# CommentWithTraceBack;
+  PushRR   @r;                                                                  # Push
+  scalar(@PushR)                                                                # Stack depth
+ }
+
+sub PopRR(@)                                                                    #P Pop registers from the stack without tracking.
+ {my (@r) = @_;                                                                 # Register
+  my $w = RegisterSize rax;
+  for my $r(reverse map{&registerNameFromNumber($_)}  @r)                         # Pop registers in reverse order
+   {my $size = RegisterSize $r;
+    if    ($size > $w)
+     {Vmovdqu32 $r, "[rsp]";
+      Add rsp, $size;
+     }
+    elsif ($r =~ m(\Ak))
+     {Kmovq $r, "[rsp]";
+      Add rsp, $size;
+     }
+    else
+     {Pop $r;
+     }
+   }
+ }
+
+sub PopR(@)                                                                     # Pop registers from the stack. Use the last stored set if none explicitly supplied.  Pops are done in reverse order to match the original pushing order.
+ {my (@r) = @_;                                                                 # Register
+  @PushR or confess "No stacked registers";
+  my $r = pop @PushR;
+  dump(\@r) eq dump($r) or confess "Mismatched registers:\n".dump($r, \@r) if @r;
+  PopRR @$r;                                                                    # Pop registers from the stack without tracking
+# CommentWithTraceBack;
+ }
+
 #D2 General                                                                     # Actions specific to general purpose registers
 
 sub registerNameFromNumber($)                                                   # Register name from number where possible
@@ -501,66 +567,6 @@ sub InsertOneIntoRegisterAtPoint($$)                                            
    }
  }
 
-#D2 Push, Pop, Peek                                                             # Generic versions of push, pop, peek
-
-sub PushRR(@)                                                                   #P Push registers onto the stack without tracking.
- {my (@r) = @_;                                                                 # Register
-  my $w = RegisterSize rax;
-  for my $r(map {registerNameFromNumber $_} @r)
-   {my $size = RegisterSize $r;
-    $size or confess "No such register: $r";
-    if    ($size > $w)                                                          # Wide registers
-     {Sub rsp, $size;
-      Vmovdqu32 "[rsp]", $r;
-     }
-    elsif ($r =~ m(\Ak))                                                        # Mask as they do not respond to push
-     {Sub rsp, $size;
-      Kmovq "[rsp]", $r;
-     }
-    else                                                                        # Normal register
-     {Push $r;
-     }
-   }
- }
-
-my @PushR;                                                                      # Track pushes
-
-sub PushR(@)                                                                    #P Push registers onto the stack.
- {my (@r) = @_;                                                                 # Registers
-  push @PushR, [@r];
-# CommentWithTraceBack;
-  PushRR   @r;                                                                  # Push
-  scalar(@PushR)                                                                # Stack depth
- }
-
-sub PopRR(@)                                                                    #P Pop registers from the stack without tracking.
- {my (@r) = @_;                                                                 # Register
-  my $w = RegisterSize rax;
-  for my $r(reverse map{registerNameFromNumber $_}  @r)                         # Pop registers in reverse order
-   {my $size = RegisterSize $r;
-    if    ($size > $w)
-     {Vmovdqu32 $r, "[rsp]";
-      Add rsp, $size;
-     }
-    elsif ($r =~ m(\Ak))
-     {Kmovq $r, "[rsp]";
-      Add rsp, $size;
-     }
-    else
-     {Pop $r;
-     }
-   }
- }
-
-sub PopR(@)                                                                     # Pop registers from the stack. Use the last stored set if none explicitly supplied.  Pops are done in reverse order to match the original pushing order.
- {my (@r) = @_;                                                                 # Register
-  @PushR or confess "No stacked registers";
-  my $r = pop @PushR;
-  dump(\@r) eq dump($r) or confess "Mismatched registers:\n".dump($r, \@r) if @r;
-  PopRR @$r;                                                                    # Pop registers from the stack without tracking
-# CommentWithTraceBack;
- }
-
 #D2 Save and Restore                                                            # Saving and restoring registers via the stack
 
 my @syscallSequence = qw(rax rdi rsi rdx r10 r8 r9);                            # The parameter list sequence for system calls
@@ -610,14 +616,6 @@ sub RestoreFirstSevenExceptRaxAndRdi()                                          
  {my $N = 7;
   PopRR $_ for reverse @syscallSequence[2..$N-1];
   Add rsp, 2*RegisterSize(rax);                                                 # Skip rdi and rax
- }
-
-sub RegisterSize($)                                                             # Return the size of a register.
- {my ($r) = @_;                                                                 # Register
-  $r = registerNameFromNumber $r;
-  defined($r) or confess;
-  defined($Registers{$r}) or confess "No such registers as: $r";
-  eval "${r}Size()";
  }
 
 sub ClearRegisters(@)                                                           # Clear registers by setting them to zero.
@@ -1076,7 +1074,7 @@ sub For(&$$;$)                                                                  
   @_ == 3 or @_ == 4 or confess;
   $increment //= 1;                                                             # Default increment
   my $next = Label;                                                             # Next iteration
-  Comment "For $register $limit";
+  &Comment("For $register $limit");
   my $start = Label;
   my $end   = Label;
   SetLabel $start;
@@ -1125,7 +1123,7 @@ sub ForIn(&$$$$)                                                                
 sub ForEver(&)                                                                  # Iterate for ever.
  {my ($block) = @_;                                                             # Block to iterate
   @_ == 1 or confess "One parameter";
-  Comment "ForEver";
+  &Comment("ForEver");
   my $start = Label;                                                            # Start label
   my $end   = Label;                                                            # End label
 
@@ -2102,7 +2100,7 @@ sub PrintRightInHex($$$)                                                        
     $$p{width}->setReg(rdi);
     Add rax, 16;
     Sub rax, rdi;
-    &PrintOutMemory;
+    &PrintOutMemory();
     PopR;
     PopR;
    } name => "PrintRightInHex_${channel}",
