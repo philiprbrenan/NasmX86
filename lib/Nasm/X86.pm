@@ -301,7 +301,6 @@ sub dWordRegister($)                                                            
 
 sub Comment(@);                                                                 # Insert a comment into the assembly code.
 sub PopR(@);                                                                    # Pop a list of registers off the stack.
-sub PrintOutMemory;                                                             # Print the memory addressed by rax for a length of rdi.
 sub PushR(@);                                                                   # Push a list of registers onto the stack.
 sub RegisterSize($);                                                             # Return the size of a register.
 sub Subroutine(&%);                                                             # Create a subroutine that can be called in assembler code.
@@ -2103,7 +2102,7 @@ sub PrintRightInHex($$$)                                                        
     $$p{width}->setReg(rdi);
     Add rax, 16;
     Sub rax, rdi;
-    PrintOutMemory;
+    &PrintOutMemory;
     PopR;
     PopR;
    } name => "PrintRightInHex_${channel}",
