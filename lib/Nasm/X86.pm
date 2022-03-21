@@ -8430,7 +8430,7 @@ END
     say STDERR readFile($o2);
    }
 
-  confess "Failed $?" if $debug < 2 and $? and unless !$ENV{GITHUB_REPOSITORY_OWNER};                                     # Check that the assembly succeeded
+  confess "Failed $?" if $debug < 2 and $? and !$ENV{GITHUB_REPOSITORY_OWNER};  # Check that the assembly succeeded
 
   if ($run and $debug < 2 and -e $o2 and readFile($o2) =~ m(SDE ERROR:)s)       # Emulator detected an error
    {confess "SDE ERROR\n".readFile($o2);
