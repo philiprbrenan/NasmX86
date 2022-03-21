@@ -23211,7 +23211,7 @@ __DATA__
 use Time::HiRes qw(time);
 use Test::Most;
 
-bail_on_fail;
+bail_on_fail unless $ENV{GITHUB_REPOSITORY_OWNER};
 
 my $localTest = ((caller(1))[0]//'Nasm::X86') eq "Nasm::X86";                   # Local testing mode
 
