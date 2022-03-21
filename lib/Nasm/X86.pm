@@ -23376,14 +23376,28 @@ if (1) {
 END
  }
 
-#latest:
+latest:
 if (1) {
-  my $q = Rs('a'..'p', 'A'..'P', );
+  my $q = Rb(0..255);
+  Vmovdqu8 xmm0, "[$q]";
+  Vmovdqu8 xmm1, "[$q+16]";
+  Vmovdqu8 xmm2, "[$q+32]";
+  Vmovdqu8 xmm3, "[$q+48]";
   Vmovdqu8 ymm0, "[$q]";
-  PrintOutRegisterInHex ymm0;
+  Vmovdqu8 ymm1, "[$q+16]";
+  Vmovdqu8 ymm2, "[$q+32]";
+  Vmovdqu8 ymm3, "[$q+48]";
+  PrintOutRegisterInHex xmm0, xmm1,  xmm2, xmm3, ymm0, ymm1, ymm2, ymm3;
 
   ok Assemble(avx512=>1, eq=><<END);
-  ymm0: 504F 4E4D 4C4B 4A49   4847 4645 4443 4241   706F 6E6D 6C6B 6A69   6867 6665 6463 6261
+  xmm0: 0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
+  xmm1: 1F1E 1D1C 1B1A 1918   1716 1514 1312 1110
+  xmm2: 2F2E 2D2C 2B2A 2928   2726 2524 2322 2120
+  xmm3: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130
+  ymm0: 1F1E 1D1C 1B1A 1918   1716 1514 1312 1110   0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
+  ymm1: 2F2E 2D2C 2B2A 2928   2726 2524 2322 2120   1F1E 1D1C 1B1A 1918   1716 1514 1312 1110
+  ymm2: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130   2F2E 2D2C 2B2A 2928   2726 2524 2322 2120
+  ymm3: 4F4E 4D4C 4B4A 4948   4746 4544 4342 4140   3F3E 3D3C 3B3A 3938   3736 3534 3332 3130
 END
  }
 
