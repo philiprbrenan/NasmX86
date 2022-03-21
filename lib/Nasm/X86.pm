@@ -299,25 +299,12 @@ sub dWordRegister($)                                                            
   $r."d"
  }
 
-sub CheckIfMaskRegisterNumber($);                                               # Check that we have a mask register
-sub CheckMaskRegisterNumber($);                                                 # Check that we have a mask register and confess if we do not
-sub ClearRegisters(@);                                                          # Clear registers by setting them to zero.
 sub Comment(@);                                                                 # Insert a comment into the assembly code.
-sub DComment(@);                                                                # Insert a comment into the data section.
 sub PopR(@);                                                                    # Pop a list of registers off the stack.
-sub PopRR(@);                                                                   # Pop a list of registers off the stack without tracking.
-sub PrintErrRegisterInHex(@);                                                   # Print a register on stderr
-sub PrintErrStringNL(@);                                                        # Print a constant string followed by a new line to stderr.
 sub PrintOutMemory;                                                             # Print the memory addressed by rax for a length of rdi.
-sub PrintOutRegisterInHex(@);                                                   # Print any register as a hex string.
-sub PrintOutStringNL(@);                                                        # Print a constant string to stdout followed by new line.
-sub PrintString($@);                                                            # Print a constant string to the specified channel.
 sub PushR(@);                                                                   # Push a list of registers onto the stack.
-sub PushRR(@);                                                                  # Push a list of registers onto the stack without tracking.
-sub RComment(@);                                                                # Insert a comment into the read only data section.
-sub StringLength($);                                                            # Length of a zero terminated string.
+sub RegisterSize($);                                                             # Return the size of a register.
 sub Subroutine(&%);                                                             # Create a subroutine that can be called in assembler code.
-sub Syscall();                                                                  # System call in linux 64 format.
 
 #D1 Data                                                                        # Layout data
 
@@ -503,7 +490,7 @@ sub InsertZeroIntoRegisterAtPoint($$)                                           
 sub InsertOneIntoRegisterAtPoint($$)                                            # Insert a one into the specified register at the point indicated by another register.
  {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
   InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
-  if (CheckIfMaskRegisterNumber $point)                                         # Mask register showing point
+  if (&CheckIfMaskRegisterNumber($point))                                       # Mask register showing point
    {my ($r) = ChooseRegisters(1, $in);                                          # Choose a general purpose register to place the mask in
     PushR $r;
     Kmovq $r, $point;
@@ -515,7 +502,67 @@ sub InsertOneIntoRegisterAtPoint($$)                                            
    }
  }
 
-#D3 Save and Restore                                                            # Saving and restoring registers via the stack
+#D2 Push, Pop, Peek                                                             # Generic versions of push, pop, peek
+
+sub PushRR(@)                                                                   #P Push registers onto the stack without tracking.
+ {my (@r) = @_;                                                                 # Register
+  my $w = RegisterSize rax;
+  for my $r(map {registerNameFromNumber $_} @r)
+   {my $size = RegisterSize $r;
+    $size or confess "No such register: $r";
+    if    ($size > $w)                                                          # Wide registers
+     {Sub rsp, $size;
+      Vmovdqu32 "[rsp]", $r;
+     }
+    elsif ($r =~ m(\Ak))                                                        # Mask as they do not respond to push
+     {Sub rsp, $size;
+      Kmovq "[rsp]", $r;
+     }
+    else                                                                        # Normal register
+     {Push $r;
+     }
+   }
+ }
+
+my @PushR;                                                                      # Track pushes
+
+sub PushR(@)                                                                    #P Push registers onto the stack.
+ {my (@r) = @_;                                                                 # Registers
+  push @PushR, [@r];
+# CommentWithTraceBack;
+  PushRR   @r;                                                                  # Push
+  scalar(@PushR)                                                                # Stack depth
+ }
+
+sub PopRR(@)                                                                    #P Pop registers from the stack without tracking.
+ {my (@r) = @_;                                                                 # Register
+  my $w = RegisterSize rax;
+  for my $r(reverse map{registerNameFromNumber $_}  @r)                         # Pop registers in reverse order
+   {my $size = RegisterSize $r;
+    if    ($size > $w)
+     {Vmovdqu32 $r, "[rsp]";
+      Add rsp, $size;
+     }
+    elsif ($r =~ m(\Ak))
+     {Kmovq $r, "[rsp]";
+      Add rsp, $size;
+     }
+    else
+     {Pop $r;
+     }
+   }
+ }
+
+sub PopR(@)                                                                     # Pop registers from the stack. Use the last stored set if none explicitly supplied.  Pops are done in reverse order to match the original pushing order.
+ {my (@r) = @_;                                                                 # Register
+  @PushR or confess "No stacked registers";
+  my $r = pop @PushR;
+  dump(\@r) eq dump($r) or confess "Mismatched registers:\n".dump($r, \@r) if @r;
+  PopRR @$r;                                                                    # Pop registers from the stack without tracking
+# CommentWithTraceBack;
+ }
+
+#D2 Save and Restore                                                            # Saving and restoring registers via the stack
 
 my @syscallSequence = qw(rax rdi rsi rdx r10 r8 r9);                            # The parameter list sequence for system calls
 
@@ -1283,14 +1330,14 @@ sub PrintTraceBack($)                                                           
 
 sub PrintErrTraceBack($)                                                        # Print sub routine track back on stderr and then exit with a message.
  {my ($message) = @_;                                                           # Reason why we are printing the trace back and then stopping
-  PrintErrStringNL $message;
+  &PrintErrStringNL($message);
   PrintTraceBack($stderr);
   Exit(1);
  }
 
 sub PrintOutTraceBack($)                                                        # Print sub routine track back on stdout and then exit with a message.
  {my ($message) = @_;                                                           # Reason why we are printing the trace back and then stopping
-  PrintOutStringNL $message;
+  &PrintOutStringNL($message);
   PrintTraceBack($stdout);
   Exit(1);
  }
@@ -1693,7 +1740,7 @@ sub PrintCString($$)                                                            
  {my ($channel, $string) = @_;                                                  # Channel, String
 
   PushR rax, rdi;
-  my $length = StringLength $string;                                            # Length of string
+  my $length = &StringLength($string);                                          # Length of string
   $string->setReg(rax);
   $length->setReg(rdi);
   &PrintOutMemory();                                                            # Print string
@@ -3538,71 +3585,9 @@ sub Nasm::X86::Variable::for($&)                                                
   SetLabel $end;
  }
 
-#D1 Stack                                                                       # Manage data on the stack
+#D1 Declarations                                                                # Declare variables and structures
 
-#D2 Push, Pop, Peek                                                             # Generic versions of push, pop, peek
-
-sub PushRR(@)                                                                   #P Push registers onto the stack without tracking.
- {my (@r) = @_;                                                                 # Register
-  my $w = RegisterSize rax;
-  for my $r(map {registerNameFromNumber $_} @r)
-   {my $size = RegisterSize $r;
-    $size or confess "No such register: $r";
-    if    ($size > $w)                                                          # Wide registers
-     {Sub rsp, $size;
-      Vmovdqu32 "[rsp]", $r;
-     }
-    elsif ($r =~ m(\Ak))                                                        # Mask as they do not respond to push
-     {Sub rsp, $size;
-      Kmovq "[rsp]", $r;
-     }
-    else                                                                        # Normal register
-     {Push $r;
-     }
-   }
- }
-
-my @PushR;                                                                      # Track pushes
-
-sub PushR(@)                                                                    #P Push registers onto the stack.
- {my (@r) = @_;                                                                 # Registers
-  push @PushR, [@r];
-# CommentWithTraceBack;
-  PushRR   @r;                                                                  # Push
-  scalar(@PushR)                                                                # Stack depth
- }
-
-sub PopRR(@)                                                                    #P Pop registers from the stack without tracking.
- {my (@r) = @_;                                                                 # Register
-  my $w = RegisterSize rax;
-  for my $r(reverse map{registerNameFromNumber $_}  @r)                         # Pop registers in reverse order
-   {my $size = RegisterSize $r;
-    if    ($size > $w)
-     {Vmovdqu32 $r, "[rsp]";
-      Add rsp, $size;
-     }
-    elsif ($r =~ m(\Ak))
-     {Kmovq $r, "[rsp]";
-      Add rsp, $size;
-     }
-    else
-     {Pop $r;
-     }
-   }
- }
-
-sub PopR(@)                                                                     # Pop registers from the stack. Use the last stored set if none explicitly supplied.  Pops are done in reverse order to match the original pushing order.
- {my (@r) = @_;                                                                 # Register
-  @PushR or confess "No stacked registers";
-  my $r = pop @PushR;
-  dump(\@r) eq dump($r) or confess "Mismatched registers:\n".dump($r, \@r) if @r;
-  PopRR @$r;                                                                    # Pop registers from the stack without tracking
-# CommentWithTraceBack;
- }
-
-#D2 Declarations                                                                # Declare variables and structures
-
-#D3 Structures                                                                  # Declare a structure
+#D2 Structures                                                                  # Declare a structure
 
 sub Structure()                                                                 # Create a structure addressed by a register.
  {@_ == 0 or confess;
@@ -10710,6 +10695,133 @@ Check that a register is a zmm register
      Parameter  Description
   1  $z         Parameters
 
+=head3 bRegFromZmm($register, $zmm, $offset)
+
+Load the specified register from the byte at the specified offset located in the numbered zmm.
+
+     Parameter  Description
+  1  $register  Register to load
+  2  $zmm       Numbered zmm register to load from
+  3  $offset    Constant offset in bytes
+
+=head3 bRegIntoZmm($register, $zmm, $offset)
+
+Put the byte content of the specified register into the byte in the numbered zmm at the specified offset in the zmm.
+
+     Parameter  Description
+  1  $register  Register to load
+  2  $zmm       Numbered zmm register to load from
+  3  $offset    Constant offset in bytes
+
+=head3 wRegFromZmm($register, $zmm, $offset)
+
+Load the specified register from the word at the specified offset located in the numbered zmm.
+
+     Parameter  Description
+  1  $register  Register to load
+  2  $zmm       Numbered zmm register to load from
+  3  $offset    Constant offset in bytes
+
+=head3 wRegIntoZmm($register, $zmm, $offset)
+
+Put the specified register into the word in the numbered zmm at the specified offset in the zmm.
+
+     Parameter  Description
+  1  $register  Register to load
+  2  $zmm       Numbered zmm register to load from
+  3  $offset    Constant offset in bytes
+
+=head3 LoadRegFromMm($mm, $offset, $reg)
+
+Load the specified register from the numbered zmm at the quad offset specified as a constant number.
+
+     Parameter  Description
+  1  $mm        Mm register
+  2  $offset    Offset in quads
+  3  $reg       General purpose register to load
+
+=head3 SaveRegIntoMm($mm, $offset, $reg)
+
+Save the specified register into the numbered zmm at the quad offset specified as a constant number.
+
+     Parameter  Description
+  1  $mm        Mm register
+  2  $offset    Offset in quads
+  3  $reg       General purpose register to load
+
+=head3 getBwdqFromMm($size, $mm, $offset)
+
+Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $size      Size of get
+  2  $mm        Mm register
+  3  $offset    Offset in bytes either as a constant or as a variable
+
+=head3 bFromX($xmm, $offset)
+
+Get the byte from the numbered xmm register and return it in a variable.
+
+     Parameter  Description
+  1  $xmm       Numbered xmm
+  2  $offset    Offset in bytes
+
+=head3 wFromX($xmm, $offset)
+
+Get the word from the numbered xmm register and return it in a variable.
+
+     Parameter  Description
+  1  $xmm       Numbered xmm
+  2  $offset    Offset in bytes
+
+=head3 dFromX($xmm, $offset)
+
+Get the double word from the numbered xmm register and return it in a variable.
+
+     Parameter  Description
+  1  $xmm       Numbered xmm
+  2  $offset    Offset in bytes
+
+=head3 qFromX($xmm, $offset)
+
+Get the quad word from the numbered xmm register and return it in a variable.
+
+     Parameter  Description
+  1  $xmm       Numbered xmm
+  2  $offset    Offset in bytes
+
+=head3 bFromZ($zmm, $offset)
+
+Get the byte from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $zmm       Numbered zmm
+  2  $offset    Offset in bytes
+
+=head3 wFromZ($zmm, $offset)
+
+Get the word from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $zmm       Numbered zmm
+  2  $offset    Offset in bytes
+
+=head3 dFromZ($zmm, $offset)
+
+Get the double word from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $zmm       Numbered zmm
+  2  $offset    Offset in bytes
+
+=head3 qFromZ($zmm, $offset)
+
+Get the quad word from the numbered zmm register and return it in a variable.
+
+     Parameter  Description
+  1  $zmm       Numbered zmm
+  2  $offset    Offset in bytes
+
 =head2 Mask
 
 Operations on mask registers
@@ -13920,10 +14032,6 @@ Form two complement of left hand side and return it as a variable.
      Parameter  Description
   1  $left      Left variable
 
-=head2 Boolean
-
-Operations on variables that yield a boolean result
-
 =head3 Nasm::X86::Variable::boolean($sub, $op, $left, $right)
 
 Combine the left hand variable with the right hand variable via a boolean operator.
@@ -14262,133 +14370,6 @@ Load bytes from the memory addressed by the specified source variable into the n
      Parameter  Description
   1  $source    Variable containing the address of the source
   2  $zmm       Number of zmm to get
-
-=head3 bRegFromZmm($register, $zmm, $offset)
-
-Load the specified register from the byte at the specified offset located in the numbered zmm.
-
-     Parameter  Description
-  1  $register  Register to load
-  2  $zmm       Numbered zmm register to load from
-  3  $offset    Constant offset in bytes
-
-=head3 bRegIntoZmm($register, $zmm, $offset)
-
-Put the byte content of the specified register into the byte in the numbered zmm at the specified offset in the zmm.
-
-     Parameter  Description
-  1  $register  Register to load
-  2  $zmm       Numbered zmm register to load from
-  3  $offset    Constant offset in bytes
-
-=head3 wRegFromZmm($register, $zmm, $offset)
-
-Load the specified register from the word at the specified offset located in the numbered zmm.
-
-     Parameter  Description
-  1  $register  Register to load
-  2  $zmm       Numbered zmm register to load from
-  3  $offset    Constant offset in bytes
-
-=head3 wRegIntoZmm($register, $zmm, $offset)
-
-Put the specified register into the word in the numbered zmm at the specified offset in the zmm.
-
-     Parameter  Description
-  1  $register  Register to load
-  2  $zmm       Numbered zmm register to load from
-  3  $offset    Constant offset in bytes
-
-=head3 LoadRegFromMm($mm, $offset, $reg)
-
-Load the specified register from the numbered zmm at the quad offset specified as a constant number.
-
-     Parameter  Description
-  1  $mm        Mm register
-  2  $offset    Offset in quads
-  3  $reg       General purpose register to load
-
-=head3 SaveRegIntoMm($mm, $offset, $reg)
-
-Save the specified register into the numbered zmm at the quad offset specified as a constant number.
-
-     Parameter  Description
-  1  $mm        Mm register
-  2  $offset    Offset in quads
-  3  $reg       General purpose register to load
-
-=head3 getBwdqFromMm($size, $mm, $offset)
-
-Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
-
-     Parameter  Description
-  1  $size      Size of get
-  2  $mm        Mm register
-  3  $offset    Offset in bytes either as a constant or as a variable
-
-=head3 bFromX($xmm, $offset)
-
-Get the byte from the numbered xmm register and return it in a variable.
-
-     Parameter  Description
-  1  $xmm       Numbered xmm
-  2  $offset    Offset in bytes
-
-=head3 wFromX($xmm, $offset)
-
-Get the word from the numbered xmm register and return it in a variable.
-
-     Parameter  Description
-  1  $xmm       Numbered xmm
-  2  $offset    Offset in bytes
-
-=head3 dFromX($xmm, $offset)
-
-Get the double word from the numbered xmm register and return it in a variable.
-
-     Parameter  Description
-  1  $xmm       Numbered xmm
-  2  $offset    Offset in bytes
-
-=head3 qFromX($xmm, $offset)
-
-Get the quad word from the numbered xmm register and return it in a variable.
-
-     Parameter  Description
-  1  $xmm       Numbered xmm
-  2  $offset    Offset in bytes
-
-=head3 bFromZ($zmm, $offset)
-
-Get the byte from the numbered zmm register and return it in a variable.
-
-     Parameter  Description
-  1  $zmm       Numbered zmm
-  2  $offset    Offset in bytes
-
-=head3 wFromZ($zmm, $offset)
-
-Get the word from the numbered zmm register and return it in a variable.
-
-     Parameter  Description
-  1  $zmm       Numbered zmm
-  2  $offset    Offset in bytes
-
-=head3 dFromZ($zmm, $offset)
-
-Get the double word from the numbered zmm register and return it in a variable.
-
-     Parameter  Description
-  1  $zmm       Numbered zmm
-  2  $offset    Offset in bytes
-
-=head3 qFromZ($zmm, $offset)
-
-Get the quad word from the numbered zmm register and return it in a variable.
-
-     Parameter  Description
-  1  $zmm       Numbered zmm
-  2  $offset    Offset in bytes
 
 =head3 Nasm::X86::Variable::bFromZ($variable, $zmm, $offset)
 
@@ -16359,7 +16340,7 @@ B<Example:>
 
 The world tree from which we can address so many other things
 
-=head2 Area as a String
+=head2 Areas as Strings
 
 Use the memory supplied by the area as a string - however, in general, this is too slow unless coupled with another slow operation such as executing a command, mapping a file or writing to a file.
 
