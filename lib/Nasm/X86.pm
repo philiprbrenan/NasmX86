@@ -23326,9 +23326,15 @@ if (1) {                                                                        
   Vmovdqu64 zmm1, "[$s]";
   PrintOneRegisterInHex2($stdout, zmm1); PrintOutNL;
 
-  ok Assemble avx512=>1, eq =><<END;
+  ok Assemble avx512=>1, debug=>1, eq =><<END;
 0706 0504 0302 0100
+0706 0504 0302 0100
+0706 0504 0302 0100
+0F0E 0D0C 0B0A 0908  0706 0504 0302 0100
+1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  0F0E 0D0C 0B0A 0908  0706 0504 0302 0100
+3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  0F0E 0D0C 0B0A 0908  0706 0504 0302 0100
 END
+exit;
  }
 
 #latest:;
