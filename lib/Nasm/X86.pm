@@ -14,6 +14,7 @@
 # Document that V > 0 is required to create a boolean test
 # Optimize putBwdqIntoMm with vpbroadcast
 # Make sure that we are using bts and bzhi as much as possible in mask situations
+# Update PrintOut to use V2 every where then rename
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -2014,7 +2015,7 @@ sub PrintOneRegisterInHexV2($$)                                                 
       PrintOneRegisterInHexV2($channel, $r =~ s(\Ay) (x)r);                     # Upper half
       PopR;
 
-      PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
+      PrintString($channel, "    ");                                            # Separate blocks of bytes with a space
       PrintOneRegisterInHexV2($channel, $r =~ s(\Ay) (x)r);                     # Lower half
      }
     elsif ($r =~ m(\Azmm))                                                      # Zmm register
@@ -2025,7 +2026,7 @@ sub PrintOneRegisterInHexV2($$)                                                 
       PrintOneRegisterInHexV2($channel, $r =~ s(\Az) (y)r);                     # Upper half
       PopR;
 
-      PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
+      PrintString($channel, "        ");                                        # Separate blocks of bytes with a space
       PrintOneRegisterInHexV2($channel, $r =~ s(\Az) (y)r);                     # Lower half
      }
    } name => "PrintOneRegisterV2${r}InHexOn$channel";                           # One routine per register printed
@@ -23361,6 +23362,7 @@ my $start = time;                                                               
 
 eval {goto latest} if !caller(0) and -e "/home/phil";                           # Go to latest test if specified
 
+#latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
   PrintOutStringNL "Hello World";
   PrintOutStringNL "Hello\nWorld";
@@ -23392,10 +23394,10 @@ if (1) {                                                                        
   ok Assemble avx512=>1, debug=>0, eq =><<END;
   xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
   xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120        1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120        1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
 END
  }
 
@@ -23534,14 +23536,14 @@ if (1) {
   xmm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
   xmm2: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
   xmm3: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
-  ymm0: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  ymm1: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
-  ymm2: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
-  ymm3: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140  3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
-  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  zmm1: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140  3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
-  zmm2: 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150  4F4E 4D4C 4B4A 4948  4746 4544 4342 4140  3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
-  zmm3: 6F6E 6D6C 6B6A 6968  6766 6564 6362 6160  5F5E 5D5C 5B5A 5958  5756 5554 5352 5150  4F4E 4D4C 4B4A 4948  4746 4544 4342 4140  3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
+  ymm0: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  ymm1: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120    1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  ymm2: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  ymm3: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140    3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120        1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm1: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140    3F3E 3D3C 3B3A 3938  3736 3534 3332 3130        2F2E 2D2C 2B2A 2928  2726 2524 2322 2120    1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  zmm2: 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150    4F4E 4D4C 4B4A 4948  4746 4544 4342 4140        3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  zmm3: 6F6E 6D6C 6B6A 6968  6766 6564 6362 6160    5F5E 5D5C 5B5A 5958  5756 5554 5352 5150        4F4E 4D4C 4B4A 4948  4746 4544 4342 4140    3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
 END
  }
 
@@ -24600,8 +24602,8 @@ if (1) {                                                                        
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
    rax: FFFF FFFF FFFF BFFF
     k1: FFFF FFFF FFFF BFFF
-  zmm0: .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
-  zmm1: .1.1 .1.1 .0.0 .0.0  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
+  zmm0: .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1    .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1        .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1    .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
+  zmm1: .1.1 .1.1 .0.0 .0.0  .1.1 .1.1 .1.1 .1.1    .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1        .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1    .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
 END
  }
 
@@ -24629,9 +24631,9 @@ if (1) {
   PrintOutRegisterInHexV2 rax;
 
   ok Assemble(avx512=>1, eq=><<END);
-  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  zmm1: 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120        1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120        1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm1: 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F    2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F        2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F    2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F
     k0: .0.0 80.0 .0.0 .0.0
     k1: FFFF .0.0 .0.0 .0.0
     k2: FFFF 80.0 .0.0 .0.0
@@ -24883,6 +24885,7 @@ if (1) {                                                                        
 END
  }
 
+latest:;
 if (1) {                                                                        #TNasm::X86::Variable::setZmm
   my $s = Rb(0..128);
   my $source = V(Source, $s);
@@ -24899,10 +24902,10 @@ if (1) {                                                                        
     $source->setZmm(0, $offset, $length);
    }
 
-  PrintOutRegisterInHex zmm0;
+  PrintOutRegisterInHexV2 zmm0;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-  zmm0: 0000 0000 0000 0000   0000 0000 0000 0000   0000 000B 0A09 0807   0605 0403 0201 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0201   0000 0000 0000 0000
+  zmm0: .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0    .0.0 .0.B .A.9 .8.7  .6.5 .4.3 .2.1 .0.0        .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0    .0.0 .0.0 .0.0 .2.1  .0.0 .0.0 .0.0 .0.0
 END
  }
 
