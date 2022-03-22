@@ -24578,26 +24578,27 @@ if (1) {                                                                        
   ok Assemble(avx512=>1) =~ m(k0: FFFF FFFF C000 0000)s;
  }
 
+latest:;
 if (1) {                                                                        # Expand
   ClearRegisters rax;
   Bts rax, 14;
   Not rax;
-  PrintOutRegisterInHex rax;
+  PrintOutRegisterInHexV2 rax;
   Kmovq k1, rax;
-  PrintOutRegisterInHex k1;
+  PrintOutRegisterInHexV2 k1;
 
   Mov rax, 1;
   Vpbroadcastb zmm0, rax;
-  PrintOutRegisterInHex zmm0;
+  PrintOutRegisterInHexV2 zmm0;
 
   Vpexpandd "zmm1{k1}", zmm0;
-  PrintOutRegisterInHex zmm1;
+  PrintOutRegisterInHexV2 zmm1;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
    rax: FFFF FFFF FFFF BFFF
     k1: FFFF FFFF FFFF BFFF
-  zmm0: 0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101
-  zmm1: 0101 0101 0000 0000   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101   0101 0101 0101 0101
+  zmm0: .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
+  zmm1: .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
 END
  }
 
