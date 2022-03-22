@@ -23685,7 +23685,7 @@ abcdefghijklmnop
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Variable::outNL
   my $a = V a => 0x1111;
   $a->outNL('');
@@ -24991,6 +24991,7 @@ size of area: 0000 0000 0000 2000
 area used up: 0000 0000 0000 0000
 size of area: 0000 0000 0000 2000
 END
+exit;
  }
 
 #latest:;
