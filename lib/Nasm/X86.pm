@@ -1930,6 +1930,69 @@ sub PrintOneRegisterInHex($$)                                                   
    } name => "PrintOneRegister${r}InHexOn$channel", call=>1;                    # One routine per register printed
  }
 
+sub PrintOneRegisterInHex2($$)                                                  # Print the named register as a hex string.
+ {my ($channel, $r) = @_;                                                       # Channel to print on, register to print
+  @_ == 2 or confess "Two parameters";
+
+  my $s = Subroutine
+   {if   ($r =~ m(\Ar))                                                         # General purpose register
+     {if ($r =~ m(\Arax\Z))                                                     # General purpose register - rax
+       {PrintRaxInHex($channel);
+       }
+      else                                                                      # General purpose register not rax
+       {PushR rax;
+        Mov rax, $r;
+        PrintRaxInHex($channel);
+        PopR rax;
+       }
+     }
+    elsif ($r =~ m(\Ak))                                                        # Mask register
+     {PushR rax;
+      Kmovq rax, $r;
+      PrintRaxInHex($channel);
+      PopR rax;
+     }
+    elsif ($r =~ m(\Axmm))                                                      # Xmm register
+     {PushR rax, $r, 7;
+      Mov rax, 0b10;
+      Kmovq k7, rax;
+      Vpcompressq "$r\{k7}", $r;
+      Vmovq rax, $r;
+      PrintRaxInHex($channel);
+      PopR;
+      PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
+      PushR rax;
+      Vmovq rax, $r;
+      PrintRaxInHex($channel);
+      PopR;
+     }
+    elsif ($r =~ m(\Aymm))                                                      # Ymm register
+     {PushR rax, $r, 7;
+      Mov rax, 0b1100;
+      Kmovq k7, rax;
+      Vpcompressq "$r\{k7}", $r;
+      PrintOneRegisterInHex2($channel, $r =~ s(\Ay) (x)r);                      # Upper half
+      PopR;
+
+      PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
+      PrintOneRegisterInHex2($channel, $r =~ s(\Ay) (x)r);                      # Lower half
+     }
+    elsif ($r =~ m(\Azmm))                                                      # Zmm register
+     {PushR rax, $r, 7;
+      Mov rax, 0b11110000;
+      Kmovq k7, rax;
+      Vpcompressq "$r\{k7}", $r;
+      PrintOneRegisterInHex2($channel, $r =~ s(\Az) (y)r);                      # Upper half
+      PopR;
+
+      PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
+      PrintOneRegisterInHex2($channel, $r =~ s(\Az) (y)r);                      # Lower half
+     }
+   } name => "PrintOneRegister2222222222${r}InHexOn$channel";                   # One routine per register printed
+
+  $s->call;
+ }
+
 sub PrintErrOneRegisterInHex($)                                                 # Print the named register as a hex string on stderr.
  {my ($r) = @_;                                                                 # Register to print
   @_ == 1 or confess "One parameter";
@@ -23243,6 +23306,31 @@ World
 END
  }
 
+#latest:
+if (1) {                                                                        #TPrintOutRaxInHexNL
+  my $s = Rb(0..255);
+  Mov rax, "[$s]";
+  PrintOneRegisterInHex2($stdout, rax);  PrintOutNL;
+
+  Mov r15, rax;
+  PrintOneRegisterInHex2($stdout, r15);  PrintOutNL;
+  Kmovq k7, rax;
+  PrintOneRegisterInHex2($stdout, k7);   PrintOutNL;
+
+  Vmovdqu64 xmm1, "[$s]";
+  PrintOneRegisterInHex2($stdout, xmm1); PrintOutNL;
+
+  Vmovdqu64 ymm1, "[$s]";
+  PrintOneRegisterInHex2($stdout, ymm1); PrintOutNL;
+
+  Vmovdqu64 zmm1, "[$s]";
+  PrintOneRegisterInHex2($stdout, zmm1); PrintOutNL;
+
+  ok Assemble avx512=>1, eq =><<END;
+0706 0504 0302 0100
+END
+ }
+
 #latest:;
 if (1) {                                                                        #TMov #TComment #TRs #TPrintOutMemory #TExit
   Comment "Print a string from memory";
@@ -23374,7 +23462,7 @@ if (1) {
 END
  }
 
-latest:
+#latest:
 if (1) {
   my $q = Rb(0..255);
   Vmovdqu8 xmm0, "[$q]";
