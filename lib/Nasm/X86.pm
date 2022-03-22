@@ -23685,6 +23685,21 @@ abcdefghijklmnop
 END
  }
 
+latest:
+if (1) {                                                                        #TNasm::X86::Variable::outNL
+  my $a = V a => 0x1111;
+  $a->outNL('');
+  $a->outRightInBinNL(K width => 16);
+  $a->outRightInDecNL(K width => 16);
+  $a->outRightInHexNL(K width => 16);
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+0000 0000 0000 1111
+   1000100010001
+            4369
+            1111
+END
+ }
+
 #latest:
 if (1) {                                                                        #TReadTimeStampCounter
   for(1..10)
