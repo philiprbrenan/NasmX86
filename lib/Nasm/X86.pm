@@ -24964,16 +24964,20 @@ if (1) {                                                                        
   $a->q("a" x 256);
   $a->used->outNL;
   $a->size->outNL;
+  $a->dump('A');
   $a->clear;
   $a->used->outNL;
   $a->size->outNL;
+  $a->dump('B');
 
   $a->q("a" x 5000);
   $a->used->outNL;
   $a->size->outNL;
+  $a->dump('C');
   $a->clear;
   $a->used->outNL;
   $a->size->outNL;
+  $a->dump('D');
 
   $a->free;
 
