@@ -23207,7 +23207,7 @@ test unless caller;
 
 1;
 # podDocumentation
-__DATA__
+#__DATA__
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -23218,9 +23218,7 @@ my $localTest = ((caller(1))[0]//'Nasm::X86') eq "Nasm::X86";                   
 Test::More->builder->output("/dev/null") if $localTest;                         # Reduce number of confirmation messages during testing
 
 if ($^O =~ m(bsd|linux|cygwin)i)                                                # Supported systems
- {if (confirmHasCommandLineCommand(q(nasm)) and LocateIntelEmulator)            # Network assembler and Intel Software Development emulator
-   {#plan tests => 158;
-   }
+ {if (confirmHasCommandLineCommand(q(nasm)) and LocateIntelEmulator){}          # Network assembler and Intel Software Development emulator
   else
    {plan skip_all => qq(Nasm or Intel 64 emulator not available);
    }
