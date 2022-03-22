@@ -24194,7 +24194,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        # Make an area readonly
+if (!hasAvx512) {                                                               # Make an area readonly - but we need the emulator to test this
   my $s = CreateArea;                                                           # Create an area
   $s->q("Hello");                                                               # Write code to area
   $s->makeReadOnly;                                                             # Make area read only
