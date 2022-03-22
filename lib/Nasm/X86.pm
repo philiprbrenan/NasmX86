@@ -23505,28 +23505,6 @@ efghabcdmnopijklefghabcdmnopijklefghabcdmnopijklefghabcdmnopijkl
 END
  }
 
-#latest:;
-if (1) {                                                                        #TPrintOutRegisterInHex
-  my $q = Rs(('a'..'p')x4);
-  Mov r8,"[$q]";
-  PrintOutRegisterInHex r8;
-
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
-    r8: 6867 6665 6463 6261
-END
- }
-
-#latest:;
-if (1) {
-  my $q = Rs('a'..'p');
-  Vmovdqu8 xmm0, "[$q]";
-  PrintOutRegisterInHex xmm0;
-
-  ok Assemble(avx512=>1, eq=><<END)
-  xmm0: 706F 6E6D 6C6B 6A69   6867 6665 6463 6261
-END
- }
-
 #latest:
 if (1) {
   my $q = Rb(0..255);
