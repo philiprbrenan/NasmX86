@@ -8422,9 +8422,10 @@ END
    {my $o = qq($sde -mix -ptr-check);                                           # Emulator options
        $o = qq($sde -mix -ptr-check -debugtrace -footprint) if $debugTrace;     # Emulator options
     my $e = $execFile;
-    $avx512 ? qq($o -- ./$e $err $out) : qq(./$e $err $out);                    # Execute with or without the emulator
+    my $E = $options{emulator};                                                 # Emulator required
+    return qq($o -- ./$e $err $out) if $E or $avx512 && !hasAvx512;             # Command to execute program via the  emulator
+    qq(./$e $err $out);                                                         # Command to execute program without the emulator
    }->();
-
 
   my $eStart = time;
   qx($exec) if $run;                                                            # Run unless suppressed by user or library
@@ -24148,7 +24149,7 @@ if (!hasAvx512) {                                                               
   $s->makeReadOnly;                                                             # Make area read only
   $s->q(" World");                                                              # Try to write to area
 
-  ok Assemble(debug=>2, avx512=>1) =~ m(SDE ERROR: DEREFERENCING BAD MEMORY POINTER.*mov byte ptr .rax.rdx.1., r8b);
+  ok Assemble(debug=>2, emulator=>1) =~ m(SDE ERROR: DEREFERENCING BAD MEMORY POINTER.*mov byte ptr .rax.rdx.1., r8b);
  }
 
 #latest:;
