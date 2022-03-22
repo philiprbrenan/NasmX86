@@ -8542,7 +8542,7 @@ END
       if $assembliesPerformed % 100 == 1;
 
     say STDERR                                                                  # Rows
-      sprintf("%4d    %12s    %12s    %12s    %12s  %12.2f  %12.2f  at $file line $line",
+      sprintf("%4d    %12s    %12s    %12s    %12s  %12.6f  %12.2f  at $file line $line",
       $assembliesPerformed,
       (map {numberWithCommas $_} $instructions,         $bytes,
                                  $instructionsExecuted, $totalBytesAssembled),
@@ -24942,7 +24942,7 @@ q at offset 12 in zmm0: 0302 0100 0000 0302
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #TNasm::X86::Area::used #TNasm::X86::Area::clear #TNasm::X86::Area::size  #TNasm::X86::Area::free
   my $a = CreateArea;
 
