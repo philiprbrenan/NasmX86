@@ -1982,14 +1982,14 @@ sub PrintOneRegisterInHexV2($$)                                                 
        {PushR rax;
         Mov rax, $r;
         PrintRaxInHexV2($channel);
-        PopR rax;
+        PopR;
        }
      }
     elsif ($r =~ m(\Ak))                                                        # Mask register
      {PushR rax;
       Kmovq rax, $r;
       PrintRaxInHexV2($channel);
-      PopR rax;
+      PopR;
      }
     elsif ($r =~ m(\Axmm))                                                      # Xmm register
      {PushR rax, $r, 7;
@@ -1999,6 +1999,7 @@ sub PrintOneRegisterInHexV2($$)                                                 
       Vmovq rax, $r;
       PrintRaxInHexV2($channel);
       PopR;
+
       PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
       PushR rax;
       Vmovq rax, $r;
@@ -2010,7 +2011,7 @@ sub PrintOneRegisterInHexV2($$)                                                 
       Mov rax, 0b1100;
       Kmovq k7, rax;
       Vpcompressq "$r\{k7}", $r;
-      PrintOneRegisterInHexV2($channel, $r =~ s(\Ay) (x)r);                      # Upper half
+      PrintOneRegisterInHexV2($channel, $r =~ s(\Ay) (x)r);                     # Upper half
       PopR;
 
       PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
@@ -2029,7 +2030,9 @@ sub PrintOneRegisterInHexV2($$)                                                 
      }
    } name => "PrintOneRegisterV2${r}InHexOn$channel";                           # One routine per register printed
 
+  PushR $r;
   $s->call;
+  PopR;
  }
 
 sub PrintErrOneRegisterInHex($)                                                 # Print the named register as a hex string on stderr.
@@ -8209,6 +8212,7 @@ sub Nasm::X86::Tree::outAsUtf8($)                                               
     $string->data->setReg(rax);
     convert_rax_from_utf32_to_utf8;
     PrintOutRaxAsText;
+    PopR;
    });
   $string                                                                       # Chain from the target string
  }
@@ -8383,6 +8387,9 @@ sub Assemble(%)                                                                 
   my $objectFile = $library // q(z.o);                                          # Object file
   my $o1         = 'zzzOut.txt';                                                # Stdout from run
   my $o2         = 'zzzErr.txt';                                                # Stderr from run
+
+  @PushR and confess "Mismatch PushR, PopR";                                    # Match PushR with PopR
+
 
   unlink $o1, $o2, $objectFile, $execFile, $listFile, $sourceFile;              # Remove output files
 
@@ -23369,30 +23376,26 @@ END
 #latest:
 if (1) {                                                                        #TPrintOutRaxInHexNL
   my $s = Rb(0..255);
-  Mov rax, "[$s]";
-  PrintOneRegisterInHexV2($stdout, rax);  PrintOutNL;
-
-  Mov r15, rax;
-  PrintOneRegisterInHexV2($stdout, r15);  PrintOutNL;
-  Kmovq k7, rax;
-  PrintOneRegisterInHexV2($stdout, k7);   PrintOutNL;
 
   Vmovdqu64 xmm1, "[$s]";
-  PrintOneRegisterInHexV2($stdout, xmm1); PrintOutNL;
+  PrintOutRegisterInHexV2 xmm1;
+  PrintOutRegisterInHexV2 xmm1;
 
   Vmovdqu64 ymm1, "[$s]";
-  PrintOneRegisterInHexV2($stdout, ymm1); PrintOutNL;
+  PrintOutRegisterInHexV2 ymm1;
+  PrintOutRegisterInHexV2 ymm1;
 
   Vmovdqu64 zmm1, "[$s]";
-  PrintOneRegisterInHexV2($stdout, zmm1); PrintOutNL;
+  PrintOutRegisterInHexV2 zmm1;
+  PrintOutRegisterInHexV2 zmm1;
 
   ok Assemble avx512=>1, debug=>0, eq =><<END;
-.7.6 .5.4 .3.2 .1.0
-.7.6 .5.4 .3.2 .1.0
-.7.6 .5.4 .3.2 .1.0
-.F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
 END
  }
 
@@ -24578,7 +24581,7 @@ if (1) {                                                                        
   ok Assemble(avx512=>1) =~ m(k0: FFFF FFFF C000 0000)s;
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        # Expand
   ClearRegisters rax;
   Bts rax, 14;
@@ -24598,7 +24601,7 @@ if (1) {                                                                        
    rax: FFFF FFFF FFFF BFFF
     k1: FFFF FFFF FFFF BFFF
   zmm0: .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
-  zmm1: .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
+  zmm1: .1.1 .1.1 .0.0 .0.0  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
 END
  }
 
@@ -24607,34 +24610,37 @@ if (1) {
   my $P = "2F";                                                                 # Value to test for
   my $l = Rb 0;  Rb $_ for 1..RegisterSize zmm0;                                # The numbers 0..63
   Vmovdqu8 zmm0, "[$l]";                                                        # Load data to test
-  PrintOutRegisterInHex zmm0;
+  PrintOutRegisterInHexV2 zmm0;
+  PrintOutRegisterInHexV2 zmm0;
 
   Mov rax, "0x$P";                                                              # Broadcast the value to be tested
   Vpbroadcastb zmm1, rax;
-  PrintOutRegisterInHex zmm1;
+  PrintOutRegisterInHexV2 zmm1;
 
   for my $c(0..7)                                                               # Each possible test
    {my $m = "k$c";
     Vpcmpub $m, zmm1, zmm0, $c;
-    PrintOutRegisterInHex $m;
+    PrintOutRegisterInHexV2 $m;
    }
 
   Kmovq rax, k0;                                                                # Count the number of trailing zeros in k0
   Tzcnt rax, rax;
-  PrintOutRegisterInHex rax;
 
-  is_deeply [split //, Assemble(avx512=>1)], [split //, <<END];
-  zmm0: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130   2F2E 2D2C 2B2A 2928   2726 2524 2322 2120   1F1E 1D1C 1B1A 1918   1716 1514 1312 1110   0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
-  zmm1: 2F2F 2F2F 2F2F 2F2F   2F2F 2F2F 2F2F 2F2F   2F2F 2F2F 2F2F 2F2F   2F2F 2F2F 2F2F 2F2F   2F2F 2F2F 2F2F 2F2F   2F2F 2F2F 2F2F 2F2F   2F2F 2F2F 2F2F 2F2F   2F2F 2F2F 2F2F 2F2F
-    k0: 0000 8000 0000 0000
-    k1: FFFF 0000 0000 0000
-    k2: FFFF 8000 0000 0000
-    k3: 0000 0000 0000 0000
+  PrintOutRegisterInHexV2 rax;
+
+  ok Assemble(avx512=>1, eq=><<END);
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm1: 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F
+    k0: .0.0 80.0 .0.0 .0.0
+    k1: FFFF .0.0 .0.0 .0.0
+    k2: FFFF 80.0 .0.0 .0.0
+    k3: .0.0 .0.0 .0.0 .0.0
     k4: FFFF 7FFF FFFF FFFF
-    k5: 0000 FFFF FFFF FFFF
-    k6: 0000 7FFF FFFF FFFF
+    k5: .0.0 FFFF FFFF FFFF
+    k6: .0.0 7FFF FFFF FFFF
     k7: FFFF FFFF FFFF FFFF
-   rax: 0000 0000 0000 00$P
+   rax: .0.0 .0.0 .0.0 .02F
 END
 #   0 eq    1 lt    2 le    4 ne    5 ge    6 gt   comparisons
  }
@@ -25701,8 +25707,8 @@ END
  }
 
 #latest:
-if (1) {                                                                        # Print the utf8 string corresponding to a lexical item
-  PushR zmm0, zmm1, rax, r14, r15;
+if (0) {                                                                        # Print the utf8 string corresponding to a lexical item
+  PushR zmm0, zmm1, rax, 14, 15;
   Sub rsp, RegisterSize xmm0;;
   Mov "dword[rsp+0*4]", 0x0600001A;
   Mov "dword[rsp+1*4]", 0x0600001B;
@@ -25733,7 +25739,6 @@ if (1) {                                                                        
   IfEq
   Then
    {my $va = Rutf8 "\x{1D5D4}\x{1D5D5}\x{1D5D6}\x{1D5D7}\x{1D5D8}\x{1D5D9}\x{1D5DA}\x{1D5DB}\x{1D5DC}\x{1D5DD}\x{1D5DE}\x{1D5DF}\x{1D5E0}\x{1D5E1}\x{1D5E2}\x{1D5E3}\x{1D5E4}\x{1D5E5}\x{1D5E6}\x{1D5E7}\x{1D5E8}\x{1D5E9}\x{1D5EA}\x{1D5EB}\x{1D5EC}\x{1D5ED}\x{1D5EE}\x{1D5EF}\x{1D5F0}\x{1D5F1}\x{1D5F2}\x{1D5F3}\x{1D5F4}\x{1D5F5}\x{1D5F6}\x{1D5F7}\x{1D5F8}\x{1D5F9}\x{1D5FA}\x{1D5FB}\x{1D5FC}\x{1D5FD}\x{1D5FE}\x{1D5FF}\x{1D600}\x{1D601}\x{1D602}\x{1D603}\x{1D604}\x{1D605}\x{1D606}\x{1D607}\x{1D756}\x{1D757}\x{1D758}\x{1D759}\x{1D75A}\x{1D75B}\x{1D75C}\x{1D75D}\x{1D75E}\x{1D75F}\x{1D760}\x{1D761}\x{1D762}\x{1D763}\x{1D764}\x{1D765}\x{1D766}\x{1D767}\x{1D768}\x{1D769}\x{1D76A}\x{1D76B}\x{1D76C}\x{1D76D}\x{1D76E}\x{1D76F}\x{1D770}\x{1D771}\x{1D772}\x{1D773}\x{1D774}\x{1D775}\x{1D776}\x{1D777}\x{1D778}\x{1D779}\x{1D77A}\x{1D77B}\x{1D77C}\x{1D77D}\x{1D77E}\x{1D77F}\x{1D780}\x{1D781}\x{1D782}\x{1D783}\x{1D784}\x{1D785}\x{1D786}\x{1D787}\x{1D788}\x{1D789}\x{1D78A}\x{1D78B}\x{1D78C}\x{1D78D}\x{1D78E}\x{1D78F}";
-    PushR zmm1;
     V(loop)->getReg(r14)->for(sub                                               # Write each letter out from its position on the stack
      {my ($index, $start, $next, $end) = @_;                                    # Execute body
       $index->setReg(14);                                                       # Index stack
