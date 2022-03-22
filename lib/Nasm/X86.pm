@@ -23473,9 +23473,8 @@ if (1) {
   zmm3: 6F6E 6D6C 6B6A 6968  6766 6564 6362 6160 - 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150 + 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
 END
  }
-exit;
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Variable::copyZF #TNasm::X86::Variable::copyZFInverted
   Mov r15, 1;
   my $z = V(zf);
@@ -23485,10 +23484,10 @@ if (1) {                                                                        
   Cmp r15, 2; $z->copyZFInverted; $z->outNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-zf: 0000 0000 0000 0001
-zf: 0000 0000 0000 0000
-zf: 0000 0000 0000 0000
-zf: 0000 0000 0000 0001
+zf: .... .... .... ...1
+zf: .... .... .... ....
+zf: .... .... .... ....
+zf: .... .... .... ...1
 END
  }
 
@@ -23621,7 +23620,7 @@ if (1) {                                                                        
   $a->outRightInDecNL(K width => 16);
   $a->outRightInHexNL(K width => 16);
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-0000 0000 0000 1111
+.... .... .... 1111
    1000100010001
             4369
             1111
@@ -23639,8 +23638,9 @@ if (1) {                                                                        
   my @S = sort @s;
   is_deeply \@s, \@S;
  }
+exit;
 
-#latest:
+latest:
 if (1) {                                                                        #TIf
   my $c = K(one,1);
   If ($c == 0,
