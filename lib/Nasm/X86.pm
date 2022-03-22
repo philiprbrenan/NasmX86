@@ -24981,7 +24981,7 @@ if (1) {                                                                        
 
   $a->free;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble(debug => 1, eq => <<END, avx512=>1);
 area used up: 0000 0000 0000 0100
 size of area: 0000 0000 0000 1000
 area used up: 0000 0000 0000 0000
