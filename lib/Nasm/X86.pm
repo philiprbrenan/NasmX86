@@ -23640,7 +23640,7 @@ if (1) {                                                                        
   is_deeply \@s, \@S;
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TIf
   my $c = K(one,1);
   If ($c == 0,
