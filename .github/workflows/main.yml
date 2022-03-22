@@ -1,4 +1,4 @@
-# Test NasmX86 2022-03-22 at 14:11:21
+# Test NasmX86 2022-03-22 at 14:14:13
 
 name: Test
 
@@ -36,16 +36,12 @@ jobs:
     - name: avx
       run: |
         lscpu | grep Endian
-        grep avx /proc/cpuinfo
+        cat /proc/cpuinfo | grep grep avx
         #printenv
 
     - name: Install Test::Most
       run: |
         sudo cpan install -T Test::Most
-
-    - name: Install Nasm
-      run: |
-        sudo apt-get install -y nasm
 
     - name: Install Intel Sde
       run: |
