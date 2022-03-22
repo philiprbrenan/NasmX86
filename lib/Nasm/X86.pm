@@ -2079,6 +2079,27 @@ sub PrintOutRegisterInHex(@)                                                    
   PrintRegisterInHex $stdout, @r;
  }
 
+sub PrintRegisterInHexV2($@)                                                    # Print the named registers as hex strings.
+ {my ($channel, @r) = @_;                                                       # Channel to print on, names of the registers to print
+  @_ >= 2 or confess "Two or more parameters required";
+
+  for my $r(map{registerNameFromNumber $_} @r)                                  # Each register to print
+   {PrintString($channel,  sprintf("%6s: ", $r));                               # Register name
+    PrintOneRegisterInHexV2 $channel, $r;
+    PrintNL($channel);
+   }
+ }
+
+sub PrintErrRegisterInHexV2(@)                                                  # Print the named registers as hex strings on stderr.
+ {my (@r) = @_;                                                                 # Names of the registers to print
+  PrintRegisterInHexV2 $stderr, @r;
+ }
+
+sub PrintOutRegisterInHexV2(@)                                                  # Print the named registers as hex strings on stdout.
+ {my (@r) = @_;                                                                 # Names of the registers to print
+  PrintRegisterInHexV2 $stdout, @r;
+ }
+
 sub PrintOutRipInHex                                                            #P Print the instruction pointer in hex.
  {@_ == 0 or confess;
   my @regs = qw(rax);
@@ -23513,21 +23534,33 @@ if (1) {
   Vmovdqu8 xmm1, "[$q+16]";
   Vmovdqu8 xmm2, "[$q+32]";
   Vmovdqu8 xmm3, "[$q+48]";
+  PrintOutRegisterInHexV2 xmm0, xmm1,  xmm2, xmm3;
+
   Vmovdqu8 ymm0, "[$q]";
   Vmovdqu8 ymm1, "[$q+16]";
   Vmovdqu8 ymm2, "[$q+32]";
   Vmovdqu8 ymm3, "[$q+48]";
-  PrintOutRegisterInHex xmm0, xmm1,  xmm2, xmm3, ymm0, ymm1, ymm2, ymm3;
+  PrintOutRegisterInHexV2 ymm0, ymm1, ymm2, ymm3;
+
+  Vmovdqu8 zmm0, "[$q]";
+  Vmovdqu8 zmm1, "[$q+16]";
+  Vmovdqu8 zmm2, "[$q+32]";
+  Vmovdqu8 zmm3, "[$q+48]";
+  PrintOutRegisterInHexV2 zmm0, zmm1, zmm2, zmm3;
 
   ok Assemble(avx512=>1, eq=><<END);
-  xmm0: 0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
-  xmm1: 1F1E 1D1C 1B1A 1918   1716 1514 1312 1110
-  xmm2: 2F2E 2D2C 2B2A 2928   2726 2524 2322 2120
-  xmm3: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130
-  ymm0: 1F1E 1D1C 1B1A 1918   1716 1514 1312 1110   0F0E 0D0C 0B0A 0908   0706 0504 0302 0100
-  ymm1: 2F2E 2D2C 2B2A 2928   2726 2524 2322 2120   1F1E 1D1C 1B1A 1918   1716 1514 1312 1110
-  ymm2: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130   2F2E 2D2C 2B2A 2928   2726 2524 2322 2120
-  ymm3: 4F4E 4D4C 4B4A 4948   4746 4544 4342 4140   3F3E 3D3C 3B3A 3938   3736 3534 3332 3130
+  xmm0: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  xmm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  xmm2: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  xmm3: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
+  ymm0: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  ymm1: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  ymm2: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  ymm3: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140  3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm1: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140  3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  zmm2: 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150  4F4E 4D4C 4B4A 4948  4746 4544 4342 4140  3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  zmm3: 6F6E 6D6C 6B6A 6968  6766 6564 6362 6160  5F5E 5D5C 5B5A 5958  5756 5554 5352 5150  4F4E 4D4C 4B4A 4948  4746 4544 4342 4140  3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
 END
  }
 
@@ -24146,7 +24179,7 @@ if (1) {                                                                        
  }
 
 #latest:;
-if (1) {                                                                        # Execute the content of an area #TexecuteFileViaBash #TArena::write #TArena::out #TunlinkFile #TArena::ql
+if (0) {                                                                        # Execute the content of an area #TexecuteFileViaBash #TArena::write #TArena::out #TunlinkFile #TArena::ql
   my $s = CreateArea;                                                           # Create a string
   $s->ql(<<END);                                                                # Write code to execute
 #!/usr/bin/bash
