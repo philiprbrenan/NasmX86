@@ -23247,6 +23247,7 @@ use Test::Most;
 bail_on_fail unless $ENV{GITHUB_REPOSITORY_OWNER};
 
 my $localTest = ((caller(1))[0]//'Nasm::X86') eq "Nasm::X86";                   # Local testing mode
+my $homeTest  = -e q(/home/phil/);                                              # Testing on a local machine
 
 Test::More->builder->output("/dev/null") if $localTest;                         # Reduce number of confirmation messages during testing
 
@@ -23474,7 +23475,7 @@ if (1) {
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Variable::copyZF #TNasm::X86::Variable::copyZFInverted
   Mov r15, 1;
   my $z = V(zf);
@@ -23638,7 +23639,6 @@ if (1) {                                                                        
   my @S = sort @s;
   is_deeply \@s, \@S;
  }
-exit;
 
 latest:
 if (1) {                                                                        #TIf
@@ -23717,12 +23717,12 @@ if (1) {                                                                        
    }
  }
 
-if (1) {                                                                        #TGetUid
+if ($homeTest) {                                                                #TGetUid
   GetUid;                                                                       # Userid
   PrintOutRegisterInHex rax;
 
   my $r = Assemble(avx512=>0);
-  ok $r =~ m(rax:( 0000){3});
+  ok $r =~ m(3E8);
  }
 
 if (1) {                                                                        #TStatSize
@@ -23748,8 +23748,8 @@ if (1) {                                                                        
   CloseFile;                                                                    # Close file
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-   rax: 0000 0000 0000 0003
-   rax: 0000 0000 0000 0000
+   rax: .... .... .... ...3
+   rax: .... .... .... ....
 END
   ok -e $f;                                                                     # Created file
   unlink $f;
@@ -23764,9 +23764,9 @@ if (1) {                                                                        
    } rax, 16, 1;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-   rax: 0000 0000 0000 0000
-   rax: 0000 0000 0000 0001
-   rax: 0000 0000 0000 0002
+   rax: .... .... .... ....
+   rax: .... .... .... ...1
+   rax: .... .... .... ...2
 END
  }
 
@@ -23809,6 +23809,7 @@ if (1) {                                                                        
 Pass
 END
  }
+exit;
 
 if (1) {                                                                        #TPrintOutRaxInReverseInHex #TPrintOutMemoryInHex
   Mov rax, 0x07654321;
