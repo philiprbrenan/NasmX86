@@ -1,4 +1,4 @@
-# Test NasmX86 2022-03-22 at 14:25:28
+# Test NasmX86 2022-03-22 at 14:26:51
 
 name: Test
 
@@ -47,6 +47,10 @@ jobs:
         tar -xf sde.tar.bz2
         mv sde-external-8.63.0-2021-01-18-lin/ sde/
         tree
+
+    - name: Install Nasm
+      run: |
+        sudo apt-get install -y nasm
 
     - name: Test
       run: |
