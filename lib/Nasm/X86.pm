@@ -8291,6 +8291,8 @@ sub Assemble(%)                                                                 
   my $o1         = 'zzzOut.txt';                                                # Stdout from run
   my $o2         = 'zzzErr.txt';                                                # Stderr from run
 
+  my $onGitHub = $ENV{GITHUB_REPOSITORY_OWNER};                                 # Whether we are on GitHub or not
+
   @PushR and confess "Mismatch PushR, PopR";                                    # Match PushR with PopR
 
 
@@ -8408,7 +8410,8 @@ END
 
 #   say STDERR $cmd;
     qx($cmd);
-  }
+    confess "Assembly failed $?" if $?;                                         # Stop if assembly failed
+   }
 
   my $aTime = time - $aStart;
 
@@ -8423,12 +8426,13 @@ END
    }->();
 
 
-  if (1)                                                                        # Execution details
-   {my $eStart = time;
-    qx($exec) if $run;                                                          # Run unless suppressed by user or library
-    my $eTime = time - $eStart;
+  my $eStart = time;
+  qx($exec) if $run;                                                            # Run unless suppressed by user or library
+  my $er     = $?;                                                              # Execution result
+  my $eTime  = time - $eStart;
 
-    my $instructions       = getInstructionCount;                               # Instructions executed under emulator
+  if (1)                                                                        # Execution details
+   {my $instructions       = getInstructionCount;                               # Instructions executed under emulator
     $instructionsExecuted += $instructions;                                     # Count instructions executed
     my $p = $assembliesPerformed++;                                             # Count assemblies
     my $n = $options{number};
@@ -8458,16 +8462,16 @@ END
      }
    }
 
-  if ($run and $debug == 1)                                                     # Print files if soft debugging
-   {say STDERR readFile($o1); # =~ s(0) ( )gsr;
-    say STDERR readFile($o2);
+  if ($run and $debug == 1 || $er)                                              # Print files if soft debugging or error
+   {say STDERR readFile($o1) if -e $o1;
+    say STDERR readFile($o2) if -e $o2;
    }
-
-  confess "Failed $?" if $debug < 2 and $? and !$ENV{GITHUB_REPOSITORY_OWNER};  # Check that the assembly succeeded
 
   if ($run and $debug < 2 and -e $o2 and readFile($o2) =~ m(SDE ERROR:)s)       # Emulator detected an error
    {confess "SDE ERROR\n".readFile($o2);
    }
+
+  confess "Failed $er" if $debug < 2 and $er;                                   # Check that the run succeeded
 
   unlink $objectFile unless $library;                                           # Delete files
   unlink $execFile   unless $keep;                                              # Delete executable unless asked to keep it or its a library
@@ -24011,7 +24015,7 @@ aaAAaabbBBbb
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TCreateArena #TArena::length  #TArena::clear #TArena::out #TArena::copy #TArena::nl
   my $a = CreateArea;
   $a->q('ab');
@@ -24194,7 +24198,7 @@ END
 
 # It is one of the happiest characteristics of this glorious country that official utterances are invariably regarded as unanswerable
 
-#latest:;
+latest:;
 if (1) {                                                                        #TPrintOutZF #TSetZF #TClearZF #TIfC #TIfNc #TIfZ #IfNz
   SetZF;
   PrintOutZF;
@@ -24280,25 +24284,25 @@ if (1) {                                                                        
   SetLabel $l;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-   rax: 0000 0000 0000 0003
-   rdi: 0000 0000 0000 0004
-   rax: 0000 0000 0000 0002
-   rdi: 0000 0000 0000 0002
-   rax: 0000 0000 0000 0001
-   rdi: 0000 0000 0000 0001
-   rax: 0000 0000 0000 0003
-   rdi: 0000 0000 0000 0004
-   rax: 0000 0000 0000 0003
-   rdi: 0000 0000 0000 0002
-   rax: 0000 0000 0000 0003
-   rdi: 0000 0000 0000 0001
-   rax: 0000 0000 0000 0003
-   rdi: 0000 0000 0000 0004
-   rax: 0000 0000 0000 0003
-   rdi: 0000 0000 0000 0004
-   rax: 0000 0000 0000 0003
-   rdi: 0000 0000 0000 0004
-   rax: 0300 0000 0000 0000
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...4
+   rax: .... .... .... ...2
+   rdi: .... .... .... ...2
+   rax: .... .... .... ...1
+   rdi: .... .... .... ...1
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...4
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...2
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...1
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...4
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...4
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...4
+   rax: .3.. .... .... ....
 END
 
   ok 8 == RegisterSize rax;
@@ -24322,9 +24326,9 @@ if (1) {                                                                        
   PrintOutMemory_InHexNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-  xmm0: 0000 0000 0000 0004   0000 0003 0002 0100
-  xmm1: 0000 0000 0000 0004   0000 0003 0002 0100
-__01 02__ 03__ ____  04__ ____ ____ ____
+  xmm0: .... .... .... ...4  .... ...3 ...2 .1..
+  xmm1: .... .... .... ...4  .... ...3 ...2 .1..
+__.1 .2__ .3__ ____  .4__ ____ ____ ____
 END
  }
 
@@ -24344,11 +24348,11 @@ if (1) {
   PrintOutRegisterInHex r14, r15;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-a: 0000 0000 0000 0016
-(b add 1): 0000 0000 0000 0017
-(a add b): 0000 0000 0000 0003
-   r14: 0000 0000 0000 0017
-   r15: 0000 0000 0000 0016
+a: .... .... .... ..16
+(b add 1): .... .... .... ..17
+(a add b): .... .... .... ...3
+   r14: .... .... .... ..17
+   r15: .... .... .... ..16
 END
  }
 
@@ -24366,7 +24370,7 @@ if (1) {                                                                        
   $v->outNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-v: 0000 0000 0000 0007
+v: .... .... .... ...7
 END
  }
 
@@ -24387,7 +24391,7 @@ if (1) {                                                                        
   $g->outNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-g: 0000 0000 0000 0001
+g: .... .... .... ...1
 END
  }
 
@@ -24408,9 +24412,9 @@ if (1) {                                                                        
   $s->call(parameters=>{g => $g});
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-g: 0000 0000 0000 0002
-g: 0000 0000 0000 0001
-g: 0000 0000 0000 0000
+g: .... .... .... ...2
+g: .... .... .... ...1
+g: .... .... .... ....
 END
  }
 
