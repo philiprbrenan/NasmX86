@@ -23640,7 +23640,7 @@ if (1) {                                                                        
   is_deeply \@s, \@S;
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TIf
   my $c = K(one,1);
   If ($c == 0,
@@ -24010,8 +24010,8 @@ if (1) {                                                                        
 aaAAaabbBBbb
 END
  }
-exit;
-#latest:
+
+latest:
 if (1) {                                                                        #TCreateArena #TArena::length  #TArena::clear #TArena::out #TArena::copy #TArena::nl
   my $a = CreateArea;
   $a->q('ab');
@@ -24038,10 +24038,10 @@ if (1) {                                                                        
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
 abababababababab
 ababababababababababababababababababababababababababababababababababababab
-area used up: 0000 0000 0000 0010
-area used up: 0000 0000 0000 004A
-area used up: 0000 0000 0000 0000
-area used up: 0000 0000 0000 004A
+area used up: .... .... .... ..10
+area used up: .... .... .... ..4A
+area used up: .... .... .... ....
+area used up: .... .... .... ..4A
 END
  }
 
@@ -24060,7 +24060,10 @@ if (1) {                                                                        
   PrintOutRegisterInHex k0;
   PrintOutRegisterInHex k1;
 
-  ok Assemble(avx512=>1) =~ m(k0: 0000 0000 0000 0008.*k1: 0000 0000 0000 0000)s;
+  ok Assemble(avx512 => 1, eq => <<END)
+    k0: .... .... .... ...8
+    k1: .... .... .... ....
+END
  }
 
 if (1) {                                                                        # Count leading zeros
@@ -24072,7 +24075,10 @@ if (1) {                                                                        
   Tzcnt rax, rax;                                                               # New line
   PrintOutRegisterInHex rax;
 
-  ok Assemble(avx512=>0) =~ m(rax: 0000 0000 0000 003C.*rax: 0000 0000 0000 0003)s;
+  ok Assemble(avx512 => 1, eq => <<END)
+   rax: .... .... .... ..3C
+   rax: .... .... .... ...3
+END
  }
 
 #latest:;
@@ -24091,7 +24097,7 @@ END
  }
 
 #latest:;
-if (0) {                                                                        # Print this file - slow -  #TArena::read #TArena::z #TArena::q
+if (!$homeTest) {                                                               # Print this file - slow -  #TArena::read #TArena::z #TArena::q
   my $s = CreateArea;                                                           # Create a string
   $s->read(K(file, Rs($0)));
   $s->out;
@@ -24103,26 +24109,32 @@ if (0) {                                                                        
 #latest:;
 if (1) {                                                                        # Print rdi in hex into an area #TGetPidInHex
   GetPidInHex;
-  PrintOutRegisterInHex rax;
+  Mov r15, rax;
 
-  ok Assemble(avx512=>0) =~ m(rax: 00);
+  GetPidInHex;
+  Cmp r15, rax;
+  IfEq Then {PrintOutStringNL "Same"}, Else {PrintOutStringNL "Diff"};
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+Same
+END
  }
 
 #latest:;
-if (0) {                                                                        # Execute the content of an area #TexecuteFileViaBash #TArena::write #TArena::out #TunlinkFile #TArena::ql
+if ($homeTest) {                                                                # Execute the content of an area #TexecuteFileViaBash #TArena::write #TArena::out #TunlinkFile #TArena::ql
   my $s = CreateArea;                                                           # Create a string
   $s->ql(<<END);                                                                # Write code to execute
 #!/usr/bin/bash
 whoami
-ls -la
-pwd
 END
   $s->write         (my $f = V('file', Rs("zzz.sh")));                          # Write code to a file
   executeFileViaBash($f);                                                       # Execute the file
   unlinkFile        ($f);                                                       # Delete the file
 
   my $u = qx(whoami); chomp($u);
-  ok Assemble(emulator => 0) =~ m($u);                                          # The Intel Software Development Emulator is way too slow on these operations.
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+phil
+END
  }
 
 #latest:;
@@ -24160,9 +24172,9 @@ if (1) {                                                                        
   $o3->outNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-offset: 0000 0000 0000 0040
-offset: 0000 0000 0000 0060
-offset: 0000 0000 0000 0090
+offset: .... .... .... ..40
+offset: .... .... .... ..60
+offset: .... .... .... ..90
 END
  }
 
@@ -24175,8 +24187,8 @@ if (1) {                                                                        
   my $T = $A->checkYggdrasilCreated;
      $T->found->outNL;
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-found: 0000 0000 0000 0000
-found: 0000 0000 0000 0001
+found: .... .... .... ....
+found: .... .... .... ...1
 END
  }
 
