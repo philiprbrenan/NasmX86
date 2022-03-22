@@ -1,4 +1,4 @@
-# Test NasmX86 2022-03-22 at 13:09:23
+# Test NasmX86 2022-03-22 at 13:35:18
 
 name: Test
 
@@ -35,8 +35,9 @@ jobs:
 
     - name: avx
       run: |
+        lscpu | grep Endian
         grep avx /proc/cpuinfo
-        printenv
+        #printenv
 
     - name: Install Test::Most
       run: |
