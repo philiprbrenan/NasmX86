@@ -24885,7 +24885,7 @@ if (1) {                                                                        
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Variable::setZmm
   my $s = Rb(0..128);
   my $source = V(Source, $s);
@@ -24909,7 +24909,7 @@ if (1) {                                                                        
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TLoadZmm #Tzmm
   LoadZmm 0, 0..63;
   PrintOutRegisterInHexV2 zmm 0;
@@ -24927,14 +24927,14 @@ if (1) {                                                                        
      $c->putWIntoZmm(0,  6);
      $c->dIntoZ(0, 10);
      $c->qIntoZ(0, 16);
-  PrintOutRegisterInHex zmm0;
+  PrintOutRegisterInHexV2 zmm0;
   bFromZ(0, 12)->outNL;
   wFromZ(0, 12)->outNL;
   dFromZ(0, 12)->outNL;
   qFromZ(0, 12)->outNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-  zmm0: 0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0706 0504 0302 0100   0000 0302 0100 0000   0100 0000 0000 0000
+  zmm0: .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0    .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0        .0.0 .0.0 .0.0 .0.0  .7.6 .5.4 .3.2 .1.0    .0.0 .3.2 .1.0 .0.0  .1.0 .0.0 .0.0 .0.0
 b at offset 12 in zmm0: 0000 0000 0000 0002
 w at offset 12 in zmm0: 0000 0000 0000 0302
 d at offset 12 in zmm0: 0000 0000 0000 0302
