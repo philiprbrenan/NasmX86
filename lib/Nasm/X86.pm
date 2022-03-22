@@ -2508,10 +2508,10 @@ sub Nasm::X86::Variable::dump($$$;$$)                                           
   my $label = $left->label;                                                     # Address in memory
   Mov rax, "[$label]";
   Mov rax, "[rax]" if $left->reference;
-  PrintString    ($channel, $title1//$left->name.": ") unless defined($title1) && $title1 eq '';
-  PrintRaxInHexV2($channel);
-  PrintString    ($channel, $title2) if defined $title2;
-  PrintNL        ($channel) if $newLine;
+  PrintString  ($channel, $title1//$left->name.": ") unless defined($title1) && $title1 eq '';
+  PrintRaxInHex($channel);
+  PrintString  ($channel, $title2) if defined $title2;
+  PrintNL      ($channel) if $newLine;
   PopR;
  }
 
@@ -23264,7 +23264,7 @@ my $start = time;                                                               
 
 eval {goto latest} if !caller(0) and -e "/home/phil";                           # Go to latest test if specified
 
-latest:
+#latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
   PrintOutStringNL "Hello World";
   PrintOutStringNL "Hello\nWorld";
@@ -23342,7 +23342,10 @@ if (1) {                                                                        
   PrintOutRaxInHex;
   PrintOutNL;
 
-  ok Assemble(avx512=>0) =~ m(rax: 6261 6261 6261 6261.*rax: 0000 0000 0000 0000)s;
+  ok Assemble(avx512=>0, eq=><<END)
+rax: 6261 6261 6261 6261
+rax: .... .... .... ....
+END
  }
 
 #latest:;
@@ -23364,7 +23367,7 @@ if (1) {                                                                        
   Mov rsi, 6;
   PrintOutRegistersInHex;
 
-  my $r = Assemble(avx512=>0, eq=><<END, debug=>1);
+  my $r = Assemble(avx512=>0, eq=><<END, debug=>0);
 rfl: .... .... .... .2.2
 r10: .... .... .... ..10
 r11: .... .... .... .2.2
@@ -23381,7 +23384,6 @@ rdi: .... .... .... ...4
 rdx: .... .... .... ...5
 rsi: .... .... .... ...6
 END
-exit;
  }
 
 #latest:;
@@ -23457,20 +23459,21 @@ if (1) {
   PrintOutRegisterInHex zmm0, zmm1, zmm2, zmm3;
 
   ok Assemble(avx512=>1, eq=><<END);
-  xmm0: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  xmm0: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   xmm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
   xmm2: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
   xmm3: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
-  ymm0: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  ymm1: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120    1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
-  ymm2: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
-  ymm3: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140    3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
-  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120        1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  zmm1: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140    3F3E 3D3C 3B3A 3938  3736 3534 3332 3130        2F2E 2D2C 2B2A 2928  2726 2524 2322 2120    1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
-  zmm2: 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150    4F4E 4D4C 4B4A 4948  4746 4544 4342 4140        3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
-  zmm3: 6F6E 6D6C 6B6A 6968  6766 6564 6362 6160    5F5E 5D5C 5B5A 5958  5756 5554 5352 5150        4F4E 4D4C 4B4A 4948  4746 4544 4342 4140    3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
+  ymm0: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  ymm1: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  ymm2: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  ymm3: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  zmm1: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 + 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  zmm2: 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150 - 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 + 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  zmm3: 6F6E 6D6C 6B6A 6968  6766 6564 6362 6160 - 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150 + 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
 END
  }
+exit;
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::copyZF #TNasm::X86::Variable::copyZFInverted
@@ -24882,7 +24885,7 @@ q at offset 12 in zmm0: 0302 0100 0000 0302
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Area::used #TNasm::X86::Area::clear #TNasm::X86::Area::size  #TNasm::X86::Area::free
   my $a = CreateArea;
 
