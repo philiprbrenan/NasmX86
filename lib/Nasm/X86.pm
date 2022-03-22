@@ -24518,7 +24518,7 @@ r: 0000 0000 0000 0001
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #TAllocateMemory #TPrintOutMemoryInHexNL #TCopyMemory
   my $N = 256;
   my $s = Rb 0..$N-1;
@@ -24533,7 +24533,7 @@ if (1) {                                                                        
   PrintOutMemory_InHexNL;
 
   ok Assemble(debug=>0, eq => <<END, avx512=>0);
-__01 0203 0405 0607  0809 0A0B 0C0D 0E0F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
+__.1 .2.3 .4.5 .6.7  .8.9 .A.B .C.D .E.F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
 END
  }
 
@@ -24544,7 +24544,9 @@ if (1) {                                                                        
   Kmovq k0, rax;
   PrintOutRegisterInHex k0;
 
-  ok Assemble(avx512=>1) =~ m(k0: FFFF FFFF C000 0000)s;
+  ok Assemble(avx512=>1, eq=><<END);
+    k0: FFFF FFFF C0.. ....
+END
  }
 
 #latest:;
@@ -24566,8 +24568,8 @@ if (1) {                                                                        
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
    rax: FFFF FFFF FFFF BFFF
     k1: FFFF FFFF FFFF BFFF
-  zmm0: .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1    .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1        .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1    .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
-  zmm1: .1.1 .1.1 .0.0 .0.0  .1.1 .1.1 .1.1 .1.1    .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1        .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1    .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
+  zmm0: .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 + .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
+  zmm1: .1.1 .1.1 .... ....  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 + .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
 END
  }
 
@@ -24595,18 +24597,18 @@ if (1) {
   PrintOutRegisterInHex rax;
 
   ok Assemble(avx512=>1, eq=><<END);
-  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120        1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120        1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
-  zmm1: 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F    2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F        2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F    2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F
-    k0: .0.0 80.0 .0.0 .0.0
-    k1: FFFF .0.0 .0.0 .0.0
-    k2: FFFF 80.0 .0.0 .0.0
-    k3: .0.0 .0.0 .0.0 .0.0
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  zmm1: 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F - 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F + 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F - 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F
+    k0: .... 80.. .... ....
+    k1: FFFF .... .... ....
+    k2: FFFF 80.. .... ....
+    k3: .... .... .... ....
     k4: FFFF 7FFF FFFF FFFF
-    k5: .0.0 FFFF FFFF FFFF
-    k6: .0.0 7FFF FFFF FFFF
+    k5: .... FFFF FFFF FFFF
+    k6: .... 7FFF FFFF FFFF
     k7: FFFF FFFF FFFF FFFF
-   rax: .0.0 .0.0 .0.0 .02F
+   rax: .... .... .... ..2F
 END
 #   0 eq    1 lt    2 le    4 ne    5 ge    6 gt   comparisons
  }
@@ -24627,8 +24629,15 @@ if (1) {
 
   Kmovq rax, k0;                                                                # Count the number of trailing zeros in k0
   Tzcnt rax, rax;
+  PrintOutRegisterInHex rax;
 
-  is_deeply [split //, Assemble(avx512=>1)], [split //, <<END];
+  Kmovq rax, k0;                                                                # Count the number of leading zeros in k0
+  Lzcnt rax, rax;
+  PrintOutRegisterInHex rax;
+
+  ok Assemble(avx512=>1, eq=><<END);
+   rax: .... .... .... ..2F
+   rax: .... .... .... ..10
 END
  }
 
@@ -24636,7 +24645,7 @@ END
 if (1) {                                                                        #TStringLength
   StringLength(V(string, Rs("abcd")))->outNL;
   Assemble(debug => 0, eq => <<END, avx512=>0);
-size: 0000 0000 0000 0004
+size: .... .... .... ...4
 END
  }
 
@@ -24751,14 +24760,14 @@ if (1) {                                                                        
   Inc rsi; SetMaskRegister(7, rax, rsi); PrintOutRegisterInHex k7;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-    k0: 0000 0000 0000 0000
-    k1: 0000 0000 0000 0100
-    k2: 0000 0000 0000 0300
-    k3: 0000 0000 0000 0700
-    k4: 0000 0000 0000 0F00
-    k5: 0000 0000 0000 1F00
-    k6: 0000 0000 0000 3F00
-    k7: 0000 0000 0000 7F00
+    k0: .... .... .... ....
+    k1: .... .... .... .1..
+    k2: .... .... .... .3..
+    k3: .... .... .... .7..
+    k4: .... .... .... .F..
+    k5: .... .... .... 1F..
+    k6: .... .... .... 3F..
+    k7: .... .... .... 7F..
 END
  }
 
@@ -24784,16 +24793,16 @@ if (1) {                                                                        
   --$a; $a->outNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-a: 0000 0000 0000 0003
-b: 0000 0000 0000 0002
-(a add b): 0000 0000 0000 0005
-((a add b) sub a): 0000 0000 0000 0002
-(a times b): 0000 0000 0000 0006
-((a times b) / b): 0000 0000 0000 0003
-(a % b): 0000 0000 0000 0001
+a: .... .... .... ...3
+b: .... .... .... ...2
+(a add b): .... .... .... ...5
+((a add b) sub a): .... .... .... ...2
+(a times b): .... .... .... ...6
+((a times b) / b): .... .... .... ...3
+(a % b): .... .... .... ...1
 a == 3
-a: 0000 0000 0000 0004
-a: 0000 0000 0000 0003
+a: .... .... .... ...4
+a: .... .... .... ...3
 END
  }
 
@@ -24805,16 +24814,16 @@ if (1) {                                                                        
    });
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-index: 0000 0000 0000 0000
-index: 0000 0000 0000 0001
-index: 0000 0000 0000 0002
-index: 0000 0000 0000 0003
-index: 0000 0000 0000 0004
-index: 0000 0000 0000 0005
-index: 0000 0000 0000 0006
-index: 0000 0000 0000 0007
-index: 0000 0000 0000 0008
-index: 0000 0000 0000 0009
+index: .... .... .... ....
+index: .... .... .... ...1
+index: .... .... .... ...2
+index: .... .... .... ...3
+index: .... .... .... ...4
+index: .... .... .... ...5
+index: .... .... .... ...6
+index: .... .... .... ...7
+index: .... .... .... ...8
+index: .... .... .... ...9
 END
  }
 
@@ -24830,10 +24839,10 @@ if (1) {                                                                        
   $d->outNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-a: 0000 0000 0000 0001
-b: 0000 0000 0000 0002
-min: 0000 0000 0000 0001
-max: 0000 0000 0000 0002
+a: .... .... .... ...1
+b: .... .... .... ...2
+min: .... .... .... ...1
+max: .... .... .... ...2
 END
  }
 
@@ -24845,7 +24854,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex k7;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-    k7: 0000 0000 0000 0380
+    k7: .... .... .... .380
 END
  }
 
@@ -24869,7 +24878,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex zmm0;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-  zmm0: .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0    .0.0 .0.B .A.9 .8.7  .6.5 .4.3 .2.1 .0.0        .0.0 .0.0 .0.0 .0.0  .0.0 .0.0 .0.0 .0.0    .0.0 .0.0 .0.0 .2.1  .0.0 .0.0 .0.0 .0.0
+  zmm0: .... .... .... ....  .... .... .... .... - .... ...B .A.9 .8.7  .6.5 .4.3 .2.1 .... + .... .... .... ....  .... .... .... .... - .... .... .... .2.1  .... .... .... ....
 END
  }
 
@@ -24879,7 +24888,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex zmm 0;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
-  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130    2F2E 2D2C 2B2A 2928  2726 2524 2322 2120        1F1E 1D1C 1B1A 1918  1716 1514 1312 1110    .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
 END
  }
 
