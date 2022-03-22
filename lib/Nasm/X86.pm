@@ -1930,26 +1930,65 @@ sub PrintOneRegisterInHex($$)                                                   
    } name => "PrintOneRegister${r}InHexOn$channel", call=>1;                    # One routine per register printed
  }
 
-sub PrintOneRegisterInHex2($$)                                                  # Print the named register as a hex string.
+sub hexTranslateTableV2                                                         #P Create/address a hex translate table and return its label.
+ {my $h = '0123456789ABCDEF';
+  my @t;
+  for   my $i(split //, $h)
+   {for my $j(split //, $h)
+     {my $h = "$i$j";
+         $h =~ s(\A0) (.);
+      push @t, $h;
+     }
+   }
+   Rs @t                                                                        # Constant strings are only saved if they are unique, else a read only copy is returned.
+ }
+
+sub PrintRaxInHexV2($;$)                                                        # Write the content of register rax in hexadecimal in big endian notation to the specified channel.
+ {my ($channel, $end) = @_;                                                     # Channel, optional end byte
+  @_ == 1 or @_ == 2 or confess "One or two parameters";
+  my $hexTranslateTable = hexTranslateTableV2;
+  $end //= 7;                                                                   # Default end byte
+
+  Subroutine
+   {SaveFirstFour rax;                                                          # Rax is a parameter
+    Mov rdx, rax;                                                               # Content to be printed
+    Mov rdi, 2;                                                                 # Length of a byte in hex
+
+    for my $i((7-$end)..7)                                                      # Each byte
+     {my $s = $bitsInByte*$i;
+      Mov rax, rdx;
+      Shl rax, $s;                                                              # Push selected byte high
+      Shr rax, (RegisterSize(rax) - 1) * $bitsInByte;                           # Push select byte low
+      Shl rax, 1;                                                               # Multiply by two because each entry in the translation table is two bytes long
+      Lea rsi, "[$hexTranslateTable]";
+      Add rax, rsi;
+      PrintMemory($channel);                                                    # Print memory addressed by rax for length specified by rdi
+      PrintString($channel, ' ') if $i % 2 and $i < 7;
+     }
+    RestoreFirstFour;
+   } name => "PrintOutRaxInHexOnV2-$channel-$end", call=>1;
+ }
+
+sub PrintOneRegisterInHexV2($$)                                                 # Print the named register as a hex string.
  {my ($channel, $r) = @_;                                                       # Channel to print on, register to print
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine
    {if   ($r =~ m(\Ar))                                                         # General purpose register
      {if ($r =~ m(\Arax\Z))                                                     # General purpose register - rax
-       {PrintRaxInHex($channel);
+       {PrintRaxInHexV2($channel);
        }
       else                                                                      # General purpose register not rax
        {PushR rax;
         Mov rax, $r;
-        PrintRaxInHex($channel);
+        PrintRaxInHexV2($channel);
         PopR rax;
        }
      }
     elsif ($r =~ m(\Ak))                                                        # Mask register
      {PushR rax;
       Kmovq rax, $r;
-      PrintRaxInHex($channel);
+      PrintRaxInHexV2($channel);
       PopR rax;
      }
     elsif ($r =~ m(\Axmm))                                                      # Xmm register
@@ -1958,12 +1997,12 @@ sub PrintOneRegisterInHex2($$)                                                  
       Kmovq k7, rax;
       Vpcompressq "$r\{k7}", $r;
       Vmovq rax, $r;
-      PrintRaxInHex($channel);
+      PrintRaxInHexV2($channel);
       PopR;
       PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
       PushR rax;
       Vmovq rax, $r;
-      PrintRaxInHex($channel);
+      PrintRaxInHexV2($channel);
       PopR;
      }
     elsif ($r =~ m(\Aymm))                                                      # Ymm register
@@ -1971,24 +2010,24 @@ sub PrintOneRegisterInHex2($$)                                                  
       Mov rax, 0b1100;
       Kmovq k7, rax;
       Vpcompressq "$r\{k7}", $r;
-      PrintOneRegisterInHex2($channel, $r =~ s(\Ay) (x)r);                      # Upper half
+      PrintOneRegisterInHexV2($channel, $r =~ s(\Ay) (x)r);                      # Upper half
       PopR;
 
       PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
-      PrintOneRegisterInHex2($channel, $r =~ s(\Ay) (x)r);                      # Lower half
+      PrintOneRegisterInHexV2($channel, $r =~ s(\Ay) (x)r);                     # Lower half
      }
     elsif ($r =~ m(\Azmm))                                                      # Zmm register
      {PushR rax, $r, 7;
       Mov rax, 0b11110000;
       Kmovq k7, rax;
       Vpcompressq "$r\{k7}", $r;
-      PrintOneRegisterInHex2($channel, $r =~ s(\Az) (y)r);                      # Upper half
+      PrintOneRegisterInHexV2($channel, $r =~ s(\Az) (y)r);                     # Upper half
       PopR;
 
       PrintString($channel, "  ");                                              # Separate blocks of bytes with a space
-      PrintOneRegisterInHex2($channel, $r =~ s(\Az) (y)r);                      # Lower half
+      PrintOneRegisterInHexV2($channel, $r =~ s(\Az) (y)r);                     # Lower half
      }
-   } name => "PrintOneRegister2222222222${r}InHexOn$channel";                   # One routine per register printed
+   } name => "PrintOneRegisterV2${r}InHexOn$channel";                           # One routine per register printed
 
   $s->call;
  }
@@ -23310,31 +23349,30 @@ END
 if (1) {                                                                        #TPrintOutRaxInHexNL
   my $s = Rb(0..255);
   Mov rax, "[$s]";
-  PrintOneRegisterInHex2($stdout, rax);  PrintOutNL;
+  PrintOneRegisterInHexV2($stdout, rax);  PrintOutNL;
 
   Mov r15, rax;
-  PrintOneRegisterInHex2($stdout, r15);  PrintOutNL;
+  PrintOneRegisterInHexV2($stdout, r15);  PrintOutNL;
   Kmovq k7, rax;
-  PrintOneRegisterInHex2($stdout, k7);   PrintOutNL;
+  PrintOneRegisterInHexV2($stdout, k7);   PrintOutNL;
 
   Vmovdqu64 xmm1, "[$s]";
-  PrintOneRegisterInHex2($stdout, xmm1); PrintOutNL;
+  PrintOneRegisterInHexV2($stdout, xmm1); PrintOutNL;
 
   Vmovdqu64 ymm1, "[$s]";
-  PrintOneRegisterInHex2($stdout, ymm1); PrintOutNL;
+  PrintOneRegisterInHexV2($stdout, ymm1); PrintOutNL;
 
   Vmovdqu64 zmm1, "[$s]";
-  PrintOneRegisterInHex2($stdout, zmm1); PrintOutNL;
+  PrintOneRegisterInHexV2($stdout, zmm1); PrintOutNL;
 
-  ok Assemble avx512=>1, debug=>1, eq =><<END;
-0706 0504 0302 0100
-0706 0504 0302 0100
-0706 0504 0302 0100
-0F0E 0D0C 0B0A 0908  0706 0504 0302 0100
-1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  0F0E 0D0C 0B0A 0908  0706 0504 0302 0100
-3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  0F0E 0D0C 0B0A 0908  0706 0504 0302 0100
+  ok Assemble avx512=>1, debug=>0, eq =><<END;
+.7.6 .5.4 .3.2 .1.0
+.7.6 .5.4 .3.2 .1.0
+.7.6 .5.4 .3.2 .1.0
+.F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
+3F3E 3D3C 3B3A 3938  3736 3534 3332 3130  2F2E 2D2C 2B2A 2928  2726 2524 2322 2120  1F1E 1D1C 1B1A 1918  1716 1514 1312 1110  .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1.0
 END
-exit;
  }
 
 #latest:;
@@ -23490,17 +23528,6 @@ if (1) {
   ymm1: 2F2E 2D2C 2B2A 2928   2726 2524 2322 2120   1F1E 1D1C 1B1A 1918   1716 1514 1312 1110
   ymm2: 3F3E 3D3C 3B3A 3938   3736 3534 3332 3130   2F2E 2D2C 2B2A 2928   2726 2524 2322 2120
   ymm3: 4F4E 4D4C 4B4A 4948   4746 4544 4342 4140   3F3E 3D3C 3B3A 3938   3736 3534 3332 3130
-END
- }
-
-#latest:
-if (1) {
-  my $q = Rs(('a'..'p', 'A'..'P') x 2);
-  Vmovdqu8 zmm0, "[$q]";
-  PrintOutRegisterInHex zmm0;
-
-  ok Assemble(avx512=>1, eq=><<END)
-  zmm0: 504F 4E4D 4C4B 4A49   4847 4645 4443 4241   706F 6E6D 6C6B 6A69   6867 6665 6463 6261   504F 4E4D 4C4B 4A49   4847 4645 4443 4241   706F 6E6D 6C6B 6A69   6867 6665 6463 6261
 END
  }
 
