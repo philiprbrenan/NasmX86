@@ -3875,7 +3875,7 @@ sub PrintOutMemoryNL                                                            
   PrintOutNL;
  }
 
-sub AllocateMemory(@)                                                           # Allocate the variable specified amount of memory via mmap and return its address as a variable.
+sub AllocateMemory($)                                                           # Allocate the variable specified amount of memory via mmap and return its address as a variable.
  {my ($size) = @_;                                                              # Size as a variable
   @_ == 1 or confess "Size required";
 
@@ -3899,23 +3899,20 @@ sub AllocateMemory(@)                                                           
     Mov r9,  0;                                                                 # Offset into file
     Syscall;
     Cmp rax, -1;                                                                # Check return code
-    IfEq(sub
-     {PrintErrString "Cannot allocate memory, return code -1";
-      $$p{size}->errNL;
-      Exit(1);
-     });
+    IfEq
+    Then
+     {PrintErrTraceBack "Cannot allocate memory, return code -1";
+     };
     Cmp eax, 0xffffffea;                                                        # Check return code
-    IfEq(sub
-     {PrintErrString "Cannot allocate memory, return code 0xffffffea";
-      $$p{size}->errNL;
-      Exit(1);
-     });
+    IfEq
+    Then
+     {PrintErrTraceBack "Cannot allocate memory, return code 0xffffffea";
+     };
     Cmp rax, -12;                                                               # Check return code
-    IfEq(sub
-     {PrintErrString "Cannot allocate memory, return code -12";
-      $$p{size}->errNL;
-      Exit(1);
-     });
+    IfEq
+    Then
+     {PrintErrTraceBack "Cannot allocate memory, return code -12";
+     };
      $$p{address}->getReg(rax);                                                 # Amount of memory
 
     RestoreFirstSeven;
@@ -4500,7 +4497,7 @@ sub ConvertUtf8ToUtf32($$$$$)                                                   
     PushR 10, 11, 12, 13, 14, 15;
 
     my $size = $$p{size8} * 4;                                                  # Estimated length for utf32
-    AllocateMemory size => $size, my $address = V(address);
+    my $address = AllocateMemory $size;
 
      $$p{u8}            ->setReg(14);                                           # Current position in input string
     ($$p{u8}+$$p{size8})->setReg(15);                                           # Upper limit of input string
@@ -4842,17 +4839,15 @@ sub Nasm::X86::Area::updateSpace($$)                                            
         Cmp $proposed, $newSize;                                                # Big enough?
         Jge $end;                                                               # Big enough!
        });
-      my $oldSize = V(size, $size);                                             # The old size of the area
-      my $newSize = V(size, $proposed);                                         # The old size of the area
-$newSize->outNL("AAAAAAAAAAAAAAAAAA");
-      my $address = AllocateMemory($newSize);                                   # Create new area
-$address->outNL("BBBBBBBBBBB");
-      CopyMemory($area->address, $address, $oldSize);                           # Copy old area into new area
-      FreeMemory $area->address, $oldSize;                                      # Free previous memory previously occupied area
-      $area->address->copy($address);                                           # Save new area address
 
-      $area->address->setReg($base);                                            # Address area
+      my $address = AllocateMemory V size => $proposed;                         # Create new area
+      CopyMemory($area->address, $address, $area->size);                        # Copy old area into new area
+      FreeMemory $area->address, $area->size;                                   # Free previous memory previously occupied area
+      $area->address->copy($address);                                           # Save new area address
+      $address->setReg($base);                                                  # Address area
+PrintErrRegisterInHex rax, $proposed;
       Mov "[$base+$$area{sizeOffset}]", $proposed;                              # Save the new size in the area
+$area->dump("XXXXX");
      };
 
     PopR;
@@ -23279,7 +23274,7 @@ if (1) {                                                                        
   $a->used->outNL;
   $a->size->outNL;
   $a->dump('A');
-#  $a->clear;
+  $a->clear;
   $a->used->outNL;
   $a->size->outNL;
   $a->dump('B');
@@ -23288,7 +23283,7 @@ if (1) {                                                                        
   $a->used->outNL;
   $a->size->outNL;
   $a->dump('C');
-#  $a->clear;
+  $a->clear;
   $a->used->outNL;
   $a->size->outNL;
   $a->dump('D');
