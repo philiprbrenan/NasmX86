@@ -4846,6 +4846,8 @@ sub Nasm::X86::Area::updateSpace($$)                                            
       $area->address->copy($address);                                           # Save new area address
       $address->setReg($base);                                                  # Address area
       Mov "[$base+$$area{sizeOffset}]", $proposed;                              # Save the new size in the area
+PrintOutStringNL "AAAA";
+PrintErrRegisterInHex $proposed;
 $area->dump('A');
      };
 
