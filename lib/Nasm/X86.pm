@@ -4812,13 +4812,13 @@ sub Nasm::X86::Area::updateSpace($$)                                            
 
   my $s = Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, structures
-    PushR (rax, r11, r12, r13, r14, r15);
+    PushR (rax, r10, r12, r13, r14, r15);
     my $base     = rax;                                                         # Base of area
     my $size     = r15;                                                         # Current size
     my $used     = r14;                                                         # Currently used space
     my $request  = r13;                                                         # Requested space
     my $newSize  = r12;                                                         # New size needed
-    my $proposed = r11;                                                         # Proposed size
+    my $proposed = r10;                                                         # Proposed size
 
     my $area = $$s{area};                                                       # Address area
     $area->address->setReg($base);                                              # Address area
