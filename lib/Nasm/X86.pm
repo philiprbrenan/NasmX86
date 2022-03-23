@@ -4846,6 +4846,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
       $area->address->copy($address);                                           # Save new area address
       $address->setReg($base);                                                  # Address area
       Mov "[$base+$$area{sizeOffset}]", $proposed;                              # Save the new size in the area
+$area->dump('A');
      };
 
     PopR;
@@ -23269,20 +23270,20 @@ if (1) {                                                                        
   $a->q("a" x 255);
   $a->used->outNL;
   $a->size->outNL;
-  $a->dump('A');
+# $a->dump('A');
   $a->clear;
   $a->used->outNL;
   $a->size->outNL;
-  $a->dump('B');
+#  $a->dump('B');
 
   $a->q("a" x 4095);
   $a->used->outNL;
   $a->size->outNL;
-  $a->dump('C');
+#  $a->dump('C');
   $a->clear;
   $a->used->outNL;
   $a->size->outNL;
-  $a->dump('D');
+#  $a->dump('D');
 
   $a->free;
 
