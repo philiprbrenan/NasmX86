@@ -23287,7 +23287,7 @@ if (1) {                                                                        
 
   $a->free;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble(debug => 1, eq => <<END, avx512=>1);
 area used up: .... .... .... ..FF
 size of area: .... .... .... 10..
 A
