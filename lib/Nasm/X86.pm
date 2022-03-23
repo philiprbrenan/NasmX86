@@ -4846,6 +4846,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
       my $newSize = V(size, $proposed);                                         # The old size of the area
 $newSize->outNL("AAAAAAAAAAAAAAAAAA");
       my $address = AllocateMemory($newSize);                                   # Create new area
+$address->outNL("BBBBBBBBBBB");
       CopyMemory($area->address, $address, $oldSize);                           # Copy old area into new area
       FreeMemory $area->address, $oldSize;                                      # Free previous memory previously occupied area
       $area->address->copy($address);                                           # Save new area address
@@ -23278,7 +23279,7 @@ if (1) {                                                                        
   $a->used->outNL;
   $a->size->outNL;
   $a->dump('A');
-  $a->clear;
+#  $a->clear;
   $a->used->outNL;
   $a->size->outNL;
   $a->dump('B');
@@ -23287,7 +23288,7 @@ if (1) {                                                                        
   $a->used->outNL;
   $a->size->outNL;
   $a->dump('C');
-  $a->clear;
+#  $a->clear;
   $a->used->outNL;
   $a->size->outNL;
   $a->dump('D');
