@@ -25739,7 +25739,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Variable::call Create a library file and call the code in the library file.
+if (0) {                                                                        #TNasm::X86::Variable::call Create a library file and call the code in the library file.
   my $l = "aaa.so";
   Mov rax, 0x12345678;
   Ret;
@@ -25764,7 +25764,7 @@ END
  }
 
 #latest:
-if (1) {
+if (0) {
   unlink my $l = "aaa.so";
 
   PrintOutRaxInDecNL;
@@ -25783,7 +25783,7 @@ END
  }
 
 #latest:
-if (1) {
+if (0) {
   unlink my $l = "aaa.so";
 
   PrintOutRaxInHexNL;
@@ -25802,7 +25802,7 @@ END
  }
 
 #latest:
-if (1) {
+if (0) {
   unlink my $l = "aaa.so";
   my $N = 11;
   V(n => $N)->for(sub
@@ -25836,7 +25836,7 @@ END
  }
 
 #latest:
-if (1) {
+if (0) {
   unlink my $l = "aaa.so";
   my $N = 21;
   my $q = Rq($N);
