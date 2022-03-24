@@ -1,4 +1,5 @@
 #!/usr/bin/perl -I/home/phil/perl/cpan/DataTableText/lib/ -I. -I/home/phil/perl/cpan/AsmC/lib/
+#!/usr/bin/perl -I/home/phil/perl/cpan/DataTableText/lib/ -I. -I/home/phil/perl/cpan/AsmC/lib/
 #-------------------------------------------------------------------------------
 # Generate X86 assembler code using Perl as a macro pre-processor.
 # Philip R Brenan at appaapps dot com, Appa Apps Ltd Inc., 2021
@@ -8030,6 +8031,29 @@ sub Nasm::X86::Tree::get($$)                                                    
 
 #D2 Trees as Strings                                                            # Use trees as a strings. The characters of the string are stored as an array of characters.  The indices of the array run from 1 to the length of the string.
 
+sub Nasm::X86::Tree::m($$$)                                                     # Append bytes in memory to a tree acting as a string. The address and size of the source memory are specified via variables.
+ {my ($string, $address, $size) = @_;                                           # Tree descriptor of string to append to, variable address of memory to append from, variable size of memory
+  @_ == 3 or confess "Three parameters";
+
+  my $s = Subroutine
+   {my ($parameters, $structures, $sub) = @_;
+    PushR rax, 13, 14, 15;
+    my $s = $$structures{string};
+    $$parameters{address}->setReg(r13);
+    $$parameters{size}   ->setReg(r14);
+    ClearRegisters r15;
+    For                                                                         # Clear memory
+     {Mov al, "[r13+r15]";
+      $s->push(V byte => rax);
+     } r15, r14, 1;
+    PopR;
+   } structures=>{string=>$string},
+     parameters=>[qw(address size)], name => 'Nasm::X86::Tree::m';
+
+  $s->call(parameters=>{address => $address, size=>$size},
+           structures=>{string=>$string});
+ }
+
 sub Nasm::X86::Tree::append($$)                                                 # Append the second source string to the first target string renumbering the keys of the source string to follow on from those of the target string.  A string can safely be appended to itself.
  {my ($string, $append) = @_;                                                   # Tree descriptor of string to append to, tree descriptor of string to append from
   @_ == 2 or confess "Two parameters";
@@ -8415,7 +8439,7 @@ END
 
   my $exec = sub                                                                # Execution string
    {my $o = qq($sde -mix -ptr-check);                                           # Emulator options
-       $o = qq($sde -mix -ptr-check -debugtrace -footprint) if $debugTrace;     # Emulator options
+       $o = qq($sde -mix -ptr-check -debugtrace -footprint) if $debugTrace;     # Emulator options - tracing
     my $e = $execFile;
     my $E = $options{emulator};                                                 # Emulator required
     return qq($o -- ./$e $err $out) if $E or $avx512 && !hasAvx512;             # Command to execute program via the  emulator
@@ -8423,6 +8447,7 @@ END
    }->();
 
   my $eStart = time;
+  #say STDERR $exec;
   qx($exec) if $run;                                                            # Run unless suppressed by user or library
   my $er     = $?;                                                              # Execution result
   my $eTime  = time - $eStart;
@@ -8452,10 +8477,7 @@ END
    }
 
   if ($run and $debug == 0 and -e $o2)                                          # Print errors if not debugging
-   {my $s = readBinaryFile($o2);
-    if ($s =~ m(\A\S\Z)s)
-     {say STDERR readBinaryFile($o2);
-     }
+   {say STDERR readBinaryFile($o2);
    }
 
   if ($run and $debug == 1 || $er)                                              # Print files if soft debugging or error
@@ -29971,6 +29993,19 @@ if (1) {                                                                        
 αβγδαβγδαβγδαβγδ
 αβγδ
 δγβα
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::m
+  my $a = CreateArea;
+  my $t = $a->CreateTree(length => 3);
+  my $b = Rb(0x41..0x51);
+  $t->m(K(address=> $b), K(size => 16));
+  $t->outAsUtf8NL;
+
+  ok Assemble eq => <<END, avx512=>1;
+ABCDEFGHIJKLMNOP
 END
  }
 
