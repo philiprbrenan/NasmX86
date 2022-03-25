@@ -5955,13 +5955,12 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
     my $success = Label;                                                        # End label
     my $t = $$s{tree};                                                          # Address tree
 
-    my $W1 = r8;                                                                # Work register
-    PushR 1..7, $W1;
+    PushR 4..8;
 
     my $point = $$p{point};                                                     # Point at which to insert
-    $$p{point}->setReg($W1);                                                    # Load mask register showing point of insertion.
+    $$p{point}->setReg(8);                                                      # Load mask register showing point of insertion.
 
-    Kmovq k7, $W1;                                                              # A sea of zeros with a one at the point of insertion
+    Kmovq k7, r8;                                                               # A sea of zeros with a one at the point of insertion
 
     $t->maskForFullKeyArea(6);                                                  # Mask for key area
 
@@ -5970,8 +5969,8 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
     Vpexpandd zmmM($K, 4), zmm($K);                                             # Expand to make room for the value to be inserted
     Vpexpandd zmmM($D, 4), zmm($D);
 
-    $$p{key}  ->setReg($W1); Vpbroadcastd zmmM($K, 7), $W1."d";                 # Insert value at expansion point
-    $$p{data} ->setReg($W1); Vpbroadcastd zmmM($D, 7), $W1."d";
+    $$p{key}  ->setReg(8); Vpbroadcastd zmmM($K, 7), r8d;                       # Insert value at expansion point
+    $$p{data} ->setReg(8); Vpbroadcastd zmmM($D, 7), r8d;
 
     $t->incLengthInKeys($K);                                                    # Increment the length of this node to include the inserted value
 
