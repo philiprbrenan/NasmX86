@@ -5,7 +5,6 @@
 #-------------------------------------------------------------------------------
 # podDocumentation (\A.{80})\s+(#.*\Z) \1\2
 # tree::print - speed up decision as to whether we are on a tree or not
-# Replace empty in boolean arithmetic with boolean and then check it in If to confirm that we are testing a boolean value
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
 # Make hash accept parameters at: #THash
 # if (0) in tests from subroutine conversion
@@ -3536,6 +3535,7 @@ sub Nasm::X86::Variable::dIntoZ($$$)                                            
 
 sub Nasm::X86::Variable::qIntoZ($$$)                                            # Place the value of the content variable at the quad word in the numbered zmm register.
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
+  @_ == 3 or confess "Three parameters";
   checkZmmRegister $zmm;
   $content->putBwdqIntoMm('q', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
@@ -3544,6 +3544,7 @@ sub Nasm::X86::Variable::qIntoZ($$$)                                            
 
 sub Nasm::X86::Variable::clearMemory($$)                                        # Clear the memory described in this variable.
  {my ($address, $size) = @_;                                                    # Address of memory to clear, size of the memory to clear
+  @_ == 2 or confess "Two parameters";
   &ClearMemory(size=>$size, address=>$address);                                 # Free the memory
  }
 
@@ -3566,27 +3567,26 @@ sub Nasm::X86::Variable::printMemoryInHexNL($$$)                                
 
 sub Nasm::X86::Variable::printErrMemoryInHexNL($$)                              # Write the memory addressed by a variable to stderr.
  {my ($address, $size) = @_;                                                    # Address of memory, number of bytes to print
+  @_ == 2 or confess "Two parameters";
   $address->printMemoryInHexNL($stderr, $size);
  }
 
 sub Nasm::X86::Variable::printOutMemoryInHexNL($$)                              # Write the memory addressed by a variable to stdout.
  {my ($address, $size) = @_;                                                    # Address of memory, number of bytes to print
+  @_ == 2 or confess "Two parameters";
   $address->printMemoryInHexNL($stdout, $size);
  }
 
 sub Nasm::X86::Variable::freeMemory($$)                                         # Free the memory addressed by this variable for the specified length.
  {my ($address, $size) = @_;                                                    # Address of memory to free, size of the memory to free
-  $address->name eq q(address) or confess "Need address";
-  $size   ->name eq q(size)    or confess "Need size";
-  &FreeMemory(size=>$size, address=>$address);                                  # Free the memory
+  @_ == 2 or confess "Two parameters";
+  &FreeMemory($address, $size);                                                 # Free the memory
  }
 
-sub Nasm::X86::Variable::allocateMemory(@)                                      # Allocate the specified amount of memory via mmap and return its address.
+sub Nasm::X86::Variable::allocateMemory($)                                      # Allocate the specified amount of memory via mmap and return its address.
  {my ($size) = @_;                                                              # Size
-  @_ >= 1 or confess;
-  $size->name eq q(size) or confess "Need size";
-  &AllocateMemory(size => $size, my $a = V(address));
-  $a
+  @_ == 1 or confess "One parameter";
+  AllocateMemory($size);
  }
 
 #D2 Structured Programming with variables                                       # Structured programming operations driven off variables.
@@ -7660,15 +7660,15 @@ sub Nasm::X86::Tree::dump($$)                                                   
  {my ($tree, $title) = @_;                                                      # Tree, title
   @_ == 2 or confess "Two parameters";
 
-  PushR my ($W1, $W2, $F) = (r8, r9, 31);
+  PushR my $F = 31;
 
   my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $t = $$s{tree};                                                          # Tree
     my $I = $$p{indentation};                                                   # Indentation to apply to the start of each new line
 
-    PushR my ($W1, $W2, $treeBitsR, $treeBitsIndexR, $K, $D, $N) =
-           (r8, r9, r10, r11, 30, 29, 28);
+    PushR my $transfer = r8, my $treeBitsR = r10, my $treeBitsIndexR = r11,
+          my $K = 30, my $D = 29, my $N = 28;
 
     Block                                                                       # Print each node in the tree
      {my ($end, $start) = @_;                                                   # Labels
@@ -7714,12 +7714,12 @@ sub Nasm::X86::Tree::dump($$)                                                   
        {PrintOutString ", parent";
        };
 
-      $t->getTreeBits($K, $W1);
-      Cmp $W1, 0;
+      $t->getTreeBits($K, $transfer);
+      Cmp $transfer, 0;
       IfGt
       Then                                                                      # Identify the data elements which are sub trees
        {PrintOutString ",  trees: ";
-        V(bits => $W1)->outRightInBin(K width => $t->maxKeys);
+        V(bits => $transfer)->outRightInBin(K width => $t->maxKeys);
        };
       PrintOutNL;
 
@@ -23637,7 +23637,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TAllocateMemory #TNasm::X86::Variable::freeMemory
+if (1) {                                                                        #TAllocateMemory #TFreeMemory
   my $N = K size => 2048;
   my $q = Rs('a'..'p');
   my $address = AllocateMemory $N;
@@ -23650,6 +23650,26 @@ if (1) {                                                                        
   PrintOutNL;
 
   FreeMemory $address, $N;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+abcdefghijklmnop
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::allocateMemory #TNasm::X86::Variable::freeMemory
+  my $N = K size => 2048;
+  my $q = Rs('a'..'p');
+  my $address = $N->allocateMemory;
+
+  Vmovdqu8 xmm0, "[$q]";
+  $address->setReg(rax);
+  Vmovdqu8 "[rax]", xmm0;
+  Mov rdi, 16;
+  PrintOutMemory;
+  PrintOutNL;
+
+  $address->freeMemory($N);
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
 abcdefghijklmnop
@@ -26848,7 +26868,6 @@ END
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
 
-  my $W1 = r8;
   my $F = 31; my $K  = 30; my $D = 29;
   my $IK = K insert  => 0x44;
   my $ID = K insert  => 0x55;
@@ -26856,8 +26875,8 @@ if (1) {                                                                        
 
   K(K => Rd(0..15))->loadZmm($_) for $F, $K, $D;                                # First, keys, data
   $tree->lengthIntoKeys($K, K length => 5);                                     # Set a length
-  Mov $W1, 0x3FF0;                                                              # Initial tree bits
-  $tree->setTreeBits(31, $W1);                                                  # Save tree bits
+  Mov rdi, 0x3FF0;                                                              # Initial tree bits
+  $tree->setTreeBits(31, rdi);                                                  # Save tree bits
 
   my $point = K point => 1<<3;                                                  # Show insertion point
 
