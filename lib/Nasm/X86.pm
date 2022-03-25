@@ -8,10 +8,7 @@
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
 # Make hash accept parameters at: #THash
 # if (0) in tests from subroutine conversion
-# Call - validate that all parameter keys have a definition
-# Have K and possibly V accept a flat hash of variable names and expressions
 # Document that V > 0 is required to create a boolean test
-# Optimize putBwdqIntoMm with vpbroadcast
 # Make sure that we are using bts and bzhi as much as possible in mask situations
 # Update PrintOut to use V2 every where then rename
 package Nasm::X86;
@@ -8635,20 +8632,6 @@ sub NasmX86::Library::load($)                                                   
 #-------------------------------------------------------------------------------
 # Export - eeee
 #-------------------------------------------------------------------------------
-
-if (0)                                                                          # Print exports
- {my @e;
-  for my $a(sort keys %Nasm::X86::)
-   {next if $a =~ m(BAIL_OUT|BEGIN|DATA|confirmHasCommandLineCommand|currentDirectory|fff|fileMd5Sum|fileSize|findFiles|firstNChars|formatTable|fpe|fpf|genHash|lll|owf|pad|readFile|stringsAreNotEqual|stringMd5Sum|temporaryFile);
-    next if $a =~ m(\AEXPORT);
-    next if $a !~ m(\A[A-Z]) and !$Registers{$a};
-    next if $a =~ m(::\Z);
-    push @e, $a if $Nasm::X86::{$a} =~ m(\*Nasm::X86::);
-   }
-  say STDERR q/@EXPORT_OK    = qw(/.join(' ', @e).q/);/;
-  exit;
- }
-
 if (0)                                                                          # Print exports
  {my @e = (@declarations);
   for my $a(readFile $0)
@@ -30059,7 +30042,7 @@ end
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::m
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -30073,6 +30056,9 @@ if (1) {                                                                        
   $T->push($t);
   $T->push($t);
   $T->dump("T");
+  $T->pop;
+  $T->pop;
+  $T->dump("D");
   ok Assemble eq => <<END, avx512=>1;
 A
 T
@@ -30110,6 +30096,22 @@ At:  300                    length:    1,  data:  340,  nodes:  380,  first:  14
           Keys :    0
           Data :   65
         end
+    end
+end
+D
+At:  180                    length:    2,  data:  1C0,  nodes:  200,  first:  140, root, leaf,  trees:  11
+  Index:    0    1
+  Keys :    0    1
+  Data :   8*   8*
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+      Index:    0
+      Keys :    0
+      Data :   65
+    end
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+      Index:    0
+      Keys :    0
+      Data :   65
     end
 end
 END
