@@ -7853,7 +7853,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
  {my ($tree, $title) = @_;                                                      # Tree, title
   @_ == 2 or confess "Two parameters";
 
-  PushR my ($W1, $W2, $F) = (r8, r9, 31);
+  PushR my $F = 31;
 
   my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -7861,8 +7861,8 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
     my $t = $$s{tree};                                                          # Tree
     my $area = $t->area;                                                        # Area
 
-    PushR my ($W1, $W2, $treeBitsR, $treeBitsIndexR, $K, $D, $N) =
-           (r8, r9, r10, r11, 30, 29, 28);
+    PushR my ($treeBitsR, $treeBitsIndexR, $K, $D, $N) =
+           (r10, r11, 30, 29, 28);
 
     Block                                                                       # Print each node in the tree
      {my ($end, $start) = @_;                                                   # Labels
