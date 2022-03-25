@@ -2481,9 +2481,9 @@ sub Variable($;$%)                                                              
 #  &Variable($name, $expr, global => 1, %options);
 # }
 
-sub K(*;$%)                                                                     # Define a constant variable.
- {my ($name, $expr, %options) = @_;                                             # Name of variable, initializing expression, options
-  &Variable(@_, constant => 1, %options)
+sub K($$)                                                                       # Define a constant variable.
+ {my ($name, $expr) = @_;                                                       # Name of variable, initializing expression
+  &Variable(@_, constant => 1)
  }
 
 sub R(*)                                                                        # Define a reference variable.
@@ -2493,8 +2493,8 @@ sub R(*)                                                                        
   $r                                                                            # Size of the referenced variable
  }
 
-sub V(*;$%)                                                                     # Define a variable.
- {my ($name, $expr, %options) = @_;                                             # Name of variable, initializing expression, options
+sub V($$)                                                                       # Define a variable.
+ {my ($name, $expr) = @_;                                                       # Name of variable, initializing expression
   &Variable(@_)
  }
 
@@ -2771,7 +2771,7 @@ sub Nasm::X86::Variable::address($;$)                                           
 sub Nasm::X86::Variable::clone($$)                                              # Clone a variable to make a new variable.
  {my ($variable, $name) = @_;                                                   # Variable to clone, new name for variable
   @_ == 2 or confess "Two parameters";
-  my $c = V($name);                                                             # Use supplied name or fall back on existing name
+  my $c = V($name => undef);                                                    # Use supplied name or fall back on existing name
   $c->copy($variable);                                                          # Copy into created variable
   $c                                                                            # Return the clone of the variable
  }
@@ -3069,7 +3069,7 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
   PopR;
   Comment "Boolean ZF Arithmetic end";
 
-  V(empty);                                                                     # Return an empty variable so that If regenerates the follow on code
+  V(empty => undef);                                                                     # Return an empty variable so that If regenerates the follow on code
  }
 
 sub Nasm::X86::Variable::booleanC($$$$)                                         # Combine the left hand variable with the right hand variable via a boolean operator using a conditional move instruction.
@@ -3959,7 +3959,7 @@ sub ClearMemory($$)                                                             
     Cmp rsi, 0;                                                                 # Test remainder
     IfNz sub                                                                    # Need to align so that the rest of the clear can be done in full zmm blocks
      {PushR k7;
-      V(align, rsi)->setMaskFirst(k7);                                          # Set mask bits
+      V(align => rsi)->setMaskFirst(k7);                                        # Set mask bits
       Vmovdqu8 "[rax]{k7}", zmm0;                                               # Masked move to memory
       PopR;
       Add rax, rsi;                                                             # Update point to clear from
@@ -4165,8 +4165,8 @@ sub ReadFile(@)                                                                 
    {my ($p) = @_;
     Comment "Read a file into memory";
     SaveFirstSeven;                                                             # Generated code
-    my $size = V(size);
-    my $fdes = V(fdes);
+    my $size = V(size => undef);
+    my $fdes = V(fdes => undef);
 
     $$p{file}->setReg(rax);                                                     # File name
 
@@ -4197,8 +4197,8 @@ sub ReadFile(@)                                                                 
    } parameters=>[qw(file address size)], name => 'ReadFile';
 
   my $file    = ref($File) ? $File : V file => Rs $File;
-  my $size    = V('size');
-  my $address = V('address');
+  my $size    = V(size    => undef);
+  my $address = V(address => undef);
   $s->call(parameters=>{file => $file, size=>$size, address=>$address});
 
   ($address, $size)                                                             # Return address and size of mapped file
@@ -4506,8 +4506,8 @@ sub ConvertUtf8ToUtf32($$$$$)                                                   
 
     ForEver sub                                                                 # Loop through input string  converting each utf8 sequence to utf32
      {my ($start, $end) = @_;
-      my ($out, $size, $fail) = (V(out), V(size), V('fail'));
-      GetNextUtf8CharAsUtf32 V(in, r14), $out, $size, $fail;                    # Get next utf-8 character and convert it to utf32
+      my ($out, $size, $fail) = (V(out => undef), V(size => undef), V(fail => undef));
+      GetNextUtf8CharAsUtf32 V(in => r14), $out, $size, $fail;                    # Get next utf-8 character and convert it to utf32
       If $fail > 0,
       Then
        {PrintErrStringNL "Invalid utf8 character at index:";
@@ -4833,7 +4833,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
     IfGt                                                                        # New size is bigger than current size
     Then                                                                        # More space needed
      {Mov $proposed, 4096 * 1;                                                  # Minimum proposed area size
-      K(loop, 36)->for(sub                                                      # Maximum number of shifts
+      K(loop=>36)->for(sub                                                      # Maximum number of shifts
        {my ($index, $start, $next, $end) = @_;
         Shl $proposed, 1;                                                       # New proposed size
         Cmp $proposed, $newSize;                                                # Big enough?
@@ -5133,7 +5133,7 @@ sub Nasm::X86::Area::char($$)                                                   
  {my ($area, $char) = @_;                                                       # Area descriptor, number of character to be appended
   @_ == 2 or confess "Two parameters";
   my $s = Rb(ord($char));
-  $area->m(V(address, $s), V(size, 1));                                         # Move data
+  $area->m(V(address => $s), K size => 1);                                      # Move data
  }
 
 sub Nasm::X86::Area::nl($)                                                      # Append a new line to the area addressed by rax.
@@ -5157,7 +5157,7 @@ sub Nasm::X86::Area::append($@)                                                 
   Mov rdi, "[rax+$$source{usedOffset}]";
   Sub rdi, $source->dataOffset;
   Lea rsi, "[rax+$$source{dataOffset}]";
-  $target->m(V(address, rsi), V(size, rdi));
+  $target->m(V(address => rsi), V size => rdi);
   RestoreFirstFour;
  }
 
@@ -6401,7 +6401,7 @@ sub Nasm::X86::Tree::find($$)                                                   
      {Jmp $success;                                                             # Return
      };
 
-    K(loop, 99)->for(sub                                                        # Step down through tree
+    K(loop=>99)->for(sub                                                        # Step down through tree
      {my ($index, $start, $next, $end) = @_;
 
       $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
@@ -6588,7 +6588,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
     my $li = V(key => 0);                                                       # Offset of last not right tells us where to continue the search -
     my $lQ = V(key => 0);                                                       # Insertion point of last non right
 
-    K(loop, 99)->for(sub                                                        # Step down through tree
+    K(loop=>99)->for(sub                                                        # Step down through tree
      {my ($index, $start, $next, $end) = @_;
 
       $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
@@ -6658,7 +6658,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
     my $li = V key => 0;                                                        # Offset of last not right tells us where to continue the search -
     my $lQ = V key => 0;                                                        # Insertion point of last non right
 
-    K(loop, 99)->for(sub                                                        # Step down through tree
+    K(loop => 99)->for(sub                                                        # Step down through tree
      {my ($index, $start, $next, $end) = @_;
       $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
       my $i = $t->insertionPoint($k, $K);                                       # The insertion point
@@ -6731,7 +6731,7 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
     my $area = $t->area;                                                        # Area
     PushR rax, 8, 9, 29..31;
 
-    K(loopLimit, 9)->for(sub                                                    # Loop a reasonable number of times
+    K(loopLimit=>9)->for(sub                                                    # Loop a reasonable number of times
      {my ($index, $start, $next, $end) = @_;
       $t->getBlock($F, 31, 30, 29);                                             # Get the first keys block
       my $n = dFromZ 29, 0;                                                     # Get the node block offset from the data block loop
@@ -6792,7 +6792,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
     PushR 8, 9, 14, 15, 30, 31;
     my $tree = $N->clone('tree');                                               # Start at the specified node
 
-    K(loop, 9)->for(sub                                                         # Step up through tree
+    K(loop => 9)->for(sub                                                         # Step up through tree
      {my ($index, $start, $next, $end) = @_;
       $t->getKeysData($tree, 31, 30, r8, r9);                                   # Get the first node of the tree
       my $P = $t->getUpFromData(30);                                            # Parent
@@ -7566,7 +7566,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
        };
 
       my $P = $root->clone('position');                                         # Position in tree
-      K(loop, 99)->for(sub                                                      # Step down through tree looking for the key
+      K(loop => 99)->for(sub                                                      # Step down through tree looking for the key
        {my ($index, $start, $next, $end) = @_;
         my $eq = $t->indexEq($k, $K);                                           # The key might still be in the parent now known not be a leaf
         If $eq > 0,
@@ -7591,7 +7591,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
           my $eq = $t->indexEq($k, $K);                                         # Location of key
           my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                        # Go right to the next level down
 
-          K(loop, 99)->for(sub                                                  # Find the left most leaf
+          K(loop => 99)->for(sub                                                  # Find the left most leaf
            {my ($index, $start, $next, $end) = @_;
 
             If $t->mergeOrSteal($Q) > 0,                                        # Merge or steal if necessary
@@ -7781,7 +7781,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
       Then                                                                      # Tree bits present
        {Mov $treeBitsIndexR, 1;                                                 # Check each tree bit position
         PushR my $F = 31;                                                       # Load first block of sub tree
-        K(loop, $t->maxKeys)->for(sub
+        K(loop => $t->maxKeys)->for(sub
          {my ($index, $start, $next, $end) = @_;
           Test $treeBitsR, $treeBitsIndexR;                                     # Check for a tree bit
           IfNz
@@ -23521,7 +23521,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::copyZF #TNasm::X86::Variable::copyZFInverted
   Mov r15, 1;
-  my $z = V(zf);
+  my $z = V(zf => undef);
   Cmp r15, 1; $z->copyZF;         $z->outNL;
   Cmp r15, 2; $z->copyZF;         $z->outNL;
   Cmp r15, 1; $z->copyZFInverted; $z->outNL;
@@ -23705,7 +23705,7 @@ if (1) {                                                                        
 
 #latest:
 if (1) {                                                                        #TIf
-  my $c = K(one,1);
+  my $c = K(one => 1);
   If ($c == 0,
   Then
    {PrintOutStringNL "1 == 0";
@@ -23923,7 +23923,7 @@ END
 
 #latest:;
 if (1) {                                                                        #TClearMemory
-  K(loop, 8+1)->for(sub
+  K(loop => 8+1)->for(sub
    {my ($index, $start, $next, $end) = @_;
     $index->setReg(15);
     Push r15;
@@ -23932,7 +23932,7 @@ if (1) {                                                                        
   Mov rax, rsp;
   Mov rdi, 8*9;
   PrintOutMemory_InHexNL;
-  ClearMemory(V(address, rax), K(size, 8*9));
+  ClearMemory(V(address => rax), K(size => 8*9));
   PrintOutMemory_InHexNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
@@ -24162,7 +24162,7 @@ END
 #latest:;
 if (!$homeTest) {                                                               # Print this file - slow -  #TArena::read #TArena::z #TArena::q
   my $s = CreateArea;                                                           # Create a string
-  $s->read(K(file, Rs($0)));
+  $s->read(K file => Rs($0));
   $s->out;
 
   my $r = Assemble(emulator => 0);
@@ -24227,9 +24227,9 @@ END
 #latest:;
 if (1) {                                                                        # Allocate some space in area #TArena::allocate
   my $s = CreateArea;                                                           # Create an area
-  my $o1 = $s->allocate(V(size, 0x20));                                         # Allocate space wanted
-  my $o2 = $s->allocate(V(size, 0x30));
-  my $o3 = $s->allocate(V(size, 0x10));
+  my $o1 = $s->allocate(K size => 0x20);                                        # Allocate space wanted
+  my $o2 = $s->allocate(K size => 0x30);
+  my $o3 = $s->allocate(K size => 0x10);
   $o1->outNL;
   $o2->outNL;
   $o3->outNL;
@@ -24381,7 +24381,7 @@ if (1) {                                                                        
   Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
   Mov rdi, 16;
   Mov rsi, $s;
-  CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
+  CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
   PrintOutMemory_InHexNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
@@ -24422,9 +24422,9 @@ if (1) {                                                                        
     $$p{v}->copy($$p{v} + $$p{k} + $$p{g} + 1);
    } name => 'add', parameters=>[qw(v k g)];
 
-  my $v = V(v, 1);
-  my $k = K(k, 2);
-  my $g = V(g, 3);
+  my $v = V(v => 1);
+  my $k = K(k => 2);
+  my $g = V(g => 3);
   $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
   $v->outNL;
 
@@ -24438,7 +24438,7 @@ if (1) {                                                                        
   my $g = V g => 0;
   my $s = Subroutine
    {my ($p) = @_;
-    $$p{g}->copy(K value, 1);
+    $$p{g}->copy(K value => 1);
    } name => 'ref2', parameters=>[qw(g)];
 
   my $t = Subroutine
@@ -24701,7 +24701,7 @@ END
 
 #latest:;
 if (1) {                                                                        #TStringLength
-  StringLength(V(string, Rs("abcd")))->outNL;
+  StringLength(V string => Rs("abcd"))->outNL;
   Assemble(debug => 0, eq => <<END, avx512=>0);
 size: .... .... .... ...4
 END
@@ -24831,8 +24831,8 @@ END
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Variable::dump  #TNasm::X86::Variable::print #TThen #TElse #TV #TK
-  my $a = V(a, 3);  $a->outNL;
-  my $b = K(b, 2);  $b->outNL;
+  my $a = V(a => 3);  $a->outNL;
+  my $b = K(b => 2);  $b->outNL;
   my $c = $a +  $b; $c->outNL;
   my $d = $c -  $a; $d->outNL;
   my $g = $a *  $b; $g->outNL;
@@ -24866,7 +24866,7 @@ END
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Variable::for
-  V(limit,10)->for(sub
+  V(limit => 10)->for(sub
    {my ($i, $start, $next, $end) = @_;
     $i->outNL;
    });
@@ -24919,18 +24919,14 @@ END
 #latest:;
 if (1) {                                                                        #TNasm::X86::Variable::setZmm
   my $s = Rb(0..128);
-  my $source = V(Source, $s);
+  my $source = V(Source=> $s);
 
   if (1)                                                                        # First block
-   {my $offset = V(Offset, 7);
-    my $length = V(Length, 3);
-    $source->setZmm(0, $offset, $length);
+   {$source->setZmm(0, K(key => 7), K length => 3);
    }
 
   if (1)                                                                        # Second block
-   {my $offset = V(Offset, 33);
-    my $length = V(Length, 12);
-    $source->setZmm(0, $offset, $length);
+   {$source->setZmm(0, K(key => 33), K key => 12);
    }
 
   PrintOutRegisterInHex zmm0;
@@ -25099,10 +25095,10 @@ END
 
 #latest:
 if (1) {                                                                        #TConvertUtf8ToUtf32
-  my ($out, $size, $fail) = (V(out), V(size), V('fail'));
+  my ($out, $size, $fail) = (V(out=>undef), V(size=>undef), V(fail=>undef));
 
   my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
-  my $chars = V(chars, $Chars);
+  my $chars = V(chars => $Chars);
 
   GetNextUtf8CharAsUtf32 $chars+0, $out, $size, $fail;                          # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
   $out->out('out1 : ');     $size->outNL(' size : ');
@@ -25121,7 +25117,7 @@ if (1) {                                                                        
 
   my $statement = qq(𝖺\n 𝑎𝑠𝑠𝑖𝑔𝑛 【【𝖻 𝐩𝐥𝐮𝐬 𝖼】】\nAAAAAAAA);                        # A sample sentence to parse
 
-  my $s = K(statement, Rutf8($statement));
+  my $s = K(statement => Rutf8($statement));
   my $l = StringLength $s;
 
   my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
@@ -25420,7 +25416,7 @@ if (0) {                                                                        
   IfEq
   Then
    {my $va = Rutf8 "\x{1D5D4}\x{1D5D5}\x{1D5D6}\x{1D5D7}\x{1D5D8}\x{1D5D9}\x{1D5DA}\x{1D5DB}\x{1D5DC}\x{1D5DD}\x{1D5DE}\x{1D5DF}\x{1D5E0}\x{1D5E1}\x{1D5E2}\x{1D5E3}\x{1D5E4}\x{1D5E5}\x{1D5E6}\x{1D5E7}\x{1D5E8}\x{1D5E9}\x{1D5EA}\x{1D5EB}\x{1D5EC}\x{1D5ED}\x{1D5EE}\x{1D5EF}\x{1D5F0}\x{1D5F1}\x{1D5F2}\x{1D5F3}\x{1D5F4}\x{1D5F5}\x{1D5F6}\x{1D5F7}\x{1D5F8}\x{1D5F9}\x{1D5FA}\x{1D5FB}\x{1D5FC}\x{1D5FD}\x{1D5FE}\x{1D5FF}\x{1D600}\x{1D601}\x{1D602}\x{1D603}\x{1D604}\x{1D605}\x{1D606}\x{1D607}\x{1D756}\x{1D757}\x{1D758}\x{1D759}\x{1D75A}\x{1D75B}\x{1D75C}\x{1D75D}\x{1D75E}\x{1D75F}\x{1D760}\x{1D761}\x{1D762}\x{1D763}\x{1D764}\x{1D765}\x{1D766}\x{1D767}\x{1D768}\x{1D769}\x{1D76A}\x{1D76B}\x{1D76C}\x{1D76D}\x{1D76E}\x{1D76F}\x{1D770}\x{1D771}\x{1D772}\x{1D773}\x{1D774}\x{1D775}\x{1D776}\x{1D777}\x{1D778}\x{1D779}\x{1D77A}\x{1D77B}\x{1D77C}\x{1D77D}\x{1D77E}\x{1D77F}\x{1D780}\x{1D781}\x{1D782}\x{1D783}\x{1D784}\x{1D785}\x{1D786}\x{1D787}\x{1D788}\x{1D789}\x{1D78A}\x{1D78B}\x{1D78C}\x{1D78D}\x{1D78E}\x{1D78F}";
-    V(loop)->getReg(r14)->for(sub                                               # Write each letter out from its position on the stack
+    V(loop => r14)->for(sub                                                     # Write each letter out from its position on the stack
      {my ($index, $start, $next, $end) = @_;                                    # Execute body
       $index->setReg(14);                                                       # Index stack
       ClearRegisters r15;
@@ -25445,7 +25441,7 @@ if (0) {                                                                        
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::outCStringNL
   my $s = Rutf8 '𝝰𝝱𝝲𝝳';
-  V(address, $s)->outCStringNL;
+  V(address => $s)->outCStringNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
 𝝰𝝱𝝲𝝳
@@ -25456,8 +25452,8 @@ END
 if (1) {                                                                        #TNasm::X86::Variable::printOutMemoryInHexNL
   my $u = Rd(ord('𝝰'), ord('𝝱'), ord('𝝲'), ord('𝝳'));
   Mov rax, $u;
-  my $address = V(address)->getReg(rax);
-  $address->printOutMemoryInHexNL(K(size, 16));
+  my $address = V address=>rax;
+  $address->printOutMemoryInHexNL(K size => 16);
 
   ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
 70D7 .1.. 71D7 .1..  72D7 .1.. 73D7 .1..
@@ -25466,7 +25462,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::printOutMemoryInHexNL
-  my $v = V(var, 2);
+  my $v = V var => 2;
 
   If  $v == 0, Then {Mov rax, 0},
   Ef {$v == 1} Then {Mov rax, 1},
