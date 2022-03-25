@@ -7861,8 +7861,8 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
     my $t = $$s{tree};                                                          # Tree
     my $area = $t->area;                                                        # Area
 
-    PushR my ($treeBitsR, $treeBitsIndexR, $K, $D, $N) =
-           (r10, r11, 30, 29, 28);
+    PushR my $treeBitsR = r10, my $treeBitsIndexR = r11,
+          my $K = 30, my $D = 29, my $N = 28;
 
     Block                                                                       # Print each node in the tree
      {my ($end, $start) = @_;                                                   # Labels
