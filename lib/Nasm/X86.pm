@@ -30052,29 +30052,52 @@ if (1) {                                                                        
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $b = Rb(0x41..0x51);
-  $t->m(K(address=> $b), K(size => 2));
+  $t->m(K(address=> $b), K(size => 1));
   $t->outAsUtf8NL;
 
   my $T = $a->CreateTree(length => 3);
   $T->push($t);
   $T->push($t);
+  $T->push($t);
+  $T->push($t);
   $T->dump("T");
   ok Assemble eq => <<END, avx512=>1;
-AB
+A
 T
-At:  180                    length:    2,  data:  1C0,  nodes:  200,  first:  140, root, leaf,  trees:  11
-  Index:    0    1
-  Keys :    0    1
-  Data :   8*   8*
-    At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
-      Index:    0    1
-      Keys :    0    1
-      Data :   65   66
+At:  300                    length:    1,  data:  340,  nodes:  380,  first:  140, root, parent,  trees:   1
+  Index:    0
+  Keys :    1
+  Data :   8*
+  Nodes:  180  240
+    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+      Index:    0
+      Keys :    0
+      Data :   65
     end
-    At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+    At:  180                length:    1,  data:  1C0,  nodes:  200,  first:  140,  up:  300, leaf,  trees:   1
+      Index:    0
+      Keys :    0
+      Data :   8*
+        At:   80            length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+          Index:    0
+          Keys :    0
+          Data :   65
+        end
+    end
+    At:  240                length:    2,  data:  280,  nodes:  2C0,  first:  140,  up:  300, leaf,  trees:  11
       Index:    0    1
-      Keys :    0    1
-      Data :   65   66
+      Keys :    2    3
+      Data :   8*   8*
+        At:   80            length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+          Index:    0
+          Keys :    0
+          Data :   65
+        end
+        At:   80            length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+          Index:    0
+          Keys :    0
+          Data :   65
+        end
     end
 end
 END
