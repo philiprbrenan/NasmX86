@@ -5975,8 +5975,6 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
 
     $t->incLengthInKeys($K);                                                    # Increment the length of this node to include the inserted value
 
-PrintErrStringNL "DDDD";
-$$p{subTree}->d;
     $t->insertIntoTreeBits($K, 7, $$p{subTree});                                # Set the matching tree bit depending on whether we were supplied with a tree or a variable
 
     $t->incSizeInFirst($F);                                                     # Update number of elements in entire tree.
@@ -7757,7 +7755,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
             Then                                                                # This key indexes a sub tree
              {PushR 31;
               $t->area->getZmmBlock($k, 31);
-              my $r = $t->getFirstFrom($F)>>K(sixteen => 4);
+              my $r = $t->rootFromFirst($F) >> K(sixteen => 4);
               PopR;
               $r->outRightInHex(K width => 4);
               PrintOutString '*';
@@ -30039,7 +30037,7 @@ T
 At:  180                    length:    1,  data:  1C0,  nodes:  200,  first:  140, root, leaf,  trees:   1
   Index:    0
   Keys :    0
-  Data :_  40
+  Data :   8*
     At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
       Index:    0
       Keys :    0
@@ -30062,16 +30060,21 @@ if (1) {                                                                        
   $T->push($t);
   $T->dump("T");
   ok Assemble eq => <<END, avx512=>1;
-A
+AB
 T
-At:  180                    length:    1,  data:  1C0,  nodes:  200,  first:  140, root, leaf,  trees:   1
-  Index:    0
-  Keys :    0
-  Data :_  40
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-      Index:    0
-      Keys :    0
-      Data :   65
+At:  180                    length:    2,  data:  1C0,  nodes:  200,  first:  140, root, leaf,  trees:  11
+  Index:    0    1
+  Keys :    0    1
+  Data :   8*   8*
+    At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+      Index:    0    1
+      Keys :    0    1
+      Data :   65   66
+    end
+    At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+      Index:    0    1
+      Keys :    0    1
+      Data :   65   66
     end
 end
 END
