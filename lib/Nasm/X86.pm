@@ -30032,7 +30032,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::m
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -30059,7 +30059,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::m
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -30115,7 +30115,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::m
   my $b = Rb(0x41..0x51);
   my $a = CreateArea;
