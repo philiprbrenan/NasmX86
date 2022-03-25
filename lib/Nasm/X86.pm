@@ -2468,9 +2468,9 @@ sub Variable($;$%)                                                              
     expr      => $expr,                                                         # Expression that initializes the variable
     label     => $label,                                                        # Address in memory
     name      => $name,                                                         # Name of the variable
-    level     => scalar @VariableStack,                                         # Lexical level
+#    level     => scalar @VariableStack,                                         # Lexical level
     reference => $options{reference},                                           # Reference to another variable
-    width     => RegisterSize(rax),                                             # Size of the variable in bytes
+#    width     => RegisterSize(rax),                                             # Size of the variable in bytes
    );
  }
 
