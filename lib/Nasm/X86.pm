@@ -30103,6 +30103,64 @@ end
 END
  }
 
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::m
+  my $b = Rb(0x41..0x51);
+  my $a = CreateArea;
+  my $T;
+  for my $i(1..8)
+   {my $t = $a->CreateTree(length => 3);
+    $t->m(K(address=> $b), K(size => 1));
+    $t->push($T) if $T;
+    $T = $t;
+   }
+
+  $T->dump("T");
+  ok Assemble eq => <<END, avx512=>1;
+T
+At:  780                    length:    2,  data:  7C0,  nodes:  800,  first:  740, root, leaf,  trees:  10
+  Index:    0    1
+  Keys :    0    1
+  Data :   65  68*
+    At:  680                length:    2,  data:  6C0,  nodes:  700,  first:  640, root, leaf,  trees:  10
+      Index:    0    1
+      Keys :    0    1
+      Data :   65  58*
+        At:  580            length:    2,  data:  5C0,  nodes:  600,  first:  540, root, leaf,  trees:  10
+          Index:    0    1
+          Keys :    0    1
+          Data :   65  48*
+            At:  480        length:    2,  data:  4C0,  nodes:  500,  first:  440, root, leaf,  trees:  10
+              Index:    0    1
+              Keys :    0    1
+              Data :   65  38*
+                At:  380    length:    2,  data:  3C0,  nodes:  400,  first:  340, root, leaf,  trees:  10
+                  Index:    0    1
+                  Keys :    0    1
+                  Data :   65  28*
+                    At:  280length:    2,  data:  2C0,  nodes:  300,  first:  240, root, leaf,  trees:  10
+                      Index:    0    1
+                      Keys :    0    1
+                      Data :   65  18*
+                        At:  180length:    2,  data:  1C0,  nodes:  200,  first:  140, root, leaf,  trees:  10
+                          Index:    0    1
+                          Keys :    0    1
+                          Data :   65   8*
+                            At:   80length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+                              Index:    0
+                              Keys :    0
+                              Data :   65
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+END
+ }
+
 #latest:
 if (0) {                                                                        #
   ok Assemble eq => <<END, avx512=>1;
