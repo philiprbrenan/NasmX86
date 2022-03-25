@@ -2433,8 +2433,10 @@ sub Variable($;$%)                                                              
  {my ($name, $expr, %options) = @_;                                             # Name of variable, optional expression initializing variable, options
   my $size   = 3;                                                               # Size  of variable in bytes as a power of 2
   my $width  = 2**$size;                                                        # Size of variable in bytes
-  my $const  = $options{constant} // 0;                                         # Constant variable 0- implicitly global
-  my $global = $options{global}   // 0;                                         # Global variable
+  my $const  = $options{constant}  // 0;                                        # Constant
+  my $ref    = $options{reference} // 0;                                        # Reference
+
+  $ref and $const and confess "Reference to constant";
 
   my $label;
   if ($const)                                                                   # Constant variable
@@ -2443,9 +2445,6 @@ sub Variable($;$%)                                                              
      "Cannot use register expression $expr to initialize a constant";
     RComment qq(Constant name: "$name", value $expr);
     $label = Rq($expr);
-   }
-  elsif ($global)                                                               # Global variables are held in the data segment not on the stack
-   {$label = Dq($expr // 0);
    }
   else                                                                          # Local variable: Position on stack of variable
    {my $stack = ++$VariableStack[-1];
@@ -2466,12 +2465,11 @@ sub Variable($;$%)                                                              
 
   genHash(__PACKAGE__."::Variable",                                             # Variable definition
     constant  => $const,                                                        # Constant if true
-    global    => $global,                                                       # Global if true
     expr      => $expr,                                                         # Expression that initializes the variable
     label     => $label,                                                        # Address in memory
     name      => $name,                                                         # Name of the variable
     level     => scalar @VariableStack,                                         # Lexical level
-    reference => undef,                                                         # Reference to another variable
+    reference => $options{reference},                                           # Reference to another variable
     width     => RegisterSize(rax),                                             # Size of the variable in bytes
    );
  }
