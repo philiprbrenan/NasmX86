@@ -5397,13 +5397,12 @@ sub Nasm::X86::Tree::copyDescription($)                                         
  {my ($tree) = @_;                                                              # Tree descriptor
   my $t = $tree->describeTree;
 
-  $t->compare->copy = $tree->compare;                                           # Last comparison result -1, 0, +1
-  $t->data   ->copy = $tree->data;                                              # Variable containing the last data found
-  $t->debug  ->copy = $tree->debug;                                             # Write debug trace if true
-  $t->first  ->copy = $tree->first;                                             # Variable addressing offset to first block of keys.
-  $t->found  ->copy = $tree->found;                                             # Variable indicating whether the last find was successful or not
-  $t->index  ->copy = $tree->index;                                             # Index of key in last node found
-  $t->subTree->copy = $tree->subTree;                                           # Variable indicating whether the last find found a sub tree
+  $t->data   ->copy($tree->data );                                              # Variable containing the last data found
+  $t->debug  ->copy($tree->debug);                                              # Write debug trace if true
+  $t->first  ->copy($tree->first);                                              # Variable addressing offset to first block of keys.
+  $t->found  ->copy($tree->found);                                              # Variable indicating whether the last find was successful or not
+  $t->index  ->copy($tree->index);                                              # Index of key in last node found
+  $t->subTree->copy($tree->subTree);                                            # Variable indicating whether the last find found a sub tree
   $t                                                                            # Return new descriptor
  }
 
@@ -8142,6 +8141,8 @@ sub Nasm::X86::Tree::reverse($)                                                 
   $t                                                                            # Chain from the target string
  }
 
+#D3 Print                                                                       # Print tree as a string
+
 sub Nasm::X86::Tree::outAsUtf8($)                                               # Print the data values of the specified string on stdout assuming each data value is a utf32 character and that the output device supports utf8
  {my ($string) = @_;                                                            # Tree descriptor of string
   @_ == 1 or confess "One parameter";
@@ -8163,6 +8164,74 @@ sub Nasm::X86::Tree::outAsUtf8NL($)                                             
   $string->outAsUtf8;
   PrintOutNL;
   $string                                                                       # Chain from the target string
+ }
+
+#D3 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.  The inverse operations is much easier as we just have to look up a string by number in a tree.
+
+sub Nasm::X86::Tree::putString($$)                                              # The last element of the string is the value, the preceding elements are the keys so such a string must have at least two elements. We create a string tree to index strings to values
+ {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
+  @_ == 2 or confess "Two parameters";
+
+  my $size = $string->size;                                                     # Tree size
+  If $size > 1,                                                                 # Tree must be two or more
+  Then
+   {my $size1 = $size - 1;
+    my $S = $tree->copyDescription;                                             # Create a new descriptor for the string tree
+    my $s = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
+    my $z = V count => 0;                                                       # Count of elements so that we can find the last element to be inserted
+    my $l = V last  => 0;                                                       # Last key
+
+    $string->by(sub                                                             # Insert latest tree
+     {my ($t) = @_;
+      $z->copy($z + 1);
+      If $z < $size1,                                                           # First elements are keys
+      Then
+       {If $s == 1,
+        Then
+         {$S->find($t->data);
+          If $S->found == 0,
+          Then                                                                  # Position on new element
+           {$s->copy(0);
+            my $T = $t->area->CreateTree;
+            $S->put($t->data, $T);
+            $S->first->copy($T->first);
+           },
+          Else
+           {$S->first->copy($S->data);                                          # Position on found element
+           };
+         },
+        Else
+         {my $T = $t->area->CreateTree;
+          $S->put($t->data, $T);
+          $S->first->copy($T->first);
+         };
+       },
+      Ef {$z == $size1}                                                         # Last key
+      Then
+       {$l->copy($t->data);
+       },
+      Else
+       {$S->put($l, $t->data);
+       };
+     });
+   };
+ }
+
+sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string
+ {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
+  @_ == 2 or confess "Two parameters";
+
+  my $success = Label;
+  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
+  $string->by(sub                                                               # Insert latest tree
+   {my ($t) = @_;
+    $S->find($t->key);
+    If $S->found == 0, Then {Jmp $success};
+    $S->position($S->first);
+   });
+  SetLabel $success;
+
+  $S
  }
 
 #D1 Assemble                                                                    # Assemble generated code
@@ -30042,7 +30111,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::m
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -30168,6 +30237,54 @@ At:  780                    length:    2,  data:  7C0,  nodes:  800,  first:  74
                         end
                     end
                 end
+            end
+        end
+    end
+end
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8#TNasm::X86::Tree::append
+  my $a = CreateArea;
+  my $p = $a->CreateTree(length => 3);
+  my $q = $a->CreateTree(length => 3);
+  my $r = $a->CreateTree(length => 3);
+  my $s = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree(length => 3);
+
+  $s->push(K char => ord $_) for split //, 'abc1';
+  $r->push(K char => ord $_) for split //, 'abd2';
+  $q->push(K char => ord $_) for split //, 'abe3';
+  $p->push(K char => ord $_) for split //, 'abf4';
+
+  $t->putString($_) for $s, $r, $q, $p;
+  $t->dump('t = abcd');
+
+  ok Assemble eq => <<END, avx512=>1;
+t = abcd
+At:  AC0                    length:    1,  data:  B00,  nodes:  B40,  first:  140, root, leaf,  trees:   1
+  Index:    0
+  Keys :   61
+  Data :  BC*
+    At:  BC0                length:    1,  data:  C00,  nodes:  C40,  first:  A80, root, leaf,  trees:   1
+      Index:    0
+      Keys :   62
+      Data :  E0*
+        At:  E00            length:    1,  data:  E40,  nodes:  E80,  first:  B80, root, parent
+          Index:    0
+          Keys :   64
+          Data :   50
+          Nodes:  C80  D40
+            At:  C80        length:    1,  data:  CC0,  nodes:  D00,  first:  B80,  up:  E00, leaf
+              Index:    0
+              Keys :   63
+              Data :   49
+            end
+            At:  D40        length:    2,  data:  D80,  nodes:  DC0,  first:  B80,  up:  E00, leaf
+              Index:    0    1
+              Keys :   65   66
+              Data :   51   52
             end
         end
     end
