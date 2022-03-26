@@ -6407,6 +6407,7 @@ sub Nasm::X86::Tree::find($$)                                                   
         $t->found ->copy($eq);                                                  # Key found at this point
         $t->data  ->copy($d);                                                   # Data associated with the key
         $t->offset->copy($Q);                                                   # Offset of the containing block
+        $t->subTree->copy($t->getTreeBit($K, $eq));                             # Get corresponding tree bit
         Jmp $success;                                                           # Return
        };
 
@@ -7782,7 +7783,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
           Then                                                                  # This key indexes a sub tree
            {my $i = $index * $t->width;                                         # Key/data offset
             my $d = dFromZ($D, $i);                                             # Data
-            my $I = V(indentation => 0)->copy($I + 2);
+            my $I = V(indentation => 0)->copy($I + 2 + 1);                      # Indent by one extra space to show separate sub tree rather than continuation of the existing tree and to make the at address line up with the address in data.
 
             my      $T = $t->position($d);
                     $T->firstFromMemory($F);                                    # First block for tree
@@ -8232,6 +8233,22 @@ sub Nasm::X86::Tree::getString($$)                                              
   SetLabel $success;
 
   $S
+ }
+
+#D3 Trees as sets                                                               # Trees of trees as sets
+
+sub Nasm::X86::Tree::union($)                                                   # Given a tree of trees consider each sub tree as a set and form the union of all these sets as a new tree
+ {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
+  @_ == 1 or confess "One parameter";
+
+  my $u = $tree->area->CreateTree;
+  $tree->by(sub                                                                 # Each sub tree
+   {my ($t) = @_;
+    $t->by(sub                                                                  # Insert each element of each sub tree
+     {my ($s) = @_;
+      $u->put($s->key, $s->data);
+     });
+   });
  }
 
 #D1 Assemble                                                                    # Assemble generated code
@@ -30084,7 +30101,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::m
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -30102,11 +30119,11 @@ At:  180                    length:    1,  data:  1C0,  nodes:  200,  first:  14
   Index:    0
   Keys :    0
   Data :   8*
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-      Index:    0
-      Keys :    0
-      Data :   65
-    end
+     At:   80               length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+       Index:    0
+       Keys :    0
+       Data :   65
+     end
 end
 END
  }
@@ -30136,35 +30153,35 @@ At:  300                    length:    1,  data:  340,  nodes:  380,  first:  14
   Keys :    1
   Data :   8*
   Nodes:  180  240
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-      Index:    0
-      Keys :    0
-      Data :   65
-    end
+     At:   80               length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+       Index:    0
+       Keys :    0
+       Data :   65
+     end
     At:  180                length:    1,  data:  1C0,  nodes:  200,  first:  140,  up:  300, leaf,  trees:   1
       Index:    0
       Keys :    0
       Data :   8*
-        At:   80            length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-          Index:    0
-          Keys :    0
-          Data :   65
-        end
+         At:   80           length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+           Index:    0
+           Keys :    0
+           Data :   65
+         end
     end
     At:  240                length:    2,  data:  280,  nodes:  2C0,  first:  140,  up:  300, leaf,  trees:  11
       Index:    0    1
       Keys :    2    3
       Data :   8*   8*
-        At:   80            length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-          Index:    0
-          Keys :    0
-          Data :   65
-        end
-        At:   80            length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-          Index:    0
-          Keys :    0
-          Data :   65
-        end
+         At:   80           length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+           Index:    0
+           Keys :    0
+           Data :   65
+         end
+         At:   80           length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+           Index:    0
+           Keys :    0
+           Data :   65
+         end
     end
 end
 D
@@ -30172,16 +30189,16 @@ At:  180                    length:    2,  data:  1C0,  nodes:  200,  first:  14
   Index:    0    1
   Keys :    0    1
   Data :   8*   8*
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-      Index:    0
-      Keys :    0
-      Data :   65
-    end
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-      Index:    0
-      Keys :    0
-      Data :   65
-    end
+     At:   80               length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+       Index:    0
+       Keys :    0
+       Data :   65
+     end
+     At:   80               length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+       Index:    0
+       Keys :    0
+       Data :   65
+     end
 end
 END
  }
@@ -30205,41 +30222,41 @@ At:  780                    length:    2,  data:  7C0,  nodes:  800,  first:  74
   Index:    0    1
   Keys :    0    1
   Data :   65  68*
-    At:  680                length:    2,  data:  6C0,  nodes:  700,  first:  640, root, leaf,  trees:  10
-      Index:    0    1
-      Keys :    0    1
-      Data :   65  58*
-        At:  580            length:    2,  data:  5C0,  nodes:  600,  first:  540, root, leaf,  trees:  10
-          Index:    0    1
-          Keys :    0    1
-          Data :   65  48*
-            At:  480        length:    2,  data:  4C0,  nodes:  500,  first:  440, root, leaf,  trees:  10
-              Index:    0    1
-              Keys :    0    1
-              Data :   65  38*
-                At:  380    length:    2,  data:  3C0,  nodes:  400,  first:  340, root, leaf,  trees:  10
-                  Index:    0    1
-                  Keys :    0    1
-                  Data :   65  28*
-                    At:  280length:    2,  data:  2C0,  nodes:  300,  first:  240, root, leaf,  trees:  10
+     At:  680               length:    2,  data:  6C0,  nodes:  700,  first:  640, root, leaf,  trees:  10
+       Index:    0    1
+       Keys :    0    1
+       Data :   65  58*
+          At:  580          length:    2,  data:  5C0,  nodes:  600,  first:  540, root, leaf,  trees:  10
+            Index:    0    1
+            Keys :    0    1
+            Data :   65  48*
+               At:  480     length:    2,  data:  4C0,  nodes:  500,  first:  440, root, leaf,  trees:  10
+                 Index:    0    1
+                 Keys :    0    1
+                 Data :   65  38*
+                    At:  380length:    2,  data:  3C0,  nodes:  400,  first:  340, root, leaf,  trees:  10
                       Index:    0    1
                       Keys :    0    1
-                      Data :   65  18*
-                        At:  180length:    2,  data:  1C0,  nodes:  200,  first:  140, root, leaf,  trees:  10
-                          Index:    0    1
-                          Keys :    0    1
-                          Data :   65   8*
-                            At:   80length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-                              Index:    0
-                              Keys :    0
-                              Data :   65
-                            end
-                        end
+                      Data :   65  28*
+                         At:  280length:    2,  data:  2C0,  nodes:  300,  first:  240, root, leaf,  trees:  10
+                           Index:    0    1
+                           Keys :    0    1
+                           Data :   65  18*
+                              At:  180length:    2,  data:  1C0,  nodes:  200,  first:  140, root, leaf,  trees:  10
+                                Index:    0    1
+                                Keys :    0    1
+                                Data :   65   8*
+                                   At:   80length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+                                     Index:    0
+                                     Keys :    0
+                                     Data :   65
+                                   end
+                              end
+                         end
                     end
-                end
-            end
-        end
-    end
+               end
+          end
+     end
 end
 END
  }
@@ -30267,27 +30284,27 @@ At:  AC0                    length:    1,  data:  B00,  nodes:  B40,  first:  14
   Index:    0
   Keys :   61
   Data :  BC*
-    At:  BC0                length:    1,  data:  C00,  nodes:  C40,  first:  A80, root, leaf,  trees:   1
-      Index:    0
-      Keys :   62
-      Data :  E0*
-        At:  E00            length:    1,  data:  E40,  nodes:  E80,  first:  B80, root, parent
-          Index:    0
-          Keys :   64
-          Data :   50
-          Nodes:  C80  D40
-            At:  C80        length:    1,  data:  CC0,  nodes:  D00,  first:  B80,  up:  E00, leaf
-              Index:    0
-              Keys :   63
-              Data :   49
-            end
-            At:  D40        length:    2,  data:  D80,  nodes:  DC0,  first:  B80,  up:  E00, leaf
-              Index:    0    1
-              Keys :   65   66
-              Data :   51   52
-            end
-        end
-    end
+     At:  BC0               length:    1,  data:  C00,  nodes:  C40,  first:  A80, root, leaf,  trees:   1
+       Index:    0
+       Keys :   62
+       Data :  E0*
+          At:  E00          length:    1,  data:  E40,  nodes:  E80,  first:  B80, root, parent
+            Index:    0
+            Keys :   64
+            Data :   50
+            Nodes:  C80  D40
+              At:  C80      length:    1,  data:  CC0,  nodes:  D00,  first:  B80,  up:  E00, leaf
+                Index:    0
+                Keys :   63
+                Data :   49
+              end
+              At:  D40      length:    2,  data:  D80,  nodes:  DC0,  first:  B80,  up:  E00, leaf
+                Index:    0    1
+                Keys :   65   66
+                Data :   51   52
+              end
+          end
+     end
 end
 END
  }
