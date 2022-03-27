@@ -6368,6 +6368,16 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
 #D2 Find                                                                        # Find a key in the tree. Trees have dword integer keys and so can act as arrays as well.
 
+sub Nasm::X86::Tree::zero($)                                                    #P Zero the return fields of a tree descriptor
+ {my ($tree) = @_;                                                              # Tree descriptor, key field to search for
+  @_ == 1 or confess "One parameter";
+  $tree->found  ->copy(0);                                                      # Key not found
+  $tree->key    ->copy(0);                                                      # Copy in key so we know what was searched for
+  $tree->data   ->copy(0);                                                      # Data not yet found
+  $tree->subTree->copy(0);                                                      # Not yet a sub tree
+  $tree->offset ->copy(0);                                                      # Offset not known
+ }
+
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and tests whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for
   @_ == 2 or confess "Two parameters";
@@ -6380,13 +6390,8 @@ sub Nasm::X86::Tree::find($$)                                                   
     PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;;
 
     my $t = $$s{tree};                                                          # Tree to search
-    my $k = $$p{key};                                                           # Key to find
-    $t->key->copy($k);                                                          # Copy in key so we know what was searched for
-
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
+       $t->zero;                                                                # Clear all the return fields
+    $t->key->copy(my $k = $$p{key});                                            # Copy in key so we know what was searched for
 
     $t->firstFromMemory      ($F);                                              # Load first block
     my $Q = $t->rootFromFirst($F);                                              # Start the search from the root
@@ -8219,21 +8224,27 @@ sub Nasm::X86::Tree::putString($$)                                              
    };
  }
 
-sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string
+sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string and return its data in B<found> and B<data>.
  {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
   @_ == 2 or confess "Two parameters";
 
   my $success = Label;
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
+  $tree->found->copy(1);                                                        # Assume we will find the string
+  my $s = $tree->size;
   $string->by(sub                                                               # Insert latest tree
    {my ($t) = @_;
     $S->find($t->key);
-    If $S->found == 0, Then {Jmp $success};
-    $S->position($S->first);
+    If $S->found == 0,
+    Then
+     {$tree->found->copy(0);
+      Jmp $success
+     };
+    $S->position($s->first);
    });
   SetLabel $success;
 
-  $S
+  $tree                                                                         # Chain - the reskt
  }
 
 #D3 Trees as sets                                                               # Trees of trees as sets
@@ -30339,7 +30350,7 @@ end
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $p = $a->CreateTree(length => 3);
@@ -30360,6 +30371,10 @@ if (1) {                                                                        
   for my $f(qw(found key data subTree offset))
    {$t->{$f}->outNL(sprintf("%-8s", $f));
    }
+
+  $t->getString($s); $t->found->outNL;
+  $s->pop;
+  $t->getString($s); $t->found->outNL;
 
   ok Assemble eq => <<END, avx512=>1;
 t = abcd
@@ -30397,8 +30412,8 @@ offset  .... .... .... .AC0
 END
  }
 
-latest:
-if (1) {                                                                        #TNasm::X86::Tree::union
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::union #TNasm::X86::Tree::intersection
   my $a = CreateArea;
   my $r = $a->CreateTree(length => 3);
   my $s = $a->CreateTree(length => 3);
