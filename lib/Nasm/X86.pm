@@ -6372,7 +6372,6 @@ sub Nasm::X86::Tree::zero($)                                                    
  {my ($tree) = @_;                                                              # Tree descriptor, key field to search for
   @_ == 1 or confess "One parameter";
   $tree->found  ->copy(0);                                                      # Key not found
-  $tree->key    ->copy(0);                                                      # Copy in key so we know what was searched for
   $tree->data   ->copy(0);                                                      # Data not yet found
   $tree->subTree->copy(0);                                                      # Not yet a sub tree
   $tree->offset ->copy(0);                                                      # Offset not known
@@ -28470,12 +28469,11 @@ if (1) {                                                                        
    {my ($i, $start, $next, $end) = @_;
     $t->put($N - $i, $N - $i);
     $t->findLast;
-
     $t->delete($t->key);
-     If $t->size != $N - 1,
-     Then
-      {PrintOutTraceBack "Queued size failed at: "; $i->outNL;
-      };
+    If $t->size != $N - 1,
+    Then
+     {PrintOutTraceBack "Queued size failed at: "; $i->outNL;
+     };
     $t->printInOrder("A");
    });
 
@@ -30321,7 +30319,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $p = $a->CreateTree(length => 3);
@@ -30386,7 +30384,7 @@ data:   .... .... .... ..31
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::union #TNasm::X86::Tree::intersection
   my $a = CreateArea;
   my $r = $a->CreateTree(length => 3);
