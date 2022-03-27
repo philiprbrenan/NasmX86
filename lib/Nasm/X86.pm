@@ -6375,6 +6375,7 @@ sub Nasm::X86::Tree::zero($)                                                    
   $tree->data   ->copy(0);                                                      # Data not yet found
   $tree->subTree->copy(0);                                                      # Not yet a sub tree
   $tree->offset ->copy(0);                                                      # Offset not known
+  $tree                                                                         # Chaining
  }
 
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and tests whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
@@ -6388,8 +6389,7 @@ sub Nasm::X86::Tree::find($$)                                                   
 
     PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;;
 
-    my $t = $$s{tree};                                                          # Tree to search
-       $t->zero;                                                                # Clear all the return fields
+    my $t = $$s{tree}->zero;                                                    # Tree to search
     $t->key->copy(my $k = $$p{key});                                            # Copy in key so we know what was searched for
 
     $t->firstFromMemory      ($F);                                              # Load first block
@@ -6445,15 +6445,9 @@ sub Nasm::X86::Tree::findFirst($)                                               
     my $success = Label;                                                        # Successfully completed
 
     my $t = $$s{tree};                                                          # Tree to search
+       $t->zero;                                                                # Key not found
 
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
-
-    PushR 28..31;
-
-    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
     $t->firstFromMemory($F);                                                    # Update the size of the tree
     my $size = $t->sizeFromFirst($F);                                           # Size of tree
@@ -6502,16 +6496,9 @@ sub Nasm::X86::Tree::findLast($)                                                
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Successfully completed
 
-    my $t = $$s{tree};                                                          # Tree to search
+    my $t = $$s{tree}->zero;                                                    # Tree to search
 
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
-
-    PushR 28..31;
-
-    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
     $t->firstFromMemory($F);                                                    # Update the size of the tree
     my $size = $t->sizeFromFirst($F);                                           # Size of tree
@@ -6564,18 +6551,10 @@ sub Nasm::X86::Tree::findNext($$)                                               
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR 28..31;
-    my $t = $$s{tree};                                                          # Tree to search
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+    my $t = $$s{tree}->zero;                                                    # Tree to search
     my $k = $$p{key};                                                           # Key to find
     $t->key->copy($k);                                                          # Copy in key so we know what was searched for
-
-    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
-    my $lengthMask = k6; my $testMask = k7;
-
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
 
     $t->firstFromMemory      ($F);                                              # Load first block
     my $Q = $t->rootFromFirst($F);                                              # Start the search from the root
@@ -6637,18 +6616,10 @@ sub Nasm::X86::Tree::findPrev($$)                                               
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR 28..31;
-    my $t = $$s{tree};                                                          # Tree to search
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+    my $t = $$s{tree}->zero;                                                    # Tree to search
     my $k = $$p{key};                                                           # Key to find
     $t->key->copy($k);                                                          # Copy in key so we know what was searched for
-
-    my $F = 31; my $K = 30; my $D = 29; my $N = 28;
-    my $lengthMask = k6; my $testMask = k7;
-
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
 
     $t->firstFromMemory      ($F);                                              # Load first block
     my $Q = $t->rootFromFirst($F);                                              # Start the search from the root
@@ -7522,13 +7493,8 @@ sub Nasm::X86::Tree::delete($$)                                                 
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $t = $$s{tree};                                                          # Tree to search
+    my $t = $$s{tree}->zero;                                                    # Tree to search
     my $k = $$p{key};                                                           # Key to find
-
-    $t->found  ->copy(0);                                                       # Key not found
-    $t->data   ->copy(0);                                                       # Data not yet found
-    $t->subTree->copy(0);                                                       # Not yet a sub tree
-    $t->offset ->copy(0);                                                       # Offset not known
     $t->key->copy($k);                                                          # Copy in key so we know what was searched for
 
     $t->find($k);                                                               # See if we can find the key
