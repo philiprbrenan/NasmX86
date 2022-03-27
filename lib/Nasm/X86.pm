@@ -8258,12 +8258,60 @@ sub Nasm::X86::Tree::intersection($)                                            
  {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
   @_ == 1 or confess "One parameter";
 
-  my $i = $tree->area->CreateTree;
+  my $i = $tree->area->CreateTree;                                              # Resulting intersection
+  my $F = V smallest => -1;
+  my $S = V size     => -1;
+
+  $tree->by(sub                                                                 # Find smallest sub tree
+   {my ($T, $start, $next) = @_;
+    my $f = $T->data;
+    my $t = $tree->position($f);
+    my $s = $t->size;
+    OrBlock                                                                     # Update size if no size seen yet or if the size is smaller
+     {my ($pass) = @_;
+      If $S == -1, Then {Jmp $pass};                                            # No size set yet
+      If $S > $s,  Then {Jmp $pass};                                            # Smaller size
+     }                                                                          # Do not attempt to put a comma here!
+    Then                                                                        # Smallest so far
+     {$S->copy($s);
+      $F->copy($f);
+     };
+   });
+
+  If $S > 0,                                                                    # The smallest set is not empty set so the intersection might not be empty empty
+  Then
+   {$tree->findFirst;
+    my $f = $tree->position($F);                                                # First tree (but the smallest sub tree would be better)
+
+    $f->by(sub                                                                  # Insert each element of each sub tree
+     {my ($t, undef, $nextElement) = @_;
+      my $k = $t->key;
+
+      $tree->by(sub                                                             # Each sub tree
+       {my ($T, undef, $nextTree) = @_;
+        If $F == $T->data, Then {Jmp $nextTree};                                # Skip the first tree
+
+        my $t = $tree->position($T->data);
+        $t->find($k);
+        If $t->found == 0, Then {Jmp $nextElement};                             # Not found in this sub tree so it cannot be part of the intersection
+       });
+      $i->put($k, $k);
+     });
+   };
+
+  $i                                                                            # Intersection
+ }
+
+sub Nasm::X86::Tree::intersection2($)                                           # Given a tree of trees consider each sub tree as a set and form the intersection of all these sets as a new tree
+ {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
+  @_ == 1 or confess "One parameter";
+
+  my $i = $tree->area->CreateTree;                                              # Resulting intersection
   $tree->findFirst;
   my $F = $tree->data->clone("first");
-  my $f = $tree->position($F);
+  my $f = $tree->position($F);                                                  # First tree (but the smallest sub tree would be better)
 
-  $f->by(sub                                                                    # Go first Insert each element of each sub tree
+  $f->by(sub                                                                    # Insert each element of each sub tree
    {my ($t, undef, $nextElement) = @_;
     my $k = $t->key;
 
