@@ -7732,6 +7732,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
        {my ($name, $zmm, $nodes, $tb) = @_;                                     # Key or data or node, zmm containing key or data or node, hex if true else decimal, print tree bits if tree
         $I->outSpaces; PrintOutString $name;                                    # Keys
         Mov $treeBitsIndexR, 1 if $tb;                                          # Check each tree bit position
+
         ($nodes ? $l + 1 : $l)->for(sub                                         # There is one more node than keys or data
          {my ($index, $start, $next, $end) = @_;
           my $i = $index * $t->width;                                           # Key or Data offset
@@ -7751,7 +7752,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
               $t->area->getZmmBlock($k, 31);
               my $r = $t->rootFromFirst($F) >> K(sixteen => 4);
               PopR;
-              $r->outRightInHex(K width => 4);
+              $r->outRightInHex(K width => 4);                                  # Or use $k if we want the first block
               PrintOutString '*';
              },
             Else
@@ -30101,7 +30102,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::m
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -30278,6 +30279,11 @@ if (1) {                                                                        
   $t->putString($_) for $s, $r, $q, $p;
   $t->dump('t = abcd');
 
+  $t->find(K key => 0x61);
+  for my $f(qw(found key data subTree offset))
+   {$t->{$f}->outNL(sprintf("%-8s", $f));
+   }
+
   ok Assemble eq => <<END, avx512=>1;
 t = abcd
 At:  AC0                    length:    1,  data:  B00,  nodes:  B40,  first:  140, root, leaf,  trees:   1
@@ -30306,6 +30312,11 @@ At:  AC0                    length:    1,  data:  B00,  nodes:  B40,  first:  14
           end
      end
 end
+found   .... .... .... ...1
+key     .... .... .... ..61
+data    .... .... .... .A80
+subTree .... .... .... ...1
+offset  .... .... .... .AC0
 END
  }
 
