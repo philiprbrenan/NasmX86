@@ -5495,8 +5495,7 @@ sub Nasm::X86::Tree::decSize($)                                                 
 sub Nasm::X86::Tree::size($)                                                    # Return in a variable the number of elements currently in the tree.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  my $F = 31;
-  PushR $F;
+  PushR my $F = 31;
   $tree->firstFromMemory($F);
   my $s = $tree->sizeFromFirst($F);
   $s->name = q(size of tree);
