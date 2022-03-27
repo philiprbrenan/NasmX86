@@ -15289,10 +15289,10 @@ B<Example:>
     my ($address, $size) = ReadFile $file;                                      # Read file into memory
     $address->setReg(rax);                                                      # Address of file in memory
     $size   ->setReg(rdi);                                                      # Length  of file in memory
-    PrintOutMemory;                                                               # Print contents of memory to stdout
+    PrintOutMemory;                                                             # Print contents of memory to stdout
 
-    my $r = Assemble;                                                             # Assemble and execute
-    ok stringMd5Sum($r) eq fileMd5Sum($0);                                        # Output contains this file
+    my $r = Assemble;                                                           # Assemble and execute
+    ok stringMd5Sum($r) eq fileMd5Sum($0);                                      # Output contains this file
 
 
 =head3 PrintMemoryNL()
@@ -15384,7 +15384,7 @@ B<Example:>
   abcdefghijklmnop
   END
 
-    my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
+    my $N = K size => 4096;                                                     # Size of the initial allocation which should be one or more pages
 
 
     my $A = AllocateMemory $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
@@ -15434,7 +15434,7 @@ Free memory specified by variables.
 B<Example:>
 
 
-    my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
+    my $N = K size => 4096;                                                     # Size of the initial allocation which should be one or more pages
 
     my $A = AllocateMemory $N;
 
@@ -15483,7 +15483,7 @@ B<Example:>
   ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
 
-    my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
+    my $N = K size => 4096;                                                     # Size of the initial allocation which should be one or more pages
 
     my $A = AllocateMemory $N;
 
@@ -15523,7 +15523,7 @@ B<Example:>
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
 
-    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rax, rsp;                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
 
@@ -15570,23 +15570,23 @@ Open a file, whose name is addressed by rax, for read and return the file descri
 B<Example:>
 
 
-    Mov rax, Rs($0);                                                              # File to read
+    Mov rax, Rs($0);                                                            # File to read
 
-    OpenRead;                                                                     # Open file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    OpenRead;                                                                   # Open file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
-    CloseFile;                                                                    # Close file
+    CloseFile;                                                                  # Close file
     PrintOutRegisterInHex rax;
 
-    Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
-    OpenWrite;                                                                    # Open file
-    CloseFile;                                                                    # Close file
+    Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                # File to write
+    OpenWrite;                                                                  # Open file
+    CloseFile;                                                                  # Close file
 
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: 0000 0000 0000 0003
      rax: 0000 0000 0000 0000
   END
-    ok -e $f;                                                                     # Created file
+    ok -e $f;                                                                   # Created file
     unlink $f;
 
 
@@ -15598,23 +15598,23 @@ Create the file named by the terminated string addressed by rax for write.
 B<Example:>
 
 
-    Mov rax, Rs($0);                                                              # File to read
-    OpenRead;                                                                     # Open file
+    Mov rax, Rs($0);                                                            # File to read
+    OpenRead;                                                                   # Open file
     PrintOutRegisterInHex rax;
-    CloseFile;                                                                    # Close file
+    CloseFile;                                                                  # Close file
     PrintOutRegisterInHex rax;
 
-    Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
+    Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                # File to write
 
-    OpenWrite;                                                                    # Open file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    OpenWrite;                                                                  # Open file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-    CloseFile;                                                                    # Close file
+    CloseFile;                                                                  # Close file
 
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: 0000 0000 0000 0003
      rax: 0000 0000 0000 0000
   END
-    ok -e $f;                                                                     # Created file
+    ok -e $f;                                                                   # Created file
     unlink $f;
 
 
@@ -15626,25 +15626,25 @@ Close the file whose descriptor is in rax.
 B<Example:>
 
 
-    Mov rax, Rs($0);                                                              # File to read
-    OpenRead;                                                                     # Open file
+    Mov rax, Rs($0);                                                            # File to read
+    OpenRead;                                                                   # Open file
     PrintOutRegisterInHex rax;
 
-    CloseFile;                                                                    # Close file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    CloseFile;                                                                  # Close file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
 
-    Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
-    OpenWrite;                                                                    # Open file
+    Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                # File to write
+    OpenWrite;                                                                  # Open file
 
-    CloseFile;                                                                    # Close file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    CloseFile;                                                                  # Close file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
 
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: 0000 0000 0000 0003
      rax: 0000 0000 0000 0000
   END
-    ok -e $f;                                                                     # Created file
+    ok -e $f;                                                                   # Created file
     unlink $f;
 
 
@@ -15656,14 +15656,14 @@ Stat a file whose name is addressed by rax to get its size in rax.
 B<Example:>
 
 
-    Mov rax, Rs($0);                                                              # File to stat
+    Mov rax, Rs($0);                                                            # File to stat
 
-    StatSize;                                                                     # Stat the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    StatSize;                                                                   # Stat the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
 
     my $r = Assemble =~ s( ) ()gsr;
-    if ($r =~ m(rax:([0-9a-f]{16}))is)                                            # Compare file size obtained with that from fileSize()
+    if ($r =~ m(rax:([0-9a-f]{16}))is)                                          # Compare file size obtained with that from fileSize()
      {is_deeply $1, sprintf("%016X", fileSize($0));
      }
 
@@ -15774,14 +15774,14 @@ B<Example:>
 
     my $file = V(file => Rs $0);
 
-    my ($address, $size) = ReadFile $file;                                        # Read file into memory  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    my ($address, $size) = ReadFile $file;                                      # Read file into memory  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-    $address->setReg(rax);                                                        # Address of file in memory
-    $size   ->setReg(rdi);                                                        # Length  of file in memory
-    PrintOutMemory;                                                               # Print contents of memory to stdout
+    $address->setReg(rax);                                                      # Address of file in memory
+    $size   ->setReg(rdi);                                                      # Length  of file in memory
+    PrintOutMemory;                                                             # Print contents of memory to stdout
 
-    my $r = Assemble;                                                             # Assemble and execute
-    ok stringMd5Sum($r) eq fileMd5Sum($0);                                        # Output contains this file
+    my $r = Assemble;                                                           # Assemble and execute
+    ok stringMd5Sum($r) eq fileMd5Sum($0);                                      # Output contains this file
 
 
 =head3 executeFileViaBash($file)
@@ -15794,21 +15794,21 @@ Execute the file named in a variable
 B<Example:>
 
 
-    my $s = CreateArea;                                                           # Create a string
-    $s->ql(<<END);                                                                # Write code to execute
+    my $s = CreateArea;                                                         # Create a string
+    $s->ql(<<END);                                                              # Write code to execute
   #!/usr/bin/bash
   whoami
   ls -la
   pwd
   END
-    $s->write         (my $f = V('file', Rs("zzz.sh")));                          # Write code to a file
+    $s->write         (my $f = V('file', Rs("zzz.sh")));                        # Write code to a file
 
-    executeFileViaBash($f);                                                       # Execute the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    executeFileViaBash($f);                                                     # Execute the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-    unlinkFile        ($f);                                                       # Delete the file
+    unlinkFile        ($f);                                                     # Delete the file
 
     my $u = qx(whoami); chomp($u);
-    ok Assemble(emulator => 0) =~ m($u);                                          # The Intel Software Development Emulator is way too slow on these operations.
+    ok Assemble(emulator => 0) =~ m($u);                                        # The Intel Software Development Emulator is way too slow on these operations.
 
 
 =head3 unlinkFile($file)
@@ -15821,21 +15821,21 @@ Unlink the named file.
 B<Example:>
 
 
-    my $s = CreateArea;                                                           # Create a string
-    $s->ql(<<END);                                                                # Write code to execute
+    my $s = CreateArea;                                                         # Create a string
+    $s->ql(<<END);                                                              # Write code to execute
   #!/usr/bin/bash
   whoami
   ls -la
   pwd
   END
-    $s->write         (my $f = V('file', Rs("zzz.sh")));                          # Write code to a file
-    executeFileViaBash($f);                                                       # Execute the file
+    $s->write         (my $f = V('file', Rs("zzz.sh")));                        # Write code to a file
+    executeFileViaBash($f);                                                     # Execute the file
 
-    unlinkFile        ($f);                                                       # Delete the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    unlinkFile        ($f);                                                     # Delete the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
 
     my $u = qx(whoami); chomp($u);
-    ok Assemble(emulator => 0) =~ m($u);                                          # The Intel Software Development Emulator is way too slow on these operations.
+    ok Assemble(emulator => 0) =~ m($u);                                        # The Intel Software Development Emulator is way too slow on these operations.
 
 
 =head1 Hash functions
@@ -15852,27 +15852,27 @@ B<Example:>
 
   # Make hash accept parameters at:
 
-    Mov rax, "[rbp+24]";                                                          # Address of string as parameter
-    StringLength(V string => rax)->setReg(rdi);                                   # Length of string to hash
+    Mov rax, "[rbp+24]";                                                        # Address of string as parameter
+    StringLength(V string => rax)->setReg(rdi);                                 # Length of string to hash
 
-    Hash();                                                                       # Hash string  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    Hash();                                                                     # Hash string  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
 
     PrintOutRegisterInHex r15;
 
-    my $e = Assemble keep => 'hash';                                              # Assemble to the specified file name
+    my $e = Assemble keep => 'hash';                                            # Assemble to the specified file name
     say STDERR qx($e "");
     say STDERR qx($e "a");
-    ok qx($e "")  =~ m(r15: 0000 3F80 0000 3F80);                                 # Test well known hashes
+    ok qx($e "")  =~ m(r15: 0000 3F80 0000 3F80);                               # Test well known hashes
     ok qx($e "a") =~ m(r15: 0000 3F80 C000 45B2);
 
 
-    if (0)                                                                        # Hash various strings  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    if (0)                                                                      # Hash various strings  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {my %r; my %f; my $count = 0;
       my $N = RegisterSize zmm0;
 
-      if (1)                                                                      # Fixed blocks
+      if (1)                                                                    # Fixed blocks
        {for my $l(qw(a ab abc abcd), 'a a', 'a  a')
          {for my $i(1..$N)
            {my $t = $l x $i;
@@ -15889,7 +15889,7 @@ B<Example:>
          }
        }
 
-      if (1)                                                                      # Variable blocks
+      if (1)                                                                    # Variable blocks
        {for my $l(qw(a ab abc abcd), '', 'a a', 'a  a')
          {for my $i(1..$N)
            {my $t = $l x $i;
@@ -15935,25 +15935,25 @@ B<Example:>
   # 한 	U+D55C     	1101 0101 0101 1100                11101101 10010101 10011100   ED 95 9C
   # 𐍈   	U+10348 	0 0001 0000 0011 0100 1000 	11110000 10010000 10001101 10001000   F0 90 8D 88
 
-    Mov rax, 0x40;                                                                # 0x40
+    Mov rax, 0x40;                                                              # 0x40
 
     convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
 
-    Mov rax, 0x03b1;                                                              # 0xCE 0xB1
+    Mov rax, 0x03b1;                                                            # 0xCE 0xB1
 
     convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
 
-    Mov rax, 0x20ac;                                                              # 0xE2 0x82 0xAC;
+    Mov rax, 0x20ac;                                                            # 0xE2 0x82 0xAC;
 
     convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
 
-    Mov rax, 0x10348;                                                             # 0xf0 0x90 0x8d 0x88
+    Mov rax, 0x10348;                                                           # 0xf0 0x90 0x8d 0x88
 
     convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
@@ -15996,19 +15996,19 @@ B<Example:>
     my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
     my $chars = V(chars, $Chars);
 
-    GetNextUtf8CharAsUtf32 $chars+0, $out, $size, $fail;                          # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
+    GetNextUtf8CharAsUtf32 $chars+0, $out, $size, $fail;                        # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
     $out->out('out1 : ');     $size->outNL(' size : ');
 
-    GetNextUtf8CharAsUtf32 $chars+1, $out, $size, $fail;                          # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
+    GetNextUtf8CharAsUtf32 $chars+1, $out, $size, $fail;                        # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
     $out->out('out2 : ');     $size->outNL(' size : ');
 
-    GetNextUtf8CharAsUtf32 $chars+3, $out, $size, $fail;                          # Alpha                UTF-8 Encoding: 0xC9 0x91           UTF-32 Encoding: 0x00000251
+    GetNextUtf8CharAsUtf32 $chars+3, $out, $size, $fail;                        # Alpha                UTF-8 Encoding: 0xC9 0x91           UTF-32 Encoding: 0x00000251
     $out->out('out3 : ');     $size->outNL(' size : ');
 
-    GetNextUtf8CharAsUtf32 $chars+5, $out, $size, $fail;                          # Euro                 UTF-8 Encoding: 0xE2 0x82 0xAC      UTF-32 Encoding: 0x000020AC
+    GetNextUtf8CharAsUtf32 $chars+5, $out, $size, $fail;                        # Euro                 UTF-8 Encoding: 0xE2 0x82 0xAC      UTF-32 Encoding: 0x000020AC
     $out->out('out4 : ');     $size->outNL(' size : ');
 
-    GetNextUtf8CharAsUtf32 $chars+8, $out, $size, $fail;                          # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
+    GetNextUtf8CharAsUtf32 $chars+8, $out, $size, $fail;                        # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
     $out->out('out5 : ');     $size->outNL(' size : ');
 
     my $statement = qq(𝖺
@@ -16018,7 +16018,7 @@ AAAAAAAA);                        # A sample sentence to parse
     my $s = K(statement, Rutf8($statement));
     my $l = StringLength $s;
 
-    my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
+    my $address = AllocateMemory $l;                                            # Allocate enough memory for a copy of the string
     CopyMemory($s, $address, $l);
 
     GetNextUtf8CharAsUtf32 $address, $out, $size, $fail;
@@ -18487,7 +18487,7 @@ B<Example:>
     my $a = CreateArea;
     my $t = $a->CreateTree(length => 3);
     my $N = K loop => 20;
-    $N->for(sub                                                                   # Load tree
+    $N->for(sub                                                                 # Load tree
      {my ($i) = @_;
       $t->put($i, $i);
      });
@@ -18587,14 +18587,14 @@ B<Example:>
     my $t = $a->CreateTree(length => 3);
     my $N = K max => 8;
 
-    $N->for(sub                                                                   # Load tree
+    $N->for(sub                                                                 # Load tree
      {my ($i) = @_;
       $t->put(         $i,     2 *        $i);
       $t->put(2 * $N - $i - 1, 2 * ($N -  $i));
      });
   #  $t->printInOrder("Full");
 
-    ($N-1)->for(sub                                                               # Delete elements
+    ($N-1)->for(sub                                                             # Delete elements
      {my ($i) = @_;
       my $n1 = ($N + $i)->clone("1111"); my $n2 = ($N - $i - 1)->clone("2222");
 
@@ -18651,7 +18651,7 @@ B<Example:>
     my $t = $a->CreateTree(length => 3);
     my $N = K max => 100;
 
-    $N->for(sub                                                                   # Load tree
+    $N->for(sub                                                                 # Load tree
      {my ($index, $start, $next, $end) = @_;
       $t->put($index, 2 * $index);
       If $t->size != $index + 1,
@@ -18660,7 +18660,7 @@ B<Example:>
        };
      });
 
-    $N->for(sub                                                                   # Check elements
+    $N->for(sub                                                                 # Check elements
      {my ($i) = @_;
       $t->find($i);
       If $t->found == 0,
@@ -18669,7 +18669,7 @@ B<Example:>
        };
      });
 
-    $N->for(sub                                                                   # Delete elements
+    $N->for(sub                                                                 # Delete elements
      {my ($i) = @_;
       $t->delete($i);
 
@@ -18678,20 +18678,20 @@ B<Example:>
        {PrintOutStringNL "TTTT"; $i->outNL; Exit(0);
        };
 
-      $N->for(sub                                                                 # Check elements
+      $N->for(sub                                                               # Check elements
        {my ($j) = @_;
         $t->find($j);
         If $t->found == 0,
         Then
          {If $j > $i,
           Then
-           {PrintOutStringNL "BBBBB"; $j->outNL; Exit(0);                         # Not deleted yet so it should be findable
+           {PrintOutStringNL "BBBBB"; $j->outNL; Exit(0);                       # Not deleted yet so it should be findable
            };
          },
         Else
          {If $j <= $i,
           Then
-           {PrintOutStringNL "CCCCC"; $j->outNL; Exit(0);                         # Deleted so should not be findable
+           {PrintOutStringNL "CCCCC"; $j->outNL; Exit(0);                       # Deleted so should not be findable
            };
          };
        });
@@ -21312,9 +21312,9 @@ B<Example:>
   END
 
     my $tree = DescribeTree();
-    $tree->maskForFullKeyArea(7);                                                 # Mask for full key area
+    $tree->maskForFullKeyArea(7);                                               # Mask for full key area
     PrintOutRegisterInHex k7;
-    $tree->maskForFullNodesArea(7);                                               # Mask for full nodes area
+    $tree->maskForFullNodesArea(7);                                             # Mask for full nodes area
     PrintOutRegisterInHex k7;
     ok Assemble eq => <<END;
       k7: 0000 0000 0000 3FFF
