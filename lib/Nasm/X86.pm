@@ -723,12 +723,12 @@ sub wRegIntoZmm($$$)                                                            
   @_ == 3 or confess "Three parameters";
   $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
 
-  PushR "zmm$zmm";                                                              # Push source register
+  PushR $zmm;                                                                   # Push source register
 
   my $w = wordRegister $register;                                               # Corresponding word register
 
   Mov "[rsp+$offset]", $w;                                                      # Save word at specified offset
-  PopR "zmm$zmm";                                                               # Reload zmm
+  PopR;                                                                         # Reload zmm
  }
 
 sub LoadRegFromMm($$$)                                                          # Load the specified register from the numbered zmm at the quad offset specified as a constant number.
