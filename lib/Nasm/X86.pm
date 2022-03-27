@@ -485,7 +485,7 @@ sub PushR(@)                                                                    
 sub PopRR(@)                                                                    #P Pop registers from the stack without tracking.
  {my (@r) = @_;                                                                 # Register
   my $w = RegisterSize rax;
-  for my $r(reverse map{&registerNameFromNumber($_)}  @r)                         # Pop registers in reverse order
+  for my $r(reverse map{&registerNameFromNumber($_)}  @r)                       # Pop registers in reverse order
    {my $size = RegisterSize $r;
     if    ($size > $w)
      {Vmovdqu32 $r, "[rsp]";
@@ -2465,9 +2465,9 @@ sub Variable($;$%)                                                              
     expr      => $expr,                                                         # Expression that initializes the variable
     label     => $label,                                                        # Address in memory
     name      => $name,                                                         # Name of the variable
-#    level     => scalar @VariableStack,                                         # Lexical level
+#    level     => scalar @VariableStack,                                        # Lexical level
     reference => $options{reference},                                           # Reference to another variable
-#    width     => RegisterSize(rax),                                             # Size of the variable in bytes
+#    width     => RegisterSize(rax),                                            # Size of the variable in bytes
    );
  }
 
@@ -3064,7 +3064,7 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
   PopR;
   Comment "Boolean ZF Arithmetic end";
 
-  V(empty => undef);                                                                     # Return an empty variable so that If regenerates the follow on code
+  V(empty => undef);                                                            # Return an empty variable so that If regenerates the follow on code
  }
 
 sub Nasm::X86::Variable::booleanC($$$$)                                         # Combine the left hand variable with the right hand variable via a boolean operator using a conditional move instruction.
@@ -4502,7 +4502,7 @@ sub ConvertUtf8ToUtf32($$$$$)                                                   
     ForEver sub                                                                 # Loop through input string  converting each utf8 sequence to utf32
      {my ($start, $end) = @_;
       my ($out, $size, $fail) = (V(out => undef), V(size => undef), V(fail => undef));
-      GetNextUtf8CharAsUtf32 V(in => r14), $out, $size, $fail;                    # Get next utf-8 character and convert it to utf32
+      GetNextUtf8CharAsUtf32 V(in => r14), $out, $size, $fail;                  # Get next utf-8 character and convert it to utf32
       If $fail > 0,
       Then
        {PrintErrStringNL "Invalid utf8 character at index:";
@@ -6653,7 +6653,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
     my $li = V key => 0;                                                        # Offset of last not right tells us where to continue the search -
     my $lQ = V key => 0;                                                        # Insertion point of last non right
 
-    K(loop => 99)->for(sub                                                        # Step down through tree
+    K(loop => 99)->for(sub                                                      # Step down through tree
      {my ($index, $start, $next, $end) = @_;
       $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
       my $i = $t->insertionPoint($k, $K);                                       # The insertion point
@@ -6787,7 +6787,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
     PushR 8, 9, 14, 15, 30, 31;
     my $tree = $N->clone('tree');                                               # Start at the specified node
 
-    K(loop => 9)->for(sub                                                         # Step up through tree
+    K(loop => 9)->for(sub                                                       # Step up through tree
      {my ($index, $start, $next, $end) = @_;
       $t->getKeysData($tree, 31, 30, r8, r9);                                   # Get the first node of the tree
       my $P = $t->getUpFromData(30);                                            # Parent
@@ -7561,7 +7561,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
        };
 
       my $P = $root->clone('position');                                         # Position in tree
-      K(loop => 99)->for(sub                                                      # Step down through tree looking for the key
+      K(loop => 99)->for(sub                                                    # Step down through tree looking for the key
        {my ($index, $start, $next, $end) = @_;
         my $eq = $t->indexEq($k, $K);                                           # The key might still be in the parent now known not be a leaf
         If $eq > 0,
@@ -7586,7 +7586,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
           my $eq = $t->indexEq($k, $K);                                         # Location of key
           my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                        # Go right to the next level down
 
-          K(loop => 99)->for(sub                                                  # Find the left most leaf
+          K(loop => 99)->for(sub                                                # Find the left most leaf
            {my ($index, $start, $next, $end) = @_;
 
             If $t->mergeOrSteal($Q) > 0,                                        # Merge or steal if necessary
@@ -8278,7 +8278,7 @@ sub Nasm::X86::Tree::intersection($)                                            
      };
    });
 
-  If $S > 0,                                                                    # The smallest set is not empty set so the intersection might not be empty empty
+  If $S > 0,                                                                    # The smallest set is not empty set so the intersection might not be empty either
   Then
    {$tree->findFirst;
     my $f = $tree->position($F);                                                # First tree (but the smallest sub tree would be better)
@@ -9515,11 +9515,11 @@ B<Example:>
 
     my $q = Rs('a'..'z');
 
-    Mov rax, Ds('0'x64);                                                          # Output area  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    Mov rax, Ds('0'x64);                                                        # Output area  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-    Vmovdqu32(xmm0, "[$q]");                                                      # Load
-    Vprolq   (xmm0,   xmm0, 32);                                                  # Rotate double words in quad words
-    Vmovdqu32("[rax]", xmm0);                                                     # Save
+    Vmovdqu32(xmm0, "[$q]");                                                    # Load
+    Vprolq   (xmm0,   xmm0, 32);                                                # Rotate double words in quad words
+    Vmovdqu32("[rax]", xmm0);                                                   # Save
     Mov rdi, 16;
     PrintOutMemory;
 
@@ -9591,7 +9591,7 @@ B<Example:>
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
 
-    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rax, rsp;                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
@@ -9625,7 +9625,7 @@ B<Example:>
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
 
-    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rax, rsp;                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
@@ -9659,7 +9659,7 @@ B<Example:>
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
 
-    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rax, rsp;                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
@@ -9693,7 +9693,7 @@ B<Example:>
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
 
-    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rax, rsp;                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
@@ -9727,7 +9727,7 @@ B<Example:>
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
 
-    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rax, rsp;                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
@@ -9761,7 +9761,7 @@ B<Example:>
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
 
-    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rax, rsp;                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
@@ -9795,7 +9795,7 @@ B<Example:>
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
 
-    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rax, rsp;                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
@@ -9829,7 +9829,7 @@ B<Example:>
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
 
-    Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+    Mov rax, rsp;                                                               # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source, rsi), V(target, rax), V(size, rdi));
@@ -9992,15 +9992,15 @@ Insert a zero into the specified register at the point indicated by another gene
 B<Example:>
 
 
-    Mov r15, 0x100;                                                               # Given a register with a single one in it indicating the desired position,
-    Mov r14, 0xFFDC;                                                              # Insert a zero into the register at that position shifting the bits above that position up left one to make space for the new zero.
+    Mov r15, 0x100;                                                             # Given a register with a single one in it indicating the desired position,
+    Mov r14, 0xFFDC;                                                            # Insert a zero into the register at that position shifting the bits above that position up left one to make space for the new zero.
     Mov r13, 0xF03F;
     PrintOutRegisterInHex         r14, r15;
 
     InsertZeroIntoRegisterAtPoint r15, r14;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex r14;
-    Or r14, r15;                                                                  # Replace the inserted zero with a one
+    Or r14, r15;                                                                # Replace the inserted zero with a one
     PrintOutRegisterInHex r14;
     InsertOneIntoRegisterAtPoint r15, r13;
     PrintOutRegisterInHex r13;
@@ -10024,13 +10024,13 @@ Insert a one into the specified register at the point indicated by another regis
 B<Example:>
 
 
-    Mov r15, 0x100;                                                               # Given a register with a single one in it indicating the desired position,
-    Mov r14, 0xFFDC;                                                              # Insert a zero into the register at that position shifting the bits above that position up left one to make space for the new zero.
+    Mov r15, 0x100;                                                             # Given a register with a single one in it indicating the desired position,
+    Mov r14, 0xFFDC;                                                            # Insert a zero into the register at that position shifting the bits above that position up left one to make space for the new zero.
     Mov r13, 0xF03F;
     PrintOutRegisterInHex         r14, r15;
     InsertZeroIntoRegisterAtPoint r15, r14;
     PrintOutRegisterInHex r14;
-    Or r14, r15;                                                                  # Replace the inserted zero with a one
+    Or r14, r15;                                                                # Replace the inserted zero with a one
     PrintOutRegisterInHex r14;
 
     InsertOneIntoRegisterAtPoint r15, r13;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
@@ -11459,7 +11459,7 @@ B<Example:>
 
     SetZF;
 
-    IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};# 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     ClearZF;
     IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
@@ -12022,14 +12022,14 @@ Jump into the specified subroutine so that code of the target subroutine is exec
 B<Example:>
 
 
-    my $p = Subroutine                                                            # Prototype subroutine to establish parameter list
+    my $p = Subroutine                                                          # Prototype subroutine to establish parameter list
      {} [qw(p)], name => 'prototype';
 
-    my $a = Subroutine                                                            # Subroutine we are actually going to call
+    my $a = Subroutine                                                          # Subroutine we are actually going to call
      {$p->variables->{p}->outNL;
      } [], name => 'actual', with => $p;
 
-    my $d = Subroutine                                                            # Dispatcher
+    my $d = Subroutine                                                          # Dispatcher
      {my ($p, $s) = @_;
       $a->dispatch;
       PrintOutStringNL "This should NOT happen!";
@@ -12055,27 +12055,27 @@ L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specifie
 B<Example:>
 
 
-    my $s = Subroutine                                                            # Containing sub
+    my $s = Subroutine                                                          # Containing sub
      {my ($parameters, $sub) = @_;
 
-      my $p = Subroutine                                                          # Prototype subroutine with cascading parameter lists
+      my $p = Subroutine                                                        # Prototype subroutine with cascading parameter lists
        {} [qw(q)], with => $sub, name => 'prototype';
 
-      my $a = Subroutine                                                          # Subroutine we are actually going to call with extended parameter list
+      my $a = Subroutine                                                        # Subroutine we are actually going to call with extended parameter list
        {$p->variables->{p}->outNL;
         $p->variables->{q}->outNL;
        } [], name => 'actual', with => $p;
 
-      my $d = Subroutine                                                          # Dispatcher
+      my $d = Subroutine                                                        # Dispatcher
        {my ($p, $s) = @_;
         $a->dispatchV($a->V);
         PrintOutStringNL "This should NOT happen!";
        } [], name => 'dispatch', with => $p;
 
-      $d->call(q => 0xdd) ;                                                       # Extend cascading parameter list
+      $d->call(q => 0xdd) ;                                                     # Extend cascading parameter list
      } [qw(p)], name => 'outer';
 
-    $s->call(p => 0xcc);                                                          # Start cascading parameter list
+    $s->call(p => 0xcc);                                                        # Start cascading parameter list
     PrintOutStringNL "This should happen!";
 
     ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
@@ -12109,16 +12109,16 @@ Print sub routine track back on stdout and then exit with a message.
 B<Example:>
 
 
-    my $d = V depth => 3;                                                         # Create a variable on the stack
+    my $d = V depth => 3;                                                       # Create a variable on the stack
 
     my $s = Subroutine
-     {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine descriptor
+     {my ($p, $s, $sub) = @_;                                                   # Parameters, structures, subroutine descriptor
 
-      my $d = $$p{depth}->copy($$p{depth} - 1);                                   # Modify the variable referenced by the parameter
+      my $d = $$p{depth}->copy($$p{depth} - 1);                                 # Modify the variable referenced by the parameter
 
       If $d > 0,
       Then
-       {$sub->call(parameters => {depth => $d});                                  # Recurse
+       {$sub->call(parameters => {depth => $d});                                # Recurse
        };
 
 
@@ -12146,13 +12146,13 @@ B<Example:>
 
 
 
-    OnSegv();                                                                     # Request a trace back followed by exit on a segv signal.  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    OnSegv();                                                                   # Request a trace back followed by exit on a segv signal.  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
 
-    my $t = Subroutine                                                            # Subroutine that will cause an error to occur to force a trace back to be printed
+    my $t = Subroutine                                                          # Subroutine that will cause an error to occur to force a trace back to be printed
      {Mov r15, 0;
-      Mov r15, "[r15]";                                                           # Try to read an unmapped memory location
-     } [qw(in)], name => 'sub that causes a segv';                                # The name that will appear in the trace back
+      Mov r15, "[r15]";                                                         # Try to read an unmapped memory location
+     } [qw(in)], name => 'sub that causes a segv';                              # The name that will appear in the trace back
 
     $t->call(K(in, 42));
 
@@ -13955,17 +13955,17 @@ B<Example:>
     Mov rax, 0x12345678;
     Ret;
 
-    ok Assemble library => $l;                                                    # Create the library file
+    ok Assemble library => $l;                                                  # Create the library file
     ok -e $l;
 
-    my ($address, $size) = ReadFile $l;                                           # Read library file into memory
+    my ($address, $size) = ReadFile $l;                                         # Read library file into memory
 
     Mov rax, 0;
     PrintOutRaxInHexNL;
 
-    $address->call;                                                               # Call code in memory loaded from library file
+    $address->call;                                                             # Call code in memory loaded from library file
 
-    PrintOutRaxInHexNL;                                                           # Print value set in library
+    PrintOutRaxInHexNL;                                                         # Print value set in library
 
     ok Assemble eq =><<END;
   0000 0000 0000 0000
@@ -14562,13 +14562,13 @@ B<Example:>
     my $s = Rb(0..128);
     my $source = V(Source, $s);
 
-    if (1)                                                                        # First block
+    if (1)                                                                      # First block
      {my $offset = V(Offset, 7);
       my $length = V(Length, 3);
       $source->setZmm(0, $offset, $length);
      }
 
-    if (1)                                                                        # Second block
+    if (1)                                                                      # Second block
      {my $offset = V(Offset, 33);
       my $length = V(Length, 12);
       $source->setZmm(0, $offset, $length);
@@ -14923,23 +14923,23 @@ B<Example:>
 
 
 
-    Fork;                                                                         # Fork  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    Fork;                                                                       # Fork  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
 
     Test rax,rax;
-    IfNz                                                                          # Parent
+    IfNz                                                                        # Parent
     Then
      {Mov rbx, rax;
       WaitPid;
-      GetPid;                                                                     # Pid of parent as seen in parent
+      GetPid;                                                                   # Pid of parent as seen in parent
       Mov rcx,rax;
       PrintOutRegisterInHex rax, rbx, rcx;
      },
-    Else                                                                          # Child
+    Else                                                                        # Child
      {Mov r8,rax;
-      GetPid;                                                                     # Child pid as seen in child
+      GetPid;                                                                   # Child pid as seen in child
       Mov r9,rax;
-      GetPPid;                                                                    # Parent pid as seen in child
+      GetPPid;                                                                  # Parent pid as seen in child
       Mov r10,rax;
       PrintOutRegisterInHex r8, r9, r10;
      };
@@ -14969,26 +14969,26 @@ Get process identifier.
 B<Example:>
 
 
-    Fork;                                                                         # Fork
+    Fork;                                                                       # Fork
 
     Test rax,rax;
-    IfNz                                                                          # Parent
+    IfNz                                                                        # Parent
     Then
      {Mov rbx, rax;
       WaitPid;
 
-      GetPid;                                                                     # Pid of parent as seen in parent  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+      GetPid;                                                                   # Pid of parent as seen in parent  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
       Mov rcx,rax;
       PrintOutRegisterInHex rax, rbx, rcx;
      },
-    Else                                                                          # Child
+    Else                                                                        # Child
      {Mov r8,rax;
 
-      GetPid;                                                                     # Child pid as seen in child  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+      GetPid;                                                                   # Child pid as seen in child  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
       Mov r9,rax;
-      GetPPid;                                                                    # Parent pid as seen in child
+      GetPPid;                                                                  # Parent pid as seen in child
       Mov r10,rax;
       PrintOutRegisterInHex r8, r9, r10;
      };
@@ -15034,23 +15034,23 @@ Get parent process identifier.
 B<Example:>
 
 
-    Fork;                                                                         # Fork
+    Fork;                                                                       # Fork
 
     Test rax,rax;
-    IfNz                                                                          # Parent
+    IfNz                                                                        # Parent
     Then
      {Mov rbx, rax;
       WaitPid;
-      GetPid;                                                                     # Pid of parent as seen in parent
+      GetPid;                                                                   # Pid of parent as seen in parent
       Mov rcx,rax;
       PrintOutRegisterInHex rax, rbx, rcx;
      },
-    Else                                                                          # Child
+    Else                                                                        # Child
      {Mov r8,rax;
-      GetPid;                                                                     # Child pid as seen in child
+      GetPid;                                                                   # Child pid as seen in child
       Mov r9,rax;
 
-      GetPPid;                                                                    # Parent pid as seen in child  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+      GetPPid;                                                                  # Parent pid as seen in child  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
       Mov r10,rax;
       PrintOutRegisterInHex r8, r9, r10;
@@ -15082,7 +15082,7 @@ B<Example:>
 
 
 
-    GetUid;                                                                       # Userid  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
+    GetUid;                                                                     # Userid  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
 
@@ -15098,24 +15098,24 @@ Wait for the pid in rax to complete.
 B<Example:>
 
 
-    Fork;                                                                         # Fork
+    Fork;                                                                       # Fork
 
     Test rax,rax;
-    IfNz                                                                          # Parent
+    IfNz                                                                        # Parent
     Then
      {Mov rbx, rax;
 
       WaitPid;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-      GetPid;                                                                     # Pid of parent as seen in parent
+      GetPid;                                                                   # Pid of parent as seen in parent
       Mov rcx,rax;
       PrintOutRegisterInHex rax, rbx, rcx;
      },
-    Else                                                                          # Child
+    Else                                                                        # Child
      {Mov r8,rax;
-      GetPid;                                                                     # Child pid as seen in child
+      GetPid;                                                                   # Child pid as seen in child
       Mov r9,rax;
-      GetPPid;                                                                    # Parent pid as seen in child
+      GetPPid;                                                                  # Parent pid as seen in child
       Mov r10,rax;
       PrintOutRegisterInHex r8, r9, r10;
      };
@@ -15286,9 +15286,9 @@ B<Example:>
 
 
     my $file = V(file => Rs $0);
-    my ($address, $size) = ReadFile $file;                                        # Read file into memory
-    $address->setReg(rax);                                                        # Address of file in memory
-    $size   ->setReg(rdi);                                                        # Length  of file in memory
+    my ($address, $size) = ReadFile $file;                                      # Read file into memory
+    $address->setReg(rax);                                                      # Address of file in memory
+    $size   ->setReg(rdi);                                                      # Length  of file in memory
     PrintOutMemory;                                                               # Print contents of memory to stdout
 
     my $r = Assemble;                                                             # Assemble and execute
