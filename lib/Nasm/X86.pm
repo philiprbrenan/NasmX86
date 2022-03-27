@@ -6432,7 +6432,7 @@ sub Nasm::X86::Tree::find($$)                                                   
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # find
 
-sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree
+sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree and set B<found>|B<key>|B<data>|B<subTree> to show the result
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
@@ -8252,6 +8252,33 @@ sub Nasm::X86::Tree::union($)                                                   
      });
    });
   $u                                                                            # Union
+ }
+
+sub Nasm::X86::Tree::intersection($)                                            # Given a tree of trees consider each sub tree as a set and form the intersection of all these sets as a new tree
+ {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
+  @_ == 1 or confess "One parameter";
+
+  my $i = $tree->area->CreateTree;
+  $tree->findFirst;
+  my $F = $tree->data->clone("first");
+  my $f = $tree->position($F);
+
+  $f->by(sub                                                                    # Go first Insert each element of each sub tree
+   {my ($t, undef, $nextElement) = @_;
+    my $k = $t->key;
+
+    $tree->by(sub                                                               # Each sub tree
+     {my ($T, undef, $nextTree) = @_;
+      If $F == $T->data, Then {Jmp $nextTree};                                  # Skip the first tree
+
+      my $t = $tree->position($T->data);
+      $t->find($k);
+      If $t->found == 0, Then {Jmp $nextElement};                               # Not found in this sub tree so it cannot be part of the intersection
+     });
+    $i->put($k, $k);
+   });
+
+  $i                                                                            # Intersection
  }
 
 #D1 Assemble                                                                    # Assemble generated code
@@ -30342,6 +30369,9 @@ if (1) {                                                                        
   $t->dump('input 1 2  1 3');
   $u->dump('union 1 2    3');
 
+  my $i = $t->intersection;
+  $i->dump('intersection 1');
+
   ok Assemble eq => <<END, avx512=>1;
 input 1 2  1 3
 At:  280                    length:    2,  data:  2C0,  nodes:  300,  first:   C0, root, leaf,  trees:  11
@@ -30364,6 +30394,12 @@ At:  380                    length:    3,  data:  3C0,  nodes:  400,  first:  34
   Index:    0    1    2
   Keys :    1    2    3
   Data :    1    2    3
+end
+intersection 1
+At:  480                    length:    1,  data:  4C0,  nodes:  500,  first:  440, root, leaf
+  Index:    0
+  Keys :    1
+  Data :    1
 end
 END
  }
