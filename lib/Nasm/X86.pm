@@ -8244,12 +8244,14 @@ sub Nasm::X86::Tree::union($)                                                   
 
   my $u = $tree->area->CreateTree;
   $tree->by(sub                                                                 # Each sub tree
-   {my ($t) = @_;
+   {my ($T) = @_;
+    my $t = $tree->position($T->data);
     $t->by(sub                                                                  # Insert each element of each sub tree
      {my ($s) = @_;
       $u->put($s->key, $s->data);
      });
    });
+  $u                                                                            # Union
  }
 
 #D1 Assemble                                                                    # Assemble generated code
@@ -30070,7 +30072,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8#TNasm::X86::Tree::append
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
@@ -30262,8 +30264,8 @@ end
 END
  }
 
-latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8#TNasm::X86::Tree::append
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $p = $a->CreateTree(length => 3);
   my $q = $a->CreateTree(length => 3);
@@ -30317,6 +30319,52 @@ key     .... .... .... ..61
 data    .... .... .... .A80
 subTree .... .... .... ...1
 offset  .... .... .... .AC0
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::union
+  my $a = CreateArea;
+  my $r = $a->CreateTree(length => 3);
+  my $s = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree(length => 3);
+
+  $r->put(K(key => 1), K(data => 1));
+  $r->put(K(key => 2), K(data => 2));
+
+  $s->put(K(key => 1), K(data => 1));
+  $s->put(K(key => 3), K(data => 3));
+
+  $t->push($r);
+  $t->push($s);
+
+  my $u = $t->union;
+  $t->dump('input 1 2  1 3');
+  $u->dump('union 1 2    3');
+
+  ok Assemble eq => <<END, avx512=>1;
+input 1 2  1 3
+At:  280                    length:    2,  data:  2C0,  nodes:  300,  first:   C0, root, leaf,  trees:  11
+  Index:    0    1
+  Keys :    0    1
+  Data :  10*  1C*
+     At:  100               length:    2,  data:  140,  nodes:  180,  first:   40, root, leaf
+       Index:    0    1
+       Keys :    1    2
+       Data :    1    2
+     end
+     At:  1C0               length:    2,  data:  200,  nodes:  240,  first:   80, root, leaf
+       Index:    0    1
+       Keys :    1    3
+       Data :    1    3
+     end
+end
+union 1 2    3
+At:  380                    length:    3,  data:  3C0,  nodes:  400,  first:  340, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    3
+  Data :    1    2    3
+end
 END
  }
 
