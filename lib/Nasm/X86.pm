@@ -5855,8 +5855,6 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $success = Label;                                                        # End label
-
     PushR 1..7, rdi;
 
     $$p{point}->setReg(rdi);                                                    # Load mask register showing point of insertion.
@@ -5932,7 +5930,6 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $success = Label;                                                        # End label
     my $t = $$s{tree};                                                          # Address tree
 
     PushR 4..8;
@@ -6938,7 +6935,6 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t = $$s{tree};                                                          # Tree to search
     my $l = $t->leafFromNodes($N);                                              # Check for a leaf
@@ -6984,7 +6980,6 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
 
     $t->decLengthInKeys($K);                                                    # Reduce length by  one
 
-    SetLabel $success;                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(point)],
      structures=>{tree=>$tree},
@@ -6999,7 +6994,6 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t = $$s{tree};                                                          # Tree to search
     $t->leafFromNodes($N);                                                      # Check for a leaf
@@ -7026,8 +7020,6 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
     $t->setTreeBits($K, rdi);                                                   # Reload tree bits
 
     $t->decLengthInKeys($K);                                                    # Reduce length by  one
-
-    SetLabel $success;                                                          # Find completed successfully
 
     PopR;
    } parameters=>[qw(point)],
@@ -8179,7 +8171,6 @@ sub Nasm::X86::Tree::getString($$)                                              
  {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
   @_ == 2 or confess "Two parameters";
 
-  my $success = Label;
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
 
   Block
