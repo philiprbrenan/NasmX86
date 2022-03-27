@@ -586,12 +586,6 @@ sub RestoreFirstFourExceptRax()                                                 
   Add rsp, 1*RegisterSize(rax);
  }
 
-sub RestoreFirstFourExceptRaxAndRdi()                                           # Restore the first 4 parameter registers except rax  and rdi so we can return a pair of values.
- {my $N = 4;
-  PopRR $_ for reverse @syscallSequence[2..$N-1];
-  Add rsp, 2*RegisterSize(rax);
- }
-
 sub SaveFirstSeven()                                                            # Save the first 7 parameter registers.
  {my $N = 7;
   PushRR $_ for @syscallSequence[0..$N-1];
@@ -607,12 +601,6 @@ sub RestoreFirstSevenExceptRax()                                                
  {my $N = 7;
   PopRR $_ for reverse @syscallSequence[1..$N-1];
   Add rsp, 1*RegisterSize(rax);
- }
-
-sub RestoreFirstSevenExceptRaxAndRdi()                                          # Restore the first 7 parameter registers except rax and rdi which are being used to return the results.
- {my $N = 7;
-  PopRR $_ for reverse @syscallSequence[2..$N-1];
-  Add rsp, 2*RegisterSize(rax);                                                 # Skip rdi and rax
  }
 
 sub ClearRegisters(@)                                                           # Clear registers by setting them to zero.
@@ -1669,7 +1657,7 @@ sub PrintNL($)                                                                  
     Mov "QWORD[rsi]", 10;
     Mov rdx, 1;
     Syscall;
-    RestoreFirstFour()
+    RestoreFirstFour
    } name => qq(PrintNL_$channel), call=>1;
  }
 
@@ -1698,7 +1686,7 @@ sub PrintString($@)                                                             
     Lea rsi, "[$a]";
     Mov rdx, $l;
     Syscall;
-    RestoreFirstFour();
+    RestoreFirstFour;
    } name => "PrintString_${channel}_${c}", call=>1;
  }
 
@@ -1784,7 +1772,7 @@ sub PrintRaxInHex($;$)                                                          
   $end //= 7;                                                                   # Default end byte
 
   Subroutine
-   {SaveFirstFour rax;                                                          # Rax is a parameter
+   {SaveFirstFour;                                                              # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
 
@@ -1832,7 +1820,7 @@ sub PrintRax_InHex($;$)                                                         
   $end //= 7;                                                                   # Default end byte
 
   Subroutine
-   {SaveFirstFour rax;                                                          # Rax is a parameter
+   {SaveFirstFour;                                                              # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
 
@@ -3829,13 +3817,13 @@ sub PrintMemory($)                                                              
 
   my $s = Subroutine
    {Comment "Print memory on channel: $channel";
-    SaveFirstFour rax, rdi;
+    SaveFirstFour;
     Mov rsi, rax;
     Mov rdx, rdi;
     Mov rax, 1;
     Mov rdi, $channel;
     Syscall;
-    RestoreFirstFour();
+    RestoreFirstFour;
    } name => "PrintOutMemoryOnChannel$channel";
 
   $s->call;
@@ -4057,7 +4045,7 @@ sub StatSize()                                                                  
 
   my $s = Subroutine
    {Comment "Stat a file for size";
-    SaveFirstFour rax;
+    SaveFirstFour;
     Mov rdi, rax;                                                               # File name
     Mov rax,4;
     Lea rsi, "[rsp-$Size]";
@@ -6385,7 +6373,7 @@ sub Nasm::X86::Tree::find($$)                                                   
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;;
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
     my $t = $$s{tree}->zero;                                                    # Tree to search
     $t->key->copy(my $k = $$p{key});                                            # Copy in key so we know what was searched for
@@ -24386,6 +24374,7 @@ NO carry
 END
  }
 
+latest:;
 if (1) {                                                                        #TSetLabel #TRegisterSize #TSaveFirstFour #TSaveFirstSeven #TRestoreFirstFour #TRestoreFirstSeven #TRestoreFirstFourExceptRax #TRestoreFirstSevenExceptRax #TRestoreFirstFourExceptRaxAndRdi #TRestoreFirstSevenExceptRaxAndRdi #TReverseBytesInRax
   Mov rax, 1;
   Mov rdi, 1;
@@ -24420,10 +24409,6 @@ if (1) {                                                                        
   Mov rax, 3;
   Mov rdi, 4;
   PrintOutRegisterInHex rax, rdi;
-  RestoreFirstSevenExceptRaxAndRdi;
-  PrintOutRegisterInHex rax, rdi;
-  RestoreFirstFourExceptRaxAndRdi;
-  PrintOutRegisterInHex rax, rdi;
 
   Bswap rax;
   PrintOutRegisterInHex rax;
@@ -24445,10 +24430,6 @@ if (1) {                                                                        
    rdi: .... .... .... ...2
    rax: .... .... .... ...3
    rdi: .... .... .... ...1
-   rax: .... .... .... ...3
-   rdi: .... .... .... ...4
-   rax: .... .... .... ...3
-   rdi: .... .... .... ...4
    rax: .... .... .... ...3
    rdi: .... .... .... ...4
    rax: .3.. .... .... ....
