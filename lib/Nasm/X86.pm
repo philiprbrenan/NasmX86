@@ -4300,7 +4300,7 @@ sub convert_rax_from_utf32_to_utf8                                              
 
   my $s = Subroutine
    {PushR 14, 15;
-    my $success = Label;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
+    Block {my (undef, $success) = @_;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
     Cmp rax, 0x7f;                                                              # Ascii
     IfLe Then {Jmp $success};
 
@@ -4380,7 +4380,7 @@ sub convert_rax_from_utf32_to_utf8                                              
       Jmp $success;
      };
 
-    SetLabel $success;
+     };
 
     PopR;
    } name => 'convert_rax_from_utf32_to_utf8';
@@ -4400,7 +4400,7 @@ sub GetNextUtf8CharAsUtf32($$$$)                                                
     $$p{in}->setReg(15);                                                        # Character to convert
     ClearRegisters 14;                                                          # Move to byte register below does not clear the entire register
     Mov r14b, "[r15]";
-    my $success = Label;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
+    Block {my (undef, $success) = @_;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
 
     Cmp r14, 0x7f;                                                              # Ascii
     IfLe
@@ -4463,7 +4463,7 @@ sub GetNextUtf8CharAsUtf32($$$$)                                                
 
     $$p{fail}->getConst(1);                                                     # Conversion failed
 
-    SetLabel $success;
+     };
 
     PopR;
    } parameters=>[qw(in out  size  fail)], name => 'GetNextUtf8CharAsUtf32';
@@ -5737,7 +5737,7 @@ sub Nasm::X86::Tree::expand($$)                                                 
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     PushR 8..15, 22..31;
 
@@ -5828,7 +5828,7 @@ sub Nasm::X86::Tree::expand($$)                                                 
        };
      };  # Block
 
-    SetLabel $success;                                                          # Find completed successfully
+     };                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(offset)],
      structures=>{tree=>$tree},
@@ -5976,7 +5976,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
                                                                                 # First block of this tree
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t     = $$s{tree};                                                      # Tree
     my $area = $t->area;                                                        # Area
@@ -6035,7 +6035,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
     $t->putBlock        ($r,      $RK, $RD, $RN);                               # Save right block
 
-    SetLabel $success;                                                          # Insert completed successfully
+     };                                                          # Insert completed successfully
     PopR;
    }  structures => {tree => $tree},
       parameters => [qw(offset split)],
@@ -6266,7 +6266,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $success = Label;                                                        # End label
+    Block {my (undef, $success) = @_;                                                        # End label
 
     PushR my ($F, $K, $D, $N) = reverse 28..31;
 
@@ -6329,7 +6329,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
     $Q->copy($next);                                                            # Get the offset of the next node - we are not on a leaf so there must be one
     Jmp $descend;                                                               # Descend to the next level
 
-    SetLabel $success;
+     };
     PopR;
    } name => "Nasm::X86::Tree::put",
      structures => {tree=>$tree},
@@ -6368,7 +6368,7 @@ sub Nasm::X86::Tree::find($$)                                                   
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
@@ -6410,7 +6410,7 @@ sub Nasm::X86::Tree::find($$)                                                   
      });
     PrintErrTraceBack "Stuck in find";                                          # We seem to be looping endlessly
 
-    SetLabel $success;                                                          # Find completed successfully
+     };                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
      structures=>{tree=>$tree},
@@ -6425,7 +6425,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Successfully completed
+    Block {my (undef, $success) = @_;                                                        # Successfully completed
 
     my $t = $$s{tree};                                                          # Tree to search
        $t->zero;                                                                # Key not found
@@ -6463,7 +6463,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
      });
     PrintErrTraceBack "Stuck looking for first";
 
-    SetLabel $success;                                                          # Find completed successfully
+     };                                                          # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::findFirst($$tree{length})";
@@ -6477,7 +6477,7 @@ sub Nasm::X86::Tree::findLast($)                                                
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Successfully completed
+    Block {my (undef, $success) = @_;                                                        # Successfully completed
 
     my $t = $$s{tree}->zero;                                                    # Tree to search
 
@@ -6517,7 +6517,7 @@ sub Nasm::X86::Tree::findLast($)                                                
      });
     PrintErrTraceBack "Stuck looking for last";
 
-    SetLabel $success;                                                          # Find completed successfully
+     };                                                          # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::findLast($$tree{length})";
@@ -6532,7 +6532,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
     my $t = $$s{tree}->zero;                                                    # Tree to search
@@ -6581,7 +6581,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
      });
     PrintErrTraceBack "Stuck in find next";                                     # We seem to be looping endlessly
 
-    SetLabel $success;                                                          # Find completed successfully
+     };                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
      structures=>{tree=>$tree},
@@ -6597,7 +6597,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
     my $t = $$s{tree}->zero;                                                    # Tree to search
@@ -6651,7 +6651,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
      });
     PrintErrTraceBack "Stuck in find prev";                                     # We seem to be looping endlessly
 
-    SetLabel $success;                                                          # Find completed successfully
+     };                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
      structures=>{tree=>$tree},
@@ -6677,7 +6677,7 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t        = $$s{tree};                                                   # Tree
        $t->first->copy(my $F = $$p{node});                                      # First block
@@ -6706,7 +6706,7 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
     PrintErrStringNL "Stuck in LeftOrRightMost";
     Exit(1);
 
-    SetLabel $success;                                                          # Insert completed successfully
+     };                                                          # Insert completed successfully
     PopR;
    } structures => {tree => $tree},
      parameters => [qw(node offset)],
@@ -6736,7 +6736,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t = $$s{tree};                                                          # Tree
     my $area = $tree->area;                                                     # Area
@@ -6759,7 +6759,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
     PrintErrStringNL "Stuck in depth";                                          # We seem to be looping endlessly
     Exit(1);
 
-    SetLabel $success;                                                          # Insert completed successfully
+     };                                                          # Insert completed successfully
     PopR;
    }  structures => {tree => $tree},
       parameters => [qw(node depth)],
@@ -7469,7 +7469,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $success = Label;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
 
     my $t = $$s{tree}->zero;                                                    # Tree to search
     my $k = $$p{key};                                                           # Key to find
@@ -7588,7 +7588,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
      });
     PrintErrTraceBack "Stuck looking for leaf";
 
-    SetLabel $success;                                                          # Find completed successfully
+     };                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
      structures=>{tree=>$tree},
