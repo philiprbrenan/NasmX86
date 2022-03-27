@@ -700,7 +700,7 @@ sub bRegIntoZmm($$$)                                                            
   my $b = byteRegister $register;                                               # Corresponding byte register
 
   Mov "[rsp+$offset]", $b;                                                      # Save byte at specified offset
-  PopR "zmm$zmm";                                                               # Reload zmm
+  PopR;                                                                         # Reload zmm
  }
 
 sub wRegFromZmm($$$)                                                            # Load the specified register from the word at the specified offset located in the numbered zmm.
