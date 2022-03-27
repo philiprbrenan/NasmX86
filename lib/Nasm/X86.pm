@@ -8230,21 +8230,19 @@ sub Nasm::X86::Tree::getString($$)                                              
 
   my $success = Label;
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
-  $tree->found->copy(1);                                                        # Assume we will find the string
-  my $s = $tree->size;
-  $string->by(sub                                                               # Insert latest tree
-   {my ($t) = @_;
-    $S->find($t->key);
-    If $S->found == 0,
-    Then
-     {$tree->found->copy(0);
-      Jmp $success
-     };
-    $S->position($s->first);
-   });
-  SetLabel $success;
 
-  $tree                                                                         # Chain - the reskt
+  Block
+   {my ($end, $start) = @_;                                                     # End label
+    $S->zero;                                                                   # Assume we will not find the string
+    $string->by(sub                                                             # Insert latest tree
+     {my ($s) = @_;
+      $S->find($s->data);                                                       # Try to find the next character of the string
+      If $S->found == 0, Then {Jmp $end};                                       # The string cannot be found
+      $S->first->copy($S->data);
+     });
+   };
+
+  $S                                                                            # The result is shown via a tree descriptor
  }
 
 #D3 Trees as sets                                                               # Trees of trees as sets
@@ -8309,33 +8307,6 @@ sub Nasm::X86::Tree::intersection($)                                            
       $i->put($k, $k);
      });
    };
-
-  $i                                                                            # Intersection
- }
-
-sub Nasm::X86::Tree::intersection2($)                                           # Given a tree of trees consider each sub tree as a set and form the intersection of all these sets as a new tree
- {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
-  @_ == 1 or confess "One parameter";
-
-  my $i = $tree->area->CreateTree;                                              # Resulting intersection
-  $tree->findFirst;
-  my $F = $tree->data->clone("first");
-  my $f = $tree->position($F);                                                  # First tree (but the smallest sub tree would be better)
-
-  $f->by(sub                                                                    # Insert each element of each sub tree
-   {my ($t, undef, $nextElement) = @_;
-    my $k = $t->key;
-
-    $tree->by(sub                                                               # Each sub tree
-     {my ($T, undef, $nextTree) = @_;
-      If $F == $T->data, Then {Jmp $nextTree};                                  # Skip the first tree
-
-      my $t = $tree->position($T->data);
-      $t->find($k);
-      If $t->found == 0, Then {Jmp $nextElement};                               # Not found in this sub tree so it cannot be part of the intersection
-     });
-    $i->put($k, $k);
-   });
 
   $i                                                                            # Intersection
  }
@@ -30372,9 +30343,9 @@ if (1) {                                                                        
    {$t->{$f}->outNL(sprintf("%-8s", $f));
    }
 
-  $t->getString($s); $t->found->outNL;
+  $t->getString($s); $t->found->outNL("found:  ");
   $s->pop;
-  $t->getString($s); $t->found->outNL;
+  my $f = $t->getString($s); $f->found->outNL("found:  "); $f->data->outNL("data:   ");
 
   ok Assemble eq => <<END, avx512=>1;
 t = abcd
@@ -30409,10 +30380,13 @@ key     .... .... .... ..61
 data    .... .... .... .A80
 subTree .... .... .... ...1
 offset  .... .... .... .AC0
+found:  .... .... .... ...1
+found:  .... .... .... ...1
+data:   .... .... .... ..31
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::union #TNasm::X86::Tree::intersection
   my $a = CreateArea;
   my $r = $a->CreateTree(length => 3);
