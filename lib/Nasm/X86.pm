@@ -2820,7 +2820,7 @@ sub Nasm::X86::Variable::copyZF($)                                              
 
   my $a = $var->address;                                                        # Address of the variable
 
-  PushR (rax);
+  PushR rax;
   Lahf;                                                                         # Save flags to ah: (SF:ZF:0:AF:0:PF:1:CF)
   Shr ah, 6;                                                                    # Put zero flag in bit zero
   And ah, 1;                                                                    # Isolate zero flag
@@ -2834,7 +2834,7 @@ sub Nasm::X86::Variable::copyZFInverted($)                                      
 
   my $a = $var->address;                                                        # Address of the variable
 
-  PushR (rax, r15);
+  PushR rax, 15;
   Lahf;                                                                         # Save flags to ah: (SF:ZF:0:AF:0:PF:1:CF)
   Shr ah, 6;                                                                    # Put zero flag in bit zero
   Not ah;                                                                       # Invert zero flag
@@ -2907,7 +2907,7 @@ sub Nasm::X86::Variable::arithmetic($$$$)                                       
   my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
 
   Comment "Arithmetic Start";
-  PushR (r14, r15);
+  PushR 14, 15;
   Mov r15, $l;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r15, "[r15]";
@@ -2944,7 +2944,7 @@ sub Nasm::X86::Variable::division($$$)                                          
 
   my $l = $left ->address;
   my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
-  PushR rax, rdx, r15;
+  PushR rax, rdx, 15;
   Mov rax, $l;
   Mov rax, "[rax]" if $left->reference;
   Mov r15, $r;
@@ -2967,7 +2967,7 @@ sub Nasm::X86::Variable::mod($$)                                                
 
 sub Nasm::X86::Variable::shiftLeft($$)                                          # Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
-  PushR rcx, r15;
+  PushR rcx, 15;
   $left ->setReg(15);                                                           # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
@@ -2979,7 +2979,7 @@ sub Nasm::X86::Variable::shiftLeft($$)                                          
 
 sub Nasm::X86::Variable::shiftRight($$)                                         # Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
-  PushR rcx, r15;
+  PushR rcx, 15;
   $left ->setReg(15);                                                           # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
@@ -3197,7 +3197,7 @@ sub Nasm::X86::Variable::incDec($$)                                             
   $left->constant and confess "Cannot increment or decrement a constant";
   my $l = $left->address;
   if ($left->reference)
-   {PushR (rdi, rsi);                                                           # Violates the rdi/rsi rule if removed
+   {PushR rdi, rsi;                                                             # Violates the rdi/rsi rule if removed
     Mov rsi, $l;
     Mov rdi, "[rsi]";
     &$op(rdi);
@@ -3232,7 +3232,7 @@ sub Nasm::X86::Variable::str($)                                                 
 
 sub Nasm::X86::Variable::min($$)                                                # Minimum of two variables.
  {my ($left, $right) = @_;                                                      # Left variable, right variable or constant
-  PushR (r12, r14, r15);
+  PushR 12, 14, 15;
   $left->setReg(14);
 
   if (ref($right))                                                              # Right hand side is a variable
@@ -3252,7 +3252,7 @@ sub Nasm::X86::Variable::min($$)                                                
 
 sub Nasm::X86::Variable::max($$)                                                # Maximum of two variables.
  {my ($left, $right) = @_;                                                      # Left variable, right variable or constant
-  PushR (r12, r14, r15);
+  PushR 12, 14, 15;
   $left->setReg(14);
 
   if (ref($right))                                                              # Right hand side is a variable
@@ -3273,7 +3273,7 @@ sub Nasm::X86::Variable::max($$)                                                
 
 sub Nasm::X86::Variable::and($$)                                                # And two variables.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
-  PushR (r14, r15);
+  PushR 14, 15;
   Mov r14, 0;
   $left->setReg(15);
   Cmp r15, 0;
@@ -3291,7 +3291,7 @@ sub Nasm::X86::Variable::and($$)                                                
 
 sub Nasm::X86::Variable::or($$)                                                 # Or two variables.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
-  PushR (r14, r15);
+  PushR 14, 15;
   Mov r14, 1;
   $left->setReg(15);
   Cmp r15, 0;
@@ -3311,7 +3311,7 @@ sub Nasm::X86::Variable::setMask($$$)                                           
  {my ($start, $length, $mask) = @_;                                             # Variable containing start of mask, variable containing length of mask, mask register
   @_ == 3 or confess "Three parameters";
 
-  PushR (r13, r14, r15);
+  PushR 13, 14, 15;
   Mov r15, -1;
   if ($start)                                                                   # Non zero start
    {$start->setReg(14);
@@ -3361,7 +3361,7 @@ sub Nasm::X86::Variable::clearMaskBit($$)                                       
   @_ == 2 or confess "Two parameters";
   $mask =~ m(\Ak)i or confess "Mask register required";
 
-  PushR my ($l, $b) = (r14, r15);
+  PushR my $l = r14, $b = r15;
   Kmovq $b, $mask;
   $index->setReg($l);
   Btc $b, $l;
@@ -3394,7 +3394,7 @@ sub Nasm::X86::Variable::setZmm($$$$)                                           
   @_ == 4 or confess;
   ref($offset) && ref($length) or confess "Missing variable";                   # Need variables of offset and length
   Comment "Set Zmm $zmm from Memory";
-  PushR (k7, r14, r15);
+  PushR 7, 14, 15;
   $offset->setMask($length, k7);                                                # Set mask for target
   $source->setReg(15);
   $offset->setReg(14);                                                          # Position memory for target
@@ -3552,7 +3552,7 @@ sub Nasm::X86::Variable::copyMemory($$$)                                        
 sub Nasm::X86::Variable::printMemoryInHexNL($$$)                                # Write, in hexadecimal, the memory addressed by a variable to stdout or stderr.
  {my ($address, $channel, $size) = @_;                                          # Address of memory, channel to print on, number of bytes to print
   @_ == 3 or confess "Three parameters";
-  PushR (rax, rdi);
+  PushR rax, rdi;
   $address->setReg(rax);
   $size->setReg(rdi);
   &PrintMemoryInHex($channel);
@@ -3942,7 +3942,7 @@ sub ClearMemory($$)                                                             
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
-    PushR (zmm0, rax, rdi, rsi, rdx);
+    PushR zmm0, rax, rdi, rsi, rdx;
     $$p{address}->setReg(rax);
     $$p{size}   ->setReg(rdi);
     Lea rdx, "[rax+rdi]";                                                       # Address of upper limit of buffer
@@ -3953,7 +3953,7 @@ sub ClearMemory($$)                                                             
     And rsi, 0x3f;                                                              # Remainder modulo 64
     Cmp rsi, 0;                                                                 # Test remainder
     IfNz sub                                                                    # Need to align so that the rest of the clear can be done in full zmm blocks
-     {PushR k7;
+     {PushR 7;
       V(align => rsi)->setMaskFirst(k7);                                        # Set mask bits
       Vmovdqu8 "[rax]{k7}", zmm0;                                               # Masked move to memory
       PopR;
@@ -4100,7 +4100,7 @@ sub ReadLine()                                                                  
  {@_ == 0 or confess "Zero parameters";
   my $s = Subroutine
    {my ($p) = @_;
-    PushR rcx, r14, r15;
+    PushR rcx, 14, 15;
     ClearRegisters rax, rcx, r14, r15;
 
     (V max => RegisterSize(rax))->for(sub                                       # Read each character
@@ -4674,7 +4674,7 @@ sub Cstrlen()                                                                   
  {@_ == 0 or confess "Deprecated in favor of StringLength";
 
   my $s = Subroutine                                                            # Create area
-   {PushR my @regs = (rax, rdi, rcx);
+   {PushR rax, rdi, rcx;
     Mov rdi, rax;
     Mov rcx, -1;
     ClearRegisters rax;
@@ -4684,7 +4684,7 @@ END
     Mov r15, rcx;
     Not r15;
     Dec r15;
-    PopR @regs;
+    PopR;
    } name => "Cstrlen";
 
   $s->call;
@@ -4807,7 +4807,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
 
   my $s = Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, structures
-    PushR (rax, r10, r12, r13, r14, r15);
+    PushR rax, 10, 12..15;
     my $base     = rax;                                                         # Base of area
     my $size     = r15;                                                         # Current size
     my $used     = r14;                                                         # Currently used space
@@ -4934,7 +4934,6 @@ sub Nasm::X86::Area::allocZmmBlock($)                                           
    {$offset->copy($area->allocate(K size => $area->zmmBlock));                  # Copy offset of allocation
    };
   PopR;
-
 
   $offset                                                                       # Return offset of allocated block
  }
