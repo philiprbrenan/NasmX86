@@ -695,7 +695,7 @@ sub bRegIntoZmm($$$)                                                            
   @_ == 3 or confess "Three parameters";
   $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
 
-  PushR "zmm$zmm";                                                              # Push source register
+  PushR $zmm;                                                                   # Push source register
 
   my $b = byteRegister $register;                                               # Corresponding byte register
 
