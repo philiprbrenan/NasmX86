@@ -1248,9 +1248,14 @@ sub PrintTraceBack($)                                                           
  {my ($channel) = @_;                                                           # Channel to write on
 
   Subroutine
-   {PushR rax, my @save = (my $maxCount = 8,  my $depth = 10, my $parameter = 12,
-                           my $index    = 13, my $count = 14, my $stack = 15);
-   ClearRegisters @save;
+   {PushR my @save = (rax, rdi, r9, r10, r8, r12, r13, r14, r15);
+    my $stack     = r15;
+    my $count     = r14;
+    my $index     = r13;
+    my $parameter = r12;                                                        # Number of parameters
+    my $maxCount  = r8;                                                         # Maximum number of parameters - should be r11 when we have found out why r11 does not print correctly.
+    my $depth     = r10;                                                        # Depth of trace back
+    ClearRegisters @save;
 
     Mov $stack, rbp;                                                            # Current stack frame
     AndBlock                                                                    # Each level
