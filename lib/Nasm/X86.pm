@@ -8169,16 +8169,19 @@ sub Nasm::X86::Tree::putString($$)                                              
 sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string and return its data in B<found> and B<data>.
  {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
   @_ == 2 or confess "Two parameters";
+  ref($string) =~ m(\ANasm::X86::::Tree\Z);
 
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
 
   Block
    {my ($end, $start) = @_;                                                     # End label
     $S->zero;                                                                   # Assume we will not find the string
+    $S->subTree->copy(1);                                                       # We know we start with a string
     $string->by(sub                                                             # Insert latest tree
      {my ($s) = @_;
+      If $S->subTree == 0, Then {Jmp $end};                                     # Confirm that we are searching a sub tree
       $S->find($s->data);                                                       # Try to find the next character of the string
-      If $S->found == 0, Then {Jmp $end};                                       # The string cannot be found
+      If $S->found   == 0, Then {Jmp $end};                                     # The string cannot be found
       $S->first->copy($S->data);
      });
    };
@@ -30253,7 +30256,7 @@ end
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $p = $a->CreateTree(length => 3);
