@@ -1235,7 +1235,7 @@ sub Nasm::X86::Sub::dispatchV($$)                                               
 sub PrintTraceBack($)                                                           # Trace the call stack.
  {my ($channel) = @_;                                                           # Channel to write on
 
-  Subroutine
+  my $s = Subroutine
    {PushR my @save = (rax, rdi, r9, r10, r8, r12, r13, r14, r15);
     my $stack     = r15;
     my $count     = r14;
@@ -1307,7 +1307,9 @@ sub PrintTraceBack($)                                                           
      };
     &PrintNL($channel);
     PopR;
-   } name => "SubroutineTraceBack_$channel", call=>1;
+   } name => "SubroutineTraceBack_$channel";
+
+  $s->call;
  }
 
 sub PrintErrTraceBack($)                                                        # Print sub routine track back on stderr and then exit with a message.
@@ -1387,26 +1389,10 @@ sub Subroutine(&%)                                                              
      }
    }
 
-  my $run = sub                                                                 # We can call and run the sub immediately if it has just structure parameter (which can be single variables) and no other parameters
-   {my ($s) = @_;                                                               # Parameters
-    if ($s->options->{call})                                                    # Call and run the existing copy of the subroutine if it only requires structure arguments which can include just variables.
-     {if (!$s->options->{parameters})                                           # Cannot run -as the subroutine requires parameters as well as structures.
-       {$s->call(structures=>$s->options->{structures});                        # Call the subroutine
-        return $s                                                               # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
-       }
-      else                                                                      # Cannot call and run the subroutine as it requires parameters which we do not have yet.  However, we can use strucutures which can be just variables.
-       {confess "Cannot run subroutine as it has parameters, uses structures instead";
-       }
-     }
-    else                                                                        # Run not requested
-     {return $s                                                                 # Return the label of a pre-existing copy of the code. Make sure that the name is different for different subs as otherwise the unexpected results occur.
-     }
-   };
-
   my $name = $options{name};                                                    # Subroutine name
   $name or confess "Name required for subroutine, use name=>";
   if ($name and my $s = $subroutines{$name})                                    # Return the label of a pre-existing copy of the code possibly after running the subroutine. Make sure that the subroutine name is different for different subs as otherwise the unexpected results occur.
-   {return &$run($s);
+   {return $s;
    }
 
   my $parameters = $options{parameters};                                        # Optional parameters block
@@ -1459,7 +1445,7 @@ sub Subroutine(&%)                                                              
   Enter $V*$w, 0
 END
 
-  &$run($s)                                                                     # Run subroutine if requested and return its definition definition
+  $s                                                                            # Return subroutine definition
  }
 
 sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           # Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined
@@ -1560,6 +1546,9 @@ sub Nasm::X86::Subroutine::call($%)                                             
       confess join '', map {"$_\n"} @m;
      }
    }
+  elsif ($sub->parameters->@*)
+   {confess "Parameters required";
+   }
 
   if ($structures)                                                              # Check for invalid or missing structures
    {my %s = $sub->options->{structures}->%*;
@@ -1575,6 +1564,9 @@ sub Nasm::X86::Subroutine::call($%)                                             
            $m[-1] .= join ", ", map {"'$_'"} sort keys %s;
       confess join '', map {"$_\n"} @m;
      }
+   }
+  elsif ($sub->options and $sub->options->{structures} and $sub->options->{structures}->%*)
+   {confess "Structures required";
    }
 
   my $w = RegisterSize r15;
@@ -1648,7 +1640,7 @@ sub PrintNL($)                                                                  
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
-  Subroutine
+  my $s = Subroutine
    {SaveFirstFour;
     Mov rax, 1;
     Mov rdi, $channel;                                                          # Write below stack
@@ -1658,7 +1650,9 @@ sub PrintNL($)                                                                  
     Mov rdx, 1;
     Syscall;
     RestoreFirstFour
-   } name => qq(PrintNL_$channel), call=>1;
+   } name => qq(PrintNL_$channel);
+
+  $s->call;
  }
 
 sub PrintErrNL()                                                                # Print a new line to stderr.
@@ -1679,7 +1673,7 @@ sub PrintString($@)                                                             
   my $l = length($c);
   my $a = Rs($c);
 
-  Subroutine
+  my $s = Subroutine
    {SaveFirstFour;
     Mov rax, 1;
     Mov rdi, $channel;
@@ -1687,7 +1681,9 @@ sub PrintString($@)                                                             
     Mov rdx, $l;
     Syscall;
     RestoreFirstFour;
-   } name => "PrintString_${channel}_${c}", call=>1;
+   } name => "PrintString_${channel}_${c}";
+
+  $s->call;
  }
 
 sub PrintStringNL($@)                                                           # Print a constant string to the specified channel followed by a new line.
@@ -1771,7 +1767,7 @@ sub PrintRaxInHex($;$)                                                          
   my $hexTranslateTable = hexTranslateTable;
   $end //= 7;                                                                   # Default end byte
 
-  Subroutine
+  my $s = Subroutine
    {SaveFirstFour;                                                              # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
@@ -1788,7 +1784,9 @@ sub PrintRaxInHex($;$)                                                          
       PrintString($channel, ' ') if $i % 2 and $i < 7;
      }
     RestoreFirstFour;
-   } name => "PrintOutRaxInHexOn-$channel-$end", call=>1;
+   } name => "PrintOutRaxInHexOn-$channel-$end";
+
+  $s->call;
  }
 
 sub PrintErrRaxInHex()                                                          # Write the content of register rax in hexadecimal in big endian notation to stderr.
@@ -1819,7 +1817,7 @@ sub PrintRax_InHex($;$)                                                         
   my $hexTranslateTable = hexTranslateTable;
   $end //= 7;                                                                   # Default end byte
 
-  Subroutine
+  my $s = Subroutine
    {SaveFirstFour;                                                              # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
@@ -1843,7 +1841,9 @@ sub PrintRax_InHex($;$)                                                         
       PrintString($channel, ' ') if $i % 2 and $i < 7;
      }
     RestoreFirstFour;
-   } name => "PrintOutRax_InHexOn-$channel-$end", call=>1;
+   } name => "PrintOutRax_InHexOn-$channel-$end";
+
+   $s->call;
  }
 
 sub PrintErrRax_InHex()                                                         # Write the content of register rax in hexadecimal in big endian notation to stderr.
@@ -1994,7 +1994,8 @@ sub PrintOutRegisterInHex(@)                                                    
 sub PrintOutRipInHex                                                            #P Print the instruction pointer in hex.
  {@_ == 0 or confess;
   my @regs = qw(rax);
-  Subroutine
+
+  my $s = Subroutine
    {PushR @regs;
     my $l = Label;
     push @text, <<END;
@@ -2005,14 +2006,16 @@ END
     PrintOutRaxInHex;
     PrintOutNL;
     PopR @regs;
-   } name=> "PrintOutRipInHex", call => 1;
+   } name=> "PrintOutRipInHex";
+
+  $s->call;
  }
 
 sub PrintOutRflagsInHex                                                         #P Print the flags register in hex.
  {@_ == 0 or confess;
   my @regs = qw(rax);
 
-  Subroutine
+  my $s = Subroutine
    {PushR @regs;
     Pushfq;
     Pop rax;
@@ -2020,13 +2023,15 @@ sub PrintOutRflagsInHex                                                         
     PrintOutRaxInHex;
     PrintOutNL;
     PopR @regs;
-   } name=> "PrintOutRflagsInHex", call => 1;
+   } name=> "PrintOutRflagsInHex";
+
+  $s->call;
  }
 
 sub PrintOutRegistersInHex                                                      # Print the general purpose registers in hex.
  {@_ == 0 or confess "No parameters required";
 
-  Subroutine
+  my $s = Subroutine
    {#PrintOutRipInHex;
     PrintOutRflagsInHex;
 
@@ -2046,7 +2051,9 @@ sub PrintOutRegistersInHex                                                      
       PrintOutNL;
      }
     PopR @regs;
-   } name=> "PrintOutRegistersInHex", call => 1;
+   } name=> "PrintOutRegistersInHex";
+
+  $s->call;
  }
 
 sub PrintErrZF                                                                  # Print the zero flag without disturbing it on stderr.
@@ -2242,7 +2249,7 @@ sub PrintRaxInDec($)                                                            
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
-  Subroutine
+  my $s = Subroutine
    {PushR rax, rdi, rdx, r9, r10;
     Mov r9, 0;                                                                  # Number of decimal digits
     Mov r10, 10;                                                                # Base of number system
@@ -2265,7 +2272,9 @@ sub PrintRaxInDec($)                                                            
     Jnz $print;
 
     PopR;
-   } name => "PrintRaxInDec_$channel", call=>1;
+   } name => "PrintRaxInDec_$channel";
+
+  $s->call;
  }
 
 sub PrintOutRaxInDec                                                            # Print rax in decimal on stdout.
@@ -7020,11 +7029,10 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
     Shr rdi, 1;                                                                 # Remove first tree bit
     $t->setTreeBits($K, rdi);                                                   # Reload tree bits
 
-    $t->decLengthInKeys($K);                                                    # Reduce length by  one
+    $t->decLengthInKeys($K);                                                    # Reduce length by one
 
     PopR;
-   } parameters=>[qw(point)],
-     structures=>{tree=>$tree},
+   } structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::extractFirst($K, $D, $N, $$tree{length})";
 
   $s->call(structures=>{tree => $tree});
@@ -7216,8 +7224,7 @@ sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 
    }
   name       =>
   "Nasm::X86::Tree::stealFromRight($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
-  structures => {tree => $tree},
-  parameters => [qw(result)];
+  structures => {tree => $tree};
 
   $s->call(structures => {tree   => $tree});
 
@@ -26324,7 +26331,7 @@ if (1) {
     $$s{var}->setReg(rax);
     Dec rax;
     $$s{var}->getReg(rax);
-   } structures => {var => my $v = V var => 42}, name => 'test', call => 1;
+   } structures => {var => my $v = V var => 42}, name => 'test';
 
   $v->outNL;
 
@@ -26332,7 +26339,7 @@ if (1) {
   $V->outNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
-var: .... .... .... ..29
+var: .... .... .... ..2A
 var: .... .... .... ...1
 END
  }
