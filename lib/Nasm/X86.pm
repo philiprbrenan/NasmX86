@@ -6409,9 +6409,8 @@ sub Nasm::X86::Tree::find($$)                                                   
           Jmp $success;                                                         # Return
          };
 
-        my $leaf = $t->leafFromNodes($N);                                       # Are we on a leaf
-        If $leaf > 0,
-        Then                                                                    # Zero implies that this is a leaf node so we cannot search any further and will have to go with what you have
+        If $t->leafFromNodes($N) > 0,
+        Then                                                                    # Leaf so we cannot go further
          {Jmp $success;                                                         # Return
          };
 
@@ -6947,18 +6946,11 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree to search
-    my $l = $t->leafFromNodes($N);                                              # Check for a leaf
-    If $l == 0,                                                                 # If the zero Flag is zero then this is not a leaf
+    If $t->leafFromNodes($N) == 0,                                                                 # If the zero Flag is zero then this is not a leaf
     Then                                                                        # We can only perform this operation on a leaf
      {PrintErrTraceBack "Cannot extract from a non leaf node";
      };
 
-#    my $l = $t->lengthFromKeys($K);                                            # Check for a minimal block
-#    If $l <= $t->lengthMin,
-#    Then                                                                       # Minimal block - extraction not possible
-#     {PrintErrTraceBack "Cannot extract from a minimum block";
-#     };
-#
     PushR 7, 15;
 
     my $q = $$p{point};                                                         # Point at which to extract
@@ -26782,9 +26774,8 @@ if (1) {                                                                        
   $a->dump("1111");
   PrintOutRegisterInHex 31, 30, 29, 28;
 
-
-  my $l = $t->leafFromNodes(29); If $l > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
-  my $r = $t->leafFromNodes(28); If $r > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
+  If $t->leafFromNodes(29) > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
+  If $t->leafFromNodes(28) > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
 
 
   ok Assemble eq => <<END, avx512=>1;
