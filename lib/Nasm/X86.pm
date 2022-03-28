@@ -2098,7 +2098,7 @@ sub PrintRightInHex($$$)                                                        
       Shr r14, 4;
      });
 
-    Block                                                                       # Translate leading zeros to spaces
+    Block    ##IMPROVE                                                          # Translate leading zeros to spaces
      {my ($end) = @_;
       for my $i(0..14)
        {Pextrb r15, xmm0, $i;
@@ -4300,86 +4300,86 @@ sub convert_rax_from_utf32_to_utf8                                              
 
   my $s = Subroutine
    {PushR 14, 15;
-    Block {my (undef, $success) = @_;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
-    Cmp rax, 0x7f;                                                              # Ascii
-    IfLe Then {Jmp $success};
+    Block
+     {my ($success) = @_;                                                       # As shown at: https://en.wikipedia.org/wiki/UTF-8
+      Cmp rax, 0x7f;                                                            # Ascii
+      IfLe Then {Jmp $success};
 
-    Cmp rax, 0x7ff;                                                             # Char size is: 2 bytes
-    IfLe
-    Then
-     {Mov r15, rax;
+      Cmp rax, 0x7ff;                                                           # Char size is: 2 bytes
+      IfLe
+      Then
+       {Mov r15, rax;
 
-      Shr r15, 6;                                                               # High byte
-      And r15, 0x1f;
-      Or  r15, 0xc0;
+        Shr r15, 6;                                                             # High byte
+        And r15, 0x1f;
+        Or  r15, 0xc0;
 
-      Mov r14, rax;                                                             # Low byte
-      And r14, 0x3f;
-      Or  r14, 0x80;
-      Shl r14, 8;
-      Or r15, r14;
-      Mov rax, r15;
-      Jmp $success;
-     };
+        Mov r14, rax;                                                           # Low byte
+        And r14, 0x3f;
+        Or  r14, 0x80;
+        Shl r14, 8;
+        Or r15, r14;
+        Mov rax, r15;
+        Jmp $success;
+       };
 
-    Cmp rax, 0xffff;                                                            # Char size is: 3 bytes
-    IfLe
-    Then
-     {Mov r15, rax;
+      Cmp rax, 0xffff;                                                          # Char size is: 3 bytes
+      IfLe
+      Then
+       {Mov r15, rax;
 
-      Shr r15, 12;                                                              # High byte
-      And r15, 0x0f;
-      Or  r15, 0xe0;
+        Shr r15, 12;                                                            # High byte
+        And r15, 0x0f;
+        Or  r15, 0xe0;
 
-      Mov r14, rax;                                                             # Middle byte
-      Shr r14, 6;
-      And r14, 0x3f;
-      Or  r14, 0x80;
-      Shl r14, 8;
-      Or r15, r14;
+        Mov r14, rax;                                                           # Middle byte
+        Shr r14, 6;
+        And r14, 0x3f;
+        Or  r14, 0x80;
+        Shl r14, 8;
+        Or r15, r14;
 
-      Mov r14, rax;                                                             # Low byte
-      And r14, 0x3f;
-      Or  r14, 0x80;
-      Shl r14, 16;
-      Or r15, r14;
+        Mov r14, rax;                                                           # Low byte
+        And r14, 0x3f;
+        Or  r14, 0x80;
+        Shl r14, 16;
+        Or r15, r14;
 
-      Mov rax, r15;
-      Jmp $success;
-     };
+        Mov rax, r15;
+        Jmp $success;
+       };
 
-    Cmp rax, 0x10ffff;                                                          # Char size is: 4 bytes
-    IfLe
-    Then
-     {Mov r15, rax;
+      Cmp rax, 0x10ffff;                                                        # Char size is: 4 bytes
+      IfLe
+      Then
+       {Mov r15, rax;
 
-      Shr r15, 18;                                                              # High byte
-      And r15, 0x03;
-      Or  r15, 0xf0;
+        Shr r15, 18;                                                            # High byte
+        And r15, 0x03;
+        Or  r15, 0xf0;
 
-      Mov r14, rax;                                                             # Middle byte
-      Shr r14, 12;
-      And r14, 0x3f;
-      Or  r14, 0x80;
-      Shl r14, 8;
-      Or r15, r14;
+        Mov r14, rax;                                                           # Middle byte
+        Shr r14, 12;
+        And r14, 0x3f;
+        Or  r14, 0x80;
+        Shl r14, 8;
+        Or r15, r14;
 
-      Mov r14, rax;                                                             # Middle byte
-      Shr r14, 6;
-      And r14, 0x3f;
-      Or  r14, 0x80;
-      Shl r14, 16;
-      Or r15, r14;
+        Mov r14, rax;                                                           # Middle byte
+        Shr r14, 6;
+        And r14, 0x3f;
+        Or  r14, 0x80;
+        Shl r14, 16;
+        Or r15, r14;
 
-      Mov r14, rax;                                                             # Low byte
-      And r14, 0x3f;
-      Or  r14, 0x80;
-      Shl r14, 24;
-      Or r15, r14;
-      Mov rax, r15;
-      Jmp $success;
-     };
-
+        Mov r14, rax;                                                           # Low byte
+        And r14, 0x3f;
+        Or  r14, 0x80;
+        Shl r14, 24;
+        Or r15, r14;
+        Mov rax, r15;
+        Jmp $success;
+       };
      };
 
     PopR;
@@ -4400,69 +4400,69 @@ sub GetNextUtf8CharAsUtf32($$$$)                                                
     $$p{in}->setReg(15);                                                        # Character to convert
     ClearRegisters 14;                                                          # Move to byte register below does not clear the entire register
     Mov r14b, "[r15]";
-    Block {my (undef, $success) = @_;                                                        # As shown at: https://en.wikipedia.org/wiki/UTF-8
+    Block
+     {my ($success) = @_;                                                       # As shown at: https://en.wikipedia.org/wiki/UTF-8
 
-    Cmp r14, 0x7f;                                                              # Ascii
-    IfLe
-    Then
-     {$$p{out}->getReg(r14);
-      $$p{size}->copy(1);
-      Jmp $success;
-     };
+      Cmp r14, 0x7f;                                                            # Ascii
+      IfLe
+      Then
+       {$$p{out}->getReg(r14);
+        $$p{size}->copy(1);
+        Jmp $success;
+       };
 
-    Cmp r14, 0xdf;                                                              # Char size is: 2 bytes
-    IfLe
-    Then
-     {Mov r13b, "[r15+1]";
-      And r13, 0x3f;
-      And r14, 0x1f;
-      Shl r14, 6;
-      Or  r14,  r13;
-      $$p{out}->getReg(r14);
-      $$p{size}->copy(2);
-      Jmp $success;
-     };
+      Cmp r14, 0xdf;                                                            # Char size is: 2 bytes
+      IfLe
+      Then
+       {Mov r13b, "[r15+1]";
+        And r13, 0x3f;
+        And r14, 0x1f;
+        Shl r14, 6;
+        Or  r14,  r13;
+        $$p{out}->getReg(r14);
+        $$p{size}->copy(2);
+        Jmp $success;
+       };
 
-    Cmp r14, 0xef;                                                              # Char size is: 3 bytes
-    IfLe
-    Then
-     {Mov r12b, "[r15+2]";
-      And r12, 0x3f;
-      Mov r13b, "[r15+1]";
-      And r13, 0x3f;
-      And r14, 0x0f;
-      Shl r13,  6;
-      Shl r14, 12;
-      Or  r14,  r13;
-      Or  r14,  r12;
-      $$p{out}->getReg(r14);
-      $$p{size}->copy(3);
-      Jmp $success;
-     };
+      Cmp r14, 0xef;                                                            # Char size is: 3 bytes
+      IfLe
+      Then
+       {Mov r12b, "[r15+2]";
+        And r12, 0x3f;
+        Mov r13b, "[r15+1]";
+        And r13, 0x3f;
+        And r14, 0x0f;
+        Shl r13,  6;
+        Shl r14, 12;
+        Or  r14,  r13;
+        Or  r14,  r12;
+        $$p{out}->getReg(r14);
+        $$p{size}->copy(3);
+        Jmp $success;
+       };
 
-    Cmp r14, 0xf7;                                                              # Char size is: 4 bytes
-    IfLe
-    Then
-     {Mov r11b, "[r15+3]";
-      And r11, 0x3f;
-      Mov r12b, "[r15+2]";
-      And r12, 0x3f;
-      Mov r13b, "[r15+1]";
-      And r13, 0x3f;
-      And r14, 0x07;
-      Shl r12,  6;
-      Shl r13, 12;
-      Shl r14, 18;
-      Or  r14,  r13;
-      Or  r14,  r12;
-      Or  r14,  r11;
-      $$p{out}->getReg(r14);
-      $$p{size}->copy(4);
-      Jmp $success;
-     };
+      Cmp r14, 0xf7;                                                            # Char size is: 4 bytes
+      IfLe
+      Then
+       {Mov r11b, "[r15+3]";
+        And r11, 0x3f;
+        Mov r12b, "[r15+2]";
+        And r12, 0x3f;
+        Mov r13b, "[r15+1]";
+        And r13, 0x3f;
+        And r14, 0x07;
+        Shl r12,  6;
+        Shl r13, 12;
+        Shl r14, 18;
+        Or  r14,  r13;
+        Or  r14,  r12;
+        Or  r14,  r11;
+        $$p{out}->getReg(r14);
+        $$p{size}->copy(4);
+        Jmp $success;
+       };
 
-    $$p{fail}->getConst(1);                                                     # Conversion failed
-
+      $$p{fail}->getConst(1);                                                   # Conversion failed
      };
 
     PopR;
@@ -5737,98 +5737,98 @@ sub Nasm::X86::Tree::expand($$)                                                 
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block
+     {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR 8..15, 22..31;
+      PushR 8..15, 22..31;
 
-    my $t = $$s{tree};                                                          # Tree to search
-    my $L = $$p{offset};                                                        # Offset of node to expand is currently regarded as left
-    my $F = 31;
-    my $PK = 30; my $PD = 29; my $PN = 28;
-    my $LK = 27; my $LD = 26; my $LN = 25;
-    my $RK = 24; my $RD = 23; my $RN = 22;
+      my $t = $$s{tree};                                                        # Tree to search
+      my $L = $$p{offset};                                                      # Offset of node to expand is currently regarded as left
+      my $F = 31;
+      my $PK = 30; my $PD = 29; my $PN = 28;
+      my $LK = 27; my $LD = 26; my $LN = 25;
+      my $RK = 24; my $RD = 23; my $RN = 22;
 
-    $t->found->copy(0);                                                         # Assume the left node will not be freed by the expansion
-    $t->firstFromMemory($F);                                                    # Load first block
-    my $root = $t->rootFromFirst($F);                                           # Root node block offset
-    If $root == 0 || $root == $L, Then {Jmp $success};                          # Empty tree or on root so nothing to do
+      $t->found->copy(0);                                                       # Assume the left node will not be freed by the expansion
+      $t->firstFromMemory($F);                                                  # Load first block
+      my $root = $t->rootFromFirst($F);                                         # Root node block offset
+      If $root == 0 || $root == $L, Then {Jmp $success};                        # Empty tree or on root so nothing to do
 
-    Block                                                                       # If not on the root and node has the minimum number of keys then either steal left or steal right or merge left or merge right
-     {my ($end, $start) = @_;                                                   # Code with labels supplied
-      $t->getBlock($L, $LK, $LD, $LN);                                          # Load node from memory
-      my $ll = $t->lengthFromKeys($LK);                                         # Length of node
-      If $ll > $t->lengthMin, Then {Jmp $end};                                  # Has more than the bare minimum so does not need to be expanded
+      Block                                                                     # If not on the root and node has the minimum number of keys then either steal left or steal right or merge left or merge right
+       {my ($end, $start) = @_;                                                 # Code with labels supplied
+        $t->getBlock($L, $LK, $LD, $LN);                                        # Load node from memory
+        my $ll = $t->lengthFromKeys($LK);                                       # Length of node
+        If $ll > $t->lengthMin, Then {Jmp $end};                                # Has more than the bare minimum so does not need to be expanded
 
-      my $P = $t->upFromData($LD);                                              # Parent offset
-      $t->getBlock($P, $PK, $PD, $PN);                                          # Get the parent keys/data/nodes
-      my $fn = $t->firstNode($PK, $PD, $PN);                                    # Parent first node
-      my $ln = $t-> lastNode($PK, $PD, $PN);                                    # Parent last node
+        my $P = $t->upFromData($LD);                                            # Parent offset
+        $t->getBlock($P, $PK, $PD, $PN);                                        # Get the parent keys/data/nodes
+        my $fn = $t->firstNode($PK, $PD, $PN);                                  # Parent first node
+        my $ln = $t-> lastNode($PK, $PD, $PN);                                  # Parent last node
 
-      my $R = V right => 0;                                                     # The node on the right
-      my $plp = $t->indexNode($L, $PK, $PN);                                    # Position of the left node in the parent
+        my $R = V right => 0;                                                   # The node on the right
+        my $plp = $t->indexNode($L, $PK, $PN);                                  # Position of the left node in the parent
 
-      If $plp == 0,                                                             # Zero implies that the left child is not registered in its parent
-      Then
-       {PrintErrTraceBack "Cannot find left node in parent";
-       };
-
-      If $L == $ln,                                                             # If necessary step one to the let and record the fact that we did is that we can restart the search at the top
-      Then                                                                      # Last child and needs merging
-       {Vmovdqu64 zmm $RK, $LK;                                                 # Copy the current left node into the right node
-        Vmovdqu64 zmm $RD, $LD;
-        Vmovdqu64 zmm $RN, $LN;
-        $R->copy($L);                                                           # Left becomes right node because it is last
-        my $l = $plp >> K(one => 1);                                            # The position of the previous node known to exist because we are currently on the last node
-        $L->copy($l->dFromPointInZ($PN));                                       # Load previous sibling as new left keeping old left in right so that left and right now form a pair of siblings
-        $t->getBlock($L, $LK, $LD, $LN);                                        # Load the new left
-        $t->found->copy($L);                                                    # Show that we created a new left
-       },
-      Else
-       {my $r = $plp << K(one => 1);                                            # The position of the node to tthe right known to exist because we are not currently on the last node
-        $R->copy($r->dFromPointInZ($PN));                                       # Load next sibling as right
-        $t->getBlock($R, $RK, $RD, $RN);                                        # Load the right sibling
-       };
-
-      my $lr = $t->lengthFromKeys($RK);                                         # Length of right
-      If $lr == $t->lengthMin,
-      Then                                                                      # Merge left and right into left as they are both at minimum size
-       {$t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);                 # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
-        # $t->freeBlock($R, $RK, $RD, $RN);                                     # The right is no longer required because it has been merged away
-
-        my $lp = $t->lengthFromKeys($PK);                                       # New length of parent
-        If $lp == 0,
-        Then                                                                    # Root now empty
-         {$t->rootIntoFirst($F, $L);                                            # Parent is now empty so the left block must be the new root
-          $t->firstIntoMemory($F);                                              # Save first block with updated root
-          #$t->freeBlock($P, $PK, $PD, $PN);                                    # The parent is no longer required because the left ir the new root
-         },
-        Else                                                                    # Root not empty
-         {$t->putBlock($P, $PK, $PD, $PN);                                      # Write parent back into memory
+        If $plp == 0,                                                           # Zero implies that the left child is not registered in its parent
+        Then
+         {PrintErrTraceBack "Cannot find left node in parent";
          };
-       },
-      Else                                                                      # Steal from right as it is too big to merge and so must have some excess that we can steal
-       {$t->stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);        # Steal
-        $t->putBlock($P, $PK, $PD, $PN);                                        # Save modified parent
-        $t->putBlock($R, $RK, $RD, $RN);                                        # Save modified right
-       };
-      $t->putBlock($L, $LK, $LD, $LN);                                          # Save non minimum left
 
-      my $l = $t->leafFromNodes($LN);                                           # Whether the left block is a leaf
-      If $l > 0,                                                                # If the zero Flag is zero then this is not a leaf
-      Then
-       {PushR $RK, $RD, $RN;                                                    # Save these zmm even though we are not going to need them any more
-        ($t->lengthFromKeys($LK) + 1)->for(sub                                  # Reparent the children of the left hand side.  This is not efficient as we load all the children (if there are any) but it is effective.
-         {my ($index, $start, $next, $end) = @_;
-          my $R = dFromZ $LN, $index * $t->width;                               # Offset of node
-          $t->getBlock  ($R, $RK, $RD, $RN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
-          $t->upIntoData($L,      $RD);                                         # Parent for child of right hand side
-          $t->putBlock  ($R, $RK, $RD, $RN);                                    # Save block into memory now that its parent pointer has been updated
-         });
-         PopR;
-       };
-     };  # Block
+        If $L == $ln,                                                           # If necessary step one to the let and record the fact that we did is that we can restart the search at the top
+        Then                                                                    # Last child and needs merging
+         {Vmovdqu64 zmm $RK, $LK;                                               # Copy the current left node into the right node
+          Vmovdqu64 zmm $RD, $LD;
+          Vmovdqu64 zmm $RN, $LN;
+          $R->copy($L);                                                         # Left becomes right node because it is last
+          my $l = $plp >> K(one => 1);                                          # The position of the previous node known to exist because we are currently on the last node
+          $L->copy($l->dFromPointInZ($PN));                                     # Load previous sibling as new left keeping old left in right so that left and right now form a pair of siblings
+          $t->getBlock($L, $LK, $LD, $LN);                                      # Load the new left
+          $t->found->copy($L);                                                  # Show that we created a new left
+         },
+        Else
+         {my $r = $plp << K(one => 1);                                          # The position of the node to tthe right known to exist because we are not currently on the last node
+          $R->copy($r->dFromPointInZ($PN));                                     # Load next sibling as right
+          $t->getBlock($R, $RK, $RD, $RN);                                      # Load the right sibling
+         };
 
-     };                                                          # Find completed successfully
+        my $lr = $t->lengthFromKeys($RK);                                       # Length of right
+        If $lr == $t->lengthMin,
+        Then                                                                    # Merge left and right into left as they are both at minimum size
+         {$t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);               # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
+          # $t->freeBlock($R, $RK, $RD, $RN);                                   # The right is no longer required because it has been merged away
+
+          my $lp = $t->lengthFromKeys($PK);                                     # New length of parent
+          If $lp == 0,
+          Then                                                                  # Root now empty
+           {$t->rootIntoFirst($F, $L);                                          # Parent is now empty so the left block must be the new root
+            $t->firstIntoMemory($F);                                            # Save first block with updated root
+            #$t->freeBlock($P, $PK, $PD, $PN);                                  # The parent is no longer required because the left ir the new root
+           },
+          Else                                                                  # Root not empty
+           {$t->putBlock($P, $PK, $PD, $PN);                                    # Write parent back into memory
+           };
+         },
+        Else                                                                    # Steal from right as it is too big to merge and so must have some excess that we can steal
+         {$t->stealFromRight($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);      # Steal
+          $t->putBlock($P, $PK, $PD, $PN);                                      # Save modified parent
+          $t->putBlock($R, $RK, $RD, $RN);                                      # Save modified right
+         };
+        $t->putBlock($L, $LK, $LD, $LN);                                        # Save non minimum left
+
+        my $l = $t->leafFromNodes($LN);                                         # Whether the left block is a leaf
+        If $l > 0,                                                              # If the zero Flag is zero then this is not a leaf
+        Then
+         {PushR $RK, $RD, $RN;                                                  # Save these zmm even though we are not going to need them any more
+          ($t->lengthFromKeys($LK) + 1)->for(sub                                # Reparent the children of the left hand side.  This is not efficient as we load all the children (if there are any) but it is effective.
+           {my ($index, $start, $next, $end) = @_;
+            my $R = dFromZ $LN, $index * $t->width;                             # Offset of node
+            $t->getBlock  ($R, $RK, $RD, $RN);                                  # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+            $t->upIntoData($L,      $RD);                                       # Parent for child of right hand side
+            $t->putBlock  ($R, $RK, $RD, $RN);                                  # Save block into memory now that its parent pointer has been updated
+           });
+           PopR;
+         };
+       };  # Block
+     }; # Block                                                                 # Find completed successfully
     PopR;
    } parameters=>[qw(offset)],
      structures=>{tree=>$tree},
@@ -5976,64 +5976,65 @@ sub Nasm::X86::Tree::splitNode($$)                                              
                                                                                 # First block of this tree
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block
+     {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $t     = $$s{tree};                                                      # Tree
-    my $area = $t->area;                                                        # Area
+      my $t     = $$s{tree};                                                    # Tree
+      my $area = $t->area;                                                      # Area
 
-    PushR 22...31;
-    ClearRegisters 22..31;                                                      # Otherwise we get left over junk
+      PushR 22...31;
+      ClearRegisters 22..31;                                                    # Otherwise we get left over junk
 
-    my $offset = $$p{offset};                                                   # Offset of block in area
-    my $split  = $$p{split};                                                    # Indicate whether we split or not
-    $t->getBlock($offset, $LK, $LD, $LN);                                       # Load node as left
+      my $offset = $$p{offset};                                                 # Offset of block in area
+      my $split  = $$p{split};                                                  # Indicate whether we split or not
+      $t->getBlock($offset, $LK, $LD, $LN);                                     # Load node as left
 
-    my $length = $t->lengthFromKeys($LK);
-    If $t->lengthFromKeys($LK) < $t->maxKeys,
-    Then                                                                        # Only split full blocks
-     {$split->copy(K split => 0);                                               # Split not required
-      Jmp $success;
-     };
+      my $length = $t->lengthFromKeys($LK);
+      If $t->lengthFromKeys($LK) < $t->maxKeys,
+      Then                                                                      # Only split full blocks
+       {$split->copy(K split => 0);                                             # Split not required
+        Jmp $success;
+       };
 
-    my $parent = $t->upFromData($LD);                                           # Parent of this block
+      my $parent = $t->upFromData($LD);                                         # Parent of this block
 
-    my $r = $t->allocBlock    ($RK, $RD, $RN);                                  # Create a new right block
-    If $parent > 0,
-    Then                                                                        # Not the root node because it has a parent
-     {$t->upIntoData      ($parent, $RD);                                       # Address existing parent from new right
-      $t->getBlock        ($parent, $PK, $PD, $PN);                             # Load extant parent
-      $t->splitNotRoot
-                          ($r,      $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
-      $t->putBlock        ($parent, $PK, $PD, $PN);
-      $t->putBlock        ($offset, $LK, $LD, $LN);
-     },
-    Else                                                                        # Split the root node
-     {my $p = $t->allocBlock       ($PK, $PD, $PN);                             # Create a new parent block
-      $t->splitRoot   ($offset, $r, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
-      $t->upIntoData      ($p,      $LD);                                       # Left  points up to new parent
-      $t->upIntoData      ($p,      $RD);                                       # Right points up to new parent
-      $t->putBlock        ($p,      $PK, $PD, $PN);
-      $t->putBlock        ($offset, $LK, $LD, $LN);
-      $t->putBlock        ($r,      $RK, $RD, $RN);
+      my $r = $t->allocBlock    ($RK, $RD, $RN);                                # Create a new right block
+      If $parent > 0,
+      Then                                                                      # Not the root node because it has a parent
+       {$t->upIntoData      ($parent, $RD);                                     # Address existing parent from new right
+        $t->getBlock        ($parent, $PK, $PD, $PN);                           # Load extant parent
+        $t->splitNotRoot
+                            ($r,      $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+        $t->putBlock        ($parent, $PK, $PD, $PN);
+        $t->putBlock        ($offset, $LK, $LD, $LN);
+       },
+      Else                                                                      # Split the root node
+       {my $p = $t->allocBlock       ($PK, $PD, $PN);                           # Create a new parent block
+        $t->splitRoot   ($offset, $r, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+        $t->upIntoData      ($p,      $LD);                                     # Left  points up to new parent
+        $t->upIntoData      ($p,      $RD);                                     # Right points up to new parent
+        $t->putBlock        ($p,      $PK, $PD, $PN);
+        $t->putBlock        ($offset, $LK, $LD, $LN);
+        $t->putBlock        ($r,      $RK, $RD, $RN);
 
-      $t->firstFromMemory ($F);                                                 # Update new root of tree
-      $t->rootIntoFirst   ($F, $p);
-      $t->firstIntoMemory ($F);
-     };
+        $t->firstFromMemory ($F);                                               # Update new root of tree
+        $t->rootIntoFirst   ($F, $p);
+        $t->firstIntoMemory ($F);
+       };
 
-    $t->leafFromNodes($RN);                                                     # Whether the right block is a leaf
-    IfNe                                                                        # If the zero Flag is zero then this is not a leaf
-    Then
-     {(K(nodes => $t->lengthRight) + 1)->for(sub                                # Reparent the children of the right hand side now known not to be a leaf
-       {my ($index, $start, $next, $end) = @_;
-        my $n = dFromZ $RN, $index * $t->width;                                 # Offset of node
-        $t->getBlock  ($n, $LK, $LD, $LN);                                      # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
-        $t->upIntoData($r,      $LD);                                           # Parent for child of right hand side
-        $t->putBlock  ($n, $LK, $LD, $LN);                                      # Save block into memory now that its parent pointer has been updated
-       });
-     };
+      $t->leafFromNodes($RN);                                                   # Whether the right block is a leaf
+      IfNe                                                                      # If the zero Flag is zero then this is not a leaf
+      Then
+       {(K(nodes => $t->lengthRight) + 1)->for(sub                              # Reparent the children of the right hand side now known not to be a leaf
+         {my ($index, $start, $next, $end) = @_;
+          my $n = dFromZ $RN, $index * $t->width;                               # Offset of node
+          $t->getBlock  ($n, $LK, $LD, $LN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+          $t->upIntoData($r,      $LD);                                         # Parent for child of right hand side
+          $t->putBlock  ($n, $LK, $LD, $LN);                                    # Save block into memory now that its parent pointer has been updated
+         });
+       };
 
-    $t->putBlock        ($r,      $RK, $RD, $RN);                               # Save right block
+      $t->putBlock        ($r,      $RK, $RD, $RN);                             # Save right block
 
      };                                                          # Insert completed successfully
     PopR;
@@ -6266,69 +6267,69 @@ sub Nasm::X86::Tree::put($$$)                                                   
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    Block {my (undef, $success) = @_;                                                        # End label
+    Block
+     {my ($success) = @_;                                                       # End label
 
-    PushR my ($F, $K, $D, $N) = reverse 28..31;
+      PushR my ($F, $K, $D, $N) = reverse 28..31;
 
-    my $t = $$s{tree};
-    my $k = $$p{key};
-    my $d = $$p{data};
-    my $S = $$p{subTree};
-    my $a = $t->area;
+      my $t = $$s{tree};
+      my $k = $$p{key};
+      my $d = $$p{data};
+      my $S = $$p{subTree};
+      my $a = $t->area;
 
-    my $start = SetLabel;                                                       # Start the descent through the tree
+      my $start = SetLabel;                                                     # Start the descent through the tree
 
-    $t->firstFromMemory($F);
-    my $Q = $t->rootFromFirst($F);                                              # Start the descent at the root node
+      $t->firstFromMemory($F);
+      my $Q = $t->rootFromFirst($F);                                            # Start the descent at the root node
 
-    If $Q == 0,                                                                 # First entry as there is no root node.
-    Then
-     {my $block = $t->allocBlock($K, $D, $N);
-      $k->dIntoZ                ($K, 0);
-      $d->dIntoZ                ($D, 0);
-      $t->incLengthInKeys       ($K);
-      $t->setOrClearTreeBitToMatchContent($K, K(key => 1), $S);
-      $t->putBlock($block,       $K, $D, $N);
-      $t->rootIntoFirst         ($F, $block);
-      $t->incSizeInFirst        ($F);
-      $t->firstIntoMemory       ($F);                                           # First back into memory
-      Jmp $success;
-     };
+      If $Q == 0,                                                               # First entry as there is no root node.
+      Then
+       {my $block = $t->allocBlock($K, $D, $N);
+        $k->dIntoZ                ($K, 0);
+        $d->dIntoZ                ($D, 0);
+        $t->incLengthInKeys       ($K);
+        $t->setOrClearTreeBitToMatchContent($K, K(key => 1), $S);
+        $t->putBlock($block,       $K, $D, $N);
+        $t->rootIntoFirst         ($F, $block);
+        $t->incSizeInFirst        ($F);
+        $t->firstIntoMemory       ($F);                                         # First back into memory
+        Jmp $success;
+       };
 
-    my $descend = SetLabel;                                                     # Descend to the next level
+      my $descend = SetLabel;                                                   # Descend to the next level
 
-    $t->getBlock($Q, $K, $D, $N);                                               # Get the current block from memory
+      $t->getBlock($Q, $K, $D, $N);                                             # Get the current block from memory
 
-    my $eq = $t->indexEq($k, $K);                                               # Check for an equal key
-    If $eq > 0,                                                                 # Equal key found
-    Then                                                                        # Overwrite the existing key/data
-     {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d, $S);
-      $t->putBlock                  ($Q,  $K, $D, $N);
-      Jmp $success;
-     };
+      my $eq = $t->indexEq($k, $K);                                             # Check for an equal key
+      If $eq > 0,                                                               # Equal key found
+      Then                                                                      # Overwrite the existing key/data
+       {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d, $S);
+        $t->putBlock                  ($Q,  $K, $D, $N);
+        Jmp $success;
+       };
 
-    my $split = $t->splitNode($Q);                                              # Split blocks that are full
-    If $split > 0,
-    Then
-     {Jmp $start;                                                               # Restart the descent now that this block has been split
-     };
+      my $split = $t->splitNode($Q);                                            # Split blocks that are full
+      If $split > 0,
+      Then
+       {Jmp $start;                                                             # Restart the descent now that this block has been split
+       };
 
-    my $leaf = $t->leafFromNodes($N);                                           # Are we on a leaf node ?
-    If $leaf > 0,
-    Then
-     {my $i = $t->insertionPoint($k, $K);                                       # Find insertion point
-      $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $S);
-      $t->putBlock                 ($Q, $K, $D, $N);
-      $t->firstIntoMemory          ($F);                                        # First back into memory
-      Jmp $success;
-     };
+      my $leaf = $t->leafFromNodes($N);                                         # Are we on a leaf node ?
+      If $leaf > 0,
+      Then
+       {my $i = $t->insertionPoint($k, $K);                                     # Find insertion point
+        $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $S);
+        $t->putBlock                 ($Q, $K, $D, $N);
+        $t->firstIntoMemory          ($F);                                      # First back into memory
+        Jmp $success;
+       };
 
-    my $in = $t->insertionPoint($k, $K);                                        # The position at which the key would be inserted if this were a leaf
-    my $next = $in->dFromPointInZ($N);                                          # The node to the left of the insertion point - this works because the insertion point can be upto one more than the maximum number of keys
+      my $in = $t->insertionPoint($k, $K);                                      # The position at which the key would be inserted if this were a leaf
+      my $next = $in->dFromPointInZ($N);                                        # The node to the left of the insertion point - this works because the insertion point can be upto one more than the maximum number of keys
 
-    $Q->copy($next);                                                            # Get the offset of the next node - we are not on a leaf so there must be one
-    Jmp $descend;                                                               # Descend to the next level
-
+      $Q->copy($next);                                                          # Get the offset of the next node - we are not on a leaf so there must be one
+      Jmp $descend;                                                             # Descend to the next level
      };
     PopR;
    } name => "Nasm::X86::Tree::put",
@@ -6368,49 +6369,49 @@ sub Nasm::X86::Tree::find($$)                                                   
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block
+     {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
-    my $t = $$s{tree}->zero;                                                    # Tree to search
-    $t->key->copy(my $k = $$p{key});                                            # Copy in key so we know what was searched for
+      my $t = $$s{tree}->zero;                                                  # Tree to search
+      $t->key->copy(my $k = $$p{key});                                          # Copy in key so we know what was searched for
 
-    $t->firstFromMemory      ($F);                                              # Load first block
-    my $Q = $t->rootFromFirst($F);                                              # Start the search from the root
-    If $Q == 0,
-    Then                                                                        # Empty tree so we have not found the key
-     {Jmp $success;                                                             # Return
-     };
-
-    K(loop=>99)->for(sub                                                        # Step down through tree
-     {my ($index, $start, $next, $end) = @_;
-
-      $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
-
-      my $eq = $t->indexEq($k, $K);                                             # The position of a key in a zmm equal to the specified key as a point in a variable.
-      If $eq  > 0,                                                              # Result mask is non zero so we must have found the key
-      Then
-       {my $d = $eq->dFromPointInZ($D);                                         # Get the corresponding data
-        $t->found ->copy($eq);                                                  # Key found at this point
-        $t->data  ->copy($d);                                                   # Data associated with the key
-        $t->offset->copy($Q);                                                   # Offset of the containing block
-        $t->subTree->copy($t->getTreeBit($K, $eq));                             # Get corresponding tree bit
-        Jmp $success;                                                           # Return
-       };
-
-      my $leaf = $t->leafFromNodes($N);                                         # Are we on a leaf
-      If $leaf > 0,
-      Then                                                                      # Zero implies that this is a leaf node so we cannot search any further and will have to go with what you have
+      $t->firstFromMemory      ($F);                                            # Load first block
+      my $Q = $t->rootFromFirst($F);                                            # Start the search from the root
+      If $Q == 0,
+      Then                                                                      # Empty tree so we have not found the key
        {Jmp $success;                                                           # Return
        };
 
-      my $i = $t->insertionPoint($k, $K);                                       # The insertion point if we were inserting
-      my $n = $i->dFromPointInZ($N);                                            # Get the corresponding data
-      $Q->copy($n);                                                             # Corresponding node
-     });
-    PrintErrTraceBack "Stuck in find";                                          # We seem to be looping endlessly
+      K(loop=>99)->for(sub                                                      # Step down through tree
+       {my ($index, $start, $next, $end) = @_;
 
-     };                                                          # Find completed successfully
+        $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
+
+        my $eq = $t->indexEq($k, $K);                                           # The position of a key in a zmm equal to the specified key as a point in a variable.
+        If $eq  > 0,                                                            # Result mask is non zero so we must have found the key
+        Then
+         {my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
+          $t->found ->copy($eq);                                                # Key found at this point
+          $t->data  ->copy($d);                                                 # Data associated with the key
+          $t->offset->copy($Q);                                                 # Offset of the containing block
+          $t->subTree->copy($t->getTreeBit($K, $eq));                           # Get corresponding tree bit
+          Jmp $success;                                                         # Return
+         };
+
+        my $leaf = $t->leafFromNodes($N);                                       # Are we on a leaf
+        If $leaf > 0,
+        Then                                                                    # Zero implies that this is a leaf node so we cannot search any further and will have to go with what you have
+         {Jmp $success;                                                         # Return
+         };
+
+        my $i = $t->insertionPoint($k, $K);                                     # The insertion point if we were inserting
+        my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
+        $Q->copy($n);                                                           # Corresponding node
+       });
+      PrintErrTraceBack "Stuck in find";                                        # We seem to be looping endlessly
+     };                                                                         # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
      structures=>{tree=>$tree},
@@ -6425,44 +6426,44 @@ sub Nasm::X86::Tree::findFirst($)                                               
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Successfully completed
+    Block
+     {my ($success) = @_;                                                       # Successfully completed
 
-    my $t = $$s{tree};                                                          # Tree to search
-       $t->zero;                                                                # Key not found
+      my $t = $$s{tree};                                                        # Tree to search
+         $t->zero;                                                              # Key not found
 
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
-    $t->firstFromMemory($F);                                                    # Update the size of the tree
-    my $size = $t->sizeFromFirst($F);                                           # Size of tree
+      $t->firstFromMemory($F);                                                  # Update the size of the tree
+      my $size = $t->sizeFromFirst($F);                                         # Size of tree
 
-    If $size == 0,                                                              # Empty tree
-    Then
-     {Jmp $success
-     };
-
-    my $root = $t->rootFromFirst($F);                                           # Root of tree
-    $t->getBlock($root, $K, $D, $N);                                            # Load root
-
-    K(loop => 99)->for(sub                                                      # Step down through the tree a reasonable number of times
-     {my ($i, $start, $next, $end) = @_;
-      my $k = dFromZ($K, 0);
-      my $d = dFromZ($D, 0);
-      my $n = dFromZ($N, 0);
-      my $b = $t->getTreeBit($K, K key => 1);
-
-      If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
+      If $size == 0,                                                            # Empty tree
       Then
-       {$t->found  ->copy(1);
-        $t->key    ->copy($k);
-        $t->data   ->copy($d);
-        $t->subTree->copy($b);
-        Jmp $success
+       {Jmp $success
        };
 
-      $t->getBlock($n, $K, $D, $N);
-     });
-    PrintErrTraceBack "Stuck looking for first";
+      my $root = $t->rootFromFirst($F);                                         # Root of tree
+      $t->getBlock($root, $K, $D, $N);                                          # Load root
 
+      K(loop => 99)->for(sub                                                    # Step down through the tree a reasonable number of times
+       {my ($i, $start, $next, $end) = @_;
+        my $k = dFromZ($K, 0);
+        my $d = dFromZ($D, 0);
+        my $n = dFromZ($N, 0);
+        my $b = $t->getTreeBit($K, K key => 1);
+
+        If $t->leafFromNodes($N),                                               # Leaf node means we have arrived
+        Then
+         {$t->found  ->copy(1);
+          $t->key    ->copy($k);
+          $t->data   ->copy($d);
+          $t->subTree->copy($b);
+          Jmp $success
+         };
+
+        $t->getBlock($n, $K, $D, $N);
+       });
+      PrintErrTraceBack "Stuck looking for first";
      };                                                          # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
@@ -6477,46 +6478,46 @@ sub Nasm::X86::Tree::findLast($)                                                
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Successfully completed
+    Block
+     {my ($success) = @_;                                                       # Successfully completed
 
-    my $t = $$s{tree}->zero;                                                    # Tree to search
+      my $t = $$s{tree}->zero;                                                  # Tree to search
 
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
-    $t->firstFromMemory($F);                                                    # Update the size of the tree
-    my $size = $t->sizeFromFirst($F);                                           # Size of tree
+      $t->firstFromMemory($F);                                                  # Update the size of the tree
+      my $size = $t->sizeFromFirst($F);                                         # Size of tree
 
-    If $size == 0,                                                              # Empty tree
-    Then
-     {Jmp $success
-     };
-
-    my $root = $t->rootFromFirst($F);                                           # Root of tree
-    $t->getBlock($root, $K, $D, $N);                                            # Load root
-
-    K(loop => 99)->for(sub                                                      # Step down through the tree a reasonable number of times
-     {my ($i, $start, $next, $end) = @_;
-      my $l = $t->lengthFromKeys($K);
-      my $o  = ($l - 1) * $t->width;
-      my $O  = ($l + 0) * $t->width;
-      my $k = dFromZ($K, $o);
-      my $d = dFromZ($D, $o);
-      my $n = dFromZ($N, $O);
-      my $b = $t->getTreeBit($K, $l);
-
-      If $t->leafFromNodes($N),                                                 # Leaf node means we have arrived
+      If $size == 0,                                                            # Empty tree
       Then
-       {$t->found   ->copy(1);
-        $t->key    ->copy($k);
-        $t->data   ->copy($d);
-        $t->subTree->copy($b);
-        Jmp $success
+       {Jmp $success
        };
 
-      $t->getBlock($n, $K, $D, $N);
-     });
-    PrintErrTraceBack "Stuck looking for last";
+      my $root = $t->rootFromFirst($F);                                         # Root of tree
+      $t->getBlock($root, $K, $D, $N);                                          # Load root
 
+      K(loop => 99)->for(sub                                                    # Step down through the tree a reasonable number of times
+       {my ($i, $start, $next, $end) = @_;
+        my $l = $t->lengthFromKeys($K);
+        my $o  = ($l - 1) * $t->width;
+        my $O  = ($l + 0) * $t->width;
+        my $k = dFromZ($K, $o);
+        my $d = dFromZ($D, $o);
+        my $n = dFromZ($N, $O);
+        my $b = $t->getTreeBit($K, $l);
+
+        If $t->leafFromNodes($N),                                               # Leaf node means we have arrived
+        Then
+         {$t->found   ->copy(1);
+          $t->key    ->copy($k);
+          $t->data   ->copy($d);
+          $t->subTree->copy($b);
+          Jmp $success
+         };
+
+        $t->getBlock($n, $K, $D, $N);
+       });
+      PrintErrTraceBack "Stuck looking for last";
      };                                                          # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
@@ -6532,55 +6533,55 @@ sub Nasm::X86::Tree::findNext($$)                                               
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block
+     {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
-    my $t = $$s{tree}->zero;                                                    # Tree to search
-    my $k = $$p{key};                                                           # Key to find
-    $t->key->copy($k);                                                          # Copy in key so we know what was searched for
+      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+      my $t = $$s{tree}->zero;                                                  # Tree to search
+      my $k = $$p{key};                                                         # Key to find
+      $t->key->copy($k);                                                        # Copy in key so we know what was searched for
 
-    $t->firstFromMemory      ($F);                                              # Load first block
-    my $Q = $t->rootFromFirst($F);                                              # Start the search from the root
-    If $Q == 0,
-    Then                                                                        # Empty tree so we have successfully not found the key
-     {Jmp $success;                                                             # Return
-     };
+      $t->firstFromMemory      ($F);                                            # Load first block
+      my $Q = $t->rootFromFirst($F);                                            # Start the search from the root
+      If $Q == 0,
+      Then                                                                      # Empty tree so we have successfully not found the key
+       {Jmp $success;                                                           # Return
+       };
 
-    my $li = V(key => 0);                                                       # Offset of last not right tells us where to continue the search -
-    my $lQ = V(key => 0);                                                       # Insertion point of last non right
+      my $li = V(key => 0);                                                     # Offset of last not right tells us where to continue the search -
+      my $lQ = V(key => 0);                                                     # Insertion point of last non right
 
-    K(loop=>99)->for(sub                                                        # Step down through tree
-     {my ($index, $start, $next, $end) = @_;
+      K(loop=>99)->for(sub                                                      # Step down through tree
+       {my ($index, $start, $next, $end) = @_;
 
-      $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
-      my $lp   = K(key => 1) << $t->lengthFromKeys($K);                         # Point to last node in nodes area
-      my $i = $t->insertionPoint($k, $K);                                       # The insertion point
-      If $t->leafFromNodes($N) > 0,
-      Then                                                                      # On a leaf
-       {If $i == $lp,
-        Then                                                                    # Last in leaf so reposition on last not right
-         {If $li == 0, Then {Jmp $success};                                     # Greater than all keys
-          $t->getBlock($li, $K, $D, $N);
-          $i->copy($lQ);
+        $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
+        my $lp   = K(key => 1) << $t->lengthFromKeys($K);                       # Point to last node in nodes area
+        my $i = $t->insertionPoint($k, $K);                                     # The insertion point
+        If $t->leafFromNodes($N) > 0,
+        Then                                                                    # On a leaf
+         {If $i == $lp,
+          Then                                                                  # Last in leaf so reposition on last not right
+           {If $li == 0, Then {Jmp $success};                                   # Greater than all keys
+            $t->getBlock($li, $K, $D, $N);
+            $i->copy($lQ);
+           };
+          $t->found  ->copy($i);                                                # Key found at this point
+          $t->key    ->copy($i->dFromPointInZ($K));                             # Save key
+          $t->data   ->copy($i->dFromPointInZ($D));                             # Save data
+          $t->subTree->copy($t->getTreeBit   ($K, $i));                         # Save sub tree
+          $t->offset ->copy($Q);                                                # Save offset
+          Jmp $success;                                                         # Return
          };
-        $t->found  ->copy($i);                                                  # Key found at this point
-        $t->key    ->copy($i->dFromPointInZ($K));                               # Save key
-        $t->data   ->copy($i->dFromPointInZ($D));                               # Save data
-        $t->subTree->copy($t->getTreeBit   ($K, $i));                           # Save sub tree
-        $t->offset ->copy($Q);                                                  # Save offset
-        Jmp $success;                                                           # Return
-       };
 
-      my $n = $i->dFromPointInZ($N);                                            # Get the corresponding data
-      If $i != $lp,
-      Then                                                                      # Not descending through the last right
-       {$li->copy($Q);
-        $lQ->copy($i);
-       };
-      $Q->copy($n);                                                             # Corresponding node
-     });
-    PrintErrTraceBack "Stuck in find next";                                     # We seem to be looping endlessly
-
+        my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
+        If $i != $lp,
+        Then                                                                    # Not descending through the last right
+         {$li->copy($Q);
+          $lQ->copy($i);
+         };
+        $Q->copy($n);                                                           # Corresponding node
+       });
+      PrintErrTraceBack "Stuck in find next";                                   # We seem to be looping endlessly
      };                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
@@ -6597,60 +6598,60 @@ sub Nasm::X86::Tree::findPrev($$)                                               
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block
+     {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
-    my $t = $$s{tree}->zero;                                                    # Tree to search
-    my $k = $$p{key};                                                           # Key to find
-    $t->key->copy($k);                                                          # Copy in key so we know what was searched for
+      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+      my $t = $$s{tree}->zero;                                                  # Tree to search
+      my $k = $$p{key};                                                         # Key to find
+      $t->key->copy($k);                                                        # Copy in key so we know what was searched for
 
-    $t->firstFromMemory      ($F);                                              # Load first block
-    my $Q = $t->rootFromFirst($F);                                              # Start the search from the root
-    If $Q == 0, Then {Jmp $success};                                            # Empty tree so we have successfully not found the key
+      $t->firstFromMemory      ($F);                                            # Load first block
+      my $Q = $t->rootFromFirst($F);                                            # Start the search from the root
+      If $Q == 0, Then {Jmp $success};                                          # Empty tree so we have successfully not found the key
 
-    my $li = V key => 0;                                                        # Offset of last not right tells us where to continue the search -
-    my $lQ = V key => 0;                                                        # Insertion point of last non right
+      my $li = V key => 0;                                                      # Offset of last not right tells us where to continue the search -
+      my $lQ = V key => 0;                                                      # Insertion point of last non right
 
-    K(loop => 99)->for(sub                                                      # Step down through tree
-     {my ($index, $start, $next, $end) = @_;
-      $t->getBlock($Q, $K, $D, $N);                                             # Get the keys/data/nodes
-      my $i = $t->insertionPoint($k, $K);                                       # The insertion point
-      If $i > 1,
-      Then
-       {my $j = $i >> K key => 1;
-        If $j->dFromPointInZ($K) == $k,
+      K(loop => 99)->for(sub                                                    # Step down through tree
+       {my ($index, $start, $next, $end) = @_;
+        $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
+        my $i = $t->insertionPoint($k, $K);                                     # The insertion point
+        If $i > 1,
         Then
-         {$i->copy($j);
+         {my $j = $i >> K key => 1;
+          If $j->dFromPointInZ($K) == $k,
+          Then
+           {$i->copy($j);
+           };
          };
-       };
 
-      If $t->leafFromNodes($N) > 0,
-      Then                                                                      # On a leaf
-       {If $i == 1,
-        Then                                                                    # First in leaf so reposition on last not left
-         {If $li == 0, Then {Jmp $success};                                     # Greater than all keys
-          $t->getBlock($li, $K, $D, $N);
-          $i->copy($lQ);
+        If $t->leafFromNodes($N) > 0,
+        Then                                                                    # On a leaf
+         {If $i == 1,
+          Then                                                                  # First in leaf so reposition on last not left
+           {If $li == 0, Then {Jmp $success};                                   # Greater than all keys
+            $t->getBlock($li, $K, $D, $N);
+            $i->copy($lQ);
+           };
+          $i->copy($i >> K(one => 1));
+          $t->found  ->copy($i);                                                # Key found at this point
+          $t->key    ->copy($i->dFromPointInZ($K));                             # Save key
+          $t->data   ->copy($i->dFromPointInZ($D));                             # Save data
+          $t->subTree->copy($t->getTreeBit   ($K, $i));                         # Save sub tree
+          $t->offset ->copy($Q);                                                # Save offset
+          Jmp $success;                                                         # Return
          };
-        $i->copy($i >> K(one => 1));
-        $t->found  ->copy($i);                                                  # Key found at this point
-        $t->key    ->copy($i->dFromPointInZ($K));                               # Save key
-        $t->data   ->copy($i->dFromPointInZ($D));                               # Save data
-        $t->subTree->copy($t->getTreeBit   ($K, $i));                           # Save sub tree
-        $t->offset ->copy($Q);                                                  # Save offset
-        Jmp $success;                                                           # Return
-       };
 
-      my $n = $i->dFromPointInZ($N);                                            # Get the corresponding data
-      If $i != 1,
-      Then                                                                      # Not descending through the first left
-       {$li->copy($Q);
-        $lQ->copy($i);
-       };
-      $Q->copy($n);                                                             # Corresponding node
-     });
-    PrintErrTraceBack "Stuck in find prev";                                     # We seem to be looping endlessly
-
+        my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
+        If $i != 1,
+        Then                                                                    # Not descending through the first left
+         {$li->copy($Q);
+          $lQ->copy($i);
+         };
+        $Q->copy($n);                                                           # Corresponding node
+       });
+      PrintErrTraceBack "Stuck in find prev";                                   # We seem to be looping endlessly
      };                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
@@ -6677,35 +6678,35 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block
+     {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $t        = $$s{tree};                                                   # Tree
-       $t->first->copy(my $F = $$p{node});                                      # First block
-    my $area = $t->area;                                                        # Area
-    PushR rax, 8, 9, 29..31;
+      my $t        = $$s{tree};                                                 # Tree
+         $t->first->copy(my $F = $$p{node});                                    # First block
+      my $area = $t->area;                                                      # Area
+      PushR rax, 8, 9, 29..31;
 
-    K(loopLimit=>9)->for(sub                                                    # Loop a reasonable number of times
-     {my ($index, $start, $next, $end) = @_;
-      $t->getBlock($F, 31, 30, 29);                                             # Get the first keys block
-      my $n = dFromZ 29, 0;                                                     # Get the node block offset from the data block loop
-      If $n == 0,
-      Then                                                                      # Reached the end so return the containing block
-       {$$p{offset}->copy($F);
-        Jmp $success;
-       };
-      if ($dir == 0)                                                            # Left most
-       {my $l = dFromZ 29, 0;                                                   # Get the left most node
-        $F->copy($l);                                                           # Continue with the next level
-       }
-      else                                                                      # Right most
-       {my $l = $t->lengthFromKeys(31);                                         # Length of the node
-        my $r = dFromZ 31, $l;                                                  # Get the right most child
-        $F->copy($r);                                                           # Continue with the next level
-       }
-     });
-    PrintErrStringNL "Stuck in LeftOrRightMost";
-    Exit(1);
-
+      K(loopLimit=>9)->for(sub                                                  # Loop a reasonable number of times
+       {my ($index, $start, $next, $end) = @_;
+        $t->getBlock($F, 31, 30, 29);                                           # Get the first keys block
+        my $n = dFromZ 29, 0;                                                   # Get the node block offset from the data block loop
+        If $n == 0,
+        Then                                                                    # Reached the end so return the containing block
+         {$$p{offset}->copy($F);
+          Jmp $success;
+         };
+        if ($dir == 0)                                                          # Left most
+         {my $l = dFromZ 29, 0;                                                 # Get the left most node
+          $F->copy($l);                                                         # Continue with the next level
+         }
+        else                                                                    # Right most
+         {my $l = $t->lengthFromKeys(31);                                       # Length of the node
+          my $r = dFromZ 31, $l;                                                # Get the right most child
+          $F->copy($r);                                                         # Continue with the next level
+         }
+       });
+      PrintErrStringNL "Stuck in LeftOrRightMost";
+      Exit(1);
      };                                                          # Insert completed successfully
     PopR;
    } structures => {tree => $tree},
@@ -6736,29 +6737,29 @@ sub Nasm::X86::Tree::depth($$)                                                  
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block
+     {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $t = $$s{tree};                                                          # Tree
-    my $area = $tree->area;                                                     # Area
-    my $N = $$p{node};                                                          # Starting node
+      my $t = $$s{tree};                                                        # Tree
+      my $area = $tree->area;                                                   # Area
+      my $N = $$p{node};                                                        # Starting node
 
-    PushR 8, 9, 14, 15, 30, 31;
-    my $tree = $N->clone('tree');                                               # Start at the specified node
+      PushR 8, 9, 14, 15, 30, 31;
+      my $tree = $N->clone('tree');                                             # Start at the specified node
 
-    K(loop => 9)->for(sub                                                       # Step up through tree
-     {my ($index, $start, $next, $end) = @_;
-      $t->getKeysData($tree, 31, 30, r8, r9);                                   # Get the first node of the tree
-      my $P = $t->getUpFromData(30);                                            # Parent
-      If $P == 0,
-      Then                                                                      # Empty tree so we have not found the key
-       {$$p{depth}->copy($index+1);                                             # Key not found
-        Jmp $success;                                                           # Return
-       };
-      $tree->copy($P);                                                          # Up to next level
-     });
-    PrintErrStringNL "Stuck in depth";                                          # We seem to be looping endlessly
-    Exit(1);
-
+      K(loop => 9)->for(sub                                                     # Step up through tree
+       {my ($index, $start, $next, $end) = @_;
+        $t->getKeysData($tree, 31, 30, r8, r9);                                 # Get the first node of the tree
+        my $P = $t->getUpFromData(30);                                          # Parent
+        If $P == 0,
+        Then                                                                    # Empty tree so we have not found the key
+         {$$p{depth}->copy($index+1);                                           # Key not found
+          Jmp $success;                                                         # Return
+         };
+        $tree->copy($P);                                                        # Up to next level
+       });
+      PrintErrStringNL "Stuck in depth";                                        # We seem to be looping endlessly
+      Exit(1);
      };                                                          # Insert completed successfully
     PopR;
    }  structures => {tree => $tree},
@@ -7469,125 +7470,125 @@ sub Nasm::X86::Tree::delete($$)                                                 
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block {my (undef, $success) = @_;                                                        # Short circuit if ladders by jumping directly to the end after a successful push
+    Block
+     {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
-    my $t = $$s{tree}->zero;                                                    # Tree to search
-    my $k = $$p{key};                                                           # Key to find
-    $t->key->copy($k);                                                          # Copy in key so we know what was searched for
+      my $t = $$s{tree}->zero;                                                  # Tree to search
+      my $k = $$p{key};                                                         # Key to find
+      $t->key->copy($k);                                                        # Copy in key so we know what was searched for
 
-    $t->find($k);                                                               # See if we can find the key
-    If $t->found == 0, Then {Jmp $success};                                     # Key not present so we cannot delete
+      $t->find($k);                                                             # See if we can find the key
+      If $t->found == 0, Then {Jmp $success};                                   # Key not present so we cannot delete
 
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
-    $t->firstFromMemory($F);                                                    # Update the size of the tree
-    my $size = $t->sizeFromFirst($F);                                           # Size of tree
-    $t->decSizeInFirst($F);
-    $t->firstIntoMemory($F);
+      $t->firstFromMemory($F);                                                  # Update the size of the tree
+      my $size = $t->sizeFromFirst($F);                                         # Size of tree
+      $t->decSizeInFirst($F);
+      $t->firstIntoMemory($F);
 
-    K(loop => 99)->for(sub
-     {my ($i, $startDescent, $next, $end) = @_;
+      K(loop => 99)->for(sub
+       {my ($i, $startDescent, $next, $end) = @_;
 
-      $t->firstFromMemory         ($F);                                         # Load first block
-      my $root = $t->rootFromFirst($F);                                         # Start the search from the root to locate the  key to be deleted
-      If $root == 0, Then{Jmp $success};                                        # Empty tree so we have not found the key and nothing needs to be done
+        $t->firstFromMemory         ($F);                                       # Load first block
+        my $root = $t->rootFromFirst($F);                                       # Start the search from the root to locate the  key to be deleted
+        If $root == 0, Then{Jmp $success};                                      # Empty tree so we have not found the key and nothing needs to be done
 
-      If $size == 1,                                                            # Delete the last element which must be the matching element
-      Then
-       {$t->rootIntoFirst($F, K z=>0);                                          # Empty the tree
-        $t->firstIntoMemory($F);                                                # The position of the key in the root node
-        Jmp $success
-       };
+        If $size == 1,                                                          # Delete the last element which must be the matching element
+        Then
+         {$t->rootIntoFirst($F, K z=>0);                                        # Empty the tree
+          $t->firstIntoMemory($F);                                              # The position of the key in the root node
+          Jmp $success
+         };
 
-      $t->getBlock($root, $K, $D, $N);                                          # Load root block
-      If $t->leafFromNodes($N) > 0,                                             # Element must be in the root as the root is a leaf and we know the key can be found
-      Then
-       {my $eq = $t->indexEq($k, $K);                                           # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
-        $t->extract($eq, $K, $D, $N);                                           # Extract from root
-        $t->putBlock($root, $K, $D, $N);
-        Jmp $success
-       };
+        $t->getBlock($root, $K, $D, $N);                                        # Load root block
+        If $t->leafFromNodes($N) > 0,                                           # Element must be in the root as the root is a leaf and we know the key can be found
+        Then
+         {my $eq = $t->indexEq($k, $K);                                         # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
+          $t->extract($eq, $K, $D, $N);                                         # Extract from root
+          $t->putBlock($root, $K, $D, $N);
+          Jmp $success
+         };
 
-      my $P = $root->clone('position');                                         # Position in tree
-      K(loop => 99)->for(sub                                                    # Step down through tree looking for the key
-       {my ($index, $start, $next, $end) = @_;
-        my $eq = $t->indexEq($k, $K);                                           # The key might still be in the parent now known not be a leaf
-        If $eq > 0,
-        Then                                                                    # We have found the key so now we need to find the next leaf unless this node is in fact a leaf
-         {my $pu = $t->upFromData($D);                                          # Parent offset
-          If $pu > 0,
-          Then                                                                  # Cannot merge or steal on root
+        my $P = $root->clone('position');                                       # Position in tree
+        K(loop => 99)->for(sub                                                  # Step down through tree looking for the key
+         {my ($index, $start, $next, $end) = @_;
+          my $eq = $t->indexEq($k, $K);                                         # The key might still be in the parent now known not be a leaf
+          If $eq > 0,
+          Then                                                                  # We have found the key so now we need to find the next leaf unless this node is in fact a leaf
+           {my $pu = $t->upFromData($D);                                        # Parent offset
+            If $pu > 0,
+            Then                                                                # Cannot merge or steal on root
+             {If $t->mergeOrSteal($P) > 0,                                      # Merge or steal if necessary
+              Then                                                              # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+               {Jmp $startDescent;
+               };
+             };
+
+            If $t->leafFromNodes($N) > 0,                                       # We found the item in a leaf so it can be deleted immediately if there is enough
+            Then
+             {my $eq = $t->indexEq($k, $K);                                     # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
+              $t->extract($eq, $K, $D, $N);                                     # Remove from block
+              $t->putBlock($P, $K, $D, $N);                                     # Save block
+              Jmp $success;                                                     # Leaf removed
+             };
+
+            my $eq = $t->indexEq($k, $K);                                       # Location of key
+            my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                      # Go right to the next level down
+
+            K(loop => 99)->for(sub                                              # Find the left most leaf
+             {my ($index, $start, $next, $end) = @_;
+
+              If $t->mergeOrSteal($Q) > 0,                                      # Merge or steal if necessary
+              Then                                                              # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
+               {Jmp $startDescent;
+               };
+              $t->getBlock($Q, $K, $D, $N);                                     # Next block down
+              If $t->leafFromNodes($N) > 0,                                     # We must hit a leaf eventually
+              Then
+               {$t->extractFirst($K, $D, $N);                                   # Remove from block
+                $t->putBlock($Q, $K, $D, $N);                                   # Save block
+
+                my $key     = $t->key->clone("key");                            # Record details of leaf
+                my $data    = $t->data->clone("data");                          #
+                my $subTree = $t->subTree->clone("data");                       #
+                $t->find($k);                                                   # Find key we actually want to delete
+
+                $t->key    ->copy($key);                                        # Reload
+                $t->data   ->copy($data);
+                $t->subTree->copy($subTree);
+
+                my $l = $t->offset;                                             # Offset of block containing key
+
+                $t->getBlock($l, $K, $D, $N);                                   # Block containing key
+                $t->replace ($t->found,  $K, $D);                               # Replace key to delete with leaf
+                $t->putBlock($l, $K, $D, $N);                                   # Save block
+                Jmp $success;
+               };
+
+              my $i = $t->insertionPoint($k, $K);                               # The insertion point if we were inserting is the next node to visit
+              $Q->copy($i->dFromPointInZ($N));                                  # Get the corresponding offset of the the next block down
+             });
+             Jmp $success;
+           };
+
+          my $i = $t->insertionPoint($k, $K);                                   # The insertion point if we were inserting is the next node to visit
+          $P->copy($i->dFromPointInZ($N));                                      # Get the corresponding node
+
+          $t->getBlock($P, $K, $D, $N);                                         # Get the next block
+
+          my $l = $t->lengthFromKeys($K);                                       # Length of block
+
+          If $l == $t->lengthMin,                                               # Has the the bare minimum so must be merged.
+          Then
            {If $t->mergeOrSteal($P) > 0,                                        # Merge or steal if necessary
             Then                                                                # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
              {Jmp $startDescent;
              };
            };
-
-          If $t->leafFromNodes($N) > 0,                                         # We found the item in a leaf so it can be deleted immediately if there is enough
-          Then
-           {my $eq = $t->indexEq($k, $K);                                       # Key must be in this leaf as we know it can be found and this is the last opportunity to find it
-            $t->extract($eq, $K, $D, $N);                                       # Remove from block
-            $t->putBlock($P, $K, $D, $N);                                       # Save block
-            Jmp $success;                                                       # Leaf removed
-           };
-
-          my $eq = $t->indexEq($k, $K);                                         # Location of key
-          my $Q = ($eq << K(one=>1))->dFromPointInZ($N);                        # Go right to the next level down
-
-          K(loop => 99)->for(sub                                                # Find the left most leaf
-           {my ($index, $start, $next, $end) = @_;
-
-            If $t->mergeOrSteal($Q) > 0,                                        # Merge or steal if necessary
-            Then                                                                # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
-             {Jmp $startDescent;
-             };
-            $t->getBlock($Q, $K, $D, $N);                                       # Next block down
-            If $t->leafFromNodes($N) > 0,                                       # We must hit a leaf eventually
-            Then
-             {$t->extractFirst($K, $D, $N);                                     # Remove from block
-              $t->putBlock($Q, $K, $D, $N);                                     # Save block
-
-              my $key     = $t->key->clone("key");                              # Record details of leaf
-              my $data    = $t->data->clone("data");                            #
-              my $subTree = $t->subTree->clone("data");                         #
-              $t->find($k);                                                     # Find key we actually want to delete
-
-              $t->key    ->copy($key);                                          # Reload
-              $t->data   ->copy($data);
-              $t->subTree->copy($subTree);
-
-              my $l = $t->offset;                                               # Offset of block containing key
-
-              $t->getBlock($l, $K, $D, $N);                                     # Block containing key
-              $t->replace ($t->found,  $K, $D);                                 # Replace key to delete with leaf
-              $t->putBlock($l, $K, $D, $N);                                     # Save block
-              Jmp $success;
-             };
-
-            my $i = $t->insertionPoint($k, $K);                                 # The insertion point if we were inserting is the next node to visit
-            $Q->copy($i->dFromPointInZ($N));                                    # Get the corresponding offset of the the next block down
-           });
-           Jmp $success;
-         };
-
-        my $i = $t->insertionPoint($k, $K);                                     # The insertion point if we were inserting is the next node to visit
-        $P->copy($i->dFromPointInZ($N));                                        # Get the corresponding node
-
-        $t->getBlock($P, $K, $D, $N);                                           # Get the next block
-
-        my $l = $t->lengthFromKeys($K);                                         # Length of block
-
-        If $l == $t->lengthMin,                                                 # Has the the bare minimum so must be merged.
-        Then
-         {If $t->mergeOrSteal($P) > 0,                                          # Merge or steal if necessary
-          Then                                                                  # Restart entire process because we might have changed the position of the key being deleted by merging in its vicinity
-           {Jmp $startDescent;
-           };
-         };
+         });
        });
-     });
-    PrintErrTraceBack "Stuck looking for leaf";
-
+      PrintErrTraceBack "Stuck looking for leaf";
      };                                                          # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
@@ -24365,7 +24366,7 @@ NO carry
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TSetLabel #TRegisterSize #TSaveFirstFour #TSaveFirstSeven #TRestoreFirstFour #TRestoreFirstSeven #TRestoreFirstFourExceptRax #TRestoreFirstSevenExceptRax #TRestoreFirstFourExceptRaxAndRdi #TRestoreFirstSevenExceptRaxAndRdi #TReverseBytesInRax
   Mov rax, 1;
   Mov rdi, 1;
@@ -25376,7 +25377,7 @@ if (0) {                                                                        
 
   $s->call(K(in, 42));
 
-  ok Assemble(debug => 0, keep2 => 'signal', avx512=>0, eq => <<END, avx512=>0);         # Cannot use the emulator because it does not understand signals
+  ok Assemble(debug => 0, keep2 => 'signal', avx512=>0, eq => <<END, avx512=>0);# Cannot use the emulator because it does not understand signals
 
 Subroutine trace back, depth:  1
 0000 0000 0000 002A    sub that causes a segv
@@ -25418,7 +25419,7 @@ if (0) {                                                                        
 
   $t->call(K(in, 42));
 
-  ok Assemble(debug => 0, keep2 => 'signal', avx512=>0, eq => <<END, avx512=>0);         # Cannot use the emulator because it does not understand signals
+  ok Assemble(debug => 0, keep2 => 'signal', avx512=>0, eq => <<END, avx512=>0);# Cannot use the emulator because it does not understand signals
 
 Subroutine trace back, depth:  1
 0000 0000 0000 002A    sub that causes a segv
