@@ -5823,7 +5823,7 @@ sub Nasm::X86::Tree::expand($$)                                                 
          };
         $t->putBlock($L, $LK, $LD, $LN);                                        # Save non minimum left
 
-        If $t->leafFromNodes == 0,
+        If $t->leafFromNodes($LN) == 0,
         Then                                                                    # Not a leaf
          {PushR $RK, $RD, $RN;                                                  # Save these zmm even though we are not going to need them any more
           ($t->lengthFromKeys($LK) + 1)->for(sub                                # Reparent the children of the left hand side.  This is not efficient as we load all the children (if there are any) but it is effective.
