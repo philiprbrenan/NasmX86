@@ -5535,6 +5535,7 @@ sub Nasm::X86::Tree::freeBlock($$$$$)                                           
   @_ == 5 or confess "Five parameters";
   my $d = $tree->getLoop($K);
   my $n = $tree->getLoop($D);
+
   $tree->area->freeZmmBlock($_) for $k, $d, $n;                                 # Free the component zmm blocks
  } # freeBlock
 
@@ -5803,14 +5804,14 @@ sub Nasm::X86::Tree::expand($$)                                                 
         If $lr == $t->lengthMin,
         Then                                                                    # Merge left and right into left as they are both at minimum size
          {$t->merge($PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);               # Tree definition, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm.
-          # $t->freeBlock($R, $RK, $RD, $RN);                                   # The right is no longer required because it has been merged away
+          $t->freeBlock($R, $RK, $RD, $RN);                                     # The right is no longer required because it has been merged away
 
           my $lp = $t->lengthFromKeys($PK);                                     # New length of parent
           If $lp == 0,
           Then                                                                  # Root now empty
            {$t->rootIntoFirst($F, $L);                                          # Parent is now empty so the left block must be the new root
             $t->firstIntoMemory($F);                                            # Save first block with updated root
-            #$t->freeBlock($P, $PK, $PD, $PN);                                  # The parent is no longer required because the left ir the new root
+            $t->freeBlock($P, $PK, $PD, $PN);                                   # The parent is no longer required because the left ir the new root
            },
           Else                                                                  # Root not empty
            {$t->putBlock($P, $PK, $PD, $PN);                                    # Write parent back into memory
@@ -27894,9 +27895,9 @@ if (1) {                                                                        
   $t->expand($L);
 
   $t->firstFromMemory($F);
-  $t->getBlock($P, $PK, $PD, $PN);
+# $t->getBlock($P, $PK, $PD, $PN);
   $t->getBlock($L, $LK, $LD, $LN);
-  $t->getBlock($R, $RK, $RD, $RN);
+# $t->getBlock($R, $RK, $RD, $RN);
 
   PrintOutStringNL "Finish";
   PrintOutRegisterInHex reverse $LN..$LK;
