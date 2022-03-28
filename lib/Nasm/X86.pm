@@ -4,6 +4,7 @@
 # Philip R Brenan at appaapps dot com, Appa Apps Ltd Inc., 2021
 #-------------------------------------------------------------------------------
 # podDocumentation (\A.{80})\s+(#.*\Z) \1\2
+# rdi and rsi are free so they cannot be relied on across calls
 # tree::print - speed up decision as to whether we are on a tree or not
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
 # Make hash accept parameters at: #THash
@@ -1517,7 +1518,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
 
   if (1)                                                                        # Validate options
    {my %o = %options;
-    delete $o{$_} for qw(parameters structures);
+    delete $o{$_} for qw(parameters structures override);                       # Parameters are variables, structures are Perl data structures with variables embedded in them,  override is a variable that contains the actual address of the subroutine
     if (my @i = sort keys %o)
      {confess "Invalid parameters: ".join(', ',@i);
      }
@@ -1584,11 +1585,9 @@ sub Nasm::X86::Subroutine::call($%)                                             
    {$sub->uploadStructureVariablesToNewStackFrame($structures);
    }
 
-  my $mode = 0;   # Assume call by address for the moment
-  if ($mode)                                                                    # Dereference and call subroutine
-   {Mov r15, $sub->start;
-    Mov r15, "[r15]";
-    Call r15;
+  if (my $o = $options{override})                                               # A variable containing the address of the subroutine to call
+   {$o->setReg(rdi);
+    Call rdi;
    }
   else                                                                          # Call via label
    {Call $sub->start;
@@ -26040,36 +26039,6 @@ END
  }
 
 #latest:
-if (0) {
-
-  my $library = CreateLibrary                                                   # Library definition
-   (subroutines =>                                                              # Sub routines in libray
-     {inc => sub {Inc rax},                                                     # Increment rax
-      dup => sub {Shl rax, 1},                                                  # Double rax
-      put => sub {PrintOutRaxInDecNL},                                          # Print rax in decimal
-     },
-    file => q(library),
-   );
-
-  my ($dup, $inc, $put) = $library->load;                                       # Load the library into memory
-
-  Mov rax, 1; &$put;
-  &$inc;      &$put;                                                            # Use the subroutines from the library
-  &$dup;      &$put;
-  &$dup;      &$put;
-  &$inc;      &$put;
-
-  ok Assemble eq => <<END, avx512=>0;
-1
-2
-4
-8
-9
-END
-  unlink $$library{file};
- }
-
-#latest:
 if (1) {                                                                        #TreadChar #TPrintOutRaxAsChar
   my $e = q(readChar);
 
@@ -26343,7 +26312,7 @@ if (1) {
   my $N = 256;
   my $t = V struct => 33;
 
-  my $s = Subroutine                                                            #TSubroutine2
+  my $s = Subroutine                                                            #TSubroutine
    {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
     SaveFirstFour;
     my $v = V var => 0;
@@ -30256,7 +30225,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $p = $a->CreateTree(length => 3);
@@ -30374,6 +30343,77 @@ At:  480                    length:    1,  data:  4C0,  nodes:  500,  first:  44
   Data :    1
 end
 END
+ }
+
+latest:
+if (1) {                                                                        #
+  my $t = Subroutine                                                            #TSubroutine
+   {my ($p, $s, $sub) = @_;
+    PrintOutStringNL "TTTT";
+    $$p{p}->outNL;
+   } parameters=>[qw(p)], name=>"t";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    PrintOutStringNL "SSS";
+    $$p{p}->outNL;
+   } parameters=>[qw(p)], name=>"s";
+
+  $s->call(parameters => {p => V(p => 1)});
+  $t->call(parameters => {p => V(p => 2)});
+
+  $s->call(parameters => {p => V(p => 3)}, override=>K call => $t->start);
+  $s->call(parameters => {p => V(p => 4)}, override=>K call => $s->start);
+  $s->call(parameters => {p => V(p => 5)});
+
+  ok Assemble eq => <<END, avx512=>1;
+SSS
+p: .... .... .... ...1
+TTTT
+p: .... .... .... ...2
+TTTT
+p: .... .... .... ...3
+SSS
+p: .... .... .... ...4
+SSS
+p: .... .... .... ...5
+END
+ }
+
+#latest:
+if (1) {
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    PrintOutStringNL "SSS";
+    $$p{p}->outNL;
+   } parameters=>[qw(p)], name=>"s";
+
+  my $library = CreateLibrary                                                   # Library definition
+   (subroutines =>                                                              # Sub routines in libray
+     {inc => sub {Inc rax},                                                     # Increment rax
+      dup => sub {Shl rax, 1},                                                  # Double rax
+      put => sub {PrintOutRaxInDecNL},                                          # Print rax in decimal
+      get => sub {PrintOutRaxInDecNL},                                          # Print rax in decimal
+     },
+    file => q(library),
+   );
+
+  my ($dup, $inc, $put) = $library->load;                                       # Load the library into memory
+
+  Mov rax, 1; &$put;
+  &$inc;      &$put;                                                            # Use the subroutines from the library
+  &$dup;      &$put;
+  &$dup;      &$put;
+  &$inc;      &$put;
+
+  ok Assemble eq => <<END, avx512=>0;
+1
+2
+4
+8
+9
+END
+  unlink $$library{file};
  }
 
 #latest:
