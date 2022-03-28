@@ -6324,9 +6324,8 @@ sub Nasm::X86::Tree::put($$$)                                                   
        {Jmp $start;                                                             # Restart the descent now that this block has been split
        };
 
-      my $leaf = $t->leafFromNodes($N);                                         # Are we on a leaf node ?
-      If $leaf > 0,
-      Then
+      If $t->leafFromNodes($N) > 0,
+      Then                                                                      # On a leaf
        {my $i = $t->insertionPoint($k, $K);                                     # Find insertion point
         $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $S);
         $t->putBlock                 ($Q, $K, $D, $N);
