@@ -6031,8 +6031,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
         $t->firstIntoMemory ($F);
        };
 
-      $t->leafFromNodes($RN);                                                   # Whether the right block is a leaf
-      IfNe                                                                      # If the zero Flag is zero then this is not a leaf
+      If $t->leafFromNodes($RN) == 0,                                           # Not a leaf
       Then
        {(K(nodes => $t->lengthRight) + 1)->for(sub                              # Reparent the children of the right hand side now known not to be a leaf
          {my ($index, $start, $next, $end) = @_;
