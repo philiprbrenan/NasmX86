@@ -43,7 +43,7 @@ our $stderr = 2;                                                                
 
 my %Registers;                                                                  # The names of all the registers
 my %RegisterContaining;                                                         # The largest register containing a register
-my @GeneralPurposeRegisters = qw(rax rbx rcx rdx rsi rdi), map {"r$_"} 8..15;   # General purpose registers
+my @GeneralPurposeRegisters = qw(rax rbx rcx rdx rsi rdi), map {"r$_"} 8..15; # General purpose registers
 my $bitsInByte;                                                                 # The number of bits in a byte
 my @declarations;                                                               # Register and instruction declarations
 
@@ -1307,7 +1307,7 @@ sub PrintTraceBack($)                                                           
      };
     &PrintNL($channel);
     PopR;
-   } name => "SubroutineTraceBack_$channel";
+   } name => "SubroutineTraceBack_$channel", call=>1;
  }
 
 sub PrintErrTraceBack($)                                                        # Print sub routine track back on stderr and then exit with a message.
@@ -1658,7 +1658,7 @@ sub PrintNL($)                                                                  
     Mov rdx, 1;
     Syscall;
     RestoreFirstFour
-   } name => qq(PrintNL_$channel);
+   } name => qq(PrintNL_$channel), call=>1;
  }
 
 sub PrintErrNL()                                                                # Print a new line to stderr.
@@ -1687,7 +1687,7 @@ sub PrintString($@)                                                             
     Mov rdx, $l;
     Syscall;
     RestoreFirstFour;
-   } name => "PrintString_${channel}_${c}";
+   } name => "PrintString_${channel}_${c}", call=>1;
  }
 
 sub PrintStringNL($@)                                                           # Print a constant string to the specified channel followed by a new line.
@@ -1788,7 +1788,7 @@ sub PrintRaxInHex($;$)                                                          
       PrintString($channel, ' ') if $i % 2 and $i < 7;
      }
     RestoreFirstFour;
-   } name => "PrintOutRaxInHexOn-$channel-$end";
+   } name => "PrintOutRaxInHexOn-$channel-$end", call=>1;
  }
 
 sub PrintErrRaxInHex()                                                          # Write the content of register rax in hexadecimal in big endian notation to stderr.
@@ -1843,7 +1843,7 @@ sub PrintRax_InHex($;$)                                                         
       PrintString($channel, ' ') if $i % 2 and $i < 7;
      }
     RestoreFirstFour;
-   } name => "PrintOutRax_InHexOn-$channel-$end";
+   } name => "PrintOutRax_InHexOn-$channel-$end", call=>1;
  }
 
 sub PrintErrRax_InHex()                                                         # Write the content of register rax in hexadecimal in big endian notation to stderr.
@@ -2265,7 +2265,7 @@ sub PrintRaxInDec($)                                                            
     Jnz $print;
 
     PopR;
-   } name => "PrintRaxInDec_$channel";
+   } name => "PrintRaxInDec_$channel", call=>1;
  }
 
 sub PrintOutRaxInDec                                                            # Print rax in decimal on stdout.
