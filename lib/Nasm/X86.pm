@@ -1129,7 +1129,7 @@ sub SubroutineStartStack()                                                      
  {push @VariableStack, 1;                                                       # Counts the number of variables on the stack in each invocation of L<Subroutine>.  The first quad provides the traceback.
  }
 
-sub Nasm::X86::Sub::callTo($$$@)                                                #P Call a sub passing it some parameters.
+sub Nasm::X86::Sub::callTo2($$$@)                                                #P Call a sub passing it some parameters.
  {my ($sub, $mode, $label, @parameters) = @_;                                   # Subroutine descriptor, mode 0 - direct call or 1 - indirect call, label of sub, parameter variables
 
   my %p;
@@ -1194,12 +1194,12 @@ sub Nasm::X86::Sub::callTo($$$@)                                                
   PopR;
  }
 
-sub Nasm::X86::Sub::call($@)                                                    # Call a sub passing it some parameters.
+sub Nasm::X86::Sub::call2($@)                                                    # Call a sub passing it some parameters.
  {my ($sub, @parameters) = @_;                                                  # Subroutine descriptor, parameter variables
   $sub->callTo(0, $sub->start, @parameters);                                    # Call the subroutine
  }
 
-sub Nasm::X86::Sub::via($$@)                                                    # Call a sub by reference passing it some parameters.
+sub Nasm::X86::Sub::via2($$@)                                                    # Call a sub by reference passing it some parameters.
  {my ($sub, $ref, @parameters) = @_;                                            # Subroutine descriptor, variable containing a reference to the sub, parameter variables
   PushR 14, 15;
   if ($ref->reference)                                                          # Dereference address of subroutine.
@@ -1212,12 +1212,12 @@ sub Nasm::X86::Sub::via($$@)                                                    
   PopR;
  }
 
-sub Nasm::X86::Sub::V($)                                                        # Put the address of a subroutine into a stack variable so that it can be passed as a parameter.
+sub Nasm::X86::Sub::V2($)                                                        # Put the address of a subroutine into a stack variable so that it can be passed as a parameter.
  {my ($sub) = @_;                                                               # Subroutine descriptor
   V('call', $sub->start);                                                       # Address subroutine via a stack variable
  }
 
-sub Nasm::X86::Sub::dispatch($)                                                 # Jump into the specified subroutine so that code of the target subroutine is executed instead of the code of the current subroutine allowing the target subroutine to be dispatched to process the parameter list of the current subroutine.  When the target subroutine returns it returns to the caller of the current sub, not to the current subroutine.
+sub Nasm::X86::Sub::dispatch2($)                                                 # Jump into the specified subroutine so that code of the target subroutine is executed instead of the code of the current subroutine allowing the target subroutine to be dispatched to process the parameter list of the current subroutine.  When the target subroutine returns it returns to the caller of the current sub, not to the current subroutine.
  {my ($sub) = @_;                                                               # Subroutine descriptor of target subroutine
   @_ == 1 or confess "One parameter";
   $sub->V()->setReg(rdi);                                                       # Start of sub routine
@@ -1225,7 +1225,7 @@ sub Nasm::X86::Sub::dispatch($)                                                 
   Jmp rdi;                                                                      # Start h specified sub - when it exits it will return to the code that called us.
  }
 
-sub Nasm::X86::Sub::dispatchV($$)                                               # L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specified register.
+sub Nasm::X86::Sub::dispatchV2($$)                                               # L<Dispatch|/Nasm::X86::Sub::dispatch> the variable subroutine using the specified register.
  {my ($sub, $reference) = @_;                                                   # Subroutine descriptor, variable referring to the target subroutine
   @_ == 2 or confess "Two parameters";
   $reference->setReg(rdi);                                                      # Start of sub routine
@@ -8699,6 +8699,62 @@ sub CreateLibrary(%)                                                            
  }
 
 sub NasmX86::Library::load($)                                                   # Load a library and return the addresses of its subroutines as variables.
+ {my ($library) = @_;                                                           # Description of library to load
+  my ($address, $size) = ReadFile $$library{file};                              # Read library file into memory
+  $address->call(r15);                                                          # Load addresses of subroutines onto stack
+
+  my @s = sort keys $$library{subroutines}->%*;                                 # The names of the subroutines in the library
+
+  my %s = $$library{locations}->%*;                                             # Subroutines in library
+  for my $s(@s{@s})                                                             # Copy the address of each subroutine from the stack taking care not to disturb the stack beyond the stack pointer.
+   {Mov r15, "[rsp-".(($s->number + 1) * RegisterSize rax)."]";                 # Address of subroutine in this process
+    $s->call = V $s->name => r15;                                               # Address of subroutine in this process from stack as a variable
+   }
+
+  $$library{address} = $address;                                                # Save address and size of library
+  $$library{size}    = $size;
+
+  map {my $c = $_->call; sub {$c->call}} @s{@s};                                # Call subroutine via variable - perl bug because $_ by  itself is not enough
+ }
+
+sub CreateLibrary2(%)                                                            # Create a library.
+ {my (%library) = @_;                                                           # Library definition
+
+  my @s = sort keys $library{subroutines}->%*;                                  # The names of the subroutines in the library
+
+  my %s = map                                                                   # The library is initialized by calling it - the library loads the addresses of its subroutines onto the stack for easy retrieval by the caller.
+   {my $l = Label;                                                              # Start label for subroutine
+    my  $o = "qword[rsp-".(($_+1) * RegisterSize rax)."]";                      # Position of subroutine on stack
+    Mov $o, $l.'-$$';                                                           # Put offset of subroutine on stack
+    Add $o, r15;                                                                # The library must be called via r15 to convert the offset to the address of each subroutine
+
+    $s[$_] => genHash("NasmX86::Library::Subroutine",                           # Subroutine definitions
+      number  => $_ + 1,                                                        # Number of subroutine from 1
+      label   => $l,                                                            # Label of subroutine
+      name    => $s[$_],                                                        # Name of subroutine
+      code    => $library{subroutines}{$s[$_]},                                 # Perl subroutine to write code of assembler subroutine
+      call    => undef,                                                         # Perl subroutine to call assembler subroutine
+   )} keys @s;
+
+  Ret;                                                                          # Return from library initialization
+
+  for my $s(@s{@s})                                                             # Generate code for each subroutine in the library
+   {Align 16;
+    SetLabel $s->label;                                                         # Start label
+    $s->code->();                                                               # Code of subroutine
+    Ret;                                                                        # Return from subroutine
+   }
+
+  unlink my $l = $library{file};                                                # The name of the file containing the library
+
+  Assemble library => $l;                                                       # Create the library file
+
+  $library{locations} = \%s;                                                    # Location of each subroutine on the stack
+
+  genHash "NasmX86::Library", %library
+ }
+
+sub NasmX86::Library::load2($)                                                   # Load a library and return the addresses of its subroutines as variables.
  {my ($library) = @_;                                                           # Description of library to load
   my ($address, $size) = ReadFile $$library{file};                              # Read library file into memory
   $address->call(r15);                                                          # Load addresses of subroutines onto stack
@@ -30345,7 +30401,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #
   my $t = Subroutine                                                            #TSubroutine
    {my ($p, $s, $sub) = @_;
@@ -30381,7 +30437,7 @@ END
  }
 
 #latest:
-if (1) {
+if (0) {
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;
     PrintOutStringNL "SSS";
