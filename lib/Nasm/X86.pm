@@ -3740,23 +3740,23 @@ sub PrintMemoryInHex($)                                                         
  }
 
 sub PrintErrMemoryInHex                                                         # Dump memory from the address in rax for the length in rdi on stderr.
- {@_ == 0 or confess;
+ {@_ == 0 or confess "No parameters";
   PrintMemoryInHex($stderr);
  }
 
 sub PrintOutMemoryInHex                                                         # Dump memory from the address in rax for the length in rdi on stdout.
- {@_ == 0 or confess;
+ {@_ == 0 or confess "No parameters";
   PrintMemoryInHex($stdout);
  }
 
 sub PrintErrMemoryInHexNL                                                       # Dump memory from the address in rax for the length in rdi and then print a new line.
- {@_ == 0 or confess;
+ {@_ == 0 or confess "No parameters";
   PrintMemoryInHex($stderr);
   PrintNL($stderr);
  }
 
 sub PrintOutMemoryInHexNL                                                       # Dump memory from the address in rax for the length in rdi and then print a new line.
- {@_ == 0 or confess;
+ {@_ == 0 or confess "No parameters";
   PrintMemoryInHex($stdout);
   PrintNL($stdout);
  }
@@ -4169,14 +4169,15 @@ sub ReadFile(@)                                                                 
     $fdes->getReg(rax);                                                         # Save file descriptor
 
     my %d  = getSystemConstantsFromIncludeFile                                  # Memory map constants
-     "linux/mman.h", qw(MAP_PRIVATE PROT_READ);
+     "linux/mman.h", qw(MAP_PRIVATE PROT_READ PROT_EXEC);
     my $pa = $d{MAP_PRIVATE};
     my $ro = $d{PROT_READ};
+    my $ex = $d{PROT_EXEC};
 
     Mov rax, 9;                                                                 # Memory map
     $size->setReg(rsi);                                                         # Amount of memory
     Xor rdi, rdi;                                                               # Anywhere
-    Mov rdx, $ro;                                                               # Read write protections
+    Mov rdx, $ro | $ex;                                                         # Read/execute contents
     Mov r10, $pa;                                                               # Private and anonymous map
     $fdes->setReg(r8);                                                          # File descriptor for file backing memory
     Mov r9,  0;                                                                 # Offset into file
@@ -8670,22 +8671,28 @@ sub CreateLibrary(%)                                                            
   my @s = $library{subroutines}->@*;
 
   my $vector = Label;                                                           # Vector of sub routine addresses
-# Mov rax, $vector;                                                             # Offset of vector
-  Mov rax, 0;                                                             # Offset of vector
+  Mov rax, $vector;                                                             # Offset of vector
   Ret;
 
   my @c = map {&$_} @s;
 
-  SetLabel $vector;
-  Rq(scalar @s);
+  my $lVector = @s;
+  push @data, <<END;
+  $vector: dq $lVector
+END
 
-  Rq($_->start."-$$") for @c;
+  for my $c(@c)
+   {my $o = $c->start;
+    push @data, <<END;
+    dq $o
+END
+   }
 
   unlink my $f = $library{file};                                                # The name of the file containing the library
 
   Assemble library => $f;                                                       # Create the library file
-exit;
-# $library{locations} = \%s;                                                    # Location of each subroutine on the stack
+
+  #$library{locations} = \%s;                                                    # Location of each subroutine on the stack
 
   genHash "NasmX86::Library", %library
  }
@@ -8694,7 +8701,6 @@ sub NasmX86::Library::load($)                                                   
  {my ($library) = @_;                                                           # Description of library to load
   my ($address, $size) = ReadFile $$library{file};                              # Read library file into memory
   $address->call;                                                               # Load addresses of subroutines onto stack
-# PrintErrRegisterInHex rax;
   return;
 
   my @s = sort keys $$library{subroutines}->%*;                                 # The names of the subroutines in the library
@@ -30459,13 +30465,13 @@ if (1) {
    );
 
   $l->load;                                                                     # Load the library into memory
+  PrintOutRegisterInHex rax;
 
 #  $l->call->ssss;
 #  $l->call->tttt;
 
   ok Assemble eq => <<END, avx512=>0;
-SSSS
-TTTT
+   rax: .... .... .... .170
 END
   unlink $l->file;
  }
