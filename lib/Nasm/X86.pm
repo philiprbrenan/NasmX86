@@ -8532,9 +8532,9 @@ END
 
     my $cmd  = $library
       ? qq($a -fbin)
-      : qq($a -felf64 -g && ld $I $L -o $e $objectFile && chmod 744 $e);
+      : qq($a -felf64 -g  && ld $I $L -o $e $objectFile && chmod 744 $e);
 
-#   say STDERR $cmd;
+   say STDERR $cmd;
     qx($cmd);
     confess "Assembly failed $?" if $?;                                         # Stop if assembly failed
    }
@@ -8664,36 +8664,28 @@ sub totalBytesAssembled                                                         
 sub CreateLibrary(%)                                                            # Create a library.
  {my (%library) = @_;                                                           # Library definition
 
-  my @s = sort keys $library{subroutines}->%*;                                  # The names of the subroutines in the library
+  $library{subroutines} or confess "Subroutines required";
+  $library{file}        or confess "Subroutines file name required";
 
-  my %s = map                                                                   # The library is initialized by calling it - the library loads the addresses of its subroutines onto the stack for easy retrieval by the caller.
-   {my $l = Label;                                                              # Start label for subroutine
-    my  $o = "qword[rsp-".(($_+1) * RegisterSize rax)."]";                      # Position of subroutine on stack
-    Mov $o, $l.'-$$';                                                           # Put offset of subroutine on stack
-    Add $o, r15;                                                                # The library must be called via r15 to convert the offset to the address of each subroutine
+  my @s = $library{subroutines}->@*;
 
-    $s[$_] => genHash("NasmX86::Library::Subroutine",                           # Subroutine definitions
-      number  => $_ + 1,                                                        # Number of subroutine from 1
-      label   => $l,                                                            # Label of subroutine
-      name    => $s[$_],                                                        # Name of subroutine
-      code    => $library{subroutines}{$s[$_]},                                 # Perl subroutine to write code of assembler subroutine
-      call    => undef,                                                         # Perl subroutine to call assembler subroutine
-   )} keys @s;
+  my $vector = Label;                                                           # Vector of sub routine addresses
+# Mov rax, $vector;                                                             # Offset of vector
+  Mov rax, 0;                                                             # Offset of vector
+  Ret;
 
-  Ret;                                                                          # Return from library initialization
+  my @c = map {&$_} @s;
 
-  for my $s(@s{@s})                                                             # Generate code for each subroutine in the library
-   {Align 16;
-    SetLabel $s->label;                                                         # Start label
-    $s->code->();                                                               # Code of subroutine
-    Ret;                                                                        # Return from subroutine
-   }
+  SetLabel $vector;
+  Rq(scalar @s);
 
-  unlink my $l = $library{file};                                                # The name of the file containing the library
+  Rq($_->start."-$$") for @c;
 
-  Assemble library => $l;                                                       # Create the library file
+  unlink my $f = $library{file};                                                # The name of the file containing the library
 
-  $library{locations} = \%s;                                                    # Location of each subroutine on the stack
+  Assemble library => $f;                                                       # Create the library file
+exit;
+# $library{locations} = \%s;                                                    # Location of each subroutine on the stack
 
   genHash "NasmX86::Library", %library
  }
@@ -8701,7 +8693,9 @@ sub CreateLibrary(%)                                                            
 sub NasmX86::Library::load($)                                                   # Load a library and return the addresses of its subroutines as variables.
  {my ($library) = @_;                                                           # Description of library to load
   my ($address, $size) = ReadFile $$library{file};                              # Read library file into memory
-  $address->call(r15);                                                          # Load addresses of subroutines onto stack
+  $address->call;                                                               # Load addresses of subroutines onto stack
+# PrintErrRegisterInHex rax;
+  return;
 
   my @s = sort keys $$library{subroutines}->%*;                                 # The names of the subroutines in the library
 
@@ -30438,38 +30432,42 @@ END
 
 #latest:
 if (0) {
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;
-    PrintOutStringNL "SSS";
-    $$p{p}->outNL;
-   } parameters=>[qw(p)], name=>"s";
+  Rb(0..255);
+  Mov rax,1;
+  ok Assemble eq => <<END, library=>q(z.lib);
+END
+ }
 
-  my $library = CreateLibrary                                                   # Library definition
+latest:
+if (1) {
+  my $l = CreateLibrary                                                         # Library definition
    (subroutines =>                                                              # Sub routines in libray
-     {inc => sub {Inc rax},                                                     # Increment rax
-      dup => sub {Shl rax, 1},                                                  # Double rax
-      put => sub {PrintOutRaxInDecNL},                                          # Print rax in decimal
-      get => sub {PrintOutRaxInDecNL},                                          # Print rax in decimal
-     },
+     [sub
+       {Subroutine
+         {my ($p, $s, $sub) = @_;
+          PrintOutStringNL "SSSS";
+         } name=>"ssss";
+       },
+      sub
+       {Subroutine
+         {my ($p, $s, $sub) = @_;
+          PrintOutStringNL "TTTT";
+         } name=>"tttt";
+       },
+     ],
     file => q(library),
    );
 
-  my ($dup, $inc, $put) = $library->load;                                       # Load the library into memory
+  $l->load;                                                                     # Load the library into memory
 
-  Mov rax, 1; &$put;
-  &$inc;      &$put;                                                            # Use the subroutines from the library
-  &$dup;      &$put;
-  &$dup;      &$put;
-  &$inc;      &$put;
+#  $l->call->ssss;
+#  $l->call->tttt;
 
   ok Assemble eq => <<END, avx512=>0;
-1
-2
-4
-8
-9
+SSSS
+TTTT
 END
-  unlink $$library{file};
+  unlink $l->file;
  }
 
 #latest:
