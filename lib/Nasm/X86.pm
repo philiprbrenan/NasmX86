@@ -2753,7 +2753,7 @@ sub Nasm::X86::Variable::call($)                                                
   Call rdi;                                                                     # Call referenced code
  }
 
-sub Nasm::X86::Variable::address($;$)                                           # Get the address of a variable with an optional offset.
+sub Nasm::X86::Variable::addressExpr($;$)                                       # Create a register expression to address an offset form a variable
  {my ($left, $offset) = @_;                                                     # Left variable, optional offset
   my $o = $offset ? "+$offset" : "";
   "[".$left-> label."$o]"
@@ -2771,8 +2771,8 @@ sub Nasm::X86::Variable::copy($$)                                               
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   @_ == 2 or confess "Two parameters";
 
-  my $l = $left ->address;
-  my $r = ref($right) ? $right->address : $right;                               # Variable address or register expression (which might in fact be a constant)
+  my $l = $left ->addressExpr;
+  my $r = ref($right) ? $right->addressExpr : $right;                               # Variable address or register expression (which might in fact be a constant)
 
   Mov rdi, $r;                                                                  # Load right hand side
 
@@ -2796,8 +2796,8 @@ sub Nasm::X86::Variable::copyRef($$)                                            
 
   $left->reference  or confess "Left hand side must be a reference";
 
-  my $l = $left ->address;
-  my $r = $right->address;
+  my $l = $left ->addressExpr;
+  my $r = $right->addressExpr;
 
   if ($right->reference)                                                        # Right is a reference so we copy its value to create a new reference to the original data
    {Mov rdi, $r;
@@ -2814,7 +2814,7 @@ sub Nasm::X86::Variable::copyZF($)                                              
  {my ($var) = @_;                                                               # Variable
   @_ == 1 or confess "One parameter";
 
-  my $a = $var->address;                                                        # Address of the variable
+  my $a = $var->addressExpr;                                                        # Address of the variable
 
   PushR rax;
   Lahf;                                                                         # Save flags to ah: (SF:ZF:0:AF:0:PF:1:CF)
@@ -2828,7 +2828,7 @@ sub Nasm::X86::Variable::copyZFInverted($)                                      
  {my ($var) = @_;                                                               # Variable
   @_ == 1 or confess "One parameter";
 
-  my $a = $var->address;                                                        # Address of the variable
+  my $a = $var->addressExpr;                                                        # Address of the variable
 
   PushR rax, 15;
   Lahf;                                                                         # Save flags to ah: (SF:ZF:0:AF:0:PF:1:CF)
@@ -2858,7 +2858,7 @@ sub Nasm::X86::Variable::assign($$$)                                            
 
   Comment "Variable assign";
   PushR 14, 15;
-  Mov r14, $left ->address;
+  Mov r14, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r14, "[r14]";
    }
@@ -2866,7 +2866,7 @@ sub Nasm::X86::Variable::assign($$$)                                            
    {Mov r15, $right;
    }
   else                                                                          # Load right variable
-   {Mov r15, $right->address;
+   {Mov r15, $right->addressExpr;
     if ($right->reference)                                                      # Dereference right if necessary
      {Mov r15, "[r15]";
      }
@@ -2874,12 +2874,12 @@ sub Nasm::X86::Variable::assign($$$)                                            
   &$op(r14, r15);
   if ($left->reference)                                                         # Store in reference on left if necessary
    {PushR 13;
-    Mov r13, $left->address;
+    Mov r13, $left->addressExpr;
     Mov "[r13]", r14;
     PopR;
    }
   else                                                                          # Store in variable
-   {Mov $left ->address, r14;
+   {Mov $left ->addressExpr, r14;
    }
   PopR;
 
@@ -2899,8 +2899,8 @@ sub Nasm::X86::Variable::minusAssign($$)                                        
 sub Nasm::X86::Variable::arithmetic($$$$)                                       # Return a variable containing the result of an arithmetic operation on the left hand and right hand side variables.
  {my ($op, $name, $left, $right) = @_;                                          # Operator, operator name, Left variable,  right variable
 
-  my $l = $left ->address;
-  my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
+  my $l = $left ->addressExpr;
+  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
 
   Comment "Arithmetic Start";
   PushR 14, 15;
@@ -2938,8 +2938,8 @@ sub Nasm::X86::Variable::times($$)                                              
 sub Nasm::X86::Variable::division($$$)                                          # Return a variable containing the result or the remainder that occurs when the left hand side is divided by the right hand side.
  {my ($op, $left, $right) = @_;                                                 # Operator, Left variable,  right variable
 
-  my $l = $left ->address;
-  my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
+  my $l = $left ->addressExpr;
+  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
   PushR rax, rdx, 15;
   Mov rax, $l;
   Mov rax, "[rax]" if $left->reference;
@@ -2996,24 +2996,24 @@ sub Nasm::X86::Variable::boolean($$$$)                                          
  {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
 
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
-  my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
+  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
 
   Comment "Boolean Arithmetic Start";
   PushR 15;
 
-  Mov r15, $left ->address;
+  Mov r15, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r15, "[r15]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
    {PushR 14;
-    Mov r14, $right ->address;
+    Mov r14, $right ->addressExpr;
     Mov r14, "[r14]";
     Cmp r15, r14;
     PopR;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp r15, $right->address;
+   {Cmp r15, $right->addressExpr;
    }
   else                                                                          # Constant on the right
    {Cmp r15, $right;
@@ -3032,24 +3032,24 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
  {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
 
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
-  my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
+  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
 
   Comment "Boolean ZF Arithmetic Start";
   PushR 15;
 
-  Mov r15, $left ->address;
+  Mov r15, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r15, "[r15]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
    {PushR 14;
-    Mov r14, $right ->address;
+    Mov r14, $right ->addressExpr;
     Mov r14, "[r14]";
     Cmp r15, r14;
     PopR;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp r15, $right->address;
+   {Cmp r15, $right->addressExpr;
    }
   else                                                                          # Constant on the right
    {Cmp r15, $right;
@@ -3067,22 +3067,22 @@ sub Nasm::X86::Variable::booleanC($$$$)                                         
  {my ($cmov, $op, $left, $right) = @_;                                          # Conditional move instruction name, operator name, Left variable,  right variable
 
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
-  my $r = ref($right) ? $right->address : $right;                               # Right can be either a variable reference or a constant
+  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
 
   PushR 15;
-  Mov r15, $left ->address;
+  Mov r15, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r15, "[r15]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
    {PushR 14;
-    Mov r14, $right ->address;
+    Mov r14, $right ->addressExpr;
     Mov r14, "[r14]";
     Cmp r15, r14;
     PopR;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp r15, $right->address;
+   {Cmp r15, $right->addressExpr;
    }
   else                                                                          # Constant on the right
    {Cmp r15, $right;
@@ -3145,18 +3145,18 @@ sub Nasm::X86::Variable::setReg($$)                                             
      }
     else
      {PushR 15;
-      Mov r15, $variable->address;
+      Mov r15, $variable->addressExpr;
       Kmovq $r, r15;
       PopR;
      }
    }
   else                                                                          # Set normal register
    {if ($variable->isRef)
-     {Mov $r, $variable->address;
+     {Mov $r, $variable->addressExpr;
       Mov $r, "[$r]";
      }
     else
-     {Mov $r, $variable->address;
+     {Mov $r, $variable->addressExpr;
      }
    }
 
@@ -3171,12 +3171,12 @@ sub Nasm::X86::Variable::getReg($$)                                             
    {Comment "Get variable value from register $r";
     my $p = $r eq r15 ? r14 : r15;
     PushR $p;
-    Mov $p, $variable->address;
+    Mov $p, $variable->addressExpr;
     Mov "[$p]", $r;
     PopR $p;
    }
   else                                                                          # Move to this variable
-   {Mov $variable->address, $r;
+   {Mov $variable->addressExpr, $r;
    }
   $variable                                                                     # Chain
  }
@@ -3191,7 +3191,7 @@ sub Nasm::X86::Variable::getConst($$)                                           
 sub Nasm::X86::Variable::incDec($$)                                             # Increment or decrement a variable.
  {my ($left, $op) = @_;                                                         # Left variable operator, address of operator to perform inc or dec
   $left->constant and confess "Cannot increment or decrement a constant";
-  my $l = $left->address;
+  my $l = $left->addressExpr;
   if ($left->reference)
    {PushR rdi, rsi;                                                             # Violates the rdi/rsi rule if removed
     Mov rsi, $l;
@@ -8535,7 +8535,7 @@ END
       ? qq($a -fbin)
       : qq($a -felf64 -g  && ld $I $L -o $e $objectFile && chmod 744 $e);
 
-   say STDERR $cmd;
+    #say STDERR $cmd;
     qx($cmd);
     confess "Assembly failed $?" if $?;                                         # Stop if assembly failed
    }
@@ -8674,14 +8674,14 @@ sub CreateLibrary(%)                                                            
   Mov rax, $vector;                                                             # Offset of vector
   Ret;
 
-  my @c = map {&$_} @s;
+  my @c = map {&$_} @s;                                                         # Call the subroutines provided to write their code into the program and return the details of the subroutine so written
 
-  my $lVector = @s;
+  my $lVector = @s;                                                             # Write the number of subroutines in the library
   push @data, <<END;
   $vector: dq $lVector
 END
 
-  for my $c(@c)
+  for my $c(@c)                                                                 # Write the entry point of each routine
    {my $o = $c->start;
     push @data, <<END;
     dq $o
@@ -8692,15 +8692,25 @@ END
 
   Assemble library => $f;                                                       # Create the library file
 
-  #$library{locations} = \%s;                                                    # Location of each subroutine on the stack
+  $library{meta} = {map {$_->name => $_} @c};                                   # Hash describing each subroutine by name
 
   genHash "NasmX86::Library", %library
  }
 
+# Pilates of East Lake
 sub NasmX86::Library::load($)                                                   # Load a library and return the addresses of its subroutines as variables.
  {my ($library) = @_;                                                           # Description of library to load
+
   my ($address, $size) = ReadFile $$library{file};                              # Read library file into memory
   $address->call;                                                               # Load addresses of subroutines onto stack
+  PrintErrRegisterInHex rax;
+  my $length = V(offset => rax);
+  my $vector = $address + $length;
+  $length->for(sub
+   {my ($i, $start, $next, $end) = @_;
+   ($vector + $i * RegisterSize(eax))->d;
+   });
+
   return;
 
   my @s = sort keys $$library{subroutines}->%*;                                 # The names of the subroutines in the library
@@ -30444,10 +30454,10 @@ if (0) {
 END
  }
 
-latest:
-if (1) {
-  my $l = CreateLibrary                                                         # Library definition
-   (subroutines =>                                                              # Sub routines in libray
+#latest:
+if (0) {                                                                        #TCreateLibrary
+  my $l = CreateLibrary
+   (subroutines =>
      [sub
        {Subroutine
          {my ($p, $s, $sub) = @_;
