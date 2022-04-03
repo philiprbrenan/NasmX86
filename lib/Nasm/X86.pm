@@ -30464,14 +30464,6 @@ deref (addr a add 16): .... .... .... ...3
 END
  }
 
-#latest:
-if (0) {
-  Rb(0..255);
-  Mov rax,1;
-  ok Assemble eq => <<END, library=>q(z.lib);
-END
- }
-
 sub CreateLibrary(%)                                                            # Create a library.
  {my (%library) = @_;                                                           # Library definition
 
@@ -30530,7 +30522,7 @@ sub NasmX86::Library::call($$%)                                                 
  }
 
 latest:
-if (1) {                                                                        #TCreateLibrary
+if (1) {                                                                        #TCreateLibrary #NasmX86::Library::load #NasmX86::Library::call
   my $l = CreateLibrary
    (subroutines =>
      [sub
@@ -30543,20 +30535,22 @@ if (1) {                                                                        
        {Subroutine
          {my ($p, $s, $sub) = @_;
           PrintOutStringNL "TTTT";
-         } name=>"tttt";
+          $$p{p}->outNL;
+         } name=>"tttt",  parameters=>[qw(p)];
        },
      ],
     file => q(library),
    );
 
-  my ($address, $size) = $l->load;                                              # Load the library into memory
+  my ($address, $size) = $l->load;
 
   $l->call(q(ssss));
-  $l->call(q(tttt));
+  $l->call(q(tttt), parameters=>{p => V key => 42});
 
   ok Assemble eq => <<END, avx512=>0, trace=>1;
 SSSS
 TTTT
+p: .... .... .... ..2A
 END
   unlink $l->file;
  }
