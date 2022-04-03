@@ -1121,7 +1121,7 @@ sub ForEver(&)                                                                  
   SetLabel $end;                                                                # End of loop
  }
 
-#D2 Call                                                                        # Call a subroutine
+#D2 Trace back                                                                  # Generate a subroutine calll trace back
 
 my @VariableStack = (1);                                                        # Counts the number of parameters and variables on the stack in each invocation of L<Subroutine>.  There is at least one variable - the first holds the traceback.
 
@@ -30360,6 +30360,8 @@ deref (addr a add 16): .... .... .... ...3
 END
  }
 
+#D1 Library                                                                     # Create a library and call the methods contained in it.
+
 sub CreateLibrary(%)                                                            # Create a library.
  {my (%library) = @_;                                                           # Library definition
 
@@ -30443,7 +30445,7 @@ if (1) {                                                                        
   $l->call(q(ssss));
   $l->call(q(tttt), parameters=>{p => V key => 42});
 
-  ok Assemble eq => <<END, avx512=>0, trace=>1;
+  ok Assemble eq => <<END, avx512=>0;
 SSSS
 TTTT
 p: .... .... .... ..2A
@@ -30459,16 +30461,6 @@ END
 
 done_testing;
 
-=pod
-
-Status:
-
-Need to make a subroutine out of the insert into key/data/node block
-
-=cut
-
-#unlink $_ for qw(hash print2 sde-log.txt sde-ptr-check.out.txt z.txt);         # Remove incidental files
-#unlink $_ for qw(hash print2 pin-log.txt pin-tool-log.txt sde-footprint.txt sde-log.txt clear hash signal z.o);
 unlink $_ for qw(sde-footprint.txt sde-log.txt z.txt);
 
 say STDERR sprintf("# Time: %.2fs, bytes: %s, execs: %s",
