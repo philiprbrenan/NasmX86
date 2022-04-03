@@ -7538,6 +7538,371 @@ sub Nasm::X86::Tree::delete($$)                                                 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # delete
 
+sub Nasm::X86::Tree::clear($)                                                   # Delete everything in the tree recording the memory so liberated to the free chain for reuse by other trees.
+ {my ($tree) = @_;                                                              # Tree
+  @_ == 1 or confess "One parameter";
+
+  my $s = Subroutine                                                            # Delete all the sub blocks of a block and then free the block as well
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $t = $$s{tree};                                                          # Tree
+    my $area = $t->area;                                                        # Area
+
+    PushR my $K = 31, my $D = 30, my $N = 29;
+
+    Block                                                                       # Free sub blocks then free block
+     {my ($end, $start) = @_;
+
+      $t->getBlock($$p{offset}, $K, $D, $N);                                    # Load block
+
+      If $t->leafFromNodes($N) == 0,
+      Then                                                                      # Not a leaf so free the sub blocks
+       {my $l = $t->lengthFromKeys($K);                                         # Number of nodes
+        ($l+1)->for(sub                                                         # Free sub blocks
+         {my ($i) = @_;
+          $sub->call(parameters => {offset => dFromZ $N, $i * $t->width},       # Recurse
+                     structures => {tree   => $t});
+         });
+       };
+
+      $t->freeBlock($$p{offset}, $K, $D, $N);                                   # Free this block
+     };
+
+    PopR;
+   } parameters => [qw(offset)],
+     structures => {tree => $tree},
+     name       => "Nasm::X86::Tree::clear";
+
+  PushR my $F = 31;
+  $tree->firstFromMemory($F);
+  my $root = $tree->rootFromFirst($F);                                          # Root block if any
+
+  If $root > 0,                                                                 # Non empty tree
+  Then
+   {$s->call(structures => {tree  => $tree}, parameters => {offset => $root});  # Free from root node
+    $tree->rootIntoFirst($F, K root => 0);
+    $tree->sizeIntoFirst($F, K size => 0);
+    $tree->firstIntoMemory($F);
+   };
+
+  PopR;
+ }
+
+sub Nasm::X86::Tree::free($)                                                    # Free all the memory used by a tree
+ {my ($tree) = @_;                                                              # Tree
+  @_ == 1 or confess "One parameter";
+  $tree->clear;                                                                 # Clear the tree
+ }
+
+#D2 Iteration                                                                   # Iterate through a tree non recursively
+
+sub Nasm::X86::Tree::by($&)                                                     # Call the specified block with each element of the specified tree in ascending order.
+ {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
+  @_ == 2 or confess "Two parameters required";
+
+  $tree->findFirst;                                                             # First element
+  my $end   = Label;                                                            # End of processing
+  my $next  = Label;                                                            # Next iteration
+  my $start = SetLabel;                                                         # Start of this iteration
+  If $tree->found == 0, Then {Jmp $end};
+  &$block($tree, $start, $next, $end);                                          # Perform the specified block
+  SetLabel $next;
+  $tree->findNext($tree->key);
+  Jmp $start;
+  SetLabel $end;
+ }
+
+sub Nasm::X86::Tree::yb($&)                                                     # Call the specified block with each element of the specified tree in descending order.
+ {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
+  @_ == 2 or confess "Two parameters required";
+
+  $tree->findLast;                                                              # Last element
+  my $end   = Label;                                                            # End of processing
+  my $prev  = Label;                                                            # Next iteration
+  my $start = SetLabel;                                                         # Start of this iteration
+  If $tree->found == 0, Then {Jmp $end};
+  &$block($tree, $start, $prev, $end);                                          # Perform the specified block
+  SetLabel $prev;
+  $tree->findPrev($tree->key);
+  Jmp $start;
+  SetLabel $end;
+ }
+
+#D2 Push and Pop                                                                # Use a tree as a stack: Push elements on to a tree with the next available key; Pop the last element in a tree.
+
+sub Nasm::X86::Tree::push($$)                                                   #P Push a data value onto a tree. If the data is a reference to a tree then the offset of the first block of the tree is pushed.
+ {my ($tree, $data) = @_;                                                       # Tree descriptor, variable data
+  @_ == 2 or confess "Two parameters";
+
+  $tree->findLast;                                                              # Last element
+  If $tree->found == 0,
+  Then                                                                          # Empty tree
+   {$tree->put(K(key => 0), $data);                                             # First element in tree
+   },
+  Else                                                                          # Non empty tree
+   {$tree->put($tree->key + 1, $data);                                          # Last element in tree
+   };
+ }
+
+sub Nasm::X86::Tree::pop($)                                                     # Pop the last value out of a tree and return the key/data/subTree in the tree descriptor.
+ {my ($tree) = @_;                                                              # Tree descriptor
+  @_ == 1 or confess "One parameter";
+
+  $tree->findLast;                                                              # Last element
+  If $tree->found > 0,
+  Then                                                                          # Empty tree
+   {my $k = $tree->key    ->clone('key');
+    my $d = $tree->data   ->clone('data');
+    my $s = $tree->subTree->clone('subTree');
+    $tree->delete($k);                                                          # Delete last key
+    $tree->key    ->copy($k);                                                   # Retrieved key
+    $tree->data   ->copy($d);                                                   # Retrieved data
+    $tree->subTree->copy($s);                                                   # Retrieved sub tree indicator
+    $tree->found  ->copy(1);                                                    # Indicate success
+   };
+ }
+
+sub Nasm::X86::Tree::get($$)                                                    # Retrieves the element at the specified zero based index in the stack.
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, zero based index
+  @_ == 2 or confess "Two parameters";
+  $tree->find($key);
+ }
+
+#D2 Trees as Strings                                                            # Use trees as a strings. The characters of the string are stored as an array of characters.  The indices of the array run from 1 to the length of the string.
+
+sub Nasm::X86::Tree::m($$$)                                                     # Append bytes in memory to a tree acting as a string. The address and size of the source memory are specified via variables.
+ {my ($string, $address, $size) = @_;                                           # Tree descriptor of string to append to, variable address of memory to append from, variable size of memory
+  @_ == 3 or confess "Three parameters";
+
+  my $s = Subroutine
+   {my ($parameters, $structures, $sub) = @_;
+    PushR rax, 13, 14, 15;
+    my $s = $$structures{string};
+    $$parameters{address}->setReg(r13);
+    $$parameters{size}   ->setReg(r14);
+    ClearRegisters r15;
+    For                                                                         # Clear memory
+     {Mov al, "[r13+r15]";
+      $s->push(V byte => rax);
+     } r15, r14, 1;
+    PopR;
+   } structures=>{string=>$string},
+     parameters=>[qw(address size)], name => 'Nasm::X86::Tree::m';
+
+  $s->call(parameters=>{address => $address, size=>$size},
+           structures=>{string=>$string});
+ }
+
+sub Nasm::X86::Tree::append($$)                                                 # Append the second source string to the first target string renumbering the keys of the source string to follow on from those of the target string.  A string can safely be appended to itself.
+ {my ($string, $append) = @_;                                                   # Tree descriptor of string to append to, tree descriptor of string to append from
+  @_ == 2 or confess "Two parameters";
+
+  my $lt = $string->size;                                                       # Target string size
+  my $ls = $append->size;                                                       # Source string size
+  $ls->for(sub                                                                  # Look up each character
+   {my ($i, $start, $next, $end) = @_;
+    $string->get($i);
+    $string->put($lt+$string->key, $string->data);
+   });
+  $string                                                                       # Chain from the target string
+ }
+
+sub Nasm::X86::Tree::clone($)                                                   # Clone a string.
+ {my ($string) = @_;                                                            # Tree descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $t = $string->area->CreateTree;                                            # Cloned copy
+  $string->by(sub
+   {$t->put($string->key, $string->data);
+   });
+  $t                                                                            # Chain from the target string
+ }
+
+sub Nasm::X86::Tree::substring($$$)                                             # Create the substring of the specified string between the specified start and end keys.
+ {my ($string, $start, $finish) = @_;                                           # Tree descriptor of string to extract from, start key, end key
+  @_ == 3 or confess "Three parameters";
+
+  my $t = $string->area->CreateTree;                                            # Cloned copy
+  If $start == $finish,
+  Then                                                                          # Start and end are the same
+   {$string->find($start);
+    If $string->found > 0,
+    Then
+     {$t->put($string->key, $string->data);
+     };
+   },
+  Ef {$start < $finish}
+  Then                                                                          # Range of several keys
+   {$string->find($finish);
+    If $string->found > 0,
+    Then                                                                        # Finish exists
+     {$string->find($start);
+      If $string->found > 0,
+      Then                                                                      # Start exists
+       {$string->size->for(sub                                                  # Each key in range
+         {my ($i, $start, $next, $end) = @_;
+          $t->put($string->key, $string->data);
+          $string->findNext($string->key);
+          If $string->key == $finish, Then {Jmp $end};                          # End of range
+         });
+       };
+     };
+   };
+  $t                                                                            # Chain from the target string
+ }
+
+sub Nasm::X86::Tree::reverse($)                                                 # Create a clone of the sstring in reverse order
+ {my ($string) = @_;                                                            # Tree descriptor of string
+  @_ == 1 or confess "One parameter";
+
+  my $t = $string->area->CreateTree;                                            # Cloned reversed copy
+  my $l = $string->size;                                                        # Size of string
+  $string->by(sub
+   {$t->put($l - $string->key - 1, $string->data);
+   });
+  $t                                                                            # Chain from the target string
+ }
+
+#D3 Trees as sets                                                               # Trees of trees as sets
+
+sub Nasm::X86::Tree::union($)                                                   # Given a tree of trees consider each sub tree as a set and form the union of all these sets as a new tree
+ {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
+  @_ == 1 or confess "One parameter";
+
+  my $u = $tree->area->CreateTree;
+  $tree->by(sub                                                                 # Each sub tree
+   {my ($T) = @_;
+    my $t = $tree->position($T->data);
+    $t->by(sub                                                                  # Insert each element of each sub tree
+     {my ($s) = @_;
+      $u->put($s->key, $s->data);
+     });
+   });
+  $u                                                                            # Union
+ }
+
+sub Nasm::X86::Tree::intersection($)                                            # Given a tree of trees consider each sub tree as a set and form the intersection of all these sets as a new tree
+ {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
+  @_ == 1 or confess "One parameter";
+
+  my $i = $tree->area->CreateTree;                                              # Resulting intersection
+  my $F = V smallest => -1;
+  my $S = V size     => -1;
+
+  $tree->by(sub                                                                 # Find smallest sub tree
+   {my ($T, $start, $next) = @_;
+    my $f = $T->data;
+    my $t = $tree->position($f);
+    my $s = $t->size;
+    OrBlock                                                                     # Update size if no size seen yet or if the size is smaller
+     {my ($pass) = @_;
+      If $S == -1, Then {Jmp $pass};                                            # No size set yet
+      If $S > $s,  Then {Jmp $pass};                                            # Smaller size
+     }                                                                          # Do not attempt to put a comma here!
+    Then                                                                        # Smallest so far
+     {$S->copy($s);
+      $F->copy($f);
+     };
+   });
+
+  If $S > 0,                                                                    # The smallest set is not empty set so the intersection might not be empty either
+  Then
+   {$tree->findFirst;
+    my $f = $tree->position($F);                                                # First tree (but the smallest sub tree would be better)
+
+    $f->by(sub                                                                  # Insert each element of each sub tree
+     {my ($t, undef, $nextElement) = @_;
+      my $k = $t->key;
+
+      $tree->by(sub                                                             # Each sub tree
+       {my ($T, undef, $nextTree) = @_;
+        If $F == $T->data, Then {Jmp $nextTree};                                # Skip the first tree
+
+        my $t = $tree->position($T->data);
+        $t->find($k);
+        If $t->found == 0, Then {Jmp $nextElement};                             # Not found in this sub tree so it cannot be part of the intersection
+       });
+      $i->put($k, $k);
+     });
+   };
+
+  $i                                                                            # Intersection
+ }
+
+#D3 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.  The inverse operations is much easier as we just have to look up a string by number in a tree.
+
+sub Nasm::X86::Tree::putString($$)                                              # The last element of the string is the value, the preceding elements are the keys so such a string must have at least two elements. We create a string tree to index strings to values
+ {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
+  @_ == 2 or confess "Two parameters";
+
+  my $size = $string->size;                                                     # Tree size
+  If $size > 1,                                                                 # Tree must be two or more
+  Then
+   {my $size1 = $size - 1;
+    my $S = $tree->copyDescription;                                             # Create a new descriptor for the string tree
+    my $s = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
+    my $z = V count => 0;                                                       # Count of elements so that we can find the last element to be inserted
+    my $l = V last  => 0;                                                       # Last key
+
+    $string->by(sub                                                             # Insert latest tree
+     {my ($t) = @_;
+      $z++;
+      If $z < $size1,                                                           # First elements are keys
+      Then
+       {If $s == 1,
+        Then
+         {$S->find($t->data);
+          If $S->found == 0,
+          Then                                                                  # Position on new element
+           {$s->copy(0);
+            my $T = $t->area->CreateTree;
+            $S->put($t->data, $T);
+            $S->first->copy($T->first);
+           },
+          Else
+           {$S->first->copy($S->data);                                          # Position on found element
+           };
+         },
+        Else
+         {my $T = $t->area->CreateTree;
+          $S->put($t->data, $T);
+          $S->first->copy($T->first);
+         };
+       },
+      Ef {$z == $size1}                                                         # Last key
+      Then
+       {$l->copy($t->data);
+       },
+      Else
+       {$S->put($l, $t->data);
+       };
+     });
+   };
+ }
+
+sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string and return its data in B<found> and B<data>.
+ {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
+  @_ == 2 or confess "Two parameters";
+  ref($string) =~ m(\ANasm::X86::::Tree\Z);
+
+  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
+
+  Block
+   {my ($end, $start) = @_;                                                     # End label
+    $S->zero;                                                                   # Assume we will not find the string
+    $S->subTree->copy(1);                                                       # We know we start with a string
+    $string->by(sub                                                             # Insert latest tree
+     {my ($s) = @_;
+      If $S->subTree == 0, Then {Jmp $end};                                     # Confirm that we are searching a sub tree
+      $S->find($s->data);                                                       # Try to find the next character of the string
+      If $S->found   == 0, Then {Jmp $end};                                     # The string cannot be found
+      $S->first->copy($S->data);
+     });
+   };
+
+  $S                                                                            # The result is shown via a tree descriptor
+ }
+
 #D2 Print                                                                       # Print a tree
 
 sub Nasm::X86::Tree::dump($$)                                                   # Dump a tree and all its sub trees.
@@ -7807,233 +8172,6 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
   PopR;
  }
 
-sub Nasm::X86::Tree::clear($)                                                   # Delete everything in the tree recording the memory so liberated to the free chain for reuse by other trees.
- {my ($tree) = @_;                                                              # Tree
-  @_ == 1 or confess "One parameter";
-
-  my $s = Subroutine                                                            # Delete all the sub blocks of a block and then free the block as well
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-
-    my $t = $$s{tree};                                                          # Tree
-    my $area = $t->area;                                                        # Area
-
-    PushR my $K = 31, my $D = 30, my $N = 29;
-
-    Block                                                                       # Free sub blocks then free block
-     {my ($end, $start) = @_;
-
-      $t->getBlock($$p{offset}, $K, $D, $N);                                    # Load block
-
-      If $t->leafFromNodes($N) == 0,
-      Then                                                                      # Not a leaf so free the sub blocks
-       {my $l = $t->lengthFromKeys($K);                                         # Number of nodes
-        ($l+1)->for(sub                                                         # Free sub blocks
-         {my ($i) = @_;
-          $sub->call(parameters => {offset => dFromZ $N, $i * $t->width},       # Recurse
-                     structures => {tree   => $t});
-         });
-       };
-
-      $t->freeBlock($$p{offset}, $K, $D, $N);                                   # Free this block
-     };
-
-    PopR;
-   } parameters => [qw(offset)],
-     structures => {tree => $tree},
-     name       => "Nasm::X86::Tree::clear";
-
-  PushR my $F = 31;
-  $tree->firstFromMemory($F);
-  my $root = $tree->rootFromFirst($F);                                          # Root block if any
-
-  If $root > 0,                                                                 # Non empty tree
-  Then
-   {$s->call(structures => {tree  => $tree}, parameters => {offset => $root});  # Free from root node
-    $tree->rootIntoFirst($F, K root => 0);
-    $tree->sizeIntoFirst($F, K size => 0);
-    $tree->firstIntoMemory($F);
-   };
-
-  PopR;
- }
-
-sub Nasm::X86::Tree::free($)                                                    # Free all the memory used by a tree
- {my ($tree) = @_;                                                              # Tree
-  @_ == 1 or confess "One parameter";
-  $tree->clear;                                                                 # Clear the tree
- }
-
-#D2 Iteration                                                                   # Iterate through a tree non recursively
-
-sub Nasm::X86::Tree::by($&)                                                     # Call the specified block with each element of the specified tree in ascending order.
- {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
-  @_ == 2 or confess "Two parameters required";
-
-  $tree->findFirst;                                                             # First element
-  my $end   = Label;                                                            # End of processing
-  my $next  = Label;                                                            # Next iteration
-  my $start = SetLabel;                                                         # Start of this iteration
-  If $tree->found == 0, Then {Jmp $end};
-  &$block($tree, $start, $next, $end);                                          # Perform the specified block
-  SetLabel $next;
-  $tree->findNext($tree->key);
-  Jmp $start;
-  SetLabel $end;
- }
-
-sub Nasm::X86::Tree::yb($&)                                                     # Call the specified block with each element of the specified tree in descending order.
- {my ($tree, $block) = @_;                                                      # Tree descriptor, block to execute
-  @_ == 2 or confess "Two parameters required";
-
-  $tree->findLast;                                                              # Last element
-  my $end   = Label;                                                            # End of processing
-  my $prev  = Label;                                                            # Next iteration
-  my $start = SetLabel;                                                         # Start of this iteration
-  If $tree->found == 0, Then {Jmp $end};
-  &$block($tree, $start, $prev, $end);                                          # Perform the specified block
-  SetLabel $prev;
-  $tree->findPrev($tree->key);
-  Jmp $start;
-  SetLabel $end;
- }
-
-#D2 Push and Pop                                                                # Use a tree as a stack: Push elements on to a tree with the next available key; Pop the last element in a tree.
-
-sub Nasm::X86::Tree::push($$)                                                   #P Push a data value onto a tree. If the data is a reference to a tree then the offset of the first block of the tree is pushed.
- {my ($tree, $data) = @_;                                                       # Tree descriptor, variable data
-  @_ == 2 or confess "Two parameters";
-
-  $tree->findLast;                                                              # Last element
-  If $tree->found == 0,
-  Then                                                                          # Empty tree
-   {$tree->put(K(key => 0), $data);                                             # First element in tree
-   },
-  Else                                                                          # Non empty tree
-   {$tree->put($tree->key + 1, $data);                                          # Last element in tree
-   };
- }
-
-sub Nasm::X86::Tree::pop($)                                                     # Pop the last value out of a tree and return the key/data/subTree in the tree descriptor.
- {my ($tree) = @_;                                                              # Tree descriptor
-  @_ == 1 or confess "One parameter";
-
-  $tree->findLast;                                                              # Last element
-  If $tree->found > 0,
-  Then                                                                          # Empty tree
-   {my $k = $tree->key    ->clone('key');
-    my $d = $tree->data   ->clone('data');
-    my $s = $tree->subTree->clone('subTree');
-    $tree->delete($k);                                                          # Delete last key
-    $tree->key    ->copy($k);                                                   # Retrieved key
-    $tree->data   ->copy($d);                                                   # Retrieved data
-    $tree->subTree->copy($s);                                                   # Retrieved sub tree indicator
-    $tree->found  ->copy(1);                                                    # Indicate success
-   };
- }
-
-sub Nasm::X86::Tree::get($$)                                                    # Retrieves the element at the specified zero based index in the stack.
- {my ($tree, $key) = @_;                                                        # Tree descriptor, zero based index
-  @_ == 2 or confess "Two parameters";
-  $tree->find($key);
- }
-
-#D2 Trees as Strings                                                            # Use trees as a strings. The characters of the string are stored as an array of characters.  The indices of the array run from 1 to the length of the string.
-
-sub Nasm::X86::Tree::m($$$)                                                     # Append bytes in memory to a tree acting as a string. The address and size of the source memory are specified via variables.
- {my ($string, $address, $size) = @_;                                           # Tree descriptor of string to append to, variable address of memory to append from, variable size of memory
-  @_ == 3 or confess "Three parameters";
-
-  my $s = Subroutine
-   {my ($parameters, $structures, $sub) = @_;
-    PushR rax, 13, 14, 15;
-    my $s = $$structures{string};
-    $$parameters{address}->setReg(r13);
-    $$parameters{size}   ->setReg(r14);
-    ClearRegisters r15;
-    For                                                                         # Clear memory
-     {Mov al, "[r13+r15]";
-      $s->push(V byte => rax);
-     } r15, r14, 1;
-    PopR;
-   } structures=>{string=>$string},
-     parameters=>[qw(address size)], name => 'Nasm::X86::Tree::m';
-
-  $s->call(parameters=>{address => $address, size=>$size},
-           structures=>{string=>$string});
- }
-
-sub Nasm::X86::Tree::append($$)                                                 # Append the second source string to the first target string renumbering the keys of the source string to follow on from those of the target string.  A string can safely be appended to itself.
- {my ($string, $append) = @_;                                                   # Tree descriptor of string to append to, tree descriptor of string to append from
-  @_ == 2 or confess "Two parameters";
-
-  my $lt = $string->size;                                                       # Target string size
-  my $ls = $append->size;                                                       # Source string size
-  $ls->for(sub                                                                  # Look up each character
-   {my ($i, $start, $next, $end) = @_;
-    $string->get($i);
-    $string->put($lt+$string->key, $string->data);
-   });
-  $string                                                                       # Chain from the target string
- }
-
-sub Nasm::X86::Tree::clone($)                                                   # Clone a string.
- {my ($string) = @_;                                                            # Tree descriptor
-  @_ == 1 or confess "One parameter";
-
-  my $t = $string->area->CreateTree;                                            # Cloned copy
-  $string->by(sub
-   {$t->put($string->key, $string->data);
-   });
-  $t                                                                            # Chain from the target string
- }
-
-sub Nasm::X86::Tree::substring($$$)                                             # Create the substring of the specified string between the specified start and end keys.
- {my ($string, $start, $finish) = @_;                                           # Tree descriptor of string to extract from, start key, end key
-  @_ == 3 or confess "Three parameters";
-
-  my $t = $string->area->CreateTree;                                            # Cloned copy
-  If $start == $finish,
-  Then                                                                          # Start and end are the same
-   {$string->find($start);
-    If $string->found > 0,
-    Then
-     {$t->put($string->key, $string->data);
-     };
-   },
-  Ef {$start < $finish}
-  Then                                                                          # Range of several keys
-   {$string->find($finish);
-    If $string->found > 0,
-    Then                                                                        # Finish exists
-     {$string->find($start);
-      If $string->found > 0,
-      Then                                                                      # Start exists
-       {$string->size->for(sub                                                  # Each key in range
-         {my ($i, $start, $next, $end) = @_;
-          $t->put($string->key, $string->data);
-          $string->findNext($string->key);
-          If $string->key == $finish, Then {Jmp $end};                          # End of range
-         });
-       };
-     };
-   };
-  $t                                                                            # Chain from the target string
- }
-
-sub Nasm::X86::Tree::reverse($)                                                 # Create a clone of the sstring in reverse order
- {my ($string) = @_;                                                            # Tree descriptor of string
-  @_ == 1 or confess "One parameter";
-
-  my $t = $string->area->CreateTree;                                            # Cloned reversed copy
-  my $l = $string->size;                                                        # Size of string
-  $string->by(sub
-   {$t->put($l - $string->key - 1, $string->data);
-   });
-  $t                                                                            # Chain from the target string
- }
-
-#D3 Print                                                                       # Print tree as a string
-
 sub Nasm::X86::Tree::outAsUtf8($)                                               # Print the data values of the specified string on stdout assuming each data value is a utf32 character and that the output device supports utf8
  {my ($string) = @_;                                                            # Tree descriptor of string
   @_ == 1 or confess "One parameter";
@@ -8057,145 +8195,6 @@ sub Nasm::X86::Tree::outAsUtf8NL($)                                             
   $string                                                                       # Chain from the target string
  }
 
-#D3 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.  The inverse operations is much easier as we just have to look up a string by number in a tree.
-
-sub Nasm::X86::Tree::putString($$)                                              # The last element of the string is the value, the preceding elements are the keys so such a string must have at least two elements. We create a string tree to index strings to values
- {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
-  @_ == 2 or confess "Two parameters";
-
-  my $size = $string->size;                                                     # Tree size
-  If $size > 1,                                                                 # Tree must be two or more
-  Then
-   {my $size1 = $size - 1;
-    my $S = $tree->copyDescription;                                             # Create a new descriptor for the string tree
-    my $s = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
-    my $z = V count => 0;                                                       # Count of elements so that we can find the last element to be inserted
-    my $l = V last  => 0;                                                       # Last key
-
-    $string->by(sub                                                             # Insert latest tree
-     {my ($t) = @_;
-      $z++;
-      If $z < $size1,                                                           # First elements are keys
-      Then
-       {If $s == 1,
-        Then
-         {$S->find($t->data);
-          If $S->found == 0,
-          Then                                                                  # Position on new element
-           {$s->copy(0);
-            my $T = $t->area->CreateTree;
-            $S->put($t->data, $T);
-            $S->first->copy($T->first);
-           },
-          Else
-           {$S->first->copy($S->data);                                          # Position on found element
-           };
-         },
-        Else
-         {my $T = $t->area->CreateTree;
-          $S->put($t->data, $T);
-          $S->first->copy($T->first);
-         };
-       },
-      Ef {$z == $size1}                                                         # Last key
-      Then
-       {$l->copy($t->data);
-       },
-      Else
-       {$S->put($l, $t->data);
-       };
-     });
-   };
- }
-
-sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string and return its data in B<found> and B<data>.
- {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
-  @_ == 2 or confess "Two parameters";
-  ref($string) =~ m(\ANasm::X86::::Tree\Z);
-
-  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
-
-  Block
-   {my ($end, $start) = @_;                                                     # End label
-    $S->zero;                                                                   # Assume we will not find the string
-    $S->subTree->copy(1);                                                       # We know we start with a string
-    $string->by(sub                                                             # Insert latest tree
-     {my ($s) = @_;
-      If $S->subTree == 0, Then {Jmp $end};                                     # Confirm that we are searching a sub tree
-      $S->find($s->data);                                                       # Try to find the next character of the string
-      If $S->found   == 0, Then {Jmp $end};                                     # The string cannot be found
-      $S->first->copy($S->data);
-     });
-   };
-
-  $S                                                                            # The result is shown via a tree descriptor
- }
-
-#D3 Trees as sets                                                               # Trees of trees as sets
-
-sub Nasm::X86::Tree::union($)                                                   # Given a tree of trees consider each sub tree as a set and form the union of all these sets as a new tree
- {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
-  @_ == 1 or confess "One parameter";
-
-  my $u = $tree->area->CreateTree;
-  $tree->by(sub                                                                 # Each sub tree
-   {my ($T) = @_;
-    my $t = $tree->position($T->data);
-    $t->by(sub                                                                  # Insert each element of each sub tree
-     {my ($s) = @_;
-      $u->put($s->key, $s->data);
-     });
-   });
-  $u                                                                            # Union
- }
-
-sub Nasm::X86::Tree::intersection($)                                            # Given a tree of trees consider each sub tree as a set and form the intersection of all these sets as a new tree
- {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
-  @_ == 1 or confess "One parameter";
-
-  my $i = $tree->area->CreateTree;                                              # Resulting intersection
-  my $F = V smallest => -1;
-  my $S = V size     => -1;
-
-  $tree->by(sub                                                                 # Find smallest sub tree
-   {my ($T, $start, $next) = @_;
-    my $f = $T->data;
-    my $t = $tree->position($f);
-    my $s = $t->size;
-    OrBlock                                                                     # Update size if no size seen yet or if the size is smaller
-     {my ($pass) = @_;
-      If $S == -1, Then {Jmp $pass};                                            # No size set yet
-      If $S > $s,  Then {Jmp $pass};                                            # Smaller size
-     }                                                                          # Do not attempt to put a comma here!
-    Then                                                                        # Smallest so far
-     {$S->copy($s);
-      $F->copy($f);
-     };
-   });
-
-  If $S > 0,                                                                    # The smallest set is not empty set so the intersection might not be empty either
-  Then
-   {$tree->findFirst;
-    my $f = $tree->position($F);                                                # First tree (but the smallest sub tree would be better)
-
-    $f->by(sub                                                                  # Insert each element of each sub tree
-     {my ($t, undef, $nextElement) = @_;
-      my $k = $t->key;
-
-      $tree->by(sub                                                             # Each sub tree
-       {my ($T, undef, $nextTree) = @_;
-        If $F == $T->data, Then {Jmp $nextTree};                                # Skip the first tree
-
-        my $t = $tree->position($T->data);
-        $t->find($k);
-        If $t->found == 0, Then {Jmp $nextElement};                             # Not found in this sub tree so it cannot be part of the intersection
-       });
-      $i->put($k, $k);
-     });
-   };
-
-  $i                                                                            # Intersection
- }
 
 if (1)                                                                          # Define operator overloading for trees
  {package Nasm::X86::Tree;
