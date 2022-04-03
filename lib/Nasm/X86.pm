@@ -4909,7 +4909,7 @@ sub Nasm::X86::Area::freeChainSpace($)                                          
     IfEq Then{Jmp $end};                                                        # No more free blocks
     $area->getZmmBlock(V(offset => $first), 31);                                # Load the first block on the free chain
     dFromZ(31, 0)->setReg($first);                                              # The location of the second block if any
-    $count->copy($count + 1);                                                   # Increment count of number of  blocks on the free chain
+    $count++                                                                    # Increment count of number of  blocks on the free chain
    });
   PopR;
   $count * RegisterSize 31;
@@ -8074,7 +8074,7 @@ sub Nasm::X86::Tree::putString($$)                                              
 
     $string->by(sub                                                             # Insert latest tree
      {my ($t) = @_;
-      $z->copy($z + 1);
+      $z++;
       If $z < $size1,                                                           # First elements are keys
       Then
        {If $s == 1,
@@ -8195,6 +8195,33 @@ sub Nasm::X86::Tree::intersection($)                                            
    };
 
   $i                                                                            # Intersection
+ }
+
+if (1)                                                                          # Define operator overloading for trees
+ {package Nasm::X86::Tree;
+  use overload
+#   '+'  => \&add,
+#   '-'  => \&sub,
+#   '*'  => \&times,
+#   '/'  => \&divide,
+#   '%'  => \&mod,
+#  '=='  => \&eq,
+#  '!='  => \&ne,
+#  '>='  => \&ge,
+#   '>'  => \&gt,
+#  '<='  => \&le,
+#  '<'   => \&lt,
+#  '++'  => \&inc,
+#  '--'  => \&dec,
+#  '""'  => \&str,
+#  '&'   => \&and,                                                              # We use the zero flag as the bit returned by a Boolean operation so we cannot implement '&' or '|' which were previously in use because '&&' and '||' and "and" and "or" are all disallowed in Perl operator overloading.
+#  '|'   => \&or,
+#  '+='  => \&plusAssign,
+#  '-='  => \&minusAssign,
+#  '='   => \&equals,
+#  '<<'  => \&shiftLeft,
+#  '>>'  => \&shiftRight,
+#  '!'    => \&not,
  }
 
 #D1 Assemble                                                                    # Assemble generated code
@@ -8599,69 +8626,8 @@ END
   $exec;                                                                        # Retained output
  }
 
-sub removeNonAsciiChars($)                                                      #P Return a copy of the specified string with all the non ascii characters removed.
- {my ($string) = @_;                                                            # String
-  $string =~ s([^a-z0..9]) ()igsr;                                              # Remove non ascii characters
- }
-
 sub totalBytesAssembled                                                         #P Total size in bytes of all files assembled during testing.
  {$totalBytesAssembled
- }
-
-sub CreateLibrary2(%)                                                            # Create a library.
- {my (%library) = @_;                                                           # Library definition
-
-  my @s = sort keys $library{subroutines}->%*;                                  # The names of the subroutines in the library
-
-  my %s = map                                                                   # The library is initialized by calling it - the library loads the addresses of its subroutines onto the stack for easy retrieval by the caller.
-   {my $l = Label;                                                              # Start label for subroutine
-    my  $o = "qword[rsp-".(($_+1) * RegisterSize rax)."]";                      # Position of subroutine on stack
-    Mov $o, $l.'-$$';                                                           # Put offset of subroutine on stack
-    Add $o, r15;                                                                # The library must be called via r15 to convert the offset to the address of each subroutine
-
-    $s[$_] => genHash("NasmX86::Library::Subroutine",                           # Subroutine definitions
-      number  => $_ + 1,                                                        # Number of subroutine from 1
-      label   => $l,                                                            # Label of subroutine
-      name    => $s[$_],                                                        # Name of subroutine
-      code    => $library{subroutines}{$s[$_]},                                 # Perl subroutine to write code of assembler subroutine
-      call    => undef,                                                         # Perl subroutine to call assembler subroutine
-   )} keys @s;
-
-  Ret;                                                                          # Return from library initialization
-
-  for my $s(@s{@s})                                                             # Generate code for each subroutine in the library
-   {Align 16;
-    SetLabel $s->label;                                                         # Start label
-    $s->code->();                                                               # Code of subroutine
-    Ret;                                                                        # Return from subroutine
-   }
-
-  unlink my $l = $library{file};                                                # The name of the file containing the library
-
-  Assemble library => $l;                                                       # Create the library file
-
-  $library{locations} = \%s;                                                    # Location of each subroutine on the stack
-
-  genHash "NasmX86::Library", %library
- }
-
-sub NasmX86::Library::load2($)                                                   # Load a library and return the addresses of its subroutines as variables.
- {my ($library) = @_;                                                           # Description of library to load
-  my ($address, $size) = ReadFile $$library{file};                              # Read library file into memory
-  $address->call(r15);                                                          # Load addresses of subroutines onto stack
-
-  my @s = sort keys $$library{subroutines}->%*;                                 # The names of the subroutines in the library
-
-  my %s = $$library{locations}->%*;                                             # Subroutines in library
-  for my $s(@s{@s})                                                             # Copy the address of each subroutine from the stack taking care not to disturb the stack beyond the stack pointer.
-   {Mov r15, "[rsp-".(($s->number + 1) * RegisterSize rax)."]";                 # Address of subroutine in this process
-    $s->call = V $s->name => r15;                                               # Address of subroutine in this process from stack as a variable
-   }
-
-  $$library{address} = $address;                                                # Save address and size of library
-  $$library{size}    = $size;
-
-  map {my $c = $_->call; sub {$c->call}} @s{@s};                                # Call subroutine via variable - perl bug because $_ by  itself is not enough
  }
 
 #d
@@ -30330,10 +30296,11 @@ END
 #latest:
 if (1) {
   my $a = V(a => 0);
+  my $b = $a;
   $a->outNL;
-  $a++;
+  $b++;
   $a->outNL;
-  $a--;
+  $b--;
   $a->outNL;
   ok Assemble eq => <<END;
 a: .... .... .... ....
@@ -30419,7 +30386,7 @@ sub NasmX86::Library::call($$%)                                                 
   $library->name->{$name}->call(library => $library->address, %options);
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TCreateLibrary #NasmX86::Library::load #NasmX86::Library::call
   my $l = CreateLibrary
    (subroutines =>
