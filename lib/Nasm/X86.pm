@@ -1422,6 +1422,7 @@ sub Subroutine(&%)                                                              
     variables          => {%parameters},                                        # Map parameters to references at known positions in the sub
     structureCopies    => \%structureCopies,                                    # Copies of the structures passed to this subroutine with their variables replaced with references
     structureVariables => {},                                                   # Map structure variables to references at known positions in the sub
+    offset             => undef,                                                # The offset of this routine in its library if it is in a library
     options            => \%options,                                            # Options used by the author of the subroutine
     parameters         => $parameters,                                          # Parameters definitions supplied by the author of the subroutine which get mapped in to parameter variables.
     vars               => $VariableStack[-1],                                   # Number of variables in subroutine
@@ -1518,7 +1519,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
 
   if (1)                                                                        # Validate options
    {my %o = %options;
-    delete $o{$_} for qw(parameters structures override);                       # Parameters are variables, structures are Perl data structures with variables embedded in them,  override is a variable that contains the actual address of the subroutine
+    delete $o{$_} for qw(parameters structures override library);               # Parameters are variables, structures are Perl data structures with variables embedded in them,  override is a variable that contains the actual address of the subroutine
     if (my @i = sort keys %o)
      {confess "Invalid parameters: ".join(', ',@i);
      }
@@ -1572,7 +1573,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
 
   my $w = RegisterSize r15;
   PushR 15;                                                                     # Use this register to transfer between the current frame and the next frame
-  Mov "dword[rsp  -$w*3]", $sub->nameString;                                    # Point to subroutine name
+  Mov "dword[rsp  -$w*3]", Rs($sub->name);                                     # Point to subroutine name
   Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable trace back with parameters
 
   for my $name(sort keys $parameters->%*)                                       # Upload the variables referenced by the parameters to the new stack frame
@@ -1585,7 +1586,18 @@ sub Nasm::X86::Subroutine::call($%)                                             
    {$sub->uploadStructureVariablesToNewStackFrame($structures);
    }
 
-  if (my $o = $options{override})                                               # A variable containing the address of the subroutine to call
+  if (my $l = $options{library})                                                # A variable containing the start address of a library
+   {$l->setReg(rdi);
+    if (my $o = $sub->offset)                                                   # The offset of the entry point into the library
+     {$o->setReg(rsi);
+      Add rdi, rsi;
+      Call rdi;
+     }
+    else
+     {confess "Supply the address of the containing library";
+     }
+   }
+  elsif (my $o = $options{override})                                            # A variable containing the address of the subroutine to call
    {$o->setReg(rdi);
     Call rdi;
    }
@@ -2681,16 +2693,19 @@ sub Nasm::X86::Variable::outRightInBinNL($$)                                    
 
 sub Nasm::X86::Variable::spaces($$)                                             # Print the specified number of spaces to the specified channel.
  {my ($count, $channel) = @_;                                                   # Number of spaces, channel
+  @_ == 2 or confess "Two parameters";
   $count->for(sub {PrintSpace $channel});
  }
 
 sub Nasm::X86::Variable::errSpaces($)                                           # Print the specified number of spaces to stderr.
  {my ($count) = @_;                                                             # Number of spaces
+  @_ == 1 or confess "One parameter";
   $count->spaces($stderr);
  }
 
 sub Nasm::X86::Variable::outSpaces($)                                           # Print the specified number of spaces to stdout.
  {my ($count) = @_;                                                             # Number of spaces
+  @_ == 1 or confess "One parameter";
   $count->spaces($stdout);
  }
 
@@ -2698,24 +2713,55 @@ sub Nasm::X86::Variable::outSpaces($)                                           
 
 sub Nasm::X86::Variable::errCString($)                                          # Print a zero terminated C style string addressed by a variable on stderr.
  {my ($string) = @_;                                                            # String
+  @_ == 1 or confess "One parameter";
   PrintCString($stderr, $string);
  }
 
 sub Nasm::X86::Variable::errCStringNL($)                                        # Print a zero terminated C style string addressed by a variable on stderr followed by a new line.
  {my ($string) = @_;                                                            # String
+  @_ == 1 or confess "One parameter";
   $string->errCString($string);
   PrintErrNL;
  }
 
 sub Nasm::X86::Variable::outCString($)                                          # Print a zero terminated C style string addressed by a variable on stdout.
  {my ($string) = @_;                                                            # String
+  @_ == 1 or confess "One parameter";
   PrintCString($stdout, $string);
  }
 
 sub Nasm::X86::Variable::outCStringNL($)                                        # Print a zero terminated C style string addressed by a variable on stdout followed by a new line.
  {my ($string) = @_;                                                            # String
+  @_ == 1 or confess "One parameter";
   $string->outCString;
   PrintOutNL;
+ }
+
+#D2 Addressing                                                                  # Create references to variables and dereference variables
+
+sub Nasm::X86::Variable::address($)                                             # Create a variable that contains the address of another variable
+ {my ($source) = @_;                                                            # Source variable
+  @_ == 1 or confess "One parameter";
+  Lea rdi, $source->addressExpr;                                                # Address of variable
+  V("addr ".$source->name => rdi)                                               # Return variable containing address of source
+ }
+
+sub Nasm::X86::Variable::dereference($)                                         # Create a variable that contains the contents of the variable addressed by the specified variable
+ {my ($address) = @_;                                                           # Source variable
+  @_ == 1 or confess "One parameter";
+  $address->setReg(rdi);                                                        # Address of referenced variable
+  Mov rdi, "[rdi]";                                                             # Content of referenced variable
+  V "deref ".$address->name => rdi                                              # Return variable containing content of addressed variable
+ }
+
+sub Nasm::X86::Variable::update($$)                                             # Update the content of the addressed variable with the content of the specified variable
+ {my ($address, $content) = @_;                                                 # Source variable, content
+  @_ == 2 or confess "Two parameters";
+  PushR 14, 15;
+  $address->setReg(14);                                                         # Address of referenced variable
+  $content->setReg(15);                                                         # Content
+  Mov "[r14]", r15;                                                             # Move content to addressed variable;
+  PopR;
  }
 
 #D2 Operations                                                                  # Variable operations
@@ -3193,19 +3239,19 @@ sub Nasm::X86::Variable::incDec($$)                                             
   $left->constant and confess "Cannot increment or decrement a constant";
   my $l = $left->addressExpr;
   if ($left->reference)
-   {PushR rdi, rsi;                                                             # Violates the rdi/rsi rule if removed
-    Mov rsi, $l;
-    Mov rdi, "[rsi]";
-    &$op(rdi);
-    Mov "[rsi]", rdi;
+   {PushR r14, r15;                                                             # Violates the r14/r15 rule if removed
+    Mov r15, $l;
+    Mov r14, "[r15]";
+    &$op(r14);
+    Mov "[r15]", r14;
     PopR;
     return $left;
    }
   else
-   {PushR rsi;
-    Mov rsi, $l;
-    &$op(rsi);
-    Mov $l, rsi;
+   {PushR r15;
+    Mov r15, $l;
+    &$op(r15);
+    Mov $l, r15;
     PopR;
     return $left;
    }
@@ -4148,7 +4194,7 @@ sub ReadInteger()                                                               
   $s->call
  }
 
-sub ReadFile(@)                                                                 # Read a file into memory.
+sub ReadFile($)                                                                 # Read a file into memory.
  {my ($File) = @_;                                                              # Variable addressing a zero terminated string naming the file
   @_ == 1 or confess "One parameter required";
 
@@ -4224,7 +4270,7 @@ sub executeFileViaBash($)                                                       
   $s->call(parameters=>{file => $file});
  }
 
-sub unlinkFile(@)                                                               # Unlink the named file.
+sub unlinkFile($)                                                               # Unlink the named file.
  {my ($file) = @_;                                                              # File variable
   @_ == 1 or confess "File required";
 
@@ -8535,7 +8581,7 @@ END
       ? qq($a -fbin)
       : qq($a -felf64 -g  && ld $I $L -o $e $objectFile && chmod 744 $e);
 
-    #say STDERR $cmd;
+#say STDERR $cmd;
     qx($cmd);
     confess "Assembly failed $?" if $?;                                         # Stop if assembly failed
    }
@@ -8549,18 +8595,22 @@ END
    {my $o = qq($sde -mix -ptr-check);                                           # Emulator options
        $o = qq($sde -mix -ptr-check -debugtrace -footprint) if $debugTrace;     # Emulator options - tracing
     my $e = $execFile;
+
     my $E = $options{emulator};                                                 # Emulator required
-    return qq($o -- ./$e $err $out) if $E or $avx512 && !hasAvx512;             # Command to execute program via the  emulator
+    if ($E or $avx512 && !hasAvx512 or $debugTrace)                             # Command to execute program via the  emulator
+     {return qq($o -- ./$e $err $out)
+     }
+
     qq(./$e $err $out);                                                         # Command to execute program without the emulator
    }->();
 
   my $eStart = time;
-  #say STDERR $exec;
+#say STDERR $exec;
   qx($exec) if $run;                                                            # Run unless suppressed by user or library
   my $er     = $?;                                                              # Execution result
   my $eTime  = time - $eStart;
 
-  if (1)                                                                        # Execution details
+  if ($run)                                                                     # Execution details
    {my $instructions       = getInstructionCount;                               # Instructions executed under emulator
     $instructionsExecuted += $instructions;                                     # Count instructions executed
     my $p = $assembliesPerformed++;                                             # Count assemblies
@@ -8660,71 +8710,6 @@ sub removeNonAsciiChars($)                                                      
 
 sub totalBytesAssembled                                                         #P Total size in bytes of all files assembled during testing.
  {$totalBytesAssembled
- }
-
-sub CreateLibrary(%)                                                            # Create a library.
- {my (%library) = @_;                                                           # Library definition
-
-  $library{subroutines} or confess "Subroutines required";
-  $library{file}        or confess "Subroutines file name required";
-
-  my @s = $library{subroutines}->@*;
-
-  my $vector = Label;                                                           # Vector of sub routine addresses
-  Mov rax, $vector;                                                             # Offset of vector
-  Ret;
-
-  my @c = map {&$_} @s;                                                         # Call the subroutines provided to write their code into the program and return the details of the subroutine so written
-
-  my $lVector = @s;                                                             # Write the number of subroutines in the library
-  push @data, <<END;
-  $vector: dq $lVector
-END
-
-  for my $c(@c)                                                                 # Write the entry point of each routine
-   {my $o = $c->start;
-    push @data, <<END;
-    dq $o
-END
-   }
-
-  unlink my $f = $library{file};                                                # The name of the file containing the library
-
-  Assemble library => $f;                                                       # Create the library file
-
-  $library{meta} = {map {$_->name => $_} @c};                                   # Hash describing each subroutine by name
-
-  genHash "NasmX86::Library", %library
- }
-
-# Pilates of East Lake
-sub NasmX86::Library::load($)                                                   # Load a library and return the addresses of its subroutines as variables.
- {my ($library) = @_;                                                           # Description of library to load
-
-  my ($address, $size) = ReadFile $$library{file};                              # Read library file into memory
-  $address->call;                                                               # Load addresses of subroutines onto stack
-  PrintErrRegisterInHex rax;
-  my $length = V(offset => rax);
-  my $vector = $address + $length;
-  $length->for(sub
-   {my ($i, $start, $next, $end) = @_;
-   ($vector + $i * RegisterSize(eax))->d;
-   });
-
-  return;
-
-  my @s = sort keys $$library{subroutines}->%*;                                 # The names of the subroutines in the library
-
-  my %s = $$library{locations}->%*;                                             # Subroutines in library
-  for my $s(@s{@s})                                                             # Copy the address of each subroutine from the stack taking care not to disturb the stack beyond the stack pointer.
-   {Mov r15, "[rsp-".(($s->number + 1) * RegisterSize rax)."]";                 # Address of subroutine in this process
-    $s->call = V $s->name => r15;                                               # Address of subroutine in this process from stack as a variable
-   }
-
-  $$library{address} = $address;                                                # Save address and size of library
-  $$library{size}    = $size;
-
-  map {my $c = $_->call; sub {$c->call}} @s{@s};                                # Call subroutine via variable - perl bug because $_ by  itself is not enough
  }
 
 sub CreateLibrary2(%)                                                            # Create a library.
@@ -30447,6 +30432,39 @@ END
  }
 
 #latest:
+if (1) {
+  my $a = V(a => 0);
+  $a->outNL;
+  $a++;
+  $a->outNL;
+  $a--;
+  $a->outNL;
+  ok Assemble eq => <<END;
+a: .... .... .... ....
+a: .... .... .... ...1
+a: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {
+          V(a => 2);
+          V(a => 1);
+  my $a = V(a => 0)->address;
+  ($a+ 0)->dereference->outNL;
+  ($a+ 8)->dereference->outNL;
+  ($a+16)->dereference->outNL;
+  ($a+16)->update(K key => 3);
+  ($a+16)->dereference->outNL;
+  ok Assemble eq => <<END;
+deref (addr a add 0): .... .... .... ....
+deref (addr a add 8): .... .... .... ...1
+deref (addr a add 16): .... .... .... ...2
+deref (addr a add 16): .... .... .... ...3
+END
+ }
+
+#latest:
 if (0) {
   Rb(0..255);
   Mov rax,1;
@@ -30454,8 +30472,65 @@ if (0) {
 END
  }
 
-#latest:
-if (0) {                                                                        #TCreateLibrary
+sub CreateLibrary(%)                                                            # Create a library.
+ {my (%library) = @_;                                                           # Library definition
+
+  $library{subroutines} or confess "Subroutines required";
+  $library{file}        or confess "Subroutines file name required";
+
+  my @s = $library{subroutines}->@*;
+
+  Mov rax, scalar @s;
+  Ret;
+  my @l = map {my $l = Label; Mov rax, $l; $l} @s;                              # Vector of subroutine addresses
+
+  my @c = map {&$_} @s;                                                         # Call the subroutines provided to write their code into the program and return the details of the subroutine so written
+
+  for my $c(keys @c)                                                            # Write the entry point of each routine
+   {my $e = $c[$c]->start;
+    push @text, <<END;
+$l[$c] equ $e
+END
+   }
+
+  unlink my $f = $library{file};                                                # The name of the file containing the library
+
+  Assemble library => $f;                                                       # Create the library file
+
+  $library{address} = undef;                                                    # Address of the library once it has been loaded
+  $library{size}    = undef;                                                    # Size of the library in bytes
+  $library{meta}    = \@c;                                                      # Array describing each subroutine in the order they are held in the library
+  $library{name}{$c[$_]{name}} = $c[$_] for keys @c;                            # Subroutine description by name
+
+  genHash "NasmX86::Library", %library
+ }
+
+# Pilates of East Lake
+sub NasmX86::Library::load($)                                                   # Load a library and return the addresses of its subroutines as variables.
+ {my ($library) = @_;                                                           # Description of library to load
+
+  my @offsets = sub                                                             # Examine library at run time
+   {my $c = readBinaryFile $$library{file};
+    my (undef, $n) = unpack "SQ", $c;
+    my @v = unpack "SQC(SQ)[$n]", $c;
+    map {$_ > 2 && $_ % 2 == 0 ? ($v[$_]) : () } keys @v
+   }->();
+
+  my @s = $$library{meta}->@*;
+  $s[$_]{offset} = V(entry=>$offsets[$_]) for keys @s;                          # Variable offset of each subroutine
+
+  ($library->address, $library->size) = ReadFile $$library{file};               # Load library at run time
+ }
+
+sub NasmX86::Library::call($$%)                                                 # Call a library routine
+ {my ($library, $name, %options) = @_;                                          # Description of library, method name, options - which includes parameters and structures
+  @_ >= 2 or confess "Two or more parameters";
+
+  $library->name->{$name}->call(library => $library->address, %options);
+ }
+
+latest:
+if (1) {                                                                        #TCreateLibrary
   my $l = CreateLibrary
    (subroutines =>
      [sub
@@ -30474,14 +30549,14 @@ if (0) {                                                                        
     file => q(library),
    );
 
-  $l->load;                                                                     # Load the library into memory
-  PrintOutRegisterInHex rax;
+  my ($address, $size) = $l->load;                                              # Load the library into memory
 
-#  $l->call->ssss;
-#  $l->call->tttt;
+  $l->call(q(ssss));
+  $l->call(q(tttt));
 
-  ok Assemble eq => <<END, avx512=>0;
-   rax: .... .... .... .170
+  ok Assemble eq => <<END, avx512=>0, trace=>1;
+SSSS
+TTTT
 END
   unlink $l->file;
  }
