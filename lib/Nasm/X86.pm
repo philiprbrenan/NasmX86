@@ -8225,7 +8225,7 @@ if (1)                                                                          
 #  '<='  => \&le,
 #  '<'   => \&lt,
 #  '++'  => \&inc,
-#  '--'  => \&dec,
+   '--'  => \&dec,
 #  '""'  => \&str,
 #  '&'   => \&and,                                                              # We use the zero flag as the bit returned by a Boolean operation so we cannot implement '&' or '|' which were previously in use because '&&' and '||' and "and" and "or" are all disallowed in Perl operator overloading.
 #  '|'   => \&or,
@@ -8248,6 +8248,15 @@ sub Nasm::X86::Tree::plusAssign($$)                                             
 
   $tree->push($data);                                                           # Perform the push
   $tree                                                                         # The resulting tree
+ }
+
+sub Nasm::X86::Tree::dec($)                                                     # Pop from the tree if it is being used as  stack
+ {my ($tree, $data) = @_;                                                       # Tree being used as a stack, data to push
+
+  !exists $tree->usage->{stack} and keys $tree->usage->%* and                   # Check that the tree is being used as a stack
+    confess "Tree is not being used as a stack";
+
+  $tree->pop                                                                    # Perform the pop
  }
 
 #D1 Assemble                                                                    # Assemble generated code
@@ -30187,7 +30196,7 @@ if (1) {                                                                        
    }
 
   $t->getString($s); $t->found->outNL("found:  ");
-  $s->pop;
+  $s--;
   my $f = $t->getString($s); $f->found->outNL("found:  "); $f->data->outNL("data:   ");
 
   ok Assemble eq => <<END, avx512=>1;
