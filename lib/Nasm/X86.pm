@@ -5277,6 +5277,8 @@ sub DescribeTree(%)                                                             
     middleOffset => $o * ($l2 + 0),                                             # Offset of the middle slot in bytes
     rightOffset  => $o * ($l2 + 1),                                             # Offset of the first right slot in bytes
 
+    usage        => {},                                                         # How this tree is being used so that we can map operators into subroutine calls
+
     compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
     data         => V(data    => 0),                                            # Variable containing the current data
     debug        => V(debug   => 0),                                            # Write debug trace if true
