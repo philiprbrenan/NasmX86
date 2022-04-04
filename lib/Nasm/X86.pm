@@ -5248,6 +5248,15 @@ sub DescribeTree(%)                                                             
 
   my $l2 = int($length/2);                                                      # Minimum length of length after splitting
 
+  my $usage = sub
+   {return {} unless my $u = $options{usage};
+    my $r = ref $u;                                                             # Usage expressed as:
+    return {$u=>1}            unless $r;                                        # Scalar
+    return $u                 if $r =~ m(hash)i;                                # Hash
+    return {map {$_=> 1} @$u} if $r =~ m(array)i;                               # Array
+    confess qq(Unexpected usage parameter of type: $r\n).dump($u);
+   }->();
+
   genHash(__PACKAGE__."::Tree",                                                 # Tree
     area        => ($options{area} // DescribeArea),                            # Area definition.
     length       => $length,                                                    # Number of keys in a maximal block
@@ -5277,7 +5286,7 @@ sub DescribeTree(%)                                                             
     middleOffset => $o * ($l2 + 0),                                             # Offset of the middle slot in bytes
     rightOffset  => $o * ($l2 + 1),                                             # Offset of the first right slot in bytes
 
-    usage        => {},                                                         # How this tree is being used so that we can map operators into subroutine calls
+    usage        => $usage,                                                     # How this tree is being used so that we can map operators into subroutine calls
 
     compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
     data         => V(data    => 0),                                            # Variable containing the current data
@@ -7636,6 +7645,8 @@ sub Nasm::X86::Tree::push($$)                                                   
  {my ($tree, $data) = @_;                                                       # Tree descriptor, variable data
   @_ == 2 or confess "Two parameters";
 
+  $tree->usage->{stack}++;                                                      # Being used as a stack
+
   $tree->findLast;                                                              # Last element
   If $tree->found == 0,
   Then                                                                          # Empty tree
@@ -7649,6 +7660,8 @@ sub Nasm::X86::Tree::push($$)                                                   
 sub Nasm::X86::Tree::pop($)                                                     # Pop the last value out of a tree and return the key/data/subTree in the tree descriptor.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
+
+  $tree->usage->{stack} or confess "Tree not being used as a stack";            # Check usage
 
   $tree->findLast;                                                              # Last element
   If $tree->found > 0,
@@ -8197,7 +8210,6 @@ sub Nasm::X86::Tree::outAsUtf8NL($)                                             
   $string                                                                       # Chain from the target string
  }
 
-
 if (1)                                                                          # Define operator overloading for trees
  {package Nasm::X86::Tree;
   use overload
@@ -8217,12 +8229,25 @@ if (1)                                                                          
 #  '""'  => \&str,
 #  '&'   => \&and,                                                              # We use the zero flag as the bit returned by a Boolean operation so we cannot implement '&' or '|' which were previously in use because '&&' and '||' and "and" and "or" are all disallowed in Perl operator overloading.
 #  '|'   => \&or,
-#  '+='  => \&plusAssign,
+   '+='  => \&plusAssign,
 #  '-='  => \&minusAssign,
 #  '='   => \&equals,
 #  '<<'  => \&shiftLeft,
 #  '>>'  => \&shiftRight,
 #  '!'    => \&not,
+   "fallback" => 1,
+ }
+
+sub Nasm::X86::Tree::plusAssign($$)                                             # Use plus to push an element to a tree being used as a stack
+ {my ($tree, $data) = @_;                                                       # Tree being used as a stack, data to push
+
+  !exists $tree->usage->{stack} and keys $tree->usage->%* and                   # Check that the tree is being used as a stack
+    confess "Tree is not being used as a stack";
+  ref($data) =~ m(Variable|Tree) or                                             # Check right operand on right
+    confess "Need a tree or variable on the right";
+
+  $tree->push($data);                                                           # Perform the push
+  $tree                                                                         # The resulting tree
  }
 
 #D1 Assemble                                                                    # Assemble generated code
@@ -30139,10 +30164,10 @@ end
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
-  my $p = $a->CreateTree(length => 3);
+  my $p = $a->CreateTree(length => 3, usage=>q(stack));
   my $q = $a->CreateTree(length => 3);
   my $r = $a->CreateTree(length => 3);
   my $s = $a->CreateTree(length => 3);
@@ -30151,7 +30176,7 @@ if (1) {                                                                        
   $s->push(K char => ord $_) for split //, 'abc1';
   $r->push(K char => ord $_) for split //, 'abd2';
   $q->push(K char => ord $_) for split //, 'abe3';
-  $p->push(K char => ord $_) for split //, 'abf4';
+  $p +=    K(char => ord $_) for split //, 'abf4';
 
   $t->putString($_) for $s, $r, $q, $p;
   $t->dump('t = abcd');
