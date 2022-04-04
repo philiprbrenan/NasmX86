@@ -30198,6 +30198,8 @@ if (1) {                                                                        
   $t->getString($s); $t->found->outNL("found:  ");
   $s--;
   my $f = $t->getString($s); $f->found->outNL("found:  "); $f->data->outNL("data:   ");
+  $s->pop;
+  my $F = $t->getString($s); $F->found->outNL("found:  "); $F->data->outNL("data:   ");
 
   ok Assemble eq => <<END, avx512=>1;
 t = abcd
@@ -30235,6 +30237,8 @@ offset  .... .... .... .AC0
 found:  .... .... .... ...1
 found:  .... .... .... ...1
 data:   .... .... .... ..31
+found:  .... .... .... ...1
+data:   .... .... .... .B80
 END
  }
 
