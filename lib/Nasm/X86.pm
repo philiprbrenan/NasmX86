@@ -4339,9 +4339,9 @@ sub convert_rax_from_utf32_to_utf8                                              
   $s->call;
  } # convert_rax_from_utf32_to_utf8
 
-sub GetNextUtf8CharAsUtf32($$$$)                                                # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
- {my ($in, $out, $size, $fail) = @_;                                            # Address of character variable, output character variable, output size of input, output error  if any
-  @_ == 4 or confess "In, out, size, fail required";
+sub GetNextUtf8CharAsUtf32($)                                                   # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+ {my ($in) = @_;                                                                # Address of utf8 character as a variable
+  @_ == 1 or confess "One parameter";
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
@@ -4419,12 +4419,19 @@ sub GetNextUtf8CharAsUtf32($$$$)                                                
     PopR;
    } parameters=>[qw(in out  size  fail)], name => 'GetNextUtf8CharAsUtf32';
 
+  my $out  = V(out  => 0);                                                      # Utf32 equivalent
+  my $size = V(size => 0);                                                      # Size of utf8 converted
+  my $fail = V(fail => 0);                                                      # Failed if true else false
+
   $s->call(parameters=>{in=>$in, out=>$out, size=>$size, fail=>$fail});
+
+ ($out, $size, $fail) = @_;                                                     # Output character variable, output size of input, output error if any
+
  } # GetNextUtf8CharAsUtf32
 
-sub ConvertUtf8ToUtf32($$$$$)                                                   # Convert a string of utf8 to an allocated block of utf32 and return its address and length.
- {my ($u8, $size8, $u32, $size32, $count) = @_;                                 # utf8 string address variable, utf8 length variable, utf32 string address variable, utf32 length variable, number of utf8 characters converteed
-  @_ == 5 or confess "Five parameters required";
+sub ConvertUtf8ToUtf32($)                                                       # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
+ {my ($u8, $s8) = @_;                                                           # utf8 string address variable, utf8 length variable
+  @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
@@ -4440,13 +4447,10 @@ sub ConvertUtf8ToUtf32($$$$$)                                                   
 
     ForEver sub                                                                 # Loop through input string  converting each utf8 sequence to utf32
      {my ($start, $end) = @_;
-      my ($out, $size, $fail) = (V(out => undef), V(size => undef), V(fail => undef));
-      GetNextUtf8CharAsUtf32 V(in => r14), $out, $size, $fail;                  # Get next utf-8 character and convert it to utf32
+      my ($out, $size, $fail) = GetNextUtf8CharAsUtf32 V(in => r14);            # Get next utf-8 character and convert it to utf32
       If $fail > 0,
       Then
-       {PrintErrStringNL "Invalid utf8 character at index:";
-        PrintErrRegisterInHex r12;
-        Exit(1);
+       {PrintTraceBack "Invalid utf8 character at index:";
        };
 
       Inc r12;                                                                  # Count characters converted
@@ -4460,14 +4464,22 @@ sub ConvertUtf8ToUtf32($$$$$)                                                   
       Jge $end;                                                                 # Exhausted input string
     };
 
-    $$p{u32}   ->copy($address);                                                # Address of allocation
-    $$p{size32}->copy($size);                                                   # Size of allocation
+    $$p{u32}->copy($address);                                                   # Address of allocation
+    $$p{s32}->copy($size);                                                      # Size of allocation
     $$p{count} ->getReg(r12);                                                   # Number of unicode points converted from utf8 to utf32
     PopR;
-   } parameters=>[qw(u8 size8 u32 size32 count)], name => 'ConvertUtf8ToUtf32';
+   } parameters=>[qw(u8 s8 u32 s32 count)], name => 'ConvertUtf8ToUtf32';
+
+  my $u32   = V(u32   => 0);
+  my $s32   = V(s32   => 0);
+  my $count = V(count => 0);
+  my $fail  = V(count => 1);                                                    # Assume we will fail
 
   $s->call(parameters=>
-    {u8=>$u8, size8=>$size8, u32=>$u32, size32=>$size32, count=>$count});
+    {u8  => $u8,  s8  => $s8,
+     u32 => $u32, s32 => $u32, count=>$count, fail => $fail});
+
+  ($u32, $u32, $count, $fail) = @_;                                                 # utf32 string address as a variable, utf32 area length as a variable, number of characters converted, fail if one else zero
  } # ConvertUtf8ToUtf32
 
 #   4---+---3---+---2---+---1---+---0  Octal not decimal
@@ -24014,7 +24026,7 @@ if (!$homeTest) {                                                               
  }
 
 #latest:;
-if (1) {                                                                        #TCreateArena #TArena::clear #TArena::outNL #TArena::copy #TArena::nl
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::outNL #TArea::copy #TArea::nl
   my $a = CreateArea;
   $a->q('aa');
   $a->outNL;
@@ -24024,7 +24036,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TArena::dump
+if (1) {                                                                        #TArea::dump
   my $a = CreateArea;
   my $b = CreateArea;
   $a->q("aaaa");
@@ -24048,7 +24060,7 @@ Area     Size:     4096    Used:       68
 END
  }
 
-if (1) {                                                                        #TCreateArena #TArena::clear #TArena::out #TArena::copy #TArena::nl
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::copy #TArea::nl
   my $a = CreateArea;
   my $b = CreateArea;
   $a->q('aa');
@@ -24063,7 +24075,7 @@ bb
 END
  }
 
-if (1) {                                                                        #TCreateArena #TArena::clear #TArena::out #TArena::copy #TArena::nl
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::copy #TArea::nl
   my $a = CreateArea;
   my $b = CreateArea;
   $a->q('aa');
@@ -24075,7 +24087,7 @@ aaAA
 END
  }
 
-if (1) {                                                                        #TCreateArena #TArena::clear #TArena::out #TArena::copy #TArena::nl
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::copy #TArea::nl
   my $a = CreateArea;
   my $b = CreateArea;
   $a->q('aa');
@@ -24093,7 +24105,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TCreateArena #TArena::length  #TArena::clear #TArena::out #TArena::copy #TArena::nl
+if (1) {                                                                        #TCreateArea #TArea::length  #TArea::clear #TArea::out #TArea::copy #TArea::nl
   my $a = CreateArea;
   $a->q('ab');
   my $b = CreateArea;
@@ -24163,7 +24175,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TArena::nl
+if (1) {                                                                        #TArea::nl
   my $s = CreateArea;
   $s->q("A");
   $s->nl;
@@ -24178,7 +24190,7 @@ END
  }
 
 #latest:;
-if (!$homeTest) {                                                               # Print this file - slow -  #TArena::read #TArena::z #TArena::q
+if (!$homeTest) {                                                               # Print this file - slow -  #TArea::read #TArea::z #TArea::q
   my $s = CreateArea;                                                           # Create a string
   $s->read(K file => Rs($0));
   $s->out;
@@ -24202,7 +24214,7 @@ END
  }
 
 #latest:;
-if ($homeTest) {                                                                # Execute the content of an area #TexecuteFileViaBash #TArena::write #TArena::out #TunlinkFile #TArena::ql
+if ($homeTest) {                                                                # Execute the content of an area #TexecuteFileViaBash #TArea::write #TArea::out #TunlinkFile #TArea::ql
   my $s = CreateArea;                                                           # Create a string
   $s->ql(<<END);                                                                # Write code to execute
 #!/usr/bin/bash
@@ -24229,7 +24241,7 @@ if (!hasAvx512) {                                                               
  }
 
 #latest:;
-if (1) {                                                                        # Make a read only area writable  #TArena::makeReadOnly #TArena::makeWriteable
+if (1) {                                                                        # Make a read only area writable  #TArea::makeReadOnly #TArea::makeWriteable
   my $s = CreateArea;                                                           # Create an area
   $s->q("Hello");                                                               # Write data to area
   $s->makeReadOnly;                                                             # Make area read only - tested above
@@ -24243,7 +24255,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        # Allocate some space in area #TArena::allocate
+if (1) {                                                                        # Allocate some space in area #TArea::allocate
   my $s = CreateArea;                                                           # Create an area
   my $o1 = $s->allocate(K size => 0x20);                                        # Allocate space wanted
   my $o2 = $s->allocate(K size => 0x30);
@@ -25106,24 +25118,24 @@ END
 
 #latest:
 if (1) {                                                                        #TConvertUtf8ToUtf32
-  my ($out, $size, $fail) = (V(out=>undef), V(size=>undef), V(fail=>undef));
+  my ($out, $size, $fail);
 
   my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
   my $chars = V(chars => $Chars);
 
-  GetNextUtf8CharAsUtf32 $chars+0, $out, $size, $fail;                          # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
+ ($out, $size, $fail) = G tNextUtf8CharAsUtf32 $chars+0;                        # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
   $out->out('out1 : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 $chars+1, $out, $size, $fail;                          # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+1;                        # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
   $out->out('out2 : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 $chars+3, $out, $size, $fail;                          # Alpha                UTF-8 Encoding: 0xC9 0x91           UTF-32 Encoding: 0x00000251
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+3;                        # Alpha                UTF-8 Encoding: 0xC9 0x91           UTF-32 Encoding: 0x00000251
   $out->out('out3 : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 $chars+5, $out, $size, $fail;                          # Euro                 UTF-8 Encoding: 0xE2 0x82 0xAC      UTF-32 Encoding: 0x000020AC
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+5;                        # Euro                 UTF-8 Encoding: 0xE2 0x82 0xAC      UTF-32 Encoding: 0x000020AC
   $out->out('out4 : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 $chars+8, $out, $size, $fail;                          # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+8;                        # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
   $out->out('out5 : ');     $size->outNL(' size : ');
 
   my $statement = qq(𝖺\n 𝑎𝑠𝑠𝑖𝑔𝑛 【【𝖻 𝐩𝐥𝐮𝐬 𝖼】】\nAAAAAAAA);                        # A sample sentence to parse
@@ -25134,19 +25146,19 @@ if (1) {                                                                        
   my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
   CopyMemory($s, $address, $l);
 
-  GetNextUtf8CharAsUtf32 $address, $out, $size, $fail;
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address;
   $out->out('outA : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 $address+4, $out, $size, $fail;
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+4;
   $out->out('outB : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 $address+5, $out, $size, $fail;
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+5;
   $out->out('outC : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 $address+30, $out, $size, $fail;
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+30;
   $out->out('outD : ');     $size->outNL(' size : ');
 
-  GetNextUtf8CharAsUtf32 $address+35, $out, $size, $fail;
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+35;
   $out->out('outE : ');     $size->outNL(' size : ');
 
   $address->printOutMemoryInHexNL($l);
