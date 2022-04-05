@@ -4425,7 +4425,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
 
   $s->call(parameters=>{in=>$in, out=>$out, size=>$size, fail=>$fail});
 
- ($out, $size, $fail) = @_;                                                     # Output character variable, output size of input, output error if any
+ ($out, $size, $fail)                                                           # Output character variable, output size of input, output error if any
 
  } # GetNextUtf8CharAsUtf32
 
@@ -4479,7 +4479,7 @@ sub ConvertUtf8ToUtf32($)                                                       
     {u8  => $u8,  s8  => $s8,
      u32 => $u32, s32 => $u32, count=>$count, fail => $fail});
 
-  ($u32, $u32, $count, $fail) = @_;                                                 # utf32 string address as a variable, utf32 area length as a variable, number of characters converted, fail if one else zero
+  ($u32, $u32, $count, $fail)                                                   # utf32 string address as a variable, utf32 area length as a variable, number of characters converted, fail if one else zero
  } # ConvertUtf8ToUtf32
 
 #   4---+---3---+---2---+---1---+---0  Octal not decimal
@@ -25123,8 +25123,10 @@ if (1) {                                                                        
   my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
   my $chars = V(chars => $Chars);
 
- ($out, $size, $fail) = G tNextUtf8CharAsUtf32 $chars+0;                        # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
-  $out->out('out1 : ');     $size->outNL(' size : ');
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+0;                        # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
+say STDERR "AAAA", dump(($out, $size, $fail));
+  $out->out('out1 : ');
+  $size->outNL(' size : ');
 
  ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+1;                        # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
   $out->out('out2 : ');     $size->outNL(' size : ');
@@ -30185,7 +30187,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $p = $a->CreateTree(length => 3, usage=>q(stack));
