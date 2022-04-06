@@ -25124,7 +25124,6 @@ if (1) {                                                                        
   my $chars = V(chars => $Chars);
 
  ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+0;                        # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
-say STDERR "AAAA", dump(($out, $size, $fail));
   $out->out('out1 : ');
   $size->outNL(' size : ');
 
