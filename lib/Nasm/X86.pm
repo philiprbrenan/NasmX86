@@ -886,7 +886,7 @@ sub LoadBitsIntoMaskRegister($$@)                                               
 
 #D1 Comparison codes                                                            # The codes used to specify what sort of comparison to perform
 
-my $Vpcmp = genHash("Nasm::X86::CompareCodes",                                    # Compare codes for "Vpcmp"
+my $Vpcmp = genHash("Nasm::X86::CompareCodes",                                  # Compare codes for "Vpcmp"
   eq=>0,                                                                        # Equal
   lt=>1,                                                                        # Less than
   le=>2,                                                                        # Less than or equals
@@ -1125,7 +1125,7 @@ sub ForEver(&)                                                                  
 
 my @VariableStack = (1);                                                        # Counts the number of parameters and variables on the stack in each invocation of L<Subroutine>.  There is at least one variable - the first holds the traceback.
 
-sub SubroutineStartStack22()                                                      # Initialize a new stack frame.  The first quad of each frame has the address of the name of the sub in the low dword, and the parameter count in the upper byte of the quad.  This field is all zeroes in the initial frame.
+sub SubroutineStartStack22()                                                    # Initialize a new stack frame.  The first quad of each frame has the address of the name of the sub in the low dword, and the parameter count in the upper byte of the quad.  This field is all zeroes in the initial frame.
  {push @VariableStack, 1;                                                       # Counts the number of variables on the stack in each invocation of L<Subroutine>.  The first quad provides the traceback.
  }
 
@@ -1469,7 +1469,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
 
   my $w = RegisterSize r15;
   PushR 15;                                                                     # Use this register to transfer between the current frame and the next frame
-  Mov "dword[rsp  -$w*3]", Rs($sub->name);                                     # Point to subroutine name
+  Mov "dword[rsp  -$w*3]", Rs($sub->name);                                      # Point to subroutine name
   Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable trace back with parameters
 
   for my $name(sort keys $parameters->%*)                                       # Upload the variables referenced by the parameters to the new stack frame
@@ -2714,7 +2714,7 @@ sub Nasm::X86::Variable::copy($$)                                               
   @_ == 2 or confess "Two parameters";
 
   my $l = $left ->addressExpr;
-  my $r = ref($right) ? $right->addressExpr : $right;                               # Variable address or register expression (which might in fact be a constant)
+  my $r = ref($right) ? $right->addressExpr : $right;                           # Variable address or register expression (which might in fact be a constant)
 
   Mov rdi, $r;                                                                  # Load right hand side
 
@@ -2756,7 +2756,7 @@ sub Nasm::X86::Variable::copyZF($)                                              
  {my ($var) = @_;                                                               # Variable
   @_ == 1 or confess "One parameter";
 
-  my $a = $var->addressExpr;                                                        # Address of the variable
+  my $a = $var->addressExpr;                                                    # Address of the variable
 
   PushR rax;
   Lahf;                                                                         # Save flags to ah: (SF:ZF:0:AF:0:PF:1:CF)
@@ -2770,7 +2770,7 @@ sub Nasm::X86::Variable::copyZFInverted($)                                      
  {my ($var) = @_;                                                               # Variable
   @_ == 1 or confess "One parameter";
 
-  my $a = $var->addressExpr;                                                        # Address of the variable
+  my $a = $var->addressExpr;                                                    # Address of the variable
 
   PushR rax, 15;
   Lahf;                                                                         # Save flags to ah: (SF:ZF:0:AF:0:PF:1:CF)
@@ -2842,7 +2842,7 @@ sub Nasm::X86::Variable::arithmetic($$$$)                                       
  {my ($op, $name, $left, $right) = @_;                                          # Operator, operator name, Left variable,  right variable
 
   my $l = $left ->addressExpr;
-  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
+  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
 
   Comment "Arithmetic Start";
   PushR 14, 15;
@@ -2881,7 +2881,7 @@ sub Nasm::X86::Variable::division($$$)                                          
  {my ($op, $left, $right) = @_;                                                 # Operator, Left variable,  right variable
 
   my $l = $left ->addressExpr;
-  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
+  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
   PushR rax, rdx, 15;
   Mov rax, $l;
   Mov rax, "[rax]" if $left->reference;
@@ -2938,7 +2938,7 @@ sub Nasm::X86::Variable::boolean($$$$)                                          
  {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
 
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
-  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
+  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
 
   Comment "Boolean Arithmetic Start";
   PushR 15;
@@ -2974,7 +2974,7 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
  {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
 
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
-  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
+  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
 
   Comment "Boolean ZF Arithmetic Start";
   PushR 15;
@@ -3009,7 +3009,7 @@ sub Nasm::X86::Variable::booleanC($$$$)                                         
  {my ($cmov, $op, $left, $right) = @_;                                          # Conditional move instruction name, operator name, Left variable,  right variable
 
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
-  my $r = ref($right) ? $right->addressExpr : $right;                               # Right can be either a variable reference or a constant
+  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
 
   PushR 15;
   Mov r15, $left ->addressExpr;
@@ -6934,7 +6934,7 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree to search
-    If $t->leafFromNodes($N) == 0,                                                                 # If the zero Flag is zero then this is not a leaf
+    If $t->leafFromNodes($N) == 0,                                              # If the zero Flag is zero then this is not a leaf
     Then                                                                        # We can only perform this operation on a leaf
      {PrintErrTraceBack "Cannot extract from a non leaf node";
      };
@@ -25939,7 +25939,7 @@ if (0) {
     Mov $o, $l.'-$$';                                                           # Put offset of subroutine on stack
     Add $o, r15;                                                                # The library must be called via r15 to convert the offset to the address of each subroutine
 
-    $s[$_] => genHash("Nasm::X86::Library::Subroutine",                           # Subroutine definitions
+    $s[$_] => genHash("Nasm::X86::Library::Subroutine",                         # Subroutine definitions
       number  => $_ + 1,                                                        # Number of subroutine from 1
       label   => $l,                                                            # Label of subroutine
       name    => $s[$_],                                                        # Name of subroutine
@@ -25948,7 +25948,7 @@ if (0) {
 
   Ret;
 
-  sub Nasm::X86::Library::Subroutine::gen($$)                                     # Write the code of a subroutine
+  sub Nasm::X86::Library::Subroutine::gen($$)                                   # Write the code of a subroutine
    {my ($sub, $code) = @_;                                                      # Subroutine definition, asssociated code as a sub
     SetLabel $sub->label;                                                       # Start label
     &$code;                                                                     # Code of subroutine
@@ -30402,7 +30402,7 @@ END
  }
 
 # Pilates of East Lake
-sub Nasm::X86::Library::load($)                                                   # Load a library and return the addresses of its subroutines as variables.
+sub Nasm::X86::Library::load($)                                                 # Load a library and return the addresses of its subroutines as variables.
  {my ($library) = @_;                                                           # Description of library to load
 
   my @offsets = sub                                                             # Examine library at run time
@@ -30418,7 +30418,7 @@ sub Nasm::X86::Library::load($)                                                 
   ($library->address, $library->size) = ReadFile $$library{file};               # Load library at run time
  }
 
-sub Nasm::X86::Library::call($$%)                                                 # Call a library routine
+sub Nasm::X86::Library::call($$%)                                               # Call a library routine
  {my ($library, $name, %options) = @_;                                          # Description of library, method name, options - which includes parameters and structures
   @_ >= 2 or confess "Two or more parameters";
 
