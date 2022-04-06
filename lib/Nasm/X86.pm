@@ -25251,43 +25251,6 @@ END
  }
 
 #latest:
-if (00) {                                                                       #TNasm::X86::Tree::insertTreeAndReload #TNasm::X86::Tree::Reload  #TNasm::X86::Tree::findAndReload
-  my $L = K(loop, 4);
-  my $b = CreateArea;
-  my $T = $b->CreateTree;
-  my $t = $T->describeTreereload;
-
-  $L->for(sub
-   {my ($i, $start, $next, $end) = @_;
-    $t->insertTreeAndReload($i);
-    $t->first->outNL;
-   });
-
-  $t->insert($L, $L*2);
-
-  my $f = $T->reload;
-  $L->for(sub
-   {my ($i, $start, $next, $end) = @_;
-    $f->findAndReload($i);
-    $i->out('i: '); $f->found->out('  f: '); $f->data->out('  d: '); $f->subTree->outNL('  s: ');
-   });
-  $f->find($L);
-  $L->out('N: '); $f->found->out('  f: '); $f->data->out('  d: ');   $f->subTree->outNL('  s: ');
-
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
-first: 0000 0000 0000 0098
-first: 0000 0000 0000 0118
-first: 0000 0000 0000 0198
-first: 0000 0000 0000 0218
-i: 0000 0000 0000 0000  f: 0000 0000 0000 0001  d: 0000 0000 0000 0098  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0001  f: 0000 0000 0000 0001  d: 0000 0000 0000 0118  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0002  f: 0000 0000 0000 0001  d: 0000 0000 0000 0198  s: 0000 0000 0000 0001
-i: 0000 0000 0000 0003  f: 0000 0000 0000 0001  d: 0000 0000 0000 0218  s: 0000 0000 0000 0001
-N: 0000 0000 0000 0004  f: 0000 0000 0000 0001  d: 0000 0000 0000 0008  s: 0000 0000 0000 0000
-END
- }
-
-#latest:
 if (1) {                                                                        # Print empty tree
   my $b = CreateArea;
   my $t = $b->CreateTree;
