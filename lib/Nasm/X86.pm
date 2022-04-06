@@ -4619,6 +4619,30 @@ sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   
            classification=>$classification});
  } # ClassifyWithInRangeAndSaveWordOffset
 
+sub Nasm::X86::Variable::dClassify($$$)                                         # Classify the dword in a variable between ranges held in zmm registers and return the index of the matching range.
+ {my ($d, $low, $high) = @_;                                                    # Variable containing a dword, zmm number not 31 holding the low end of each range, zmm number not 31 holding the high end of each range
+  @_ == 3 or confess "Three parameters required";
+
+  my $s = Subroutine
+   {my ($p) = @_;                                                               # Parameters
+
+    PushR 15, 5, 6, 7, 31;
+    $$p{d}->setReg(15);                                                         # Dword to classify
+    Vpbroadcastd zmm31, r15d;                                                   # 16 copies of the dword
+    Vpcmpud  k7, zmm($low,  31), $Vpcmp->le;                                    # Look for start of range
+    Vpcmpud  k6, zmm($high, 31), $Vpcmp->ge;                                    # Look for end of range
+    Kandq k5, k6, k7;                                                           # Look for end of range
+    Kmovq r15, k5;                                                              # Recover point
+    $$p{point}->getReg(15);                                                     # Return point
+    PopR;
+   } parameters => [qw(d point)],
+     name       => "NasmX86::Variable::dClassify";
+
+  my $point = V point => 0;                                                     # Point of matching range or zero if no match
+  $s->call(parameters=>{d=>$d, point=>$point});
+  $point
+ } # dClassify
+
 #D1 C Strings                                                                   # C strings are a series of bytes terminated by a zero byte.
 
 sub Cstrlen()                                                                   #P Length of the C style string addressed by rax returning the length in r15.
@@ -30433,6 +30457,21 @@ TTTT
 p: .... .... .... ..2A
 END
   unlink $l->file;
+ }
+
+latest:
+if (1) {                                                                        #TNasmX86::Variable::dClassify
+  K(K => Rd(map {32 * $_     } 0..15))->loadZmm(29);
+  K(K => Rd(map {32 * $_ + 16} 0..15))->loadZmm(30);
+
+  V(classify => 20)  ->dClassify(29, 30)->outNL;
+  V(classify => 14)  ->dClassify(29, 30)->outNL;
+  V(classify => 40)  ->dClassify(29, 30)->outNL;
+  ok Assemble eq => <<END, avx512=>1;
+point: .... .... .... ....
+point: .... .... .... ...1
+point: .... .... .... ...2
+END
  }
 
 #latest:
