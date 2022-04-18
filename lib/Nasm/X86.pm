@@ -30499,6 +30499,40 @@ sub Nasm::X86::Unisyn::Lex::Letter::b {(8968,8970,9001,10088,10090,10092,10094,1
 sub Nasm::X86::Unisyn::Lex::Number::B {11}                                      # Close
 sub Nasm::X86::Unisyn::Lex::Letter::B {(8969,8971,9002,10089,10091,10093,10095,10097,10099,10101,10215,10217,10219,10221,10223,10628,10630,10632,10634,10636,10638,10640,10642,10644,10646,10648,10749,11817,12297,12299,12305,12309,12311,12313,12315,64831,65289,65376)} # Close
 
+sub Nasm::X86::Unisyn::Lex::composeEarlZero($)                                  # Compose phrases of Earl Zero, write them to a temporary file, return the temporary file name
+ {my ($words) = @_;                                                             # String of words
+  my $s = '';
+
+  my $dyad = sub                                                                 # Variable name
+   {my ($chars) = @_;                                                           # Characters
+    my @c = Nasm::X86::Unisyn::Lex::Letter::d;
+    $s .= chr $c[ord($_) - ord('a')] for split //, $chars;
+   };
+
+  my $var = sub                                                                 # Variable name
+   {my ($chars) = @_;                                                           # Characters
+    my @c = Nasm::X86::Unisyn::Lex::Letter::v;
+    $s .= chr $c[ord($_) - ord('a')] for split //, $chars;
+   };
+
+  for my $w(split /\s+/, $words)
+   {if    ($w =~ m(\AA(.*)))  {$s .= $1}                                        # Ascii - normal letters where possible
+    elsif ($w =~ m(\Aa=))     {$s .= "＝"}                                       # Assign chosen by number
+    elsif ($w =~ m(\Aa(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::a[$1]} # Assign chosen by number
+    elsif ($w =~ m(\Ad(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::d[$1]} # Dyad   chosen by number
+    elsif ($w =~ m(\Ae\+))    {$s .= "＋"}                                       # Plus
+    elsif ($w =~ m(\Ae\*))    {$s .= "✕"}                                       # Multiply
+    elsif ($w =~ m(\Ae(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::e[$1]} # Dyad2  chosen by number
+    elsif ($w =~ m(\Ap(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::p[$1]} # Prefix chosen by number
+    elsif ($w =~ m(\Aq(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::q[$1]} # Suffix chosen by number
+    elsif ($w =~ m(\AS\Z))    {$s .= chr Nasm::X86::Unisyn::Lex::Letter::s[0]}  # Semicolon
+    elsif ($w =~ m(\As\Z))    {$s .= ' '}                                       # Space
+    elsif ($w =~ m(\Ad(\w+))) {$s .= $dyad->($1)}                               # Dyad-1 name
+    elsif ($w =~ m(\Av(\w+))) {$s .= $var ->($1)}                               # Variable name
+   }
+  writeTempFile $s                                                              # Composed string to temporary file
+ }
+
 sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           # Create and load the table of lexical transitions.
  {my ($area) = @_;                                                              # Area in which to create the table
   my $t = $area->CreateTree(length => 3);
@@ -30558,7 +30592,7 @@ sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        
   ($o, $c)                                                                      # Open close tree, close open tree
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitions
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::PermissibleTransitions $a;
@@ -30743,7 +30777,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitions
   my $a = CreateArea;
   my ($o, $c) = Nasm::X86::Unisyn::Lex::OpenClose($a);
@@ -30774,7 +30808,7 @@ sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    
   $t
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::LoadAlphabets
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
@@ -30783,6 +30817,21 @@ if (1) {                                                                        
 found: .... .... .... ...1
 data: .... .... .... ...6
 END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeEarlZero
+  my $f = Nasm::X86::Unisyn::Lex::composeEarlZero
+   ('va a= vb e+ vc e* vd dif ve');
+  is_deeply readFile($f), "𝗔＝𝗕＋𝗖✕𝗗𝐈𝐅𝗘\n";
+
+  my $F = Rs $f;                                                                # Read a file into memory.
+  my ($address, $size) = ReadFile K file => Rs $f;                              # Address and size of memory containing contents of the file
+  $size->outNL;
+  ok Assemble eq => <<END, avx512=>1;
+size: .... .... .... ..26
+END
+  unlink $f;
  }
 
 #latest:
