@@ -5367,7 +5367,7 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   $tree                                                                         # Description of array
  }
 
-sub Nasm::X86::Tree::describeTree($%)                                           #P Create a a description of a tree
+sub Nasm::X86::Tree::describeTree($%)                                           #P Create a description of a tree
  {my ($tree, %options) = @_;                                                    # Tree descriptor, {first=>first node of tree if not the existing first node; area=>area used by tree if not the existing area}
   @_ >= 1 or confess "At least one parameter";
 
@@ -30569,8 +30569,8 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
    {my @y = $x{$x}->@*;
     my $t = $area->CreateTree(length => 3);                                     # A tree containing each target lexical item for the source item
 
-    $t->push(K next => $_) for @y;                                              # Load targets
-    $T->put(K(key => $x), $t);
+    $t->put(K next => $_) for @y;                                               # Load target set
+    $T->put(K(key => $x), $t);                                                  # Save target set
    }
 
   $T                                                                            # Tree of source to target
@@ -30593,6 +30593,67 @@ sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        
    }
 
   ($o, $c)                                                                      # Open close tree, close open tree
+ }
+
+sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      # Bad utf8 character encountered
+sub Nasm::X86::Unisyn::Lex::Reason::InvalidChar       {2};                      # Character not part of Earl Zero
+sub Nasm::X86::Unisyn::Lex::Reason::InvalidTransition {3};                      # Transitiuon form one lexical item to another not allowed
+
+sub Nasm::X86::Unisyn::Parse($$$)                                               # Parse a string of utf8 characters
+ {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
+  my $o = $area->CreateTree(length => 3);                                       # Open to close
+
+  my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
+  my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
+
+  my $position = V(pos => 0);                                                   # Position in input string
+  my $last     = Nasm::X86::Unisyn::Lex::Number::S;                             # Last lexical type
+  $transitions->find($last);                                                    # Locate the current classification
+  my $permissibleTransitions = $a->DescribeTree(first => $transitions->data);   # Tree of possible transitions on lexical type
+
+
+  my $fail         = V fail         => 0;                                       # If not zero the parse has failed for some reason
+  my $failPosition = V failPosition => 0;                                       # The position in the input string at which the parse failed
+  my $failReason   = V failReason   => 0;                                       # The reason code describing the failure
+
+  $s8->for(sub                                                                  # Process the maximum number of characters
+   {my ($index, $start, $next, $end) = @_;
+    my ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;           # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+
+    If $fail > 0,
+    Then                                                                        # Failed to convert a utf8 character
+     {$fail        ->copy(1);
+      $failPosition->copy($position);
+      $failReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::BadUtf8);
+      Jmp $end;
+     };
+
+    $alphabets->find($out);                                                     # Classify character
+    If $alphabets->found == 0,
+    Then                                                                        # Failed to classify character
+     {$fail        ->copy(1);
+      $failPosition->copy($position);
+      $failReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidChar);
+      Jmp $end;
+     };
+
+    If $alphabets->found != $last,
+    Then                                                                        # Change of current lexical item
+     {$permissibleTransitions->find($alphabets->found);                         # Locate next lexical item in the tree of possible transitions for the last lexical item
+      If $permissibleTransitions->found > 0,
+      Then                                                                      # Found the next transition
+       {$permissibleTransitions = $transitions->find($alphabets->found);        # Tree of possible transitions on this lexical type
+       },
+      Else                                                                      # Transition not allowed
+       {$fail        ->copy(1);
+        $failPosition->copy($position);
+        $failReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidTransition);
+        Jmp $end;
+       };
+     };                                                                         # Else not required - we are continuing in the same lexical item
+
+    $position->copy($position + $size);                                         # Point to next character to be parsed
+   });
  }
 
 #latest:
@@ -30828,7 +30889,6 @@ if (1) {                                                                        
    ('va a= vb e+ vc e* vd dif ve');
   is_deeply readFile($f), "𝗔＝𝗕＋𝗖✕𝗗𝐈𝐅𝗘\n";
 
-  my $F = Rs $f;                                                                # Read a file into memory.
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
   $s8->outNL;
 
