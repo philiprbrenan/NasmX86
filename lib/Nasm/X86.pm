@@ -30569,7 +30569,7 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
    {my @y = $x{$x}->@*;
     my $t = $area->CreateTree(length => 3);                                     # A tree containing each target lexical item for the source item
 
-    $t->put(K next => $_) for @y;                                               # Load target set
+    $t->put(K(next => $_), K key => 1) for @y;                                  # Load target set
     $T->put(K(key => $x), $t);                                                  # Save target set
    }
 
@@ -30603,14 +30603,13 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
   my $o = $area->CreateTree(length => 3);                                       # Open to close
 
-  my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
-  my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
+  my $alphabets    = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;      # Create and load the table of alphabetic classifications
+  my $transitions  = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;      # Create and load the table of lexical transitions.
 
-  my $position = V(pos => 0);                                                   # Position in input string
-  my $last     = Nasm::X86::Unisyn::Lex::Number::S;                             # Last lexical type
+  my $position     = V(pos => 0);                                               # Position in input string
+  my $last         = Nasm::X86::Unisyn::Lex::Number::S;                         # Last lexical type
   $transitions->find($last);                                                    # Locate the current classification
   my $permissibleTransitions = $a->DescribeTree(first => $transitions->data);   # Tree of possible transitions on lexical type
-
 
   my $fail         = V fail         => 0;                                       # If not zero the parse has failed for some reason
   my $failPosition = V failPosition => 0;                                       # The position in the input string at which the parse failed
@@ -30641,10 +30640,10 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     Then                                                                        # Change of current lexical item
      {$permissibleTransitions->find($alphabets->found);                         # Locate next lexical item in the tree of possible transitions for the last lexical item
       If $permissibleTransitions->found > 0,
-      Then                                                                      # Found the next transition
+      Then                                                                      # The transition on this lexical type was a valid transition
        {$permissibleTransitions = $transitions->find($alphabets->found);        # Tree of possible transitions on this lexical type
        },
-      Else                                                                      # Transition not allowed
+      Else                                                                      # The transition on this lexical type was an invalid transition
        {$fail        ->copy(1);
         $failPosition->copy($position);
         $failReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidTransition);
@@ -30663,40 +30662,40 @@ if (1) {                                                                        
   $t->dump('Lex');
   ok Assemble eq => <<END, avx512=>1;
 Lex
-At: 1880                    length:    1,  data: 18C0,  nodes: 1900,  first:   80, root, parent,  trees:   1
+At: 17C0                    length:    1,  data: 1800,  nodes: 1840,  first:   80, root, parent,  trees:   1
   Index:    0
   Keys :    4
   Data :  A0*
-  Nodes:  B80 17C0
+  Nodes:  B80 1700
      At:  A00               length:    3,  data:  A40,  nodes:  A80,  first:  9C0, root, leaf
        Index:    0    1    2
-       Keys :    0    1    2
-       Data :    2   10    6
+       Keys :    2    6    A
+       Data :    1    1    1
      end
-    At:  B80                length:    1,  data:  BC0,  nodes:  C00,  first:   80,  up: 1880, parent,  trees:   1
+    At:  B80                length:    1,  data:  BC0,  nodes:  C00,  first:   80,  up: 17C0, parent,  trees:   1
       Index:    0
       Keys :    2
       Data :  5C*
       Nodes:  340  AC0
          At:  5C0           length:    2,  data:  600,  nodes:  640,  first:  400, root, parent
            Index:    0    1
-           Keys :    1    3
-           Data :   11    1
-           Nodes:  440  500  680
+           Keys :    3    9
+           Data :    1    1
+           Nodes:  440  680  500
              At:  440       length:    1,  data:  480,  nodes:  4C0,  first:  400,  up:  5C0, leaf
                Index:    0
-               Keys :    0
-               Data :    3
-             end
-             At:  500       length:    1,  data:  540,  nodes:  580,  first:  400,  up:  5C0, leaf
-               Index:    0
-               Keys :    2
-               Data :    9
+               Keys :    1
+               Data :    1
              end
              At:  680       length:    2,  data:  6C0,  nodes:  700,  first:  400,  up:  5C0, leaf
                Index:    0    1
-               Keys :    4    5
-               Data :    7    8
+               Keys :    7    8
+               Data :    1    1
+             end
+             At:  500       length:    1,  data:  540,  nodes:  580,  first:  400,  up:  5C0, leaf
+               Index:    0
+               Keys :    B
+               Data :    1
              end
          end
         At:  340            length:    1,  data:  380,  nodes:  3C0,  first:   80,  up:  B80, leaf,  trees:   1
@@ -30705,18 +30704,18 @@ At: 1880                    length:    1,  data: 18C0,  nodes: 1900,  first:   8
           Data :  28*
              At:  280       length:    1,  data:  2C0,  nodes:  300,  first:   C0, root, parent
                Index:    0
-               Keys :    1
+               Keys :    2
                Data :    1
                Nodes:  100  1C0
                  At:  100   length:    1,  data:  140,  nodes:  180,  first:   C0,  up:  280, leaf
                    Index:    0
-                   Keys :    0
-                   Data :    2
+                   Keys :    1
+                   Data :    1
                  end
                  At:  1C0   length:    3,  data:  200,  nodes:  240,  first:   C0,  up:  280, leaf
                    Index:    0    1    2
-                   Keys :    2    3    4
-                   Data :    4    8    6
+                   Keys :    4    6    8
+                   Data :    1    1    1
                  end
              end
         end
@@ -30726,113 +30725,108 @@ At: 1880                    length:    1,  data: 18C0,  nodes: 1900,  first:   8
           Data :  90*
              At:  900       length:    1,  data:  940,  nodes:  980,  first:  740, root, parent
                Index:    0
-               Keys :    1
-               Data :   10
+               Keys :    6
+               Data :    1
                Nodes:  780  840
-                 At:  780   length:    1,  data:  7C0,  nodes:  800,  first:  740,  up:  900, leaf
-                   Index:    0
-                   Keys :    0
-                   Data :    2
-                 end
-                 At:  840   length:    2,  data:  880,  nodes:  8C0,  first:  740,  up:  900, leaf
+                 At:  780   length:    2,  data:  7C0,  nodes:  800,  first:  740,  up:  900, leaf
                    Index:    0    1
-                   Keys :    2    3
-                   Data :    6    4
+                   Keys :    2    4
+                   Data :    1    1
+                 end
+                 At:  840   length:    1,  data:  880,  nodes:  8C0,  first:  740,  up:  900, leaf
+                   Index:    0
+                   Keys :    A
+                   Data :    1
                  end
              end
         end
     end
-    At: 17C0                length:    1,  data: 1800,  nodes: 1840,  first:   80,  up: 1880, parent,  trees:   1
+    At: 1700                length:    1,  data: 1740,  nodes: 1780,  first:   80,  up: 17C0, parent,  trees:   1
       Index:    0
       Keys :    6
       Data :  F0*
-      Nodes:  FC0 1700
+      Nodes:  FC0 1640
          At:  F00           length:    1,  data:  F40,  nodes:  F80,  first:  D40, root, parent
            Index:    0
-           Keys :    1
-           Data :   11
+           Keys :    5
+           Data :    1
            Nodes:  D80  E40
              At:  D80       length:    1,  data:  DC0,  nodes:  E00,  first:  D40,  up:  F00, leaf
                Index:    0
-               Keys :    0
-               Data :    5
+               Keys :    1
+               Data :    1
              end
              At:  E40       length:    3,  data:  E80,  nodes:  EC0,  first:  D40,  up:  F00, leaf
                Index:    0    1    2
-               Keys :    2    3    4
-               Data :    1    7    8
+               Keys :    7    8    B
+               Data :    1    1    1
              end
          end
-        At:  FC0            length:    1,  data: 1000,  nodes: 1040,  first:   80,  up: 17C0, leaf,  trees:   1
+        At:  FC0            length:    1,  data: 1000,  nodes: 1040,  first:   80,  up: 1700, leaf,  trees:   1
           Index:    0
           Keys :    5
           Data :  C8*
              At:  C80       length:    3,  data:  CC0,  nodes:  D00,  first:  C40, root, leaf
                Index:    0    1    2
-               Keys :    0    1    2
-               Data :    2   10    6
+               Keys :    2    6    A
+               Data :    1    1    1
              end
         end
-        At: 1700            length:    3,  data: 1740,  nodes: 1780,  first:   80,  up: 17C0, leaf,  trees: 111
+        At: 1640            length:    3,  data: 1680,  nodes: 16C0,  first:   80,  up: 1700, leaf,  trees: 111
           Index:    0    1    2
           Keys :    7    8    9
-          Data : 124* 158* 1B0*
-             At: 1240       length:    2,  data: 1280,  nodes: 12C0,  first: 1080, root, parent
-               Index:    0    1
-               Keys :    1    3
-               Data :   11    1
-               Nodes: 10C0 1180 1300
-                 At: 10C0   length:    1,  data: 1100,  nodes: 1140,  first: 1080,  up: 1240, leaf
-                   Index:    0
-                   Keys :    0
-                   Data :    5
-                 end
-                 At: 1180   length:    1,  data: 11C0,  nodes: 1200,  first: 1080,  up: 1240, leaf
-                   Index:    0
-                   Keys :    2
-                   Data :    2
-                 end
-                 At: 1300   length:    3,  data: 1340,  nodes: 1380,  first: 1080,  up: 1240, leaf
-                   Index:    0    1    2
-                   Keys :    4    5    6
-                   Data :    3    9    8
-                 end
-             end
-             At: 1580       length:    2,  data: 15C0,  nodes: 1600,  first: 13C0, root, parent
-               Index:    0    1
-               Keys :    1    3
-               Data :   10    1
-               Nodes: 1400 14C0 1640
-                 At: 1400   length:    1,  data: 1440,  nodes: 1480,  first: 13C0,  up: 1580, leaf
-                   Index:    0
-                   Keys :    0
-                   Data :    2
-                 end
-                 At: 14C0   length:    1,  data: 1500,  nodes: 1540,  first: 13C0,  up: 1580, leaf
-                   Index:    0
-                   Keys :    2
-                   Data :   11
-                 end
-                 At: 1640   length:    3,  data: 1680,  nodes: 16C0,  first: 13C0,  up: 1580, leaf
-                   Index:    0    1    2
-                   Keys :    4    5    6
-                   Data :    4    8    6
-                 end
-             end
-             At: 1B00       length:    1,  data: 1B40,  nodes: 1B80,  first: 1940, root, parent
+          Data : 124* 14C* 1A4*
+             At: 1240       length:    1,  data: 1280,  nodes: 12C0,  first: 1080, root, parent
                Index:    0
-               Keys :    1
-               Data :   10
-               Nodes: 1980 1A40
-                 At: 1980   length:    1,  data: 19C0,  nodes: 1A00,  first: 1940,  up: 1B00, leaf
-                   Index:    0
-                   Keys :    0
-                   Data :    2
+               Keys :    5
+               Data :    1
+               Nodes: 10C0 1180
+                 At: 10C0   length:    3,  data: 1100,  nodes: 1140,  first: 1080,  up: 1240, leaf
+                   Index:    0    1    2
+                   Keys :    1    2    3
+                   Data :    1    1    1
                  end
-                 At: 1A40   length:    2,  data: 1A80,  nodes: 1AC0,  first: 1940,  up: 1B00, leaf
+                 At: 1180   length:    3,  data: 11C0,  nodes: 1200,  first: 1080,  up: 1240, leaf
+                   Index:    0    1    2
+                   Keys :    8    9    B
+                   Data :    1    1    1
+                 end
+             end
+             At: 14C0       length:    2,  data: 1500,  nodes: 1540,  first: 1300, root, parent
+               Index:    0    1
+               Keys :    2    A
+               Data :    1    1
+               Nodes: 1340 1580 1400
+                 At: 1340   length:    1,  data: 1380,  nodes: 13C0,  first: 1300,  up: 14C0, leaf
+                   Index:    0
+                   Keys :    1
+                   Data :    1
+                 end
+                 At: 1580   length:    3,  data: 15C0,  nodes: 1600,  first: 1300,  up: 14C0, leaf
+                   Index:    0    1    2
+                   Keys :    4    6    8
+                   Data :    1    1    1
+                 end
+                 At: 1400   length:    1,  data: 1440,  nodes: 1480,  first: 1300,  up: 14C0, leaf
+                   Index:    0
+                   Keys :    B
+                   Data :    1
+                 end
+             end
+             At: 1A40       length:    1,  data: 1A80,  nodes: 1AC0,  first: 1880, root, parent
+               Index:    0
+               Keys :    6
+               Data :    1
+               Nodes: 18C0 1980
+                 At: 18C0   length:    2,  data: 1900,  nodes: 1940,  first: 1880,  up: 1A40, leaf
                    Index:    0    1
-                   Keys :    2    3
-                   Data :    6    4
+                   Keys :    2    4
+                   Data :    1    1
+                 end
+                 At: 1980   length:    1,  data: 19C0,  nodes: 1A00,  first: 1880,  up: 1A40, leaf
+                   Index:    0
+                   Keys :    A
+                   Data :    1
                  end
              end
         end
@@ -30883,7 +30877,7 @@ data: .... .... .... ...6
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeEarlZero
   my $f = Nasm::X86::Unisyn::Lex::composeEarlZero
    ('va a= vb e+ vc e* vd dif ve');
