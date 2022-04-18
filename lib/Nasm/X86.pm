@@ -4430,28 +4430,33 @@ sub GetNextUtf8CharAsUtf32($)                                                   
 
  } # GetNextUtf8CharAsUtf32
 
-sub ConvertUtf8ToUtf32($)                                                       # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
- {my ($u8, $s8) = @_;                                                           # utf8 string address variable, utf8 length variable
+sub ConvertUtf8ToUtf32($$)                                                      # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
+ {my ($a8, $s8) = @_;                                                           # utf8 string address variable, utf8 length variable
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     PushR 10, 11, 12, 13, 14, 15;
 
-    my $size = $$p{size8} * 4;                                                  # Estimated length for utf32
-    my $address = AllocateMemory $size;
+    my $a8      = $$p{a8};                                                      # Address of utf8
+    my $s8      = $$p{s8};                                                      # Length of utf8 in bytes
+    my $size    = $$p{s8} * RegisterSize(eax);                                  # Maximum possible length of corresponding utf32
+    my $address = AllocateMemory $size;                                         # Allocate a buffer for utf32
+    $$p{a32}->copy($address);                                                   # Address of allocation
+    $$p{s32}->copy($size);                                                      # Size of allocation
 
-     $$p{u8}            ->setReg(14);                                           # Current position in input string
-    ($$p{u8}+$$p{size8})->setReg(15);                                           # Upper limit of input string
+     $a8     ->setReg(14);                                                      # Current position in input string
+    ($a8+$s8)->setReg(15);                                                      # Upper limit of input string
     $address->setReg(13);                                                       # Current position in output string
     ClearRegisters 12;                                                          # Number of characters in output string
 
-    ForEver sub                                                                 # Loop through input string  converting each utf8 sequence to utf32
-     {my ($start, $end) = @_;
+    $s8->for(sub                                                                # Loop through input string  converting each utf8 sequence to utf32
+     {my ($index, $start, $next, $end) = @_;
       my ($out, $size, $fail) = GetNextUtf8CharAsUtf32 V(in => r14);            # Get next utf-8 character and convert it to utf32
       If $fail > 0,
       Then
-       {PrintTraceBack "Invalid utf8 character at index:";
+       {$$p{fail}->copy($fail);
+        Jmp $end;
        };
 
       Inc r12;                                                                  # Count characters converted
@@ -4463,24 +4468,22 @@ sub ConvertUtf8ToUtf32($)                                                       
       Add   r14, r10;                                                           # Move up in input string
       Cmp   r14, r15;
       Jge $end;                                                                 # Exhausted input string
-    };
+    });
 
-    $$p{u32}->copy($address);                                                   # Address of allocation
-    $$p{s32}->copy($size);                                                      # Size of allocation
     $$p{count} ->getReg(r12);                                                   # Number of unicode points converted from utf8 to utf32
     PopR;
-   } parameters=>[qw(u8 s8 u32 s32 count)], name => 'ConvertUtf8ToUtf32';
+   } parameters=>[qw(a8 s8 a32 s32 count fail)], name => 'ConvertUtf8ToUtf32';
 
-  my $u32   = V(u32   => 0);
+  my $a32   = V(a32   => 0);
   my $s32   = V(s32   => 0);
   my $count = V(count => 0);
-  my $fail  = V(count => 1);                                                    # Assume we will fail
+  my $fail  = V(fail  => 0);                                                    # Assume we will succeed
 
   $s->call(parameters=>
-    {u8  => $u8,  s8  => $s8,
-     u32 => $u32, s32 => $u32, count=>$count, fail => $fail});
+    {a8  => $a8,  s8  => $s8,
+     a32 => $a32, s32 => $s32, count=>$count, fail => $fail});
 
-  ($u32, $u32, $count, $fail)                                                   # utf32 string address as a variable, utf32 area length as a variable, number of characters converted, fail if one else zero
+  ($a32, $s32, $count, $fail)                                                   # utf32 string address as a variable, utf32 area length as a variable, number of characters converted, fail if one else zero
  } # ConvertUtf8ToUtf32
 
 #   4---+---3---+---2---+---1---+---0  Octal not decimal
@@ -30826,10 +30829,17 @@ if (1) {                                                                        
   is_deeply readFile($f), "𝗔＝𝗕＋𝗖✕𝗗𝐈𝐅𝗘\n";
 
   my $F = Rs $f;                                                                # Read a file into memory.
-  my ($address, $size) = ReadFile K file => Rs $f;                              # Address and size of memory containing contents of the file
-  $size->outNL;
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+  $s8->outNL;
+
+  my ($a32, $s32, $count, $fail) = ConvertUtf8ToUtf32 $a8, $s8;                 # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
+  $_->outNL for $s32, $count, $fail;
+
   ok Assemble eq => <<END, avx512=>1;
 size: .... .... .... ..26
+s32: .... .... .... ..98
+count: .... .... .... ...B
+fail: .... .... .... ....
 END
   unlink $f;
  }
