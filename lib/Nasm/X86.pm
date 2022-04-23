@@ -30629,43 +30629,43 @@ if (1) {                                                                        
   $t->dump('Lex');
   ok Assemble eq => <<END, avx512=>1;
 Lex
-At: 17C0                    length:    1,  data: 1800,  nodes: 1840,  first:   80, root, parent,  trees:   1
+At: 1940                    length:    1,  data: 1980,  nodes: 19C0,  first:   80, root, parent,  trees:   1
   Index:    0
   Keys :    4
-  Data : 114*
-  Nodes:  DC0 1700
-     At: 1140               length:    3,  data: 1180,  nodes: 11C0,  first: 1100, root, leaf
+  Data : 120*
+  Nodes:  E80 1880
+     At: 1200               length:    3,  data: 1240,  nodes: 1280,  first: 11C0, root, leaf
        Index:    0    1    2
        Keys :    2    6    A
        Data :    1    1    1
      end
-    At:  DC0                length:    1,  data:  E00,  nodes:  E40,  first:   80,  up: 17C0, parent,  trees:   1
+    At:  E80                length:    1,  data:  EC0,  nodes:  F00,  first:   80,  up: 1940, parent,  trees:   1
       Index:    0
       Keys :    2
-      Data :  B8*
-      Nodes:  340 1200
-         At:  B80           length:    2,  data:  BC0,  nodes:  C00,  first:  9C0, root, parent
+      Data :  C4*
+      Nodes:  340 12C0
+         At:  C40           length:    2,  data:  C80,  nodes:  CC0,  first:  A80, root, parent
            Index:    0    1
-           Keys :    3    9
+           Keys :    5    9
            Data :    1    1
-           Nodes:  A00  C40  AC0
-             At:  A00       length:    1,  data:  A40,  nodes:  A80,  first:  9C0,  up:  B80, leaf
-               Index:    0
-               Keys :    1
-               Data :    1
+           Nodes:  AC0  B80  D00
+             At:  AC0       length:    2,  data:  B00,  nodes:  B40,  first:  A80,  up:  C40, leaf
+               Index:    0    1
+               Keys :    1    3
+               Data :    1    1
              end
-             At:  C40       length:    2,  data:  C80,  nodes:  CC0,  first:  9C0,  up:  B80, leaf
+             At:  B80       length:    2,  data:  BC0,  nodes:  C00,  first:  A80,  up:  C40, leaf
                Index:    0    1
                Keys :    7    8
                Data :    1    1
              end
-             At:  AC0       length:    1,  data:  B00,  nodes:  B40,  first:  9C0,  up:  B80, leaf
+             At:  D00       length:    1,  data:  D40,  nodes:  D80,  first:  A80,  up:  C40, leaf
                Index:    0
                Keys :    B
                Data :    1
              end
          end
-        At:  340            length:    1,  data:  380,  nodes:  3C0,  first:   80,  up:  DC0, leaf,  trees:   1
+        At:  340            length:    1,  data:  380,  nodes:  3C0,  first:   80,  up:  E80, leaf,  trees:   1
           Index:    0
           Keys :    0
           Data :  28*
@@ -30686,21 +30686,21 @@ At: 17C0                    length:    1,  data: 1800,  nodes: 1840,  first:   8
                  end
              end
         end
-        At: 1200            length:    1,  data: 1240,  nodes: 1280,  first:   80,  up:  DC0, leaf,  trees:   1
+        At: 12C0            length:    1,  data: 1300,  nodes: 1340,  first:   80,  up:  E80, leaf,  trees:   1
           Index:    0
           Keys :    3
-          Data : 104*
-             At: 1040       length:    1,  data: 1080,  nodes: 10C0,  first:  E80, root, parent
+          Data : 110*
+             At: 1100       length:    1,  data: 1140,  nodes: 1180,  first:  F40, root, parent
                Index:    0
                Keys :    A
                Data :    1
-               Nodes:  EC0  F80
-                 At:  EC0   length:    3,  data:  F00,  nodes:  F40,  first:  E80,  up: 1040, leaf
+               Nodes:  F80 1040
+                 At:  F80   length:    3,  data:  FC0,  nodes: 1000,  first:  F40,  up: 1100, leaf
                    Index:    0    1    2
                    Keys :    2    4    6
                    Data :    1    1    1
                  end
-                 At:  F80   length:    1,  data:  FC0,  nodes: 1000,  first:  E80,  up: 1040, leaf
+                 At: 1040   length:    1,  data: 1080,  nodes: 10C0,  first:  F40,  up: 1100, leaf
                    Index:    0
                    Keys :    B
                    Data :    1
@@ -30708,25 +30708,30 @@ At: 17C0                    length:    1,  data: 1800,  nodes: 1840,  first:   8
              end
         end
     end
-    At: 1700                length:    2,  data: 1740,  nodes: 1780,  first:   80,  up: 17C0, parent,  trees:  11
+    At: 1880                length:    2,  data: 18C0,  nodes: 1900,  first:   80,  up: 1940, parent,  trees:  11
       Index:    0    1
       Keys :    6    A
-      Data : 158*  5C*
-      Nodes: 1640 1E40  D00
-         At: 1580           length:    1,  data: 15C0,  nodes: 1600,  first: 13C0, root, parent
-           Index:    0
-           Keys :    0
-           Data :    1
-           Nodes: 1400 14C0
-             At: 1400       length:    1,  data: 1440,  nodes: 1480,  first: 13C0,  up: 1580, leaf
-               Index:    0
-               Keys :    1
-               Data :    1
+      Data : 164*  5C*
+      Nodes: 17C0 1FC0  DC0
+         At: 1640           length:    2,  data: 1680,  nodes: 16C0,  first: 1480, root, parent
+           Index:    0    1
+           Keys :    5    9
+           Data :    1    1
+           Nodes: 14C0 1580 1700
+             At: 14C0       length:    2,  data: 1500,  nodes: 1540,  first: 1480,  up: 1640, leaf
+               Index:    0    1
+               Keys :    1    3
+               Data :    1    1
              end
-             At: 14C0       length:    3,  data: 1500,  nodes: 1540,  first: 13C0,  up: 1580, leaf
-               Index:    0    1    2
-               Keys :    7    8    B
-               Data :    1    1    1
+             At: 1580       length:    2,  data: 15C0,  nodes: 1600,  first: 1480,  up: 1640, leaf
+               Index:    0    1
+               Keys :    7    8
+               Data :    1    1
+             end
+             At: 1700       length:    1,  data: 1740,  nodes: 1780,  first: 1480,  up: 1640, leaf
+               Index:    0
+               Keys :    B
+               Data :    1
              end
          end
          At:  5C0           length:    2,  data:  600,  nodes:  640,  first:  400, root, parent
@@ -30750,89 +30755,83 @@ At: 17C0                    length:    1,  data: 1800,  nodes: 1840,  first:   8
                Data :    1
              end
          end
-        At: 1640            length:    1,  data: 1680,  nodes: 16C0,  first:   80,  up: 1700, leaf,  trees:   1
+        At: 17C0            length:    1,  data: 1800,  nodes: 1840,  first:   80,  up: 1880, leaf,  trees:   1
           Index:    0
           Keys :    5
-          Data : 130*
-             At: 1300       length:    3,  data: 1340,  nodes: 1380,  first: 12C0, root, leaf
+          Data : 13C*
+             At: 13C0       length:    3,  data: 1400,  nodes: 1440,  first: 1380, root, leaf
                Index:    0    1    2
                Keys :    2    6    A
                Data :    1    1    1
              end
         end
-        At: 1E40            length:    3,  data: 1E80,  nodes: 1EC0,  first:   80,  up: 1700, leaf,  trees: 111
+        At: 1FC0            length:    3,  data: 2000,  nodes: 2040,  first:   80,  up: 1880, leaf,  trees: 111
           Index:    0    1    2
           Keys :    7    8    9
-          Data : 1A4* 1CC* 20C*
-             At: 1A40       length:    1,  data: 1A80,  nodes: 1AC0,  first: 1880, root, parent
+          Data : 1BC* 1E4* 20C*
+             At: 1BC0       length:    1,  data: 1C00,  nodes: 1C40,  first: 1A00, root, parent
                Index:    0
                Keys :    5
                Data :    1
-               Nodes: 18C0 1980
-                 At: 18C0   length:    3,  data: 1900,  nodes: 1940,  first: 1880,  up: 1A40, leaf
+               Nodes: 1A40 1B00
+                 At: 1A40   length:    3,  data: 1A80,  nodes: 1AC0,  first: 1A00,  up: 1BC0, leaf
                    Index:    0    1    2
                    Keys :    1    2    3
                    Data :    1    1    1
                  end
-                 At: 1980   length:    3,  data: 19C0,  nodes: 1A00,  first: 1880,  up: 1A40, leaf
+                 At: 1B00   length:    3,  data: 1B40,  nodes: 1B80,  first: 1A00,  up: 1BC0, leaf
                    Index:    0    1    2
                    Keys :    8    9    B
                    Data :    1    1    1
                  end
              end
-             At: 1CC0       length:    2,  data: 1D00,  nodes: 1D40,  first: 1B00, root, parent
+             At: 1E40       length:    2,  data: 1E80,  nodes: 1EC0,  first: 1C80, root, parent
                Index:    0    1
                Keys :    2    A
                Data :    1    1
-               Nodes: 1B40 1D80 1C00
-                 At: 1B40   length:    1,  data: 1B80,  nodes: 1BC0,  first: 1B00,  up: 1CC0, leaf
+               Nodes: 1CC0 1F00 1D80
+                 At: 1CC0   length:    1,  data: 1D00,  nodes: 1D40,  first: 1C80,  up: 1E40, leaf
                    Index:    0
                    Keys :    1
                    Data :    1
                  end
-                 At: 1D80   length:    3,  data: 1DC0,  nodes: 1E00,  first: 1B00,  up: 1CC0, leaf
+                 At: 1F00   length:    3,  data: 1F40,  nodes: 1F80,  first: 1C80,  up: 1E40, leaf
                    Index:    0    1    2
                    Keys :    4    6    8
                    Data :    1    1    1
                  end
-                 At: 1C00   length:    1,  data: 1C40,  nodes: 1C80,  first: 1B00,  up: 1CC0, leaf
+                 At: 1D80   length:    1,  data: 1DC0,  nodes: 1E00,  first: 1C80,  up: 1E40, leaf
                    Index:    0
                    Keys :    B
                    Data :    1
                  end
              end
-             At: 20C0       length:    1,  data: 2100,  nodes: 2140,  first: 1F00, root, parent
-               Index:    0
-               Keys :    4
-               Data :    1
-               Nodes: 1F40 2000
-                 At: 1F40   length:    1,  data: 1F80,  nodes: 1FC0,  first: 1F00,  up: 20C0, leaf
-                   Index:    0
-                   Keys :    2
-                   Data :    1
-                 end
-                 At: 2000   length:    2,  data: 2040,  nodes: 2080,  first: 1F00,  up: 20C0, leaf
-                   Index:    0    1
-                   Keys :    6    A
-                   Data :    1    1
-                 end
+             At: 20C0       length:    3,  data: 2100,  nodes: 2140,  first: 2080, root, leaf
+               Index:    0    1    2
+               Keys :    2    6    A
+               Data :    1    1    1
              end
         end
-        At:  D00            length:    1,  data:  D40,  nodes:  D80,  first:   80,  up: 1700, leaf,  trees:   1
+        At:  DC0            length:    1,  data:  E00,  nodes:  E40,  first:   80,  up: 1880, leaf,  trees:   1
           Index:    0
           Keys :    B
           Data :  90*
-             At:  900       length:    1,  data:  940,  nodes:  980,  first:  740, root, parent
-               Index:    0
-               Keys :    9
-               Data :    1
-               Nodes:  780  840
-                 At:  780   length:    3,  data:  7C0,  nodes:  800,  first:  740,  up:  900, leaf
-                   Index:    0    1    2
-                   Keys :    1    7    8
-                   Data :    1    1    1
+             At:  900       length:    2,  data:  940,  nodes:  980,  first:  740, root, parent
+               Index:    0    1
+               Keys :    5    9
+               Data :    1    1
+               Nodes:  780  840  9C0
+                 At:  780   length:    2,  data:  7C0,  nodes:  800,  first:  740,  up:  900, leaf
+                   Index:    0    1
+                   Keys :    1    3
+                   Data :    1    1
                  end
-                 At:  840   length:    1,  data:  880,  nodes:  8C0,  first:  740,  up:  900, leaf
+                 At:  840   length:    2,  data:  880,  nodes:  8C0,  first:  740,  up:  900, leaf
+                   Index:    0    1
+                   Keys :    7    8
+                   Data :    1    1
+                 end
+                 At:  9C0   length:    1,  data:  A00,  nodes:  A40,  first:  740,  up:  900, leaf
                    Index:    0
                    Keys :    B
                    Data :    1
