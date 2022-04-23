@@ -30913,16 +30913,16 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
   my $o = $area->CreateTree(length => 3);                                       # Open to close
 
-  my $alphabets    = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;      # Create and load the table of alphabetic classifications
-  my $transitions  = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;      # Create and load the table of lexical transitions.
-  my $next = $transitions->cloneDescriptor;                                     # Clone the transitions table so we can step down it without losing the original table
-  my $position     = V pos => 0;                                                # Position in input string
-  my $last         = V last => Nasm::X86::Unisyn::Lex::Number::S;               # Last lexical type
+  my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
+  my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
+  my $next        = $transitions->cloneDescriptor;                              # Clone the transitions table so we can step down it without losing the original table
+  my $position    = V pos => 0;                                                 # Position in input string
+  my $last        = V last => Nasm::X86::Unisyn::Lex::Number::S;                # Last lexical type
   $next->find($last);                                                           # Locate the current classification
   $next->down;                                                                  # Tree of possible transitions on lexical type
 
-  my $parseFail     = V parseFail     => 1;                                     # If not zero the parse has failed for some reason
-  my $parseReason   = V parseReason   => 0;                                     # The reason code describing the failure
+  my $parseFail   = V parseFail   => 1;                                         # If not zero the parse has failed for some reason
+  my $parseReason = V parseReason => 0;                                         # The reason code describing the failure
 
   $s8->for(sub                                                                  # Process the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
