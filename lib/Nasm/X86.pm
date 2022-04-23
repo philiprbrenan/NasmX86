@@ -5285,7 +5285,12 @@ sub DescribeTree(%)                                                             
   my $o = RegisterSize eax;                                                     # Size of a double word
 
   my $keyAreaWidth = $b - $o * 2 ;                                              # Key / data area width  in bytes
+  my $kwdw   = $keyAreaWidth / $o;                                              # Number of keys in a maximal block
   my $length = $options{length} // $keyAreaWidth / $o;                          # Length of block to split
+
+  confess "Length must be greater than 2, not: $length" unless $length > 2;     # Check minimum length
+  confess "Length must be less than or equal to $kwdw, not $length"             # Check maximum length
+    unless $length <= $kwdw;
 
   my $l2 = int($length/2);                                                      # Minimum length of length after splitting
 
@@ -30916,6 +30921,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
   my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
   my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
   my $next        = $transitions->cloneDescriptor;                              # Clone the transitions table so we can step down it without losing the original table
+  my $brackets = $area->CreateTree(length => 3);
   my $position    = V pos => 0;                                                 # Position in input string
   my $last        = V last => Nasm::X86::Unisyn::Lex::Number::S;                # Last lexical type
   $next->find($last);                                                           # Locate the current classification
