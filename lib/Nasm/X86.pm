@@ -30915,11 +30915,11 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $alphabets    = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;      # Create and load the table of alphabetic classifications
   my $transitions  = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;      # Create and load the table of lexical transitions.
-  my $next = $transitions->cloneDescriptor;                           # Clone the transitions table so we can step down it without losing the original table
+  my $next = $transitions->cloneDescriptor;                                     # Clone the transitions table so we can step down it without losing the original table
   my $position     = V pos => 0;                                                # Position in input string
   my $last         = V last => Nasm::X86::Unisyn::Lex::Number::S;               # Last lexical type
-  $next->find($last);                                                 # Locate the current classification
-  $next->down;                                                        # Tree of possible transitions on lexical type
+  $next->find($last);                                                           # Locate the current classification
+  $next->down;                                                                  # Tree of possible transitions on lexical type
 
   my $parseFail     = V parseFail     => 1;                                     # If not zero the parse has failed for some reason
   my $parseReason   = V parseReason   => 0;                                     # The reason code describing the failure
@@ -30943,12 +30943,12 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
     If $alphabets->data != $last,
     Then                                                                        # Change of current lexical item
-     {$next->find($alphabets->data);                                  # Locate next lexical item in the tree of possible transitions for the last lexical item
+     {$next->find($alphabets->data);                                            # Locate next lexical item in the tree of possible transitions for the last lexical item
       If $next->found > 0,
       Then                                                                      # The transition on this lexical type was a valid transition
-       {$next->copyDescriptor($transitions);                          # Restart at the top of the transitions tree
-        $next->find($alphabets->data);                                # Tree of possible transitions on this lexical type
-        $next->down;                                                  # Tree of possible transitions on lexical type
+       {$next->copyDescriptor($transitions);                                    # Restart at the top of the transitions tree
+        $next->find($alphabets->data);                                          # Tree of possible transitions on this lexical type
+        $next->down;                                                            # Tree of possible transitions on lexical type
         $last->copy($alphabets->data);  ## Brackets fix!!                       # Treat unbroken sequiqnces of a symbol as one lexical item
        },
       Else                                                                      # The transition on this lexical type was an invalid transition
