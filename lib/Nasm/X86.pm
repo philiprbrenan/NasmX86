@@ -30937,11 +30937,13 @@ END
   unlink $f;
  }
 
+sub Nasm::X86::Unisyn::Lex::Reason::Success           {0};                      # Successful parse
 sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      # Bad utf8 character encountered
 sub Nasm::X86::Unisyn::Lex::Reason::InvalidChar       {2};                      # Character not part of Earl Zero
 sub Nasm::X86::Unisyn::Lex::Reason::InvalidTransition {3};                      # Transition from one lexical item to another not allowed
 sub Nasm::X86::Unisyn::Lex::Reason::TrailingClose     {4};                      # Trailing closing bracket discovered
 sub Nasm::X86::Unisyn::Lex::Reason::Mismatch          {5};                      # Mismatched bracket
+sub Nasm::X86::Unisyn::Lex::Reason::NotFinal          {6};                      # Expected something after final character
 
 sub Nasm::X86::Unisyn::Parse($$$)                                               # Parse a string of utf8 characters
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
@@ -31036,8 +31038,15 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $position->copy($position + $size);                                         # Point to next character to be parsed
     If $position > $s8,
     Then                                                                        # We have reached the end of the input
-     {$parseFail->copy(0);                                                      # Show success as a lack of failure
-      Jmp $end;                                                                 # Finished with parse string
+     {$next->find(K finish => Nasm::X86::Unisyn::Lex::Number::F);               # Check that we can locate the final state from the last symbol encountered
+      If $next->found > 0,
+      Then                                                                      # We are able to transition to the final state
+       {$parseFail->copy(0);                                                    # Show success as a lack of failure
+       },
+      Else                                                                      # We are not able to transition to the final state
+       {$parseFail->copy(Nasm::X86::Unisyn::Lex::Reason::NotFinal);             # Error code
+       };
+      Jmp $end;                                                                 # Cannot parse further
      };
    });
 
