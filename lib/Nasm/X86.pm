@@ -30990,7 +30990,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       $t->push($char);                                                          # The opening bracket
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
       $brackets->push($t);                                                      # Save bracket description on bracket stack
-      $change->copy(1);                                                         # Changing because we on a bracket
+      $change->copy(1);                                                         # Changing because we are on a bracket
      },
     Ef {$alphabets->data == Nasm::X86::Unisyn::Lex::Number::B}
     Then                                                                        # Closing bracket
@@ -31005,7 +31005,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
           $parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::Mismatch);         # Mismatched bracket
           Jmp $end;
          };
-        $change->copy(1);                                                       # Changing because we on a bracket
+        $change->copy(1);                                                       # Changing because we are on a bracket
        },
       Else
        {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::TrailingClose);
@@ -31014,7 +31014,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
      },
     Ef {$alphabets->data != $last}
     Then                                                                        # Change of current lexical item
-     {$change->copy(1);                                                         # Changing because we on a bracket
+     {$change->copy(1);                                                         # Changing because we are on a different lexical item
      };
 
     If $change > 0,                                                             # Check the transition from the previous item
