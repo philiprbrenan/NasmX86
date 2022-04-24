@@ -31058,6 +31058,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
        {$parseReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidTransition);
         Jmp $end;
        };
+
      };                                                                         # Else not required - we are continuing in the same lexical item
 
     $position->copy($position + $size);                                         # Point to next character to be parsed
