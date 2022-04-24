@@ -7732,6 +7732,22 @@ sub Nasm::X86::Tree::push($$)                                                   
    };
  }
 
+sub Nasm::X86::Tree::peek($$)                                                   # Peek at the element the specified distance back from the top of the stack and return its B<value> in data and found status in B<found> in the tree descriptor.
+ {my ($tree, $back) = @_;                                                       # Tree descriptor, how far back to go with 1 being the top
+  @_ == 2 or confess "Two parameters";
+
+  $tree->usage->{stack} or confess "Tree not being used as a stack";            # Check usage
+
+  $tree->found->copy(0);                                                        # Assume we will not be able to find the desired element
+
+  my $size = $tree->size;                                                       # Size of the stack
+  If $back <= $size,
+  Then                                                                          # Requested element is available on the stack
+   {$tree->find($size - $back);
+   };
+  $tree
+ }
+
 sub Nasm::X86::Tree::pop($)                                                     # Pop the last value out of a tree and return the key/data/subTree in the tree descriptor.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
@@ -29784,7 +29800,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
+if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
   my $N = K loop => 16;
@@ -29792,6 +29808,11 @@ if (1) {                                                                        
    {my ($i) = @_;
     $t->push($i);
    });
+
+  $t->peek(K key => 1)->data ->outNL;
+  $t->peek(K key => 2)->data ->outNL;
+  $t->peek(K key => 3)->found->outNL;
+  $t->peek(2 * $N    )->found->outNL;
 
   $t->size->outNL;
   $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
@@ -29803,6 +29824,10 @@ if (1) {                                                                        
   $t->pop; $t->found->outNL("f: ");
 
   ok Assemble eq => <<END, avx512=>1;
+data: .... .... .... ...F
+data: .... .... .... ...E
+found: .... .... .... ...1
+found: .... .... .... ....
 size of tree: .... .... .... ..10
 f: .... .... .... ...1 i: .... .... .... ...8 data: .... .... .... ...8
 f: .... .... .... ...1 i: .... .... .... ...F data: .... .... .... ...F
