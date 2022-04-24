@@ -14,6 +14,7 @@
 # Make sure that we are using bts and bzhi as much as possible in mask situations
 # Update PrintOut to use V2 every where then rename
 # Replace calls to Tree::position with Tree::down
+# Make Pop return a tree when it is on a sub tree
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -5373,19 +5374,25 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   $tree                                                                         # Description of array
  }
 
-sub Nasm::X86::Tree::describeTree($%)                                           #P Create a description of a tree
+sub Nasm::X86::Tree::describeTree($%)                                           # Create a description of a tree
  {my ($tree, %options) = @_;                                                    # Tree descriptor, {first=>first node of tree if not the existing first node; area=>area used by tree if not the existing area}
   @_ >= 1 or confess "At least one parameter";
 
   $tree->area->DescribeTree(%options);                                          # Return a descriptor for a tree
  }
 
-sub Nasm::X86::Tree::position($$)                                               #P Make a copy of a tree descriptor
+sub Nasm::X86::Tree::position($$)                                               # Create a new tree description for a tree positioned at the specified location
  {my ($tree, $first) = @_;                                                      # Tree descriptor, offset of tree
   my $t = $tree->describeTree;
 
   $t->first->copy($first);                                                      # Variable addressing offset to first block of keys.
   $t                                                                            # Return new descriptor
+ }
+
+sub Nasm::X86::Tree::reposition($$)                                             # Reposition an existing tree at the specified location
+ {my ($tree, $first) = @_;                                                      # Tree descriptor, offset to reposition on
+  $tree->first->copy($first);                                                   # Variable addressing offset to first block of keys.
+  $tree                                                                         # Return existing tree descriptor
  }
 
 sub Nasm::X86::Tree::cloneDescriptor($)                                         # Clone the descriptor of a tree to make a new tree descriptor
@@ -7743,6 +7750,26 @@ sub Nasm::X86::Tree::pop($)                                                     
     $tree->subTree->copy($s);                                                   # Retrieved sub tree indicator
     $tree->found  ->copy(1);                                                    # Indicate success
    };
+ }
+
+sub Nasm::X86::Tree::popSubTree($)                                              # Pop the last value out of a tree and return a tree descriptor positioned on it with the first/found fields set.
+ {my ($tree) = @_;                                                              # Tree descriptor
+  @_ == 1 or confess "One parameter";
+
+  $tree->usage->{stack} or confess "Tree not being used as a stack";            # Check usage
+
+  my $t = $tree->describeTree;                                                  # Create a tree descriptor
+  $t->found->copy(0);                                                           # Mark tree as not set
+  $tree->findLast;                                                              # Last element
+  If $tree->found > 0,
+  Then                                                                          # Found an element
+   {If $tree->subTree > 0,
+    Then                                                                        # Found a sub tree
+     {$t->reposition($tree->data);                                              # Reposition on sub tree
+      $t->found->copy(1);
+     };
+   };
+  $t
  }
 
 sub Nasm::X86::Tree::get($$)                                                    # Retrieves the element at the specified zero based index in the stack.
@@ -30912,16 +30939,18 @@ END
 
 sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      # Bad utf8 character encountered
 sub Nasm::X86::Unisyn::Lex::Reason::InvalidChar       {2};                      # Character not part of Earl Zero
-sub Nasm::X86::Unisyn::Lex::Reason::InvalidTransition {3};                      # Transitiuon form one lexical item to another not allowed
+sub Nasm::X86::Unisyn::Lex::Reason::InvalidTransition {3};                      # Transition from one lexical item to another not allowed
+sub Nasm::X86::Unisyn::Lex::Reason::TrailingClose     {4};                      # Trailing closing bracket discovered
+sub Nasm::X86::Unisyn::Lex::Reason::Mismatch          {5};                      # Mismatched bracket
 
 sub Nasm::X86::Unisyn::Parse($$$)                                               # Parse a string of utf8 characters
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
-  my $o = $area->CreateTree(length => 3);                                       # Open to close
+  my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
+  my $brackets    = $area->CreateTree(length => 3);                             # Bracket stack
 
   my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
   my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
   my $next        = $transitions->cloneDescriptor;                              # Clone the transitions table so we can step down it without losing the original table
-  my $brackets = $area->CreateTree(length => 3);
   my $position    = V pos => 0;                                                 # Position in input string
   my $last        = V last => Nasm::X86::Unisyn::Lex::Number::S;                # Last lexical type
   $next->find($last);                                                           # Locate the current classification
@@ -30929,10 +30958,13 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $parseFail   = V parseFail   => 1;                                         # If not zero the parse has failed for some reason
   my $parseReason = V parseReason => 0;                                         # The reason code describing the failure
+  my $parseMatch  = V parseMatch  => 0;                                         # The position of the bracket we failed to match
+  my $parseChar   = V parseChar   => 0;                                         # The last character recognized
 
   $s8->for(sub                                                                  # Process the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
-    my ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;           # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+    my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+    $parseChar->copy($char);                                                    # Copy the current character
 
     If $fail > 0,
     Then                                                                        # Failed to convert a utf8 character
@@ -30940,14 +30972,52 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       Jmp $end;
      };
 
-    $alphabets->find($out);                                                     # Classify character
+    $alphabets->find($char);                                                     # Classify character
     If $alphabets->found == 0,
     Then                                                                        # Failed to classify character
-     {$parseReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidChar);
+     {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidChar);
       Jmp $end;
      };
 
-    If $alphabets->data != $last,
+    my $change = V change => 0;                                                 # Changing from one lexical item to the next
+       $change->copy(0);                                                        # No change yet
+
+    If $alphabets->data == Nasm::X86::Unisyn::Lex::Number::b,
+    Then                                                                        # Opening bracket
+     {$openClose->find($char);                                                  # Locate corresponding closer
+      my $t = $area->CreateTree(length => 3);                                   # Tree recording the details of the opening bracket
+      $t->push($position);                                                      # Position in source
+      $t->push($char);                                                          # The opening bracket
+      $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
+      $brackets->push($t);                                                      # Save bracket description on bracket stack
+      $change->copy(1);                                                         # Changing because we on a bracket
+     },
+    Ef {$alphabets->data == Nasm::X86::Unisyn::Lex::Number::B}
+    Then                                                                        # Closing bracket
+     {my $t = $brackets->popSubTree;                                            # Match with brackets stack
+      If $t->found > 0,                                                         # Something to match with on the brackets stack
+      Then
+       {$t->find(K out => 2);                                                   # Expected bracket
+        If $t->data != $char,                                                   # Did not match the expected bracket
+        Then
+         {$t->find(K position => 0);
+          $parseMatch ->copy($t->data);
+          $parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::Mismatch);         # Mismatched bracket
+          Jmp $end;
+         };
+        $change->copy(1);                                                       # Changing because we on a bracket
+       },
+      Else
+       {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::TrailingClose);
+        Jmp $end;
+       };
+     },
+    Ef {$alphabets->data != $last}
+    Then                                                                        # Change of current lexical item
+     {$change->copy(1);                                                         # Changing because we on a bracket
+     };
+
+    If $change > 0,                                                             # Check the transition from the previous item
     Then                                                                        # Change of current lexical item
      {$next->find($alphabets->data);                                            # Locate next lexical item in the tree of possible transitions for the last lexical item
       If $next->found > 0,
@@ -30955,7 +31025,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
        {$next->copyDescriptor($transitions);                                    # Restart at the top of the transitions tree
         $next->find($alphabets->data);                                          # Tree of possible transitions on this lexical type
         $next->down;                                                            # Tree of possible transitions on lexical type
-        $last->copy($alphabets->data);  ## Brackets fix!!                       # Treat unbroken sequiqnces of a symbol as one lexical item
+        $last->copy($alphabets->data);                                          # Treat unbroken sequences of a symbol as one lexical item
        },
       Else                                                                      # The transition on this lexical type was an invalid transition
        {$parseReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidTransition);
@@ -30971,12 +31041,14 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
      };
    });
 
-   ($parseFail,                                                                 # If not zero the parse has failed for some reason
+   ($parseChar,                                                                 # Last character processed
+    $parseFail,                                                                 # If not zero the parse has failed for some reason
     $position,                                                                  # The position reached in the input string
+    $parseMatch,                                                                # The position of the matching bracket  that did not match
     $parseReason)                                                               # The reason code describing the failure
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeEarlZero
   my $f = Nasm::X86::Unisyn::Lex::composeEarlZero
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
@@ -30984,12 +31056,15 @@ if (1) {                                                                        
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($fail, $position, $reason) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;     # Parse the utf8 string minus the final new line and zero?
-  $_->outNL for $fail, $position, $reason;
+  my @a = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                              # Parse the utf8 string minus the final new line and zero?
+
+  $_->outNL for @a;
 
   ok Assemble eq => <<END, avx512=>1;
+parseChar: .... .... ...1 D5D8
 parseFail: .... .... .... ....
 pos: .... .... .... ..2B
+parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
 END
   unlink $f;
