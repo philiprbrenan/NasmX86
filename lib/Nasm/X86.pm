@@ -30982,7 +30982,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     my $change = V change => 0;                                                 # Changing from one lexical item to the next
        $change->copy(0);                                                        # No change yet
 
-    If $alphabets->data == Nasm::X86::Unisyn::Lex::Number::b,
+    If $alphabets->data == Nasm::X86::Unisyn::Lex::Number::b,                   # Match brackets
     Then                                                                        # Opening bracket
      {$openClose->find($char);                                                  # Locate corresponding closer
       my $t = $area->CreateTree(length => 3);                                   # Tree recording the details of the opening bracket
