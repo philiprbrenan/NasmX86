@@ -30961,7 +30961,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
   my $parseMatch  = V parseMatch  => 0;                                         # The position of the bracket we failed to match
   my $parseChar   = V parseChar   => 0;                                         # The last character recognized
 
-  $s8->for(sub                                                                  # Process the maximum number of characters
+  $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
     $parseChar->copy($char);                                                    # Copy the current character
