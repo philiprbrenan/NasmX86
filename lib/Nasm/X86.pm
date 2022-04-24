@@ -30892,8 +30892,8 @@ sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    
   my $t = $a->CreateTree(length => 3);
   my @l = qw(A a b B d e p q s v);
   for my $l(@l)
-   {my $n = K lex => eval "Nasm::X86::Unisyn::Lex::Number::$l";
-    my @c =          eval "Nasm::X86::Unisyn::Lex::Letter::$l";
+   {my $n = K lex   => eval "Nasm::X86::Unisyn::Lex::Number::$l";
+    my @c =            eval "Nasm::X86::Unisyn::Lex::Letter::$l";
     my $c = K count => scalar(@c);
     my $d = K(chars => Rd(@c));
 
@@ -30949,6 +30949,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
   my $brackets    = $area->CreateTree(length => 3);                             # Bracket stack
+  my $parse       = $area->CreateTree(length => 3);                             # Parse tree stack
 
   my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
   my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
@@ -30982,7 +30983,6 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
      };
 
     my $change = V change => 0;                                                 # Changing from one lexical item to the next
-#      $change->copy(0);                                                        # No change yet
 
     If $alphabets->data == Nasm::X86::Unisyn::Lex::Number::b,                   # Match brackets
     Then                                                                        # Opening bracket
