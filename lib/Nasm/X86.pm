@@ -31036,7 +31036,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $p                                                                          # Guaranteed to exist because of double push above
    };
 
-  my $parseF = sub                                                              # Final: at this point there are no brackets left and at most three operators of different properties left outstanding.
+  my $parseF = sub                                                              # Final: at this point there are no brackets left and at most three operators of different properties outstanding as we have three precedence levels plus the statement separator.
    {K(left => 3)->for(sub                                                       # Reduce
      {my ($index, $start, $next, $end) = @_;
       my $p = &$prev2;
@@ -31056,6 +31056,14 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
     my ($top) = map {$parse->popSubTree} 1..4;                                  # Top of the parse tree - with three starts below
     $parse->push($top);                                                         # New top of the parse tree
+   };
+
+  my $parsep = sub                                                              # Prefix
+   {&$push;                                                                     # Push prefix
+   };
+
+  my $parseq = sub                                                              # Suffix
+   {&$push->push($parse->popSubTree);                                           # Place suffix above its left operand
    };
 
   my $parsev = sub                                                              # Variable
@@ -31150,11 +31158,11 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       my $parsed = sub {PrintErrStringNL "d"};
       my $parsee = sub {PrintErrStringNL "e"};
 #     my $parseF = sub {PrintErrStringNL "F"};
-      my $parsep = sub {PrintErrStringNL "p"};
-      my $parseq = sub {PrintErrStringNL "q"};
+#     my $parsep = sub {PrintErrStringNL "p"};
+#     my $parseq = sub {PrintErrStringNL "q"};
       my $parses = sub {PrintErrStringNL "s"};
-      my $parseS = sub {PrintErrStringNL "S"};
-#     my $parseS = sub {PrintErrStringNL "v"};
+#     my $parseS = sub {PrintErrStringNL "S"};
+#     my $parseV = sub {PrintErrStringNL "v"};
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
