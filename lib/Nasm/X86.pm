@@ -7804,6 +7804,7 @@ sub Nasm::X86::Tree::popSubTree($)                                              
    {If $tree->subTree > 0,
     Then                                                                        # Found a sub tree
      {$t->reposition($tree->data);                                              # Reposition on sub tree
+      $tree->delete($tree->key);                                                # Remove subtree from stack
       $t->found->copy(1);
      };
    };
@@ -31021,8 +31022,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $n
    };
 
-  &$push;                                                                       # Initialize the parse tree with the start symbol
-  &$push;                                                                       # And again so that we can see back to the previous dyad without checking the parse tree size
+  &$push for 1..3;                                                              # Initialize the parse tree with three start symbols to act as sentinels
 
   my $prev = sub                                                                # Lexical type of the previous item on the parse stack
    {my $p = $parse->peekSubTree(K one => 1);
@@ -31054,9 +31054,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
        };
      });
 
-    my $top = $parse->popSubTree;                                               # Top of the parse tree - with two starts below
-    my $s2  = $parse->popSubTree;                                               # Start 2
-    my $s1  = $parse->popSubTree;                                               # Start 1
+    my ($top) = map {$parse->popSubTree} 1..4;                                  # Top of the parse tree - with three starts below
     $parse->push($top);                                                         # New top of the parse tree
    };
 
@@ -31212,66 +31210,62 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END, avx512=>1;
 parseChar: .... .... ...1 D5D8
-parseFail: .... .... .... ...7
+parseFail: .... .... .... ....
 pos: .... .... .... ..2B
 parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
 Parse Tree
-At: 6BC0                    length:    2,  data: 6C00,  nodes: 6C40,  first: 3580, root, parent,  trees:  11
-  Index:    0    1
-  Keys :    1    3
-  Data :8628*86A4*
-  Nodes: 6180 6B00 7380
-     At: 6280               length:    2,  data: 62C0,  nodes: 6300,  first: 6240, root, leaf
-       Index:    0    1
-       Keys :    0    1
-       Data :    0    0
+At: 66C0                    length:    1,  data: 6680,  nodes: 6640,  first: 3580, root, leaf,  trees:   1
+  Index:    0
+  Keys :    0
+  Data :87A4*
+     At: 7A40               length:    1,  data: 7A00,  nodes: 79C0,  first: 6C80, root, parent
+       Index:    0
+       Keys :    1
+       Data :   10
+       Nodes: 6CC0 7100
+         At: 6CC0           length:    1,  data: 6D00,  nodes: 6D40,  first: 6C80,  up: 7A40, leaf
+           Index:    0
+           Keys :    0
+           Data :    6
+         end
+         At: 7100           length:    2,  data: 70C0,  nodes: 7080,  first: 6C80,  up: 7A40, leaf,  trees:  11
+           Index:    0    1
+           Keys :    2    3
+           Data :8658*8798*
+              At: 6580      length:    2,  data: 65C0,  nodes: 6600,  first: 6540, root, leaf
+                Index:    0    1
+                Keys :    0    1
+                Data :    6    0
+              end
+              At: 7980      length:    1,  data: 7940,  nodes: 7900,  first: 7440, root, parent
+                Index:    0
+                Keys :    1
+                Data :   27
+                Nodes: 7480 78C0
+                  At: 7480  length:    1,  data: 74C0,  nodes: 7500,  first: 7440,  up: 7980, leaf
+                    Index:    0
+                    Keys :    0
+                    Data :    6
+                  end
+                  At: 78C0  length:    2,  data: 7880,  nodes: 7840,  first: 7440,  up: 7980, leaf,  trees:  11
+                    Index:    0    1
+                    Keys :    2    3
+                    Data :86FC*8778*
+                       At: 6FC0length:    2,  data: 7000,  nodes: 7040,  first: 6F80, root, leaf
+                         Index:    0    1
+                         Keys :    0    1
+                         Data :    6   17
+                       end
+                       At: 7780length:    2,  data: 77C0,  nodes: 7800,  first: 7740, root, leaf
+                         Index:    0    1
+                         Keys :    0    1
+                         Data :    6   39
+                       end
+                  end
+              end
+         end
      end
-     At: 6A40               length:    2,  data: 6A80,  nodes: 6AC0,  first: 6A00, root, leaf
-       Index:    0    1
-       Keys :    0    1
-       Data :    6   10
-     end
-    At: 6180                length:    1,  data: 61C0,  nodes: 6200,  first: 3580,  up: 6BC0, leaf,  trees:   1
-      Index:    0
-      Keys :    0
-      Data :860C*
-         At: 60C0           length:    2,  data: 6100,  nodes: 6140,  first: 6080, root, leaf
-           Index:    0    1
-           Keys :    0    1
-           Data :    0    0
-         end
-    end
-    At: 6B00                length:    1,  data: 6B40,  nodes: 6B80,  first: 3580,  up: 6BC0, leaf,  trees:   1
-      Index:    0
-      Keys :    2
-      Data :8648*
-         At: 6480           length:    2,  data: 64C0,  nodes: 6500,  first: 6440, root, leaf
-           Index:    0    1
-           Keys :    0    1
-           Data :    6    0
-         end
-    end
-    At: 7380                length:    3,  data: 73C0,  nodes: 7400,  first: 3580,  up: 6BC0, leaf,  trees: 111
-      Index:    0    1    2
-      Keys :    4    5    6
-      Data :86EC*872C*8768*
-         At: 6EC0           length:    2,  data: 6F00,  nodes: 6F40,  first: 6E80, root, leaf
-           Index:    0    1
-           Keys :    0    1
-           Data :    6   17
-         end
-         At: 72C0           length:    2,  data: 7300,  nodes: 7340,  first: 7280, root, leaf
-           Index:    0    1
-           Keys :    0    1
-           Data :    6   27
-         end
-         At: 7680           length:    2,  data: 76C0,  nodes: 7700,  first: 7640, root, leaf
-           Index:    0    1
-           Keys :    0    1
-           Data :    6   39
-         end
-    end
 end
 END
   unlink $f;
