@@ -31036,6 +31036,41 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $p                                                                          # Guaranteed to exist because of double push above
    };
 
+  my $parseF = sub                                                              # Final: at this point there are no brackets left and at most three operators of different properties left outstanding.
+   {K(left => 3)->for(sub                                                       # Reduce
+     {my ($index, $start, $next, $end) = @_;
+      my $p = &$prev2;
+      If $p->data != K(p => Nasm::X86::Unisyn::Lex::Number::S),
+      Then                                                                      # Not at the end yet
+       {my $right = $parse->popSubTree;                                         # Right operand
+        my $op    = $parse->popSubTree;                                         # Operator
+        my $left  = $parse->popSubTree;                                         # Left operand
+        $parse->push($op);
+        $op   ->push($left);
+        $op   ->push($right);
+       },
+      Else                                                                      # Down to the start line
+       {Jmp $end;
+       };
+     });
+
+    my $top = $parse->popSubTree;                                               # Top of the parse tree - with two starts below
+    my $s2  = $parse->popSubTree;                                               # Start 2
+    my $s1  = $parse->popSubTree;                                               # Start 1
+    $parse->push($top);                                                         # New top of the parse tree
+   };
+
+  my $parsev = sub                                                              # Variable
+   {my $p = &$prev;
+    If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
+    Then                                                                        # Previous is a prefix operator
+     {$p->push(&$new);                                                          # Push onto prev
+     },
+    Else                                                                        # Previous is not a prefix operator
+     {&$push;                                                                   # Push variable
+     },
+   };
+
   $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
@@ -31116,21 +31151,12 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       my $parseB = sub {PrintErrStringNL "B"};
       my $parsed = sub {PrintErrStringNL "d"};
       my $parsee = sub {PrintErrStringNL "e"};
+#     my $parseF = sub {PrintErrStringNL "F"};
       my $parsep = sub {PrintErrStringNL "p"};
       my $parseq = sub {PrintErrStringNL "q"};
       my $parses = sub {PrintErrStringNL "s"};
       my $parseS = sub {PrintErrStringNL "S"};
-
-      my $parsev = sub                                                          # Variable
-       {my $p = &$prev;
-        If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
-        Then                                                                    # Previous is a prefix operator
-         {$p->push(&$new);                                                      # Push onto prev
-         },
-        Else                                                                    # Previous is not a prefix operator
-         {&$push;                                                               # Push variable
-         },
-       };
+#     my $parseS = sub {PrintErrStringNL "v"};
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
@@ -31149,7 +31175,8 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       Then                                                                      # We are able to transition to the final state
        {If $brackets->size == 0,
         Then                                                                    # No outstanding brackets
-         {$parseFail->copy(0);                                                  # Show success as a lack of failure
+         {&$parseF;
+          $parseFail->copy(0);                                                  # Show success as a lack of failure
          },
         Else                                                                    # Open brackets not yet closed
          {$parseFail->copy(Nasm::X86::Unisyn::Lex::Reason::BracketsNotClosed);  # Error code
