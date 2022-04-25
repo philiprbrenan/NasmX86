@@ -7735,6 +7735,7 @@ sub Nasm::X86::Tree::push($$)                                                   
 sub Nasm::X86::Tree::peek($$)                                                   # Peek at the element the specified distance back from the top of the stack and return its B<value> in data and found status in B<found> in the tree descriptor.
  {my ($tree, $back) = @_;                                                       # Tree descriptor, how far back to go with 1 being the top
   @_ == 2 or confess "Two parameters";
+  ref($back) =~ m(Variable) or confess "Must be a variable, not: ", dump($back);
 
   $tree->usage->{stack} or confess "Tree not being used as a stack";            # Check usage
 
@@ -7746,6 +7747,27 @@ sub Nasm::X86::Tree::peek($$)                                                   
    {$tree->find($size - $back);
    };
   $tree
+ }
+
+sub Nasm::X86::Tree::peekSubTree($)                                              # Pop the last value out of a tree and return a tree descriptor positioned on it with the first/found fields set.
+ {my ($tree, $back) = @_;                                                       # Tree descriptor, how far back to go with 1 being the top
+  @_ == 2 or confess "Two parameters";
+  ref($back) =~ m(Variable) or confess "Must be a variable, not: ", dump($back);
+
+  $tree->usage->{stack} or confess "Tree not being used as a stack";            # Check usage
+
+  my $t = $tree->describeTree;                                                  # Create a tree descriptor
+  $t->found->copy(0);                                                           # Mark tree as not set
+  $tree->peek($back);                                                           # Requested element
+  If $tree->found > 0,
+  Then                                                                          # Found an element
+   {If $tree->subTree > 0,
+    Then                                                                        # Found a sub tree
+     {$t->reposition($tree->data);                                              # Reposition on sub tree
+      $t->found->copy(1);
+     };
+   };
+  $t
  }
 
 sub Nasm::X86::Tree::pop($)                                                     # Pop the last value out of a tree and return the key/data/subTree in the tree descriptor.
@@ -29530,15 +29552,12 @@ if (1) {                                                                        
    });
   ($N/2)->for(sub
    {my ($i) = @_;
-    $t->printInOrder("AAAA");
     $t->delete($i * 2);
    });
   ($N/2)->for(sub
    {my ($i) = @_;
-    $t->printInOrder("BBBB");
     $t->delete($i * 2 + 1);
    });
-  $t->printInOrder("CCCC");
 
   ok Assemble eq => <<END, avx512=>1;
 AAAA  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
@@ -30989,6 +31008,33 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
   my $parseMatch  = V parseMatch  => 0;                                         # The position of the bracket we failed to match
   my $parseChar   = V parseChar   => 0;                                         # The last character recognized
 
+  my $new = sub                                                                 # Create a new lexical item
+   {my $l = $area->CreateTree(length => 3);                                     # Tree to hold lexical item description
+    $l->push($last);                                                            # Last lexical item recognized
+    $l->push($position);                                                        # Position of lexical item
+    $l                                                                          # Tree representing lexical item
+   };
+
+  my $push = sub                                                                # Push the current lexical item on to the stack and return its tree descriptor
+   {$parse->push(my $n = &$new);
+    $n
+   };
+
+  &$push;                                                                       # Initialize the parse tree with the start symbol
+  &$push;                                                                       # And again so that we can see back to the previous dyad without checking the parse tree size
+
+  my $prev = sub                                                                # Lexical type of the previous item on the parse stack
+   {my $p = $parse->peekSubTree(K one => 1);
+    $p->find(K key => 0);                                                       # Lexical type
+    $p                                                                          # Guaranteed to exist
+   };
+
+  my $prev2 = sub                                                               # Lexical type of the previous previous item on the parse stack
+   {my $p = $parse->peekSubTree(K key => 2);
+    $p->find(K key => 0);                                                       # Lexical type
+    $p                                                                          # Guaranteed to exist because of double push above
+   };
+
   $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
@@ -31059,6 +31105,40 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
         Jmp $end;
        };
 
+      my $l = $area->CreateTree(length => 3);                                   # Tree recording the details of the lexical item
+      $l->push($position);                                                      # Position in source
+      $l->push($last);                                                          # The lexical type
+#say STDERR qq(my \$parse$_ = sub {PrintErrStringNL "$_";}) for qw(a A b B d e F p q s S v);
+      my $parsea = sub {PrintErrStringNL "a"};
+      my $parseA = sub {PrintErrStringNL "A"};
+      my $parseb = sub {PrintErrStringNL "b"};
+      my $parseB = sub {PrintErrStringNL "B"};
+      my $parsed = sub {PrintErrStringNL "d"};
+      my $parsee = sub {PrintErrStringNL "e"};
+      my $parseF = sub {PrintErrStringNL "F"};
+      my $parsep = sub {PrintErrStringNL "p"};
+      my $parseq = sub {PrintErrStringNL "q"};
+      my $parses = sub {PrintErrStringNL "s"};
+      my $parseS = sub {PrintErrStringNL "S"};
+
+      my $parsev = sub                                                          # Variable
+       {my $p = &$prev;
+        #If $p->data == Nasm::X86::Unisyn::Lex::Number::p,
+        #Then                                                                    # Previous is a prefix operator
+        # {$p->push(&$new);                                                      # Push onto prev
+        # },
+        #Else                                                                    # Previous is not a prefix operator
+        # {&$push;                                                               # Push variable
+        # },
+       };
+
+      Block                                                                     # Parse each lexical item to produce a parse tree of trees
+       {my ($end, $start) = @_;                                                 # Code with labels supplied
+        for my $l(qw(a A b B d e F p q s S v))
+         {eval qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$parse$l; Jmp \$end});
+         }
+        PrintErrTraceBack "Unexpected lexical type";                               # Something unexpected came along
+       };
      };                                                                         # Else not required - we are continuing in the same lexical item
 
     $position->copy($position + $size);                                         # Point to next character to be parsed
