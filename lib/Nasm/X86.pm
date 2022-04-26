@@ -31036,8 +31036,51 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $p                                                                          # Guaranteed to exist because of double push above
    };
 
-  my $parseF = sub                                                              # Final: at this point there are no brackets left and at most three operators of different properties outstanding as we have three precedence levels plus the statement separator.
-   {K(left => 3)->for(sub                                                       # Reduce
+  my $parseA = sub                                                              # Ascii
+   {my $p = &$prev;
+    If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
+    Then                                                                        # Previous is a prefix operator
+     {$p->push(&$new);                                                          # Push onto prev
+     },
+    Else                                                                        # Previous is not a prefix operator
+     {&$push;                                                                   # Push ascii
+     },
+   };
+
+  my $parseb = sub                                                              # Open bracket
+   {&$push;                                                                     # Push open bracket
+   };
+
+  my $parseB = sub                                                              # Close bracket
+   {my $p = &$prev;
+
+    If $p->data != K(p => Nasm::X86::Unisyn::Lex::Number::b),                   # Non empty pair of brackets
+    Then
+     {Block
+       {my ($end, $start) = @_;
+        my $p = &$prev2;
+        If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b),
+        Then                                                                    # Single item in brackets
+         {my $right   = $parse->popSubTree;
+          my $bracket = &$prev;
+             $bracket->push($right);
+          Jmp $end;
+         },
+        Else                                                                    # Left operator right
+         {my $right = $parse->popSubTree;                                       # Right operand
+          my $op    = $parse->popSubTree;                                       # Operator
+          my $left  = $parse->popSubTree;                                       # Left operand
+          $parse->push($op);
+          $op   ->push($left);
+          $op   ->push($right);
+          Jmp $start;                                                           # Keep on reducing until we meet the matching opening bracket
+         }
+       }
+     }
+   };
+
+  my $parseF = sub                                                              # Final: at this point there are no brackets left.
+   {$parse->size->for(sub                                                       # Reduce
      {my ($index, $start, $next, $end) = @_;
       my $p = &$prev2;
       If $p->data != K(p => Nasm::X86::Unisyn::Lex::Number::S),
@@ -31064,6 +31107,32 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $parseq = sub                                                              # Suffix
    {&$push->push($parse->popSubTree);                                           # Place suffix above its left operand
+   };
+
+  my $parses = sub  # Not tested                                                             # Statement separator
+   {my $p = &$prev;
+
+    Block
+     {my ($end, $start) = @_;
+      If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b), Then {Jmp $end};# Empty pair of brackets
+      my $p = &$prev2;
+      If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b),
+      Then                                                                      # Single item in brackets
+       {my $right   = $parse->popSubTree;
+        my $bracket = &$prev;
+           $bracket->push($right);
+        Jmp $end;
+       },
+      Else                                                                      # Left operator right
+       {my $right = $parse->popSubTree;                                         # Right operand
+        my $op    = $parse->popSubTree;                                         # Operator
+        my $left  = $parse->popSubTree;                                         # Left operand
+        $parse->push($op);
+        $op   ->push($left);
+        $op   ->push($right);
+        Jmp $start;                                                             # Keep on reducing until we meet the matching opening bracket
+       }
+     }
    };
 
   my $parsev = sub                                                              # Variable
@@ -31106,6 +31175,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
       $brackets->push($t);                                                      # Save bracket description on bracket stack
       $change->copy(1);                                                         # Changing because we are on a bracket
+      &$parseb;                                                                 # Push the open bracket
      },
     Ef {$alphabets->data == Nasm::X86::Unisyn::Lex::Number::B}
     Then                                                                        # Closing bracket
@@ -31121,6 +31191,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
           Jmp $end;
          };
         $change->copy(1);                                                       # Changing because we are on a bracket
+        &$parseB;                                                               # Push the open bracket
        },
       Else
        {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::TrailingClose);
@@ -31151,18 +31222,18 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       $l->push($position);                                                      # Position in source
       $l->push($last);                                                          # The lexical type
 #say STDERR qq(my \$parse$_ = sub {PrintErrStringNL "$_";}) for qw(a A b B d e F p q s S v);
-      my $parsea = sub {PrintErrStringNL "a"};
-      my $parseA = sub {PrintErrStringNL "A"};
-      my $parseb = sub {PrintErrStringNL "b"};
-      my $parseB = sub {PrintErrStringNL "B"};
-      my $parsed = sub {PrintErrStringNL "d"};
-      my $parsee = sub {PrintErrStringNL "e"};
-#     my $parseF = sub {PrintErrStringNL "F"};
-#     my $parsep = sub {PrintErrStringNL "p"};
-#     my $parseq = sub {PrintErrStringNL "q"};
-      my $parses = sub {PrintErrStringNL "s"};
-#     my $parseS = sub {PrintErrStringNL "S"};
-#     my $parseV = sub {PrintErrStringNL "v"};
+      my $parsea = sub {PrintErrStringNL "a"; &$push};
+#     my $parseA = sub {PrintErrStringNL "A"; &$push};
+#     my $parseb = sub {PrintErrStringNL "b"; &$push};
+#     my $parseB = sub {PrintErrStringNL "B"; &$push};
+      my $parsed = sub {PrintErrStringNL "d"; &$push};
+      my $parsee = sub {PrintErrStringNL "e"; &$push};
+#     my $parseF = sub {PrintErrStringNL "F"; &$push};
+#     my $parsep = sub {PrintErrStringNL "p"; &$push};
+#     my $parseq = sub {PrintErrStringNL "q"; &$push};
+#     my $parses = sub {PrintErrStringNL "s"; &$push};
+#     my $parseS = sub {PrintErrStringNL "S"; &$push};
+#     my $parseV = sub {PrintErrStringNL "v"; &$push};
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
@@ -31223,52 +31294,120 @@ pos: .... .... .... ..2B
 parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
 Parse Tree
-At: 66C0                    length:    1,  data: 6680,  nodes: 6640,  first: 3580, root, leaf,  trees:   1
+At: 8380                    length:    1,  data: 83C0,  nodes: 8400,  first: 3580, root, leaf,  trees:   1
   Index:    0
   Keys :    0
-  Data :87A4*
-     At: 7A40               length:    1,  data: 7A00,  nodes: 79C0,  first: 6C80, root, parent
+  Data :8678*
+     At: 6780               length:    1,  data: 6740,  nodes: 6700,  first: 6540, root, parent
        Index:    0
        Keys :    1
-       Data :   10
-       Nodes: 6CC0 7100
-         At: 6CC0           length:    1,  data: 6D00,  nodes: 6D40,  first: 6C80,  up: 7A40, leaf
+       Data :    0
+       Nodes: 6580 66C0
+         At: 6580           length:    1,  data: 65C0,  nodes: 6600,  first: 6540,  up: 6780, leaf
            Index:    0
            Keys :    0
            Data :    6
          end
-         At: 7100           length:    2,  data: 70C0,  nodes: 7080,  first: 6C80,  up: 7A40, leaf,  trees:  11
+         At: 66C0           length:    2,  data: 6680,  nodes: 6640,  first: 6540,  up: 6780, leaf,  trees:  11
            Index:    0    1
            Keys :    2    3
-           Data :8658*8798*
-              At: 6580      length:    2,  data: 65C0,  nodes: 6600,  first: 6540, root, leaf
+           Data :8638*87B4*
+              At: 6380      length:    2,  data: 63C0,  nodes: 6400,  first: 6340, root, leaf
                 Index:    0    1
                 Keys :    0    1
-                Data :    6    0
+                Data :    0    0
               end
-              At: 7980      length:    1,  data: 7940,  nodes: 7900,  first: 7440, root, parent
+              At: 7B40      length:    1,  data: 7B80,  nodes: 7BC0,  first: 6B80, root, parent
                 Index:    0
                 Keys :    1
-                Data :   27
-                Nodes: 7480 78C0
-                  At: 7480  length:    1,  data: 74C0,  nodes: 7500,  first: 7440,  up: 7980, leaf
+                Data :    7
+                Nodes: 6BC0 6D00
+                  At: 6BC0  length:    1,  data: 6C00,  nodes: 6C40,  first: 6B80,  up: 7B40, leaf
                     Index:    0
                     Keys :    0
-                    Data :    6
+                    Data :    5
                   end
-                  At: 78C0  length:    2,  data: 7880,  nodes: 7840,  first: 7440,  up: 7980, leaf,  trees:  11
+                  At: 6D00  length:    2,  data: 6CC0,  nodes: 6C80,  first: 6B80,  up: 7B40, leaf,  trees:  11
                     Index:    0    1
                     Keys :    2    3
-                    Data :86FC*8778*
-                       At: 6FC0length:    2,  data: 7000,  nodes: 7040,  first: 6F80, root, leaf
+                    Data :8690*87A8*
+                       At: 6900length:    2,  data: 6940,  nodes: 6980,  first: 68C0, root, leaf
                          Index:    0    1
                          Keys :    0    1
-                         Data :    6   17
+                         Data :    5    4
                        end
-                       At: 7780length:    2,  data: 77C0,  nodes: 7800,  first: 7740, root, leaf
-                         Index:    0    1
-                         Keys :    0    1
-                         Data :    6   39
+                       At: 7A80length:    1,  data: 7AC0,  nodes: 7B00,  first: 7980, root, parent
+                         Index:    0
+                         Keys :    1
+                         Data :   24
+                         Nodes: 79C0 71C0
+                           At: 79C0length:    1,  data: 7A00,  nodes: 7A40,  first: 7980,  up: 7A80, leaf
+                             Index:    0
+                             Keys :    0
+                             Data :    9
+                           end
+                           At: 71C0length:    2,  data: 7180,  nodes: 7140,  first: 7980,  up: 7A80, leaf,  trees:  11
+                             Index:    0    1
+                             Keys :    2    3
+                             Data :86E8*882C*
+                                At: 6E80length:    3,  data: 6EC0,  nodes: 6F00,  first: 6E40, root, leaf,  trees: 100
+                                  Index:    0    1    2
+                                  Keys :    0    1    2
+                                  Data :   10    78784*
+                                     At: 7840length:    1,  data: 7880,  nodes: 78C0,  first: 7480, root, parent
+                                       Index:    0
+                                       Keys :    1
+                                       Data :   14
+                                       Nodes: 74C0 7800
+                                         At: 74C0length:    1,  data: 7500,  nodes: 7540,  first: 7480,  up: 7840, leaf
+                                           Index:    0
+                                           Keys :    0
+                                           Data :    9
+                                         end
+                                         At: 7800length:    2,  data: 77C0,  nodes: 7780,  first: 7480,  up: 7840, leaf,  trees:  11
+                                           Index:    0    1
+                                           Keys :    2    3
+                                           Data :8708*876C*
+                                              At: 7080length:    2,  data: 70C0,  nodes: 7100,  first: 7040, root, leaf
+                                                Index:    0    1
+                                                Keys :    0    1
+                                                Data :    6   10
+                                              end
+                                              At: 76C0length:    2,  data: 7700,  nodes: 7740,  first: 7680, root, leaf
+                                                Index:    0    1
+                                                Keys :    0    1
+                                                Data :    6   17
+                                              end
+                                         end
+                                     end
+                                end
+                                At: 82C0length:    1,  data: 8300,  nodes: 8340,  first: 7F00, root, parent
+                                  Index:    0
+                                  Keys :    1
+                                  Data :   31
+                                  Nodes: 7F40 8080
+                                    At: 7F40length:    1,  data: 7F80,  nodes: 7FC0,  first: 7F00,  up: 82C0, leaf
+                                      Index:    0
+                                      Keys :    0
+                                      Data :    3
+                                    end
+                                    At: 8080length:    2,  data: 8040,  nodes: 8000,  first: 7F00,  up: 82C0, leaf,  trees:  11
+                                      Index:    0    1
+                                      Keys :    2    3
+                                      Data :87D4*8820*
+                                         At: 7D40length:    2,  data: 7D80,  nodes: 7DC0,  first: 7D00, root, leaf
+                                           Index:    0    1
+                                           Keys :    0    1
+                                           Data :    6   27
+                                         end
+                                         At: 8200length:    2,  data: 8240,  nodes: 8280,  first: 81C0, root, leaf
+                                           Index:    0    1
+                                           Keys :    0    1
+                                           Data :    6   39
+                                         end
+                                    end
+                                end
+                           end
                        end
                   end
               end
