@@ -31063,8 +31063,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
         If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b),
         Then                                                                    # Single item in brackets
          {my $right   = $parse->popSubTree;
-          my $bracket = &$prev;
-             $bracket->push($right);
+          &$prev->push($right);
          },
         Else                                                                    # Left operator right
          {my $right = $parse->popSubTree;                                       # Right operand
