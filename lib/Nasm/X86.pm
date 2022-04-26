@@ -31055,9 +31055,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $parseB = sub                                                              # Close bracket
-   {my $p = &$prev;
-
-    If $p->data != K(p => Nasm::X86::Unisyn::Lex::Number::b),                   # Non empty pair of brackets
+   {If &$prev->data != K(p => Nasm::X86::Unisyn::Lex::Number::b),               # Non empty pair of brackets
     Then
      {Block
        {my ($end, $start) = @_;
@@ -31067,7 +31065,6 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
          {my $right   = $parse->popSubTree;
           my $bracket = &$prev;
              $bracket->push($right);
-          Jmp $end;
          },
         Else                                                                    # Left operator right
          {my $right = $parse->popSubTree;                                       # Right operand
@@ -31277,7 +31274,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parseReason)                                                               # The reason code describing the failure
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeEarlZero
   my $f = Nasm::X86::Unisyn::Lex::composeEarlZero
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
