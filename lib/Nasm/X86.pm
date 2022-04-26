@@ -31273,7 +31273,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parseReason)                                                               # The reason code describing the failure
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeEarlZero
   my $f = Nasm::X86::Unisyn::Lex::composeEarlZero
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
