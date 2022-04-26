@@ -31454,6 +31454,16 @@ if (1) {                                                                        
   AND(sub{$a!=$a})             ->outNL;
   AND(sub{$a==$a}, sub{$a==$a})->outNL;
   AND(sub{$a==$a}, sub{$a!=$a})->outNL;
+
+  If OR(sub{$a==$a}, sub{$a!=$a}) > 0,
+  Then
+   {PrintOutStringNL "AAAA";
+   };
+
+  If OR(sub{$a!=$a}, sub{$a!=$a}) > 0,
+  Then
+   {PrintOutStringNL "AAAA";
+   };
   ok Assemble eq => <<END, avx512=>1;
 or: .... .... .... ...1
 or: .... .... .... ....
@@ -31463,6 +31473,7 @@ and: .... .... .... ...1
 and: .... .... .... ....
 and: .... .... .... ...1
 and: .... .... .... ....
+AAAA
 END
  }
 
