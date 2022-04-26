@@ -942,8 +942,8 @@ sub Else(&)                                                                     
   $block;
  }
 
-sub OR(@)                                                                       # Return a variable containing 1 if any of the conditions is true else 0.
- {my (@c) = @_;                                                                   # Conditions
+sub OR(@)                                                                       # Return a variable containing 1 if any of the conditions is true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
+ {my (@c) = @_;                                                                 # Conditions enclosed in subs
   my $r = &V(or => 0);
   &Block(sub
    {my ($end, $start) = @_;
@@ -954,8 +954,8 @@ sub OR(@)                                                                       
   $r
  }
 
-sub AND(@)                                                                      # Return a variable containing 1 if all of the conditions are true else 0.
- {my (@c) = @_;                                                                   # Conditions
+sub AND(@)                                                                      # Return a variable containing 1 if all of the conditions are true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
+ {my (@c) = @_;                                                                 # Conditions enclosed in subs
   my $r = &V(and => 1);
   &Block(sub
    {my ($end, $start) = @_;
@@ -31462,7 +31462,7 @@ if (1) {                                                                        
 
   If OR(sub{$a!=$a}, sub{$a!=$a}) > 0,
   Then
-   {PrintOutStringNL "AAAA";
+   {PrintOutStringNL "BBBB";
    };
   ok Assemble eq => <<END, avx512=>1;
 or: .... .... .... ...1
