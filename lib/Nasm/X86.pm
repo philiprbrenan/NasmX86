@@ -29553,12 +29553,15 @@ if (1) {                                                                        
    });
   ($N/2)->for(sub
    {my ($i) = @_;
+    $t->printInOrder("AAAA");
     $t->delete($i * 2);
    });
   ($N/2)->for(sub
    {my ($i) = @_;
+    $t->printInOrder("BBBB");
     $t->delete($i * 2 + 1);
    });
+  $t->printInOrder("CCCC");
 
   ok Assemble eq => <<END, avx512=>1;
 AAAA  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
@@ -31274,7 +31277,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parseReason)                                                               # The reason code describing the failure
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeEarlZero
   my $f = Nasm::X86::Unisyn::Lex::composeEarlZero
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
