@@ -31442,17 +31442,18 @@ END
  }
 
 latest:
-if (1) {                                                                        #
+if (1) {                                                                        #TOR #TAND
   my $a = K(key => 1);
-  my $b = K(key => 1);
-  OR (sub{$a==$b})             ->outNL;
-  OR (sub{$a!=$b})             ->outNL;
-  OR (sub{$a!=$b}, sub{$b==$a})->outNL;
-  OR (sub{$a!=$b}, sub{$b!=$a})->outNL;
-  AND(sub{$a==$b})            ->outNL;
-  AND(sub{$a!=$b})            ->outNL;
-  AND(sub{$a==$b},sub{$b==$a})->outNL;
-  AND(sub{$a==$b},sub{$b!=$a})->outNL;
+
+  OR (sub{$a==$a})             ->outNL;
+  OR (sub{$a!=$a})             ->outNL;
+  OR (sub{$a!=$a}, sub{$a==$a})->outNL;
+  OR (sub{$a!=$a}, sub{$a!=$a})->outNL;
+
+  AND(sub{$a==$a})             ->outNL;
+  AND(sub{$a!=$a})             ->outNL;
+  AND(sub{$a==$a}, sub{$a==$a})->outNL;
+  AND(sub{$a==$a}, sub{$a!=$a})->outNL;
   ok Assemble eq => <<END, avx512=>1;
 or: .... .... .... ...1
 or: .... .... .... ....
