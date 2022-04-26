@@ -942,6 +942,30 @@ sub Else(&)                                                                     
   $block;
  }
 
+sub OR(@)                                                                       # Return a variable containing 1 if any of the conditions is true else 0.
+ {my (@c) = @_;                                                                   # Conditions
+  my $r = &V(or => 0);
+  &Block(sub
+   {my ($end, $start) = @_;
+    for my $c(@c)
+     {If &$c, Then {$r->copy(1); Jmp $end}
+     }
+   });
+  $r
+ }
+
+sub AND(@)                                                                      # Return a variable containing 1 if all of the conditions are true else 0.
+ {my (@c) = @_;                                                                   # Conditions
+  my $r = &V(and => 1);
+  &Block(sub
+   {my ($end, $start) = @_;
+    for my $c(@c)
+     {If &$c, Then {}, Else {$r->copy(0); Jmp $end}
+     }
+   });
+  $r
+ }
+
 sub Ef(&$;$)                                                                    # Else if block for an If statement.
  {my ($condition, $then, $else) = @_;                                           # Condition, then block, else block
   sub
@@ -31415,6 +31439,30 @@ At: 8380                    length:    1,  data: 83C0,  nodes: 8400,  first: 358
 end
 END
   unlink $f;
+ }
+
+latest:
+if (1) {                                                                        #
+  my $a = K(key => 1);
+  my $b = K(key => 1);
+  OR (sub{$a==$b})             ->outNL;
+  OR (sub{$a!=$b})             ->outNL;
+  OR (sub{$a!=$b}, sub{$b==$a})->outNL;
+  OR (sub{$a!=$b}, sub{$b!=$a})->outNL;
+  AND(sub{$a==$b})            ->outNL;
+  AND(sub{$a!=$b})            ->outNL;
+  AND(sub{$a==$b},sub{$b==$a})->outNL;
+  AND(sub{$a==$b},sub{$b!=$a})->outNL;
+  ok Assemble eq => <<END, avx512=>1;
+or: .... .... .... ...1
+or: .... .... .... ....
+or: .... .... .... ...1
+or: .... .... .... ....
+and: .... .... .... ...1
+and: .... .... .... ....
+and: .... .... .... ...1
+and: .... .... .... ....
+END
  }
 
 #latest:
