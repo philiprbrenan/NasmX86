@@ -31063,7 +31063,25 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $p                                                                          # Guaranteed to exist because of double push above
    };
 
-  my $parseA = sub                                                              # Ascii
+  my $triple = sub                                                              # Triple reduction
+   {my $right = $parse->popSubTree;                                             # Right operand
+    my $op    = $parse->popSubTree;                                             # Operator
+    my $left  = $parse->popSubTree;                                             # Left operand
+    $parse->push($op);
+    $op   ->push($left);
+    $op   ->push($right);
+   };
+
+  my $double = sub                                                              # Double reduction - the right most item is placed under the second right most item
+   {my $right = $parse->popSubTree;
+    &$prev->push($right)
+   };
+
+  my $a = sub                                                                   # Dyad2 = right to left associative
+   {&$push;                                                                     # Push dyad2
+   };
+
+  my $A = sub                                                                   # Ascii
    {my $p = &$prev;
     If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator
@@ -31074,46 +31092,63 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
      },
    };
 
-  my $parseb = sub                                                              # Open bracket
+  my $b = sub                                                                   # Open bracket
    {&$push;                                                                     # Push open bracket
    };
 
-  my $parseB = sub                                                              # Close bracket
-   {If &$prev->data != K(p => Nasm::X86::Unisyn::Lex::Number::b),               # Non empty pair of brackets
+  my $B = sub                                                                   # Close bracket
+   {If &$prev->data == K(p => Nasm::X86::Unisyn::Lex::Number::s),               # Pointless statement separator
+    Then
+     {$parse->pop;
+     };
+    If &$prev->data != K(p => Nasm::X86::Unisyn::Lex::Number::b),               # Non empty pair of brackets
     Then
      {Block
        {my ($end, $start) = @_;
         my $p = &$prev2;
         If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b),
         Then                                                                    # Single item in brackets
-         {my $right   = $parse->popSubTree;
-          &$prev->push($right);
+         {&$double;
          },
         Else                                                                    # Left operator right
-         {my $right = $parse->popSubTree;                                       # Right operand
-          my $op    = $parse->popSubTree;                                       # Operator
-          my $left  = $parse->popSubTree;                                       # Left operand
-          $parse->push($op);
-          $op   ->push($left);
-          $op   ->push($right);
+         {&$triple;
           Jmp $start;                                                           # Keep on reducing until we meet the matching opening bracket
          }
        }
-     }
+     };
+    If &$prev2->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),               # Prefix operator preceding brackets
+    Then
+     {&$double;
+     };
    };
 
-  my $parseF = sub                                                              # Final: at this point there are no brackets left.
+  my $d = sub                                                                   # Dyad3
+   {my $q = &$prev2;                                                            # Second previous item
+    If OR
+     (sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::d},               # Dyad3 preceeded by dyad3 or dyad4
+      sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::e}),
+    Then
+     {&$triple;                                                                 # Reduce
+     };
+    &$push;                                                                     # Push dyad3
+   };
+
+  my $e = sub                                                                   # Dyad4
+   {my $q = &$prev2;                                                            # Second previous item
+    If $q->data == K(p => Nasm::X86::Unisyn::Lex::Number::e),
+    Then                                                                        # Dyad4 preceded by dyad4
+     {&$triple;                                                                 # Reduce
+     };
+    &$push;                                                                     # Push dyad4
+   };
+
+  my $F = sub                                                                   # Final: at this point there are no brackets left.
    {$parse->size->for(sub                                                       # Reduce
      {my ($index, $start, $next, $end) = @_;
       my $p = &$prev2;
       If $p->data != K(p => Nasm::X86::Unisyn::Lex::Number::S),
       Then                                                                      # Not at the end yet
-       {my $right = $parse->popSubTree;                                         # Right operand
-        my $op    = $parse->popSubTree;                                         # Operator
-        my $left  = $parse->popSubTree;                                         # Left operand
-        $parse->push($op);
-        $op   ->push($left);
-        $op   ->push($right);
+       {&$triple;
        },
       Else                                                                      # Down to the start line
        {Jmp $end;
@@ -31124,41 +31159,43 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parse->push($top);                                                         # New top of the parse tree
    };
 
-  my $parsep = sub                                                              # Prefix
+  my $p = sub                                                                   # Prefix
    {&$push;                                                                     # Push prefix
    };
 
-  my $parseq = sub                                                              # Suffix
+  my $q = sub                                                                   # Suffix
    {&$push->push($parse->popSubTree);                                           # Place suffix above its left operand
    };
 
-  my $parses = sub  # Not tested                                                             # Statement separator
-   {my $p = &$prev;
-
-    Block
+  my $s = sub                                                                   # Statement separator
+   {Block
      {my ($end, $start) = @_;
-      If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b), Then {Jmp $end};# Empty pair of brackets
-      my $p = &$prev2;
-      If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b),
-      Then                                                                      # Single item in brackets
-       {my $right   = $parse->popSubTree;
-        my $bracket = &$prev;
-           $bracket->push($right);
+      my $p = &$prev;                                                           # Previous item
+      If OR                                                                     # Separator preceded by open or start - do nothing
+       (sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::b},
+        sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::S}),
+      Then                                                                      # Eliminate useless statement separator
+       {Jmp $end;
+       };
+      my $q = &$prev2;                                                          # Second previous item
+      If $q->data == K(p => Nasm::X86::Unisyn::Lex::Number::s),
+      Then                                                                      # Second previous is a statement separator
+       {&$triple;                                                               # Reduce
+        Jmp $end;                                                               # No need to push as we already have a statement separator on top of the stack
+       };
+      If OR
+       (sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::b},             # Statement separator preceded by singleton
+        sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::S}),
+      Then
+       {&$push;                                                                 # Push statement separator after singleton
         Jmp $end;
-       },
-      Else                                                                      # Left operator right
-       {my $right = $parse->popSubTree;                                         # Right operand
-        my $op    = $parse->popSubTree;                                         # Operator
-        my $left  = $parse->popSubTree;                                         # Left operand
-        $parse->push($op);
-        $op   ->push($left);
-        $op   ->push($right);
-        Jmp $start;                                                             # Keep on reducing until we meet the matching opening bracket
-       }
+       };
+      &$triple;                                                                 # An operator at a higher level than statement separator so we can reduce
+      Jmp $start;                                                               # Keep on reducing until we meet the matching opening bracket or start
      }
    };
 
-  my $parsev = sub                                                              # Variable
+  my $v = sub                                                                   # Variable
    {my $p = &$prev;
     If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator
@@ -31198,7 +31235,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
       $brackets->push($t);                                                      # Save bracket description on bracket stack
       $change->copy(1);                                                         # Changing because we are on a bracket
-      &$parseb;                                                                 # Push the open bracket
+      &$b;                                                                      # Push the open bracket
      },
     Ef {$alphabets->data == Nasm::X86::Unisyn::Lex::Number::B}
     Then                                                                        # Closing bracket
@@ -31214,7 +31251,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
           Jmp $end;
          };
         $change->copy(1);                                                       # Changing because we are on a bracket
-        &$parseB;                                                               # Push the open bracket
+        &$B;                                                                    # Push the open bracket
        },
       Else
        {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::TrailingClose);
@@ -31244,24 +31281,11 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       my $l = $area->CreateTree(length => 3);                                   # Tree recording the details of the lexical item
       $l->push($position);                                                      # Position in source
       $l->push($last);                                                          # The lexical type
-#say STDERR qq(my \$parse$_ = sub {PrintErrStringNL "$_";}) for qw(a A b B d e F p q s S v);
-      my $parsea = sub {PrintErrStringNL "a"; &$push};
-#     my $parseA = sub {PrintErrStringNL "A"; &$push};
-#     my $parseb = sub {PrintErrStringNL "b"; &$push};
-#     my $parseB = sub {PrintErrStringNL "B"; &$push};
-      my $parsed = sub {PrintErrStringNL "d"; &$push};
-      my $parsee = sub {PrintErrStringNL "e"; &$push};
-#     my $parseF = sub {PrintErrStringNL "F"; &$push};
-#     my $parsep = sub {PrintErrStringNL "p"; &$push};
-#     my $parseq = sub {PrintErrStringNL "q"; &$push};
-#     my $parses = sub {PrintErrStringNL "s"; &$push};
-#     my $parseS = sub {PrintErrStringNL "S"; &$push};
-#     my $parseV = sub {PrintErrStringNL "v"; &$push};
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
         for my $l(qw(a A b B d e F p q s S v))
-         {eval qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$parse$l; Jmp \$end});
+         {eval qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
          }
         PrintErrTraceBack "Unexpected lexical type";                               # Something unexpected came along
        };
@@ -31275,7 +31299,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       Then                                                                      # We are able to transition to the final state
        {If $brackets->size == 0,
         Then                                                                    # No outstanding brackets
-         {&$parseF;
+         {&$F;
           $parseFail->copy(0);                                                  # Show success as a lack of failure
          },
         Else                                                                    # Open brackets not yet closed
