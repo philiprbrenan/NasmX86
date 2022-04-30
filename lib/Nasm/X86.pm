@@ -31299,7 +31299,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       Jmp $end;
      };
 
-    $alphabets->find($char);                                                     # Classify character
+    $alphabets->find($char);                                                    # Classify character
     If $alphabets->found == 0,
     Then                                                                        # Failed to classify character
      {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidChar);
@@ -31317,6 +31317,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
       $brackets->push($t);                                                      # Save bracket description on bracket stack
       $change->copy(1);                                                         # Changing because we are on a bracket
+      $length->copy(1);                                                         # Length of a bracket
 #     &$b;                                                                      # Push the open bracket
      },
     Ef {$alphabets->data == Nasm::X86::Unisyn::Lex::Number::B}
@@ -31333,6 +31334,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
           Jmp $end;
          };
         $change->copy(1);                                                       # Changing because we are on a bracket
+        $length->copy(1);                                                       # Length of a bracket
 #       &$B;                                                                    # Push the open bracket
        },
       Else
@@ -31360,16 +31362,14 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
         Jmp $end;
        };
 
-      my $l = $area->CreateTree(length => 3);                                   # Tree recording the details of the lexical item
-      $l->push($position);                                                      # Position in source
-      $l->push($last);                                                          # The lexical type
+      my $l = &$new;                                                            # Description of the lexical item
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
         for my $l(qw(a A b B d e F p q s S v))
          {eval qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
          }
-        PrintErrTraceBack "Unexpected lexical type";                               # Something unexpected came along
+        PrintErrTraceBack "Unexpected lexical type";                            # Something unexpected came along
        };
      };                                                                         # Else not required - we are continuing in the same lexical item
 
