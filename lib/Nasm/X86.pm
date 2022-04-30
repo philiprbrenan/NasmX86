@@ -31403,7 +31403,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parseReason)                                                               # The reason code describing the failure
  } # Parse
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
@@ -31414,7 +31414,7 @@ if (1) {                                                                        
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
   $_->outNL for @a;
-  $parse->dump("Parse Tree");
+# $parse->dump("Parse Tree");
 
   ok Assemble eq => <<END, avx512=>1;
 parseChar: .... .... ...1 D5D8
@@ -31422,127 +31422,6 @@ parseFail: .... .... .... ....
 pos: .... .... .... ..2B
 parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
-Parse Tree
-At: 8380                    length:    1,  data: 83C0,  nodes: 8400,  first: 3580, root, leaf,  trees:   1
-  Index:    0
-  Keys :    0
-  Data :8678*
-     At: 6780               length:    1,  data: 6740,  nodes: 6700,  first: 6540, root, parent
-       Index:    0
-       Keys :    1
-       Data :    0
-       Nodes: 6580 66C0
-         At: 6580           length:    1,  data: 65C0,  nodes: 6600,  first: 6540,  up: 6780, leaf
-           Index:    0
-           Keys :    0
-           Data :    6
-         end
-         At: 66C0           length:    2,  data: 6680,  nodes: 6640,  first: 6540,  up: 6780, leaf,  trees:  11
-           Index:    0    1
-           Keys :    2    3
-           Data :8638*8814*
-              At: 6380      length:    2,  data: 63C0,  nodes: 6400,  first: 6340, root, leaf
-                Index:    0    1
-                Keys :    0    1
-                Data :    0    0
-              end
-              At: 8140      length:    1,  data: 8100,  nodes: 80C0,  first: 6B80, root, parent
-                Index:    0
-                Keys :    1
-                Data :    7
-                Nodes: 6BC0 6D00
-                  At: 6BC0  length:    1,  data: 6C00,  nodes: 6C40,  first: 6B80,  up: 8140, leaf
-                    Index:    0
-                    Keys :    0
-                    Data :    5
-                  end
-                  At: 6D00  length:    2,  data: 6CC0,  nodes: 6C80,  first: 6B80,  up: 8140, leaf,  trees:  11
-                    Index:    0    1
-                    Keys :    2    3
-                    Data :8690*8808*
-                       At: 6900length:    2,  data: 6940,  nodes: 6980,  first: 68C0, root, leaf
-                         Index:    0    1
-                         Keys :    0    1
-                         Data :    5    4
-                       end
-                       At: 8080length:    1,  data: 8040,  nodes: 8000,  first: 7BC0, root, parent
-                         Index:    0
-                         Keys :    1
-                         Data :   31
-                         Nodes: 7B80 7FC0
-                           At: 7B80length:    1,  data: 7B40,  nodes: 7F00,  first: 7BC0,  up: 8080, leaf
-                             Index:    0
-                             Keys :    0
-                             Data :    3
-                           end
-                           At: 7FC0length:    2,  data: 7F80,  nodes: 7F40,  first: 7BC0,  up: 8080, leaf,  trees:  11
-                             Index:    0    1
-                             Keys :    2    3
-                             Data :87B0*882C*
-                                At: 7B00length:    1,  data: 7AC0,  nodes: 7A80,  first: 7980, root, parent
-                                  Index:    0
-                                  Keys :    1
-                                  Data :   24
-                                  Nodes: 79C0 71C0
-                                    At: 79C0length:    1,  data: 7A00,  nodes: 7A40,  first: 7980,  up: 7B00, leaf
-                                      Index:    0
-                                      Keys :    0
-                                      Data :    9
-                                    end
-                                    At: 71C0length:    2,  data: 7180,  nodes: 7140,  first: 7980,  up: 7B00, leaf,  trees:  11
-                                      Index:    0    1
-                                      Keys :    2    3
-                                      Data :86E8*87D4*
-                                         At: 6E80length:    3,  data: 6EC0,  nodes: 6F00,  first: 6E40, root, leaf,  trees: 100
-                                           Index:    0    1    2
-                                           Keys :    0    1    2
-                                           Data :   10    78784*
-                                              At: 7840length:    1,  data: 7880,  nodes: 78C0,  first: 7480, root, parent
-                                                Index:    0
-                                                Keys :    1
-                                                Data :   14
-                                                Nodes: 74C0 7800
-                                                  At: 74C0length:    1,  data: 7500,  nodes: 7540,  first: 7480,  up: 7840, leaf
-                                                    Index:    0
-                                                    Keys :    0
-                                                    Data :    9
-                                                  end
-                                                  At: 7800length:    2,  data: 77C0,  nodes: 7780,  first: 7480,  up: 7840, leaf,  trees:  11
-                                                    Index:    0    1
-                                                    Keys :    2    3
-                                                    Data :8708*876C*
-                                                       At: 7080length:    2,  data: 70C0,  nodes: 7100,  first: 7040, root, leaf
-                                                         Index:    0    1
-                                                         Keys :    0    1
-                                                         Data :    6   10
-                                                       end
-                                                       At: 76C0length:    2,  data: 7700,  nodes: 7740,  first: 7680, root, leaf
-                                                         Index:    0    1
-                                                         Keys :    0    1
-                                                         Data :    6   17
-                                                       end
-                                                  end
-                                              end
-                                         end
-                                         At: 7D40length:    2,  data: 7D80,  nodes: 7DC0,  first: 7D00, root, leaf
-                                           Index:    0    1
-                                           Keys :    0    1
-                                           Data :    6   27
-                                         end
-                                    end
-                                end
-                                At: 82C0length:    2,  data: 8300,  nodes: 8340,  first: 8280, root, leaf
-                                  Index:    0    1
-                                  Keys :    0    1
-                                  Data :    6   39
-                                end
-                           end
-                       end
-                  end
-              end
-         end
-     end
-end
 END
   unlink $f;
  }
