@@ -5279,6 +5279,7 @@ sub Nasm::X86::Area::outPartNL($)                                               
   $area->out;
   PrintOutNL;
  }
+=cut
 
 sub Nasm::X86::Area::dump($$;$)                                                 # Dump details of an area.
  {my ($area, $title, $depth) = @_;                                              # Area descriptor, title string, optional variable number of 64 byte blocks to dump
@@ -5324,7 +5325,6 @@ sub Nasm::X86::Area::dump($$;$)                                                 
   PrintOutStringNL $title;
   $s->call(structures=>{area=>$area}, parameters=>{depth => ($depth // V('depth', 4))});
  }
-=cut
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an area.
 
