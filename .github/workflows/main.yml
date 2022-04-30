@@ -1,4 +1,4 @@
-# Test NasmX86 2022-04-30 at 23:57:51
+# Test NasmX86 2022-05-01 at 00:00:43
 
 name: Test
 
@@ -13,3 +13,22 @@ jobs:
     - uses: actions/checkout@v2
       with:
         ref: 'main'
+
+    - name: Download other repos
+      run: |
+        curl -sL https://github.com/philiprbrenan/NasmX86/archive/refs/heads/main.zip       > NasmX86.zip
+        curl -sL https://github.com/philiprbrenan/DataTableText/archive/refs/heads/main.zip > DataTableText.zip
+        curl -sL https://github.com/philiprbrenan/GitHubCrud/archive/refs/heads/main.zip    > GitHubCrud.zip
+        curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
+        ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
+        tree
+        unzip NasmX86
+        unzip DataTableText
+        unzip GitHubCrud
+        unzip AsmC.zip
+        tree
+        cp -R NasmX86-main/* .
+        cp -R DataTableText-main/* .
+        cp -R GitHubCrud-main/* .
+        cp -R AsmC-main/* .
+        tree
