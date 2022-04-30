@@ -5253,6 +5253,33 @@ sub Nasm::X86::Area::outNL($)                                                   
   PrintOutNL;
  }
 
+=pod
+sub Nasm::X86::Area::outPart($)                                                 # Print part of the specified area on sysout.
+ {my ($area, $offset, $length) = @_;                                            # Area descriptor, offset, length
+  @_ == 3 or confess "Three parameters";
+
+  $area->address->setReg(rax);
+  $offset       ->setReg(rax);
+  $$p{offset}->setReg(rax);
+    $$p{length}->setReg(rax);
+    Mov rdi, "[rax+$$area{usedOffset}]";                                        # Length to print
+    Sub rdi, $area->dataOffset;                                                 # Length to print
+    Lea rax, "[rax+$$area{dataOffset}]";                                        # Address of data field
+    PrintOutMemory;
+    RestoreFirstFour;
+   } parameters=>[qw(address)], name => 'Nasm::X86::Area::out';
+
+  $s->call(parameters=>{address => $area->address});
+ }
+
+sub Nasm::X86::Area::outPartNL($)                                               # Print part of the specified area on sysout followed by a new line.
+ {my ($area) = @_;                                                              # Area descriptor
+  @_ == 1 or confess "One parameter";
+
+  $area->out;
+  PrintOutNL;
+ }
+
 sub Nasm::X86::Area::dump($$;$)                                                 # Dump details of an area.
  {my ($area, $title, $depth) = @_;                                              # Area descriptor, title string, optional variable number of 64 byte blocks to dump
   @_ == 2 or @_ == 3 or confess "Two or three parameters";
@@ -5297,6 +5324,7 @@ sub Nasm::X86::Area::dump($$;$)                                                 
   PrintOutStringNL $title;
   $s->call(structures=>{area=>$area}, parameters=>{depth => ($depth // V('depth', 4))});
  }
+=cut
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an area.
 
@@ -30629,7 +30657,7 @@ sub Nasm::X86::Unisyn::Lex::Letter::b {(0x2308,0x230a,0x2329,0x2768,0x276a,0x276
 sub Nasm::X86::Unisyn::Lex::Number::B {11}                                      # Close
 sub Nasm::X86::Unisyn::Lex::Letter::B {(0x2309,0x230b,0x232a,0x2769,0x276b,0x276d,0x276f,0x2771,0x2773,0x2775,0x27e7,0x27e9,0x27eb,0x27ed,0x27ef,0x2984,0x2986,0x2988,0x298a,0x298c,0x298e,0x2990,0x2992,0x2994,0x2996,0x2998,0x29fd,0x2e29,0x3009,0x300b,0x3011,0x3015,0x3017,0x3019,0x301b,0xfd3f,0xff09,0xff60)} # Close
 
-sub Nasm::X86::Unisyn::Lex::composeEarlZero($)                                  # Compose phrases of Earl Zero, write them to a temporary file, return the temporary file name
+sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                  # Compose phrases of Earl Zero, write them to a temporary file, return the temporary file name
  {my ($words) = @_;                                                             # String of words
   my $s = '';
 
@@ -30990,8 +31018,8 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeEarlZero
-  my $f = Nasm::X86::Unisyn::Lex::composeEarlZero
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
   is_deeply readFile($f), "𝗔＝｟𝗕＋𝗖｠✕𝗗𝐈𝐅𝗘\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
@@ -31009,6 +31037,42 @@ END
   unlink $f;
  }
 
+#latest:
+if (1) {                                                                        #TOR #TAND
+  my $a = K(key => 1);
+
+  OR (sub{$a==$a})             ->outNL;
+  OR (sub{$a!=$a})             ->outNL;
+  OR (sub{$a!=$a}, sub{$a==$a})->outNL;
+  OR (sub{$a!=$a}, sub{$a!=$a})->outNL;
+
+  AND(sub{$a==$a})             ->outNL;
+  AND(sub{$a!=$a})             ->outNL;
+  AND(sub{$a==$a}, sub{$a==$a})->outNL;
+  AND(sub{$a==$a}, sub{$a!=$a})->outNL;
+
+  If OR(sub{$a==$a}, sub{$a!=$a}) > 0,
+  Then
+   {PrintOutStringNL "AAAA";
+   };
+
+  If OR(sub{$a!=$a}, sub{$a!=$a}) > 0,
+  Then
+   {PrintOutStringNL "BBBB";
+   };
+  ok Assemble eq => <<END, avx512=>1;
+or: .... .... .... ...1
+or: .... .... .... ....
+or: .... .... .... ...1
+or: .... .... .... ....
+and: .... .... .... ...1
+and: .... .... .... ....
+and: .... .... .... ...1
+and: .... .... .... ....
+AAAA
+END
+ }
+
 sub Nasm::X86::Unisyn::Lex::Reason::Success           {0};                      # Successful parse
 sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      # Bad utf8 character encountered
 sub Nasm::X86::Unisyn::Lex::Reason::InvalidChar       {2};                      # Character not part of Earl Zero
@@ -31018,6 +31082,12 @@ sub Nasm::X86::Unisyn::Lex::Reason::Mismatch          {5};                      
 sub Nasm::X86::Unisyn::Lex::Reason::NotFinal          {6};                      # Expected something after final character
 sub Nasm::X86::Unisyn::Lex::Reason::BracketsNotClosed {7};                      # Open brackets not closed at end of
 
+sub Nasm::X86::Unisyn::Lex::position {0};                                       # Position of the parsed item in the input text
+sub Nasm::X86::Unisyn::Lex::length   {1};                                       # Length of the lexical item in bytes
+sub Nasm::X86::Unisyn::Lex::type     {2};                                       # Type of the lexical item
+sub Nasm::X86::Unisyn::Lex::left     {3};                                       # Left operand
+sub Nasm::X86::Unisyn::Lex::right    {4};                                       # Right operand
+
 sub Nasm::X86::Unisyn::Parse($$$)                                               # Parse a string of utf8 characters
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
@@ -31026,21 +31096,24 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
   my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
-  my $next        = $transitions->cloneDescriptor;                              # Clone the transitions table so we can step down it without losing the original table
   my $position    = V pos => 0;                                                 # Position in input string
   my $last        = V last => Nasm::X86::Unisyn::Lex::Number::S;                # Last lexical type
-  $next->find($last);                                                           # Locate the current classification
-  $next->down;                                                                  # Tree of possible transitions on lexical type
+  my $next        = $transitions->cloneDescriptor;                              # Clone the transitions table so we can step down it without losing the original table
+     $next->find($last);                                                        # Locate the current classification
+     $next->down;                                                               # Tree of possible transitions on lexical type
 
   my $parseFail   = V parseFail   => 1;                                         # If not zero the parse has failed for some reason
   my $parseReason = V parseReason => 0;                                         # The reason code describing the failure
   my $parseMatch  = V parseMatch  => 0;                                         # The position of the bracket we failed to match
   my $parseChar   = V parseChar   => 0;                                         # The last character recognized
 
+  my $length      = V length      => 0;                                         # Length of the current lexical item
+
   my $new = sub                                                                 # Create a new lexical item
    {my $l = $area->CreateTree(length => 3);                                     # Tree to hold lexical item description
-    $l->push($last);                                                            # Last lexical item recognized
-    $l->push($position);                                                        # Position of lexical item
+    $l->put(K(t => Nasm::X86::Unisyn::Lex::type),     $last);                   # Last lexical item recognized
+    $l->put(K(t => Nasm::X86::Unisyn::Lex::position), $position);               # Position of lexical item
+    $l->put(K(t => Nasm::X86::Unisyn::Lex::length),   $length);                 # Position of lexical item
     $l                                                                          # Tree representing lexical item
    };
 
@@ -31059,8 +31132,13 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $prev2 = sub                                                               # Lexical type of the previous previous item on the parse stack
    {my $p = $parse->peekSubTree(K key => 2);
-    $p->find(K key => 0);                                                       # Lexical type
-    $p                                                                          # Guaranteed to exist because of double push above
+    $p->find(K key => Nasm::X86::Unisyn::Lex::type);                            # Lexical type
+    $p                                                                          # Guaranteed to exist
+   };
+
+  my $double = sub                                                              # Double reduction - the right most item is placed under the second right most item
+   {my $right = $parse->popSubTree;
+    &$prev->put(K(l => Nasm::X86::Unisyn::Lex::left), $right)
    };
 
   my $triple = sub                                                              # Triple reduction
@@ -31068,24 +31146,21 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     my $op    = $parse->popSubTree;                                             # Operator
     my $left  = $parse->popSubTree;                                             # Left operand
     $parse->push($op);
-    $op   ->push($left);
-    $op   ->push($right);
-   };
-
-  my $double = sub                                                              # Double reduction - the right most item is placed under the second right most item
-   {my $right = $parse->popSubTree;
-    &$prev->push($right)
+    $op->put(K(l => Nasm::X86::Unisyn::Lex::left ), $left);
+    $op->put(K(r => Nasm::X86::Unisyn::Lex::right), $right);
    };
 
   my $a = sub                                                                   # Dyad2 = right to left associative
-   {&$push;                                                                     # Push dyad2
+   {PrintErrStringNL "Type: a";
+    &$push;                                                                     # Push dyad2
    };
 
   my $A = sub                                                                   # Ascii
-   {my $p = &$prev;
+   {PrintErrStringNL "Type: A";
+    my $p = &$prev;
     If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator
-     {$p->push(&$new);                                                          # Push onto prev
+     {$p->put(K(l => Nasm::X86::Unisyn::Lex::left), &$new);                     # Push onto prev
      },
     Else                                                                        # Previous is not a prefix operator
      {&$push;                                                                   # Push ascii
@@ -31093,11 +31168,13 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $b = sub                                                                   # Open bracket
-   {&$push;                                                                     # Push open bracket
+   {PrintErrStringNL "Type: b";
+    &$push;                                                                     # Push open bracket
    };
 
   my $B = sub                                                                   # Close bracket
-   {If &$prev->data == K(p => Nasm::X86::Unisyn::Lex::Number::s),               # Pointless statement separator
+   {PrintErrStringNL "Type: B";
+    If &$prev->data == K(p => Nasm::X86::Unisyn::Lex::Number::s),               # Pointless statement separator
     Then
      {$parse->pop;
      };
@@ -31113,10 +31190,10 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
         Else                                                                    # Left operator right
          {&$triple;
           Jmp $start;                                                           # Keep on reducing until we meet the matching opening bracket
-         }
+         };
        }
      };
-    If &$prev2->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),               # Prefix operator preceding brackets
+    If &$prev2->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),              # Prefix operator preceding brackets
     Then
      {&$double;
      };
@@ -31134,7 +31211,8 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $e = sub                                                                   # Dyad4
-   {my $q = &$prev2;                                                            # Second previous item
+   {PrintErrStringNL "Type: e";
+    my $q = &$prev2;                                                            # Second previous item
     If $q->data == K(p => Nasm::X86::Unisyn::Lex::Number::e),
     Then                                                                        # Dyad4 preceded by dyad4
      {&$triple;                                                                 # Reduce
@@ -31143,7 +31221,8 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $F = sub                                                                   # Final: at this point there are no brackets left.
-   {$parse->size->for(sub                                                       # Reduce
+   {PrintErrStringNL "Type: F";
+    $parse->size->for(sub                                                       # Reduce
      {my ($index, $start, $next, $end) = @_;
       my $p = &$prev2;
       If $p->data != K(p => Nasm::X86::Unisyn::Lex::Number::S),
@@ -31160,15 +31239,18 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $p = sub                                                                   # Prefix
-   {&$push;                                                                     # Push prefix
+   {PrintErrStringNL "Type: p";
+    &$push;                                                                     # Push prefix
    };
 
   my $q = sub                                                                   # Suffix
-   {&$push->push($parse->popSubTree);                                           # Place suffix above its left operand
+   {PrintErrStringNL "Type: q";
+    &$push->push($parse->popSubTree);                                           # Place suffix above its left operand
    };
 
   my $s = sub                                                                   # Statement separator
-   {Block
+   {PrintErrStringNL "Type: s";
+    Block
      {my ($end, $start) = @_;
       my $p = &$prev;                                                           # Previous item
       If OR                                                                     # Separator preceded by open or start - do nothing
@@ -31196,10 +31278,11 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $v = sub                                                                   # Variable
-   {my $p = &$prev;
+   {PrintErrStringNL "Type: v";
+    my $p = &$prev;
     If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator
-     {$p->push(&$new);                                                          # Push onto prev
+     {$p->put(K(l => Nasm::X86::Unisyn::Lex::left), &$new);                     # Push onto prev
      },
     Else                                                                        # Previous is not a prefix operator
      {&$push;                                                                   # Push variable
@@ -31210,7 +31293,6 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
     $parseChar->copy($char);                                                    # Copy the current character
-
     If $fail > 0,
     Then                                                                        # Failed to convert a utf8 character
      {$parseReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::BadUtf8);
@@ -31235,7 +31317,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
       $brackets->push($t);                                                      # Save bracket description on bracket stack
       $change->copy(1);                                                         # Changing because we are on a bracket
-      &$b;                                                                      # Push the open bracket
+#     &$b;                                                                      # Push the open bracket
      },
     Ef {$alphabets->data == Nasm::X86::Unisyn::Lex::Number::B}
     Then                                                                        # Closing bracket
@@ -31251,7 +31333,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
           Jmp $end;
          };
         $change->copy(1);                                                       # Changing because we are on a bracket
-        &$B;                                                                    # Push the open bracket
+#       &$B;                                                                    # Push the open bracket
        },
       Else
        {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::TrailingClose);
@@ -31274,7 +31356,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
         $last->copy($alphabets->data);                                          # Treat unbroken sequences of a symbol as one lexical item
        },
       Else                                                                      # The transition on this lexical type was an invalid transition
-       {$parseReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidTransition);
+       {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidTransition);
         Jmp $end;
        };
 
@@ -31319,11 +31401,11 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $position,                                                                  # The position reached in the input string
     $parseMatch,                                                                # The position of the matching bracket  that did not match
     $parseReason)                                                               # The reason code describing the failure
- }
+ } # Parse
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeEarlZero
-  my $f = Nasm::X86::Unisyn::Lex::composeEarlZero
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
   is_deeply readFile($f), "𝗔＝｟𝗕＋𝗖｠✕𝗗𝐈𝐅𝗘\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
@@ -31358,101 +31440,101 @@ At: 8380                    length:    1,  data: 83C0,  nodes: 8400,  first: 358
          At: 66C0           length:    2,  data: 6680,  nodes: 6640,  first: 6540,  up: 6780, leaf,  trees:  11
            Index:    0    1
            Keys :    2    3
-           Data :8638*87B4*
+           Data :8638*8814*
               At: 6380      length:    2,  data: 63C0,  nodes: 6400,  first: 6340, root, leaf
                 Index:    0    1
                 Keys :    0    1
                 Data :    0    0
               end
-              At: 7B40      length:    1,  data: 7B80,  nodes: 7BC0,  first: 6B80, root, parent
+              At: 8140      length:    1,  data: 8100,  nodes: 80C0,  first: 6B80, root, parent
                 Index:    0
                 Keys :    1
                 Data :    7
                 Nodes: 6BC0 6D00
-                  At: 6BC0  length:    1,  data: 6C00,  nodes: 6C40,  first: 6B80,  up: 7B40, leaf
+                  At: 6BC0  length:    1,  data: 6C00,  nodes: 6C40,  first: 6B80,  up: 8140, leaf
                     Index:    0
                     Keys :    0
                     Data :    5
                   end
-                  At: 6D00  length:    2,  data: 6CC0,  nodes: 6C80,  first: 6B80,  up: 7B40, leaf,  trees:  11
+                  At: 6D00  length:    2,  data: 6CC0,  nodes: 6C80,  first: 6B80,  up: 8140, leaf,  trees:  11
                     Index:    0    1
                     Keys :    2    3
-                    Data :8690*87A8*
+                    Data :8690*8808*
                        At: 6900length:    2,  data: 6940,  nodes: 6980,  first: 68C0, root, leaf
                          Index:    0    1
                          Keys :    0    1
                          Data :    5    4
                        end
-                       At: 7A80length:    1,  data: 7AC0,  nodes: 7B00,  first: 7980, root, parent
+                       At: 8080length:    1,  data: 8040,  nodes: 8000,  first: 7BC0, root, parent
                          Index:    0
                          Keys :    1
-                         Data :   24
-                         Nodes: 79C0 71C0
-                           At: 79C0length:    1,  data: 7A00,  nodes: 7A40,  first: 7980,  up: 7A80, leaf
+                         Data :   31
+                         Nodes: 7B80 7FC0
+                           At: 7B80length:    1,  data: 7B40,  nodes: 7F00,  first: 7BC0,  up: 8080, leaf
                              Index:    0
                              Keys :    0
-                             Data :    9
+                             Data :    3
                            end
-                           At: 71C0length:    2,  data: 7180,  nodes: 7140,  first: 7980,  up: 7A80, leaf,  trees:  11
+                           At: 7FC0length:    2,  data: 7F80,  nodes: 7F40,  first: 7BC0,  up: 8080, leaf,  trees:  11
                              Index:    0    1
                              Keys :    2    3
-                             Data :86E8*882C*
-                                At: 6E80length:    3,  data: 6EC0,  nodes: 6F00,  first: 6E40, root, leaf,  trees: 100
-                                  Index:    0    1    2
-                                  Keys :    0    1    2
-                                  Data :   10    78784*
-                                     At: 7840length:    1,  data: 7880,  nodes: 78C0,  first: 7480, root, parent
-                                       Index:    0
-                                       Keys :    1
-                                       Data :   14
-                                       Nodes: 74C0 7800
-                                         At: 74C0length:    1,  data: 7500,  nodes: 7540,  first: 7480,  up: 7840, leaf
-                                           Index:    0
-                                           Keys :    0
-                                           Data :    9
-                                         end
-                                         At: 7800length:    2,  data: 77C0,  nodes: 7780,  first: 7480,  up: 7840, leaf,  trees:  11
-                                           Index:    0    1
-                                           Keys :    2    3
-                                           Data :8708*876C*
-                                              At: 7080length:    2,  data: 70C0,  nodes: 7100,  first: 7040, root, leaf
-                                                Index:    0    1
-                                                Keys :    0    1
-                                                Data :    6   10
-                                              end
-                                              At: 76C0length:    2,  data: 7700,  nodes: 7740,  first: 7680, root, leaf
-                                                Index:    0    1
-                                                Keys :    0    1
-                                                Data :    6   17
-                                              end
-                                         end
-                                     end
-                                end
-                                At: 82C0length:    1,  data: 8300,  nodes: 8340,  first: 7F00, root, parent
+                             Data :87B0*882C*
+                                At: 7B00length:    1,  data: 7AC0,  nodes: 7A80,  first: 7980, root, parent
                                   Index:    0
                                   Keys :    1
-                                  Data :   31
-                                  Nodes: 7F40 8080
-                                    At: 7F40length:    1,  data: 7F80,  nodes: 7FC0,  first: 7F00,  up: 82C0, leaf
+                                  Data :   24
+                                  Nodes: 79C0 71C0
+                                    At: 79C0length:    1,  data: 7A00,  nodes: 7A40,  first: 7980,  up: 7B00, leaf
                                       Index:    0
                                       Keys :    0
-                                      Data :    3
+                                      Data :    9
                                     end
-                                    At: 8080length:    2,  data: 8040,  nodes: 8000,  first: 7F00,  up: 82C0, leaf,  trees:  11
+                                    At: 71C0length:    2,  data: 7180,  nodes: 7140,  first: 7980,  up: 7B00, leaf,  trees:  11
                                       Index:    0    1
                                       Keys :    2    3
-                                      Data :87D4*8820*
+                                      Data :86E8*87D4*
+                                         At: 6E80length:    3,  data: 6EC0,  nodes: 6F00,  first: 6E40, root, leaf,  trees: 100
+                                           Index:    0    1    2
+                                           Keys :    0    1    2
+                                           Data :   10    78784*
+                                              At: 7840length:    1,  data: 7880,  nodes: 78C0,  first: 7480, root, parent
+                                                Index:    0
+                                                Keys :    1
+                                                Data :   14
+                                                Nodes: 74C0 7800
+                                                  At: 74C0length:    1,  data: 7500,  nodes: 7540,  first: 7480,  up: 7840, leaf
+                                                    Index:    0
+                                                    Keys :    0
+                                                    Data :    9
+                                                  end
+                                                  At: 7800length:    2,  data: 77C0,  nodes: 7780,  first: 7480,  up: 7840, leaf,  trees:  11
+                                                    Index:    0    1
+                                                    Keys :    2    3
+                                                    Data :8708*876C*
+                                                       At: 7080length:    2,  data: 70C0,  nodes: 7100,  first: 7040, root, leaf
+                                                         Index:    0    1
+                                                         Keys :    0    1
+                                                         Data :    6   10
+                                                       end
+                                                       At: 76C0length:    2,  data: 7700,  nodes: 7740,  first: 7680, root, leaf
+                                                         Index:    0    1
+                                                         Keys :    0    1
+                                                         Data :    6   17
+                                                       end
+                                                  end
+                                              end
+                                         end
                                          At: 7D40length:    2,  data: 7D80,  nodes: 7DC0,  first: 7D00, root, leaf
                                            Index:    0    1
                                            Keys :    0    1
                                            Data :    6   27
                                          end
-                                         At: 8200length:    2,  data: 8240,  nodes: 8280,  first: 81C0, root, leaf
-                                           Index:    0    1
-                                           Keys :    0    1
-                                           Data :    6   39
-                                         end
                                     end
+                                end
+                                At: 82C0length:    2,  data: 8300,  nodes: 8340,  first: 8280, root, leaf
+                                  Index:    0    1
+                                  Keys :    0    1
+                                  Data :    6   39
                                 end
                            end
                        end
@@ -31464,41 +31546,110 @@ end
 END
   unlink $f;
  }
+# position, $last
+=pod
+sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
+ {my ($tree, $title) = @_;                                                      # Tree, title
+  @_ == 2 or confess "Two parameters";
+
+  PushR my $F = 31;
+
+  my $s = Subroutine                                                            # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $t = $$s{tree};                                                          # Tree
+    my $area = $t->area;                                                        # Area
+
+    PushR my $treeBitsR = r10, my $treeBitsIndexR = r11,
+          my $K = 30, my $D = 29, my $N = 28;
+
+    Block                                                                       # Print each node in the tree
+     {my ($end, $start) = @_;                                                   # Labels
+      my $offset = $$p{offset};                                                 # Offset of node to print
+      $t->getBlock($offset, $K, $D, $N);                                        # Load node
+      my $l = $t->lengthFromKeys($K);                                           # Number of nodes
+      $l->for(sub                                                               # Print sub nodes
+       {my ($index, $start, $next, $end) = @_;
+        my $i = $index * $t->width;                                             # Key/Data/Node offset
+        my $k = dFromZ $K, $i;                                                  # Key
+        my $d = dFromZ $D, $i;                                                  # Data
+        my $n = dFromZ $N, $i;                                                  # Sub nodes
+        If $n > 0,                                                              # Not a leaf
+        Then
+         {$sub->call(parameters => {offset => $n},                              # Recurse
+                     structures => {tree   => $t});
+         };
+        my $b = $t->getTreeBit($K, K(key => 1) << $index);                      # Get tree bit
+        If $b > 0,
+        Then
+         {PrintOutStringNL "(";
+
+         {$sub->call(parameters => {offset => $n},
+                     structures => {tree   => $t});
+          PrintOutStringNL ")";
+         },
+        Else
+         {$d->outRightInHex(K width => 4);                                        # Print data  as char if not a sub tree
+         };
+       });
+
+      If $l > 0,                                                                # Print final sub tree
+      Then
+       {my $o = $l * $t->width;                                                 # Final sub tree offset
+        my $n = dFromZ $N, $l * $t->width;                                      # Final sub tree
+        If $n > 0,                                                              # Not a leaf
+        Then
+         {$sub->call(parameters => {offset => $n},
+                     structures => {tree   => $t});
+
+         };
+       };
+     };
+    PopR;
+   } parameters => [qw(offset)],
+     structures => {tree => $tree},
+     name       => "Nasm::X86::Tree::printInOrder";
+
+  PrintOutString $title;                                                        # Title of the piece so we do not lose it
+
+  If $tree->size == 0,                                                          # Empty tree
+  Then
+   {PrintOutStringNL "- empty";
+   },
+  Else
+   {$C->outRightInDec(K width => 4);
+    PrintOutString ": ";
+
+     $s->call(structures => {tree  => $tree},                                   # Print root node
+             parameters => {offset => $R});
+    PrintOutNL;
+   };
+
+  PopR;
+ }
+=cut
 
 latest:
-if (1) {                                                                        #TOR #TAND
-  my $a = K(key => 1);
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('va a= b1 vb e+ vc B1 e* vd dif ve');
+  is_deeply readFile($f), "𝗔＝｟𝗕＋𝗖｠✕𝗗𝐈𝐅𝗘\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
-  OR (sub{$a==$a})             ->outNL;
-  OR (sub{$a!=$a})             ->outNL;
-  OR (sub{$a!=$a}, sub{$a==$a})->outNL;
-  OR (sub{$a!=$a}, sub{$a!=$a})->outNL;
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
-  AND(sub{$a==$a})             ->outNL;
-  AND(sub{$a!=$a})             ->outNL;
-  AND(sub{$a==$a}, sub{$a==$a})->outNL;
-  AND(sub{$a==$a}, sub{$a!=$a})->outNL;
+  $_->outNL for @a;
+# $parse->dump("Parse Tree");
 
-  If OR(sub{$a==$a}, sub{$a!=$a}) > 0,
-  Then
-   {PrintOutStringNL "AAAA";
-   };
-
-  If OR(sub{$a!=$a}, sub{$a!=$a}) > 0,
-  Then
-   {PrintOutStringNL "BBBB";
-   };
   ok Assemble eq => <<END, avx512=>1;
-or: .... .... .... ...1
-or: .... .... .... ....
-or: .... .... .... ...1
-or: .... .... .... ....
-and: .... .... .... ...1
-and: .... .... .... ....
-and: .... .... .... ...1
-and: .... .... .... ....
-AAAA
+parseChar: .... .... ...1 D5D8
+parseFail: .... .... .... ....
+pos: .... .... .... ..2B
+parseMatch: .... .... .... ....
+parseReason: .... .... .... ....
 END
+  unlink $f;
  }
 
 #latest:
