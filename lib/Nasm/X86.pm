@@ -6425,12 +6425,12 @@ sub Nasm::X86::Tree::put($$$)                                                   
      parameters => [qw(key data subTree)];
 
   if (ref($data) !~ m(Tree))                                                    # Whether we are a putting a sub tree
-   {$s->call(structures => {tree    => $tree},
+   {$s->call(structures => {tree    => $tree},                                  # Not a sub tree
              parameters => {key     => $key,
                             data    => $data,
                             subTree => K(zero => 0)});
    }
-  else
+  else                                                                          # Sub tree
    {$s->call(structures => {tree    => $tree},
              parameters => {key     => $key,
                             data    => $data->first,
@@ -8106,9 +8106,9 @@ sub Nasm::X86::Tree::getString($$)                                              
 
 #D2 Print                                                                       # Print a tree
 
-sub Nasm::X86::Tree::dump($$)                                                   # Dump a tree and all its sub trees.
- {my ($tree, $title) = @_;                                                      # Tree, title
-  @_ == 2 or confess "Two parameters";
+sub Nasm::X86::Tree::dumpWithWidth($$$$$)                                       #P Dump a tree and all its sub trees.
+ {my ($tree, $title, $width, $margin, $first) = @_;                             # Tree, title, width of offset field, the maximum width of the indented area, whether to print the offset of the tree
+  @_ == 5 or confess "Five parameters";
 
   PushR my $F = 31;
 
@@ -8131,19 +8131,19 @@ sub Nasm::X86::Tree::dump($$)                                                   
 
       $I->outSpaces;
       PrintOutString "At: ";                                                    # Print position and length
-      $offset->outRightInHex(K width => 4);
-      (K(col => 20) - $I)->outSpaces;
+      $offset->outRightInHex(K width => $width);
+      (K(col => $margin) - $I)->outSpaces;
       PrintOutString "length: ";
-      $l->outRightInDec(K width => 4);
+      $l->outRightInDec(K width => $width);
 
       PrintOutString ",  data: ";                                               # Position of data block
-      $t->getLoop($K)->outRightInHex(K width => 4);
+      $t->getLoop($K)->outRightInHex(K width => $width);
 
       PrintOutString ",  nodes: ";                                              # Position of nodes block
-      $t->getLoop($D)->outRightInHex(K width => 4);
+      $t->getLoop($D)->outRightInHex(K width => $width);
 
       PrintOutString ",  first: ";                                              # First block of tree
-      $t->getLoop($N)->outRightInHex(K width => 4);
+      $t->getLoop($N)->outRightInHex(K width => $width);
 
       my $U = $t->upFromData($D);                                               # Up field determines root / parent / leaf
 
@@ -8153,7 +8153,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
        },
       Else
        {PrintOutString ",  up: ";                                               # Up
-        $U->outRightInHex(K width => 4);
+        $U->outRightInHex(K width => $width);
        };
 
       If dFromZ($N, 0) == 0,                                                    # Leaf or parent
@@ -8179,7 +8179,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
       $l->for(sub
        {my ($index, $start, $next, $end) = @_;
         PrintOutString ' ';
-        $index->outRightInDec(K width => 4);
+        $index->outRightInDec(K width => $width);
        });
       PrintOutNL;
 
@@ -8195,7 +8195,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
 
           if (!$tb)                                                             # No tree bits
            {PrintOutString ' ';
-            $k->outRightInHex(K width => 4);
+            $k->outRightInHex(K width => $width);
             #$k->outRightInHex(K width => 4) if  $nodes;
             #$k->outRightInDec(K width => 4) if !$nodes;
            }
@@ -8203,16 +8203,21 @@ sub Nasm::X86::Tree::dump($$)                                                   
            {Test $treeBitsR, $treeBitsIndexR;                                   # Check for a tree bit
             IfNz
             Then                                                                # This key indexes a sub tree
-             {PushR 31;
-              $t->area->getZmmBlock($k, 31);
-              my $r = $t->rootFromFirst($F) >> K(sixteen => 4);
-              PopR;
-              $r->outRightInHex(K width => 4);                                  # Or use $k if we want the first block
+             {if ($first)                                                       # Print out the offset of the first block as used by the sub tree
+               {$k->outRightInHex(K width => $width);                           # This field indicates the offset of the first block
+               }
+              else                                                              # This key indexes a sub tree and for a reason which I have no desire to call to mind, I once thought it necessary to print the offset of the first node rather than the first block.
+               {PushR 31;
+                $t->area->getZmmBlock($k, 31);
+                my $r = $t->rootFromFirst($F) >> K(four => 4);
+                PopR;
+                $r->outRightInHex(K width => $width);
+               }
               PrintOutString '*';
              },
             Else
              {PrintOutString ' ';
-              $k->outRightInDec(K width => 4);
+              $k->outRightInDec(K width => $width);
              };
            }
           Shl $treeBitsIndexR, 1 if $tb;                                        # Next tree bit position
@@ -8244,6 +8249,13 @@ sub Nasm::X86::Tree::dump($$)                                                   
             my      $T = $t->position($d);
                     $T->firstFromMemory($F);                                    # First block for tree
             my $r = $T->rootFromFirst($F);
+
+            if ($first)                                                         # The offset of the tree if requested
+             {($I-2)->outSpaces;                                                # The word 'tree' is two letters longer than the word 'at'
+              PrintOutString "Tree: ";
+              $T->first->outRightInHexNL(K width => $width);
+             }
+
             If $r == 0,                                                         # Empty tree
             Then
              {PrintOutStringNL "- empty";
@@ -8280,7 +8292,7 @@ sub Nasm::X86::Tree::dump($$)                                                   
     PopR;
    } parameters => [qw(indentation offset)],
      structures => {tree => $tree},
-     name       => "Nasm::X86::Tree::dump";
+     name       => "Nasm::X86::Tree::dump_$width-$margin-$first";
 
   PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
 
@@ -8292,12 +8304,25 @@ sub Nasm::X86::Tree::dump($$)                                                   
    {PrintOutStringNL "- empty";
    },
   Else
-   {$s->call(structures => {tree        => $tree},                              # Print root node
+   {$tree->first->outNL("Tree: ") if $first;
+    $s->call(structures => {tree        => $tree},                              # Print root node
              parameters => {indentation => V(indentation => 0),
                             offset      => $Q});
    };
 
   PopR;
+ }
+
+sub Nasm::X86::Tree::dump($$)                                                   #P Dump a tree and all its sub trees.
+ {my ($tree, $title) = @_;                                                      # Tree, title
+  @_ == 2 or confess "Two parameters";
+  $tree->dumpWithWidth($title, 4, 20, 0)
+ }
+
+sub Nasm::X86::Tree::dump8($$)                                                  #P Dump a tree and all its sub trees using 8 character fields for numbers.
+ {my ($tree, $title) = @_;                                                      # Tree, title
+  @_ == 2 or confess "Two parameters";
+  $tree->dumpWithWidth($title, 8, 80, 1)
  }
 
 sub Nasm::X86::Tree::printInOrder($$)                                           # Print a tree in order
@@ -31107,14 +31132,25 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
   my $parseMatch  = V parseMatch  => 0;                                         # The position of the bracket we failed to match
   my $parseChar   = V parseChar   => 0;                                         # The last character recognized
 
-  my $length      = V length      => 0;                                         # Length of the current lexical item
+  my $startPos    = V startPos    => 0;                                         # Start position of the last lexical item
+  my $lastNew     = V lastNew     => 0;                                         # Last lexical created
+  my $started;                                                                  # True after we have added the first symbol and so can have a previous symbol
 
   my $new = sub                                                                 # Create a new lexical item
    {my $l = $area->CreateTree(length => 3);                                     # Tree to hold lexical item description
     $l->put(K(t => Nasm::X86::Unisyn::Lex::type),     $last);                   # Last lexical item recognized
     $l->put(K(t => Nasm::X86::Unisyn::Lex::position), $position);               # Position of lexical item
-    $l->put(K(t => Nasm::X86::Unisyn::Lex::length),   $length);                 # Position of lexical item
-    $l                                                                          # Tree representing lexical item
+    if ($started)
+     {my $t = $l->position($lastNew);                                           # The description of the last lexical item
+      my $length = $position - $startPos;                                       # Length of previous item
+      $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $length);                 # Record length of previous item in its describing tree
+      $startPos->copy($position);                                               # This item now becomes the last lexical item
+     }
+    else
+     {$started++                                                                # At least one item has been processed
+     }
+    $lastNew ->copy($l->first);                                                 # This item now becomes the last lexical item
+    $l
    };
 
   my $push = sub                                                                # Push the current lexical item on to the stack and return its tree descriptor
@@ -31317,7 +31353,6 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
       $brackets->push($t);                                                      # Save bracket description on bracket stack
       $change->copy(1);                                                         # Changing because we are on a bracket
-      $length->copy(1);                                                         # Length of a bracket
 #     &$b;                                                                      # Push the open bracket
      },
     Ef {$alphabets->data == Nasm::X86::Unisyn::Lex::Number::B}
@@ -31334,7 +31369,6 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
           Jmp $end;
          };
         $change->copy(1);                                                       # Changing because we are on a bracket
-        $length->copy(1);                                                       # Length of a bracket
 #       &$B;                                                                    # Push the open bracket
        },
       Else
@@ -31395,6 +31429,9 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
      };
    });
 
+PrintErrStringNL "AAAA";
+$parse->peek(K(key => 1)); $parse->data->d;
+
    ($parse,                                                                     # The resulting parse tree
     $parseChar,                                                                 # Last character processed
     $parseFail,                                                                 # If not zero the parse has failed for some reason
@@ -31403,7 +31440,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parseReason)                                                               # The reason code describing the failure
  } # Parse
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
@@ -31414,7 +31451,8 @@ if (1) {                                                                        
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
   $_->outNL for @a;
-# $parse->dump("Parse Tree");
+  $parse->dumpParseTree("Parse Tree");
+  $parse->dump8("AAAAA");
 
   ok Assemble eq => <<END, avx512=>1;
 parseChar: .... .... ...1 D5D8
@@ -31425,69 +31463,53 @@ parseReason: .... .... .... ....
 END
   unlink $f;
  }
-# position, $last
-=pod
+
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
  {my ($tree, $title) = @_;                                                      # Tree, title
   @_ == 2 or confess "Two parameters";
 
-  PushR my $F = 31;
-
   my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $t = $$s{tree};                                                          # Tree
+    my $t    = $$s{tree};                                                       # Tree
     my $area = $t->area;                                                        # Area
 
-    PushR my $treeBitsR = r10, my $treeBitsIndexR = r11,
-          my $K = 30, my $D = 29, my $N = 28;
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::length);
+    my $length   = $t->data->clone("Length");                                   # Length of input
 
-    Block                                                                       # Print each node in the tree
-     {my ($end, $start) = @_;                                                   # Labels
-      my $offset = $$p{offset};                                                 # Offset of node to print
-      $t->getBlock($offset, $K, $D, $N);                                        # Load node
-      my $l = $t->lengthFromKeys($K);                                           # Number of nodes
-      $l->for(sub                                                               # Print sub nodes
-       {my ($index, $start, $next, $end) = @_;
-        my $i = $index * $t->width;                                             # Key/Data/Node offset
-        my $k = dFromZ $K, $i;                                                  # Key
-        my $d = dFromZ $D, $i;                                                  # Data
-        my $n = dFromZ $N, $i;                                                  # Sub nodes
-        If $n > 0,                                                              # Not a leaf
-        Then
-         {$sub->call(parameters => {offset => $n},                              # Recurse
-                     structures => {tree   => $t});
-         };
-        my $b = $t->getTreeBit($K, K(key => 1) << $index);                      # Get tree bit
-        If $b > 0,
-        Then
-         {PrintOutStringNL "(";
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::position);
+    my $position = $t->data->clone("Position");                                 # Position in input
 
-         {$sub->call(parameters => {offset => $n},
-                     structures => {tree   => $t});
-          PrintOutStringNL ")";
-         },
-        Else
-         {$d->outRightInHex(K width => 4);                                        # Print data  as char if not a sub tree
-         };
-       });
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::type);
+    my $type     = $t->data->clone("Type");                                     # Type of operator
 
-      If $l > 0,                                                                # Print final sub tree
-      Then
-       {my $o = $l * $t->width;                                                 # Final sub tree offset
-        my $n = dFromZ $N, $l * $t->width;                                      # Final sub tree
-        If $n > 0,                                                              # Not a leaf
-        Then
-         {$sub->call(parameters => {offset => $n},
-                     structures => {tree   => $t});
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::left);
+    my $leftF    = $t->found->clone("Left");                                    # Left operand found
+    my $left     = $t->first->clone('left');                                    # Left operand
 
-         };
-       };
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::right);
+    my $rightF   = $t->found->clone("Right");                                   # Right operand found
+    my $right    = $t->first->clone('right');                                   # Right operand
+
+    $length  ->out("out : ");
+    $position->out("pos : ");
+    $type    ->out("type: ");
+
+    If $leftF > 0,
+    Then                                                                        # There is a left sub tree
+     {PrintOutString '(';
+      $sub->call(structures => {tree => $t->position($left)});
+      PrintOutString ')';
      };
-    PopR;
-   } parameters => [qw(offset)],
-     structures => {tree => $tree},
-     name       => "Nasm::X86::Tree::printInOrder";
+
+    If $rightF > 0,
+    Then                                                                        # There is a right sub tree
+     {PrintOutString '(';
+      $sub->call(structures => {tree => $t->position($right)});
+      PrintOutString ')';
+     };
+   } structures => {tree => $tree},
+     name       => "Nasm::X86::Tree::dumpParseTree";
 
   PrintOutString $title;                                                        # Title of the piece so we do not lose it
 
@@ -31496,19 +31518,14 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    {PrintOutStringNL "- empty";
    },
   Else
-   {$C->outRightInDec(K width => 4);
-    PrintOutString ": ";
+   {PrintOutString ": ";
 
-     $s->call(structures => {tree  => $tree},                                   # Print root node
-             parameters => {offset => $R});
+    $s->call(structures => {tree => $tree});                                    # Print root node
     PrintOutNL;
    };
-
-  PopR;
  }
-=cut
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
@@ -31529,6 +31546,21 @@ parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
 END
   unlink $f;
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::union #TNasm::X86::Tree::intersection
+  my $a = CreateArea;
+  my $t = $a->CreateTree(length => 3);
+  my $T = $a->CreateTree(length => 3);
+
+  $T->push(K key => 1);
+  $t->push($T);
+  $t->dump8('AA');
+  my $s = $t->popSubTree;
+  $t->dump8('BB');
+  ok Assemble eq => <<END, avx512=>1;
+END
  }
 
 #latest:
