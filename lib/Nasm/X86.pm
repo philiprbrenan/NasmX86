@@ -30427,6 +30427,21 @@ END
  }
 
 #latest:
+if (1) {                                                                        #TNasm::X86::Tree::popSubTree
+  my $a = CreateArea;
+  my $t = $a->CreateTree(length => 3);
+  my $T = $a->CreateTree(length => 3);
+
+  $T->push(K key => 1);
+  $t->push($T);
+  $t->dump8('AA');
+  my $s = $t->popSubTree;
+  $t->dump8('BB');
+  ok Assemble eq => <<END, avx512=>1;
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::union #TNasm::X86::Tree::intersection
   my $a = CreateArea;
   my $r = $a->CreateTree(length => 3);
@@ -31546,21 +31561,6 @@ parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
 END
   unlink $f;
- }
-
-latest:
-if (1) {                                                                        #TNasm::X86::Tree::union #TNasm::X86::Tree::intersection
-  my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
-  my $T = $a->CreateTree(length => 3);
-
-  $T->push(K key => 1);
-  $t->push($T);
-  $t->dump8('AA');
-  my $s = $t->popSubTree;
-  $t->dump8('BB');
-  ok Assemble eq => <<END, avx512=>1;
-END
  }
 
 #latest:
