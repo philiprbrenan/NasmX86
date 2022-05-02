@@ -31536,8 +31536,8 @@ if (1) {                                                                        
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
   $_->outNL for @a;
-  $parse->dump8("AAAAA");
-# $parse->dumpParseTree($a8, "Parse Tree");
+# $parse->dump8("AAAAA");
+  $parse->dumpParseTree($a8, "Parse Tree");
 
   ok Assemble eq => <<END, avx512=>1;
 parseChar: .... .... ...1 D5D8
@@ -31545,6 +31545,13 @@ parseFail: .... .... .... ....
 pos: .... .... .... ..2B
 parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
+Parse Tree
+＝
+  𝗔
+  𝐈𝐅
+    ✕
+    𝗘
+
 END
   unlink $f;
  }
@@ -31563,7 +31570,6 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END, avx512=>1;
 Parse Tree
-
 
 END
   unlink $f;
@@ -31589,7 +31595,7 @@ END
   unlink $f;
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn('va a= va');
   is_deeply readFile($f), "𝗔＝𝗔\n";
