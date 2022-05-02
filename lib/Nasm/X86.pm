@@ -31525,7 +31525,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parseReason)                                                               # The reason code describing the failure
  } # Parse
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
@@ -31537,7 +31537,7 @@ if (1) {                                                                        
 
   $_->outNL for @a;
   $parse->dump8("AAAAA");
-  $parse->dumpParseTree($a8, "Parse Tree");
+# $parse->dumpParseTree($a8, "Parse Tree");
 
   ok Assemble eq => <<END, avx512=>1;
 parseChar: .... .... ...1 D5D8
@@ -31545,6 +31545,26 @@ parseFail: .... .... .... ....
 pos: .... .... .... ..2B
 parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
+END
+  unlink $f;
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn('');
+  is_deeply readFile($f), "\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+
+  $parse->dumpParseTree($a8, "Parse Tree");
+# $parse->dump8("AAAAA");
+
+  ok Assemble eq => <<END, avx512=>1;
+Parse Tree
+
+
 END
   unlink $f;
  }
@@ -31564,6 +31584,28 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1;
 Parse Tree
 𝗔
+
+END
+  unlink $f;
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn('va a= va');
+  is_deeply readFile($f), "𝗔＝𝗔\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+
+  $parse->dumpParseTree($a8, "Parse Tree");
+# $parse->dump8("AAAAA");
+
+  ok Assemble eq => <<END, avx512=>1;
+Parse Tree
+𝗔
+  ＝
+    𝗔
 
 END
   unlink $f;
@@ -31599,8 +31641,11 @@ sub Nasm::X86::Tree::dumpParseTree($$$)                                         
     my $rightF   = $t->found->clone("Right");                                   # Right operand found
     my $right    = $t->data ->clone('right');                                   # Right operand
 
-    ($depth*2)->outSpaces;
-    ($source + $position)->printOutMemoryNL($length);
+    If $length > 0,                                                             # Source text of lexical item
+    Then
+     {($depth*2)->outSpaces;
+      ($source + $position)->printOutMemoryNL($length);
+     };
 
     If $leftF > 0,
     Then                                                                        # There is a left sub tree
