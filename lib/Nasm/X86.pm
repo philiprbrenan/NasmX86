@@ -31559,19 +31559,12 @@ if (1) {                                                                        
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
   $parse->dumpParseTree($a8, "Parse Tree");
-  $parse->dump8("AAAAA");
+# $parse->dump8("AAAAA");
 
   ok Assemble eq => <<END, avx512=>1;
 Parse Tree
 𝗔
 
-AAAAA
-Tree: .... .... ...8 6540
-At:    86580                                                                                length:        3,  data:    865C0,  nodes:    86600,  first:    86540, root, leaf
-  Index:        0        1        2
-  Keys :        0        1        2
-  Data :        0        4        6
-end
 END
   unlink $f;
  }
@@ -31635,7 +31628,7 @@ sub Nasm::X86::Tree::dumpParseTree($$$)                                         
    };
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
