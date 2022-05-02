@@ -5253,34 +5253,25 @@ sub Nasm::X86::Area::outNL($)                                                   
   PrintOutNL;
  }
 
-=pod
-sub Nasm::X86::Area::outPart($)                                                 # Print part of the specified area on sysout.
+sub Nasm::X86::Area::printOut($$$)                                              # Print part of the specified area on sysout.
  {my ($area, $offset, $length) = @_;                                            # Area descriptor, offset, length
   @_ == 3 or confess "Three parameters";
 
-  $area->address->setReg(rax);
-  $offset       ->setReg(rax);
-  $$p{offset}->setReg(rax);
-    $$p{length}->setReg(rax);
-    Mov rdi, "[rax+$$area{usedOffset}]";                                        # Length to print
-    Sub rdi, $area->dataOffset;                                                 # Length to print
-    Lea rax, "[rax+$$area{dataOffset}]";                                        # Address of data field
-    PrintOutMemory;
-    RestoreFirstFour;
-   } parameters=>[qw(address)], name => 'Nasm::X86::Area::out';
-
-  $s->call(parameters=>{address => $area->address});
+  PushR rax, rdi;
+  ($area->address + $offset)->setReg(rax);
+  $length                   ->setReg(rdi);
+  PrintOutMemoryNL;
+  PopR;
  }
 
-sub Nasm::X86::Area::outPartNL($)                                               # Print part of the specified area on sysout followed by a new line.
- {my ($area) = @_;                                                              # Area descriptor
-  @_ == 1 or confess "One parameter";
-
-  $area->out;
-  PrintOutNL;
- }
-=cut
-
+#sub Nasm::X86::Area::outPartNL($)                                               # Print part of the specified area on sysout followed by a new line.
+# {my ($area) = @_;                                                              # Area descriptor
+#  @_ == 1 or confess "One parameter";
+#
+#  $area->outPart;
+#  PrintOutNL;
+# }
+#
 sub Nasm::X86::Area::dump($$;$)                                                 # Dump details of an area.
  {my ($area, $title, $depth) = @_;                                              # Area descriptor, title string, optional variable number of 64 byte blocks to dump
   @_ == 2 or @_ == 3 or confess "Two or three parameters";
@@ -8204,7 +8195,7 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$)                                       
             IfNz
             Then                                                                # This key indexes a sub tree
              {if ($first)                                                       # Print out the offset of the first block as used by the sub tree
-               {$k->outRightInHex(K width => $width);                           # This field indicates the offset of the first block
+               {($k >> K(four => 4))->outRightInHex(K width => $width);          # This field indicates the offset of the first block
                }
               else                                                              # This key indexes a sub tree and for a reason which I have no desire to call to mind, I once thought it necessary to print the offset of the first node rather than the first block.
                {PushR 31;
@@ -24235,6 +24226,19 @@ END
  }
 
 #latest:
+if (1) {                                                                        #TNasm::X86::Area::print
+  my $a = CreateArea;
+  my $z = $a->allocZmmBlock;
+  LoadZmm 31, (ord('a')) x 64;
+  $a->putZmmBlock($z, 31);
+  $a->printOut($z, K length => 3);
+
+  ok Assemble eq => <<END, avx512=>1;
+aaa
+END
+ }
+
+#latest:
 if (1) {                                                                        #TArea::dump
   my $a = CreateArea;
   my $b = CreateArea;
@@ -30437,6 +30441,7 @@ if (1) {                                                                        
   $t->dump8('AA');
   my $s = $t->popSubTree;
   $t->dump8('BB');
+  $s->dump8('CC');
   ok Assemble eq => <<END, avx512=>1;
 END
  }
@@ -31444,10 +31449,9 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
      };
    });
 
-PrintErrStringNL "AAAA";
-$parse->peek(K(key => 1)); $parse->data->d;
+  my $parseTree = $parse->popSubTree; $parse->free; $brackets->free;            # Obtain the parse tree and free the brackets and stack trees
 
-   ($parse,                                                                     # The resulting parse tree
+   ($parseTree,                                                                 # The resulting parse tree
     $parseChar,                                                                 # Last character processed
     $parseFail,                                                                 # If not zero the parse has failed for some reason
     $position,                                                                  # The position reached in the input string
@@ -31486,10 +31490,12 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
   my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $t    = $$s{tree};                                                       # Tree
-    my $area = $t->area;                                                        # Area
-
-                   $t->find(K pos => Nasm::X86::Unisyn::Lex::length);
+    my $t     = $$s{tree};                                                      # Tree
+    my $depth = $$p{depth};                                                     # Depth
+    my $area  = $t->area;                                                       # Area
+    If $depth < K(key => 3),
+    Then {
+                  $t->find(K pos => Nasm::X86::Unisyn::Lex::length);
     my $length   = $t->data->clone("Length");                                   # Length of input
 
                    $t->find(K pos => Nasm::X86::Unisyn::Lex::position);
@@ -31500,42 +31506,44 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
 
                    $t->find(K pos => Nasm::X86::Unisyn::Lex::left);
     my $leftF    = $t->found->clone("Left");                                    # Left operand found
-    my $left     = $t->first->clone('left');                                    # Left operand
+    my $left     = $t->data ->clone('left');                                    # Left operand
 
                    $t->find(K pos => Nasm::X86::Unisyn::Lex::right);
     my $rightF   = $t->found->clone("Right");                                   # Right operand found
-    my $right    = $t->first->clone('right');                                   # Right operand
+    my $right    = $t->data ->clone('right');                                   # Right operand
 
-    $length  ->out("out : ");
-    $position->out("pos : ");
-    $type    ->out("type: ");
+    $length  ->out("( ");
+    $position->out(" ");
+    $type    ->out(" ", ')');
 
     If $leftF > 0,
     Then                                                                        # There is a left sub tree
-     {PrintOutString '(';
-      $sub->call(structures => {tree => $t->position($left)});
+     {PrintOutNL;
+      PrintOutString '(';
+      $sub->call(structures => {tree => $t->position($left)},  parameters => {depth => $depth+1});
       PrintOutString ')';
      };
 
     If $rightF > 0,
     Then                                                                        # There is a right sub tree
-     {PrintOutString '(';
-      $sub->call(structures => {tree => $t->position($right)});
+     {PrintOutNL;
+      PrintOutString '(';
+      $sub->call(structures => {tree => $t->position($right)}, parameters => {depth => $depth+1});
       PrintOutString ')';
      };
-   } structures => {tree => $tree},
+     };
+   } structures => {tree => $tree}, parameters=>[qw(depth)],
      name       => "Nasm::X86::Tree::dumpParseTree";
 
-  PrintOutString $title;                                                        # Title of the piece so we do not lose it
+  PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
 
   If $tree->size == 0,                                                          # Empty tree
   Then
    {PrintOutStringNL "- empty";
    },
   Else
-   {PrintOutString ": ";
-
-    $s->call(structures => {tree => $tree});                                    # Print root node
+   {#PrintOutString ": ";
+    $s->call(structures => {tree => $tree}, parameters => {depth => K depth => 0});        # Print root node
     PrintOutNL;
    };
  }
@@ -31562,6 +31570,7 @@ parseReason: .... .... .... ....
 END
   unlink $f;
  }
+
 
 #latest:
 if (0) {                                                                        #
