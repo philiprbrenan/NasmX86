@@ -3514,6 +3514,43 @@ sub Nasm::X86::Variable::copyMemory($$$)                                        
   &CopyMemory(target => $target, source => $source, size => $size);             # Copy the memory
  }
 
+sub Nasm::X86::Variable::printMemory($$$)                                       # Print the specified number of bytes from the memory addressed by the variable on the specified channel.
+ {my ($address, $channel, $size) = @_;                                          # Address of memory, channel to print on as a constant, number of bytes to print
+  @_ == 3 or confess "Three parameters";
+
+  PushR rax, rdi;
+  $address->setReg(rax);
+  $size->setReg(rdi);
+  &PrintMemory($channel);
+  PopR;
+ }
+
+sub Nasm::X86::Variable::printErrMemory($$)                                     # Print the specified number of bytes of the memory addressed by the variable on stdout.
+ {my ($address, $size) = @_;                                                    # Address of memory, number of bytes to print
+  @_ == 2 or confess "Two parameters";
+  $address->printMemory($stderr, $size);
+ }
+
+sub Nasm::X86::Variable::printErrMemoryNL($$)                                   # Print the specified number of bytes of the memory addressed by the variable on stdout followed by a new line.
+ {my ($address, $size) = @_;                                                    # Address of memory, number of bytes to print
+  @_ == 2 or confess "Two parameters";
+  $address->printErrMemory($size);
+  PrintErrNL;
+ }
+
+sub Nasm::X86::Variable::printOutMemory($$)                                     # Print the specified number of bytes of the memory addressed by the variable on stdout.
+ {my ($address, $size) = @_;                                                    # Address of memory, number of bytes to print
+  @_ == 2 or confess "Two parameters";
+  $address->printMemory($stdout, $size);
+ }
+
+sub Nasm::X86::Variable::printOutMemoryNL($$)                                   # Print the specified number of bytes of the memory addressed by the variable on stdout followed by a new line.
+ {my ($address, $size) = @_;                                                    # Address of memory, number of bytes to print
+  @_ == 2 or confess "Two parameters";
+  $address->printOutMemory($size);
+  PrintOutNL;
+ }
+
 sub Nasm::X86::Variable::printMemoryInHexNL($$$)                                # Write, in hexadecimal, the memory addressed by a variable to stdout or stderr.
  {my ($address, $channel, $size) = @_;                                          # Address of memory, channel to print on, number of bytes to print
   @_ == 3 or confess "Three parameters";
@@ -5257,9 +5294,11 @@ sub Nasm::X86::Area::printOut($$$)                                              
  {my ($area, $offset, $length) = @_;                                            # Area descriptor, offset, length
   @_ == 3 or confess "Three parameters";
 
-  PushR rax, rdi;
+  PushR rax, rdi, rsi;
   ($area->address + $offset)->setReg(rax);
   $length                   ->setReg(rdi);
+Mov rsi, "[rax]";
+PrintErrRegisterInHex rsi;
   PrintOutMemoryNL;
   PopR;
  }
@@ -30443,6 +30482,28 @@ if (1) {                                                                        
   $t->dump8('BB');
   $s->dump8('CC');
   ok Assemble eq => <<END, avx512=>1;
+AA
+Tree: .... .... .... ..40
+At:      180                                                                                length:        1,  data:      1C0,  nodes:      200,  first:       40, root, leaf,  trees:   1
+  Index:        0
+  Keys :        0
+  Data :       8*
+   Tree:       80
+     At:       C0                                                                           length:        1,  data:      100,  nodes:      140,  first:       80, root, leaf
+       Index:        0
+       Keys :        0
+       Data :        1
+     end
+end
+BB
+- empty
+CC
+Tree: .... .... .... ..80
+At:       C0                                                                                length:        1,  data:      100,  nodes:      140,  first:       80, root, leaf
+  Index:        0
+  Keys :        0
+  Data :        1
+end
 END
  }
 
@@ -31156,14 +31217,18 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
   my $lastNew     = V lastNew     => 0;                                         # Last lexical created
   my $started;                                                                  # True after we have added the first symbol and so can have a previous symbol
 
+  my $updateLength = sub                                                        # Update the length of the previous lexical item
+   {my $t = $parse->position($lastNew);                                         # The description of the last lexical item
+    my $length = $position - $startPos;                                         # Length of previous item
+    $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $length);                   # Record length of previous item in its describing tree
+   };
+
   my $new = sub                                                                 # Create a new lexical item
    {my $l = $area->CreateTree(length => 3);                                     # Tree to hold lexical item description
     $l->put(K(t => Nasm::X86::Unisyn::Lex::type),     $last);                   # Last lexical item recognized
     $l->put(K(t => Nasm::X86::Unisyn::Lex::position), $position);               # Position of lexical item
     if ($started)
-     {my $t = $l->position($lastNew);                                           # The description of the last lexical item
-      my $length = $position - $startPos;                                       # Length of previous item
-      $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $length);                 # Record length of previous item in its describing tree
+     {&$updateLength;                                                           # Update the length of the previous lexical item
       $startPos->copy($position);                                               # This item now becomes the last lexical item
      }
     else
@@ -31278,6 +31343,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $F = sub                                                                   # Final: at this point there are no brackets left.
    {PrintErrStringNL "Type: F";
+    &$updateLength;                                                             # Update the length of the previous lexical item - if there were none it will the length of the start symbol that is updated
     $parse->size->for(sub                                                       # Reduce
      {my ($index, $start, $next, $end) = @_;
       my $p = &$prev2;
@@ -31470,8 +31536,8 @@ if (1) {                                                                        
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
   $_->outNL for @a;
-  $parse->dumpParseTree("Parse Tree");
   $parse->dump8("AAAAA");
+  $parse->dumpParseTree($a8, "Parse Tree");
 
   ok Assemble eq => <<END, avx512=>1;
 parseChar: .... .... ...1 D5D8
@@ -31483,16 +31549,44 @@ END
   unlink $f;
  }
 
-sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
- {my ($tree, $title) = @_;                                                      # Tree, title
-  @_ == 2 or confess "Two parameters";
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn('va');
+  is_deeply readFile($f), "𝗔\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+
+  $parse->dumpParseTree($a8, "Parse Tree");
+  $parse->dump8("AAAAA");
+
+  ok Assemble eq => <<END, avx512=>1;
+Parse Tree
+𝗔
+
+AAAAA
+Tree: .... .... ...8 6540
+At:    86580                                                                                length:        3,  data:    865C0,  nodes:    86600,  first:    86540, root, leaf
+  Index:        0        1        2
+  Keys :        0        1        2
+  Data :        0        4        6
+end
+END
+  unlink $f;
+ }
+
+sub Nasm::X86::Tree::dumpParseTree($$$)                                         # Dump a parse tree
+ {my ($tree, $source, $title) = @_;                                             # Tree, variable addressing source being parsed, title
+  @_ == 3 or confess "Three parameters";
 
   my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $t     = $$s{tree};                                                      # Tree
-    my $depth = $$p{depth};                                                     # Depth
-    my $area  = $t->area;                                                       # Area
+    my $t      = $$s{tree};                                                     # Tree
+    my $source = $$p{source};                                                   # Source
+    my $depth  = $$p{depth};                                                    # Depth
+    my $area   = $t->area;                                                      # Area
     If $depth < K(key => 3),
     Then {
                   $t->find(K pos => Nasm::X86::Unisyn::Lex::length);
@@ -31512,27 +31606,20 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
     my $rightF   = $t->found->clone("Right");                                   # Right operand found
     my $right    = $t->data ->clone('right');                                   # Right operand
 
-    $length  ->out("( ");
-    $position->out(" ");
-    $type    ->out(" ", ')');
+    ($depth*2)->outSpaces;
+    ($source + $position)->printOutMemoryNL($length);
 
     If $leftF > 0,
     Then                                                                        # There is a left sub tree
-     {PrintOutNL;
-      PrintOutString '(';
-      $sub->call(structures => {tree => $t->position($left)},  parameters => {depth => $depth+1});
-      PrintOutString ')';
+     {$sub->call(structures => {tree => $t->position($left)},  parameters => {depth => $depth+1, source=> $source});
      };
 
     If $rightF > 0,
     Then                                                                        # There is a right sub tree
-     {PrintOutNL;
-      PrintOutString '(';
-      $sub->call(structures => {tree => $t->position($right)}, parameters => {depth => $depth+1});
-      PrintOutString ')';
+     {$sub->call(structures => {tree => $t->position($right)}, parameters => {depth => $depth+1, source=> $source});
      };
      };
-   } structures => {tree => $tree}, parameters=>[qw(depth)],
+   } structures => {tree => $tree}, parameters=>[qw(depth source)],
      name       => "Nasm::X86::Tree::dumpParseTree";
 
   PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
@@ -31543,12 +31630,12 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    },
   Else
    {#PrintOutString ": ";
-    $s->call(structures => {tree => $tree}, parameters => {depth => K depth => 0});        # Print root node
+    $s->call(structures => {tree => $tree}, parameters => {depth => K(depth => 0), source=> $source});        # Print root node
     PrintOutNL;
    };
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
@@ -31559,7 +31646,8 @@ if (1) {                                                                        
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
   $_->outNL for @a;
-# $parse->dump("Parse Tree");
+# $parse->dump("AAAA");
+  $parse->dumpParseTree($a8, "Parse Tree");
 
   ok Assemble eq => <<END, avx512=>1;
 parseChar: .... .... ...1 D5D8
@@ -31567,6 +31655,13 @@ parseFail: .... .... .... ....
 pos: .... .... .... ..2B
 parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
+Parse Tree
+＝
+  𝗔
+  𝐈𝐅
+    ✕
+    𝗘
+
 END
   unlink $f;
  }
