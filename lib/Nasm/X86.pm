@@ -31130,21 +31130,18 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     Then
      {$parse->pop;
      };
-#    If &$prev->data != K(p => Nasm::X86::Unisyn::Lex::Number::b),               # Non empty pair of brackets - a single intervening bracket represents a previously collapsed bracketed expression
-#    Then
-     {Block
-       {my ($end, $start) = @_;
-        my $p = &$prev2;
-        If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b),
-        Then                                                                    # Single item in brackets
-         {&$double;
-         },
-        Ef {$p->data != K(p => Nasm::X86::Unisyn::Lex::Number::S)}
-        Then                                                                    # Triple reduce back to start
-         {&$triple;
-          Jmp $start;                                                           # Keep on reducing until we meet the matching opening bracket
-         };
-       }
+    Block                                                                       # Non empty pair of brackets - a single intervening bracket represents a previously collapsed bracketed expression
+     {my ($end, $start) = @_;
+      my $p = &$prev2;
+      If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b),
+      Then                                                                      # Single item in brackets
+       {&$double;
+       },
+      Ef {$p->data != K(p => Nasm::X86::Unisyn::Lex::Number::S)}
+      Then                                                                      # Triple reduce back to start
+       {&$triple;
+        Jmp $start;                                                             # Keep on reducing until we meet the matching opening bracket
+       };
      };
     If &$prev2->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),              # Prefix operator preceding brackets
     Then
@@ -31386,185 +31383,32 @@ END
   unlink $f;
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn('');
-  is_deeply readFile($f), "\n";
+sub unisynParse($$$)                                                            # Test the parse of a unisyn expression
+ {my ($compose, $text, $parse) = @_;                                            # The comping expression used to create some unisyn, the expected composed expression, the expected parse tree
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
+  is_deeply readFile($f), $text;
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+  my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-
-
-END
+  $p->dumpParseTree($a8);
+  ok Assemble eq => $parse, avx512=>1;
   unlink $f;
- }
+ };
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn('va');
-  is_deeply readFile($f), "𝗔\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
-
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-𝗔
-END
-  unlink $f;
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn('va a= va');
-  is_deeply readFile($f), "𝗔＝𝗔\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
-
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-＝
-._𝗔
-._𝗔
-END
-  unlink $f;
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('va e+ vb');
-  is_deeply readFile($f), "𝗔＋𝗕\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
-
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-＋
-._𝗔
-._𝗕
-END
-  unlink $f;
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('va a= vb e+ vc');
-  is_deeply readFile($f), "𝗔＝𝗕＋𝗖\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
-
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-＝
-._𝗔
-._＋
-._._𝗕
-._._𝗖
-END
-  unlink $f;
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('va a= vb e* vc');
-  is_deeply readFile($f), "𝗔＝𝗕✕𝗖\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
-
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-＝
-._𝗔
-._✕
-._._𝗕
-._._𝗖
-END
-  unlink $f;
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('b( B)');
-  is_deeply readFile($f), "【】\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
-
-# $parse->dump("AAA");
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-【
-END
-  unlink $f;
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('b( b[ B] B)');
-  is_deeply readFile($f), "【⟦⟧】\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
-
-# $parse->dump("AAA");
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-【
-._⟦
-END
-  unlink $f;
- }
+unisynParse '',                  "\n",         qq(\n\n);
+unisynParse 'va',                "𝗔\n",        qq(𝗔\n);
+unisynParse 'va a= va',          "𝗔＝𝗔\n",     qq(＝\n._𝗔\n._𝗔\n);
+unisynParse 'va e+ vb',          "𝗔＋𝗕\n",     qq(＋\n._𝗔\n._𝗕\n);
+unisynParse 'va a= vb e+ vc',    "𝗔＝𝗕＋𝗖\n",  qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
+unisynParse 'va a= vb e* vc',    "𝗔＝𝗕✕𝗖\n",  qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
 
 latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('b( b[ b< B> B] B)');
-  is_deeply readFile($f), "【⟦⟨⟩⟧】\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
-
-# $parse->dump("AAA");
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-【
-._⟦
-._._⟨
-
-
-END
-  unlink $f;
- }
+unisynParse 'b( B)',             "【】\n",      qq(【\n);
+unisynParse 'b( b[ B] B)',       "【⟦⟧】\n",    qq(【\n._⟦\n);
+unisynParse 'b( b[ b< B> B] B)', "【⟦⟨⟩⟧】\n",   qq(【\n._⟦\n._._⟨\n);
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
  {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
