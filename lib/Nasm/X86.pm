@@ -31405,7 +31405,6 @@ unisynParse 'va e+ vb',          "𝗔＋𝗕\n",     qq(＋\n._𝗔\n._𝗕\n);
 unisynParse 'va a= vb e+ vc',    "𝗔＝𝗕＋𝗖\n",  qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
 unisynParse 'va a= vb e* vc',    "𝗔＝𝗕✕𝗖\n",  qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
 
-latest:
 unisynParse 'b( B)',             "【】\n",      qq(【\n);
 unisynParse 'b( b[ B] B)',       "【⟦⟧】\n",    qq(【\n._⟦\n);
 unisynParse 'b( b[ b< B> B] B)', "【⟦⟨⟩⟧】\n",   qq(【\n._⟦\n._._⟨\n);
