@@ -30779,24 +30779,38 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                  # 
     $s .= chr $c[ord($_) - ord('a')] for split //, $chars;
    };
 
+  my sub c($$)                                                                  # Character from table
+   {my ($pos, $alpha) = @_;                                                     # Position, character table name
+    my @c = eval "Nasm::X86::Unisyn::Lex::Letter::$alpha";                      # Alphabet in array context
+    chr $c[$pos]                                                                # Character requested
+   };
+
+
   for my $w(split /\s+/, $words)
    {if    ($w =~ m(\AA(.*)))  {$s .= $1}                                        # Ascii - normal letters where possible
     elsif ($w =~ m(\Aa=))     {$s .= "＝"}                                       # Assign chosen by number
-    elsif ($w =~ m(\Aa(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::a[$1]} # Assign chosen by number
-    elsif ($w =~ m(\Ab(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::b[$1]} # Open bracket
-    elsif ($w =~ m(\AB(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::B[$1]} # Close bracket
-    elsif ($w =~ m(\Ad(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::d[$1]} # Dyad   chosen by number
+    elsif ($w =~ m(\Aa(\d+))) {$s .= c $1, "a"}                                 # Assign chosen by number
+    elsif ($w =~ m/\Ab\(/)    {$s .= '【'}                                       # Open bracket
+    elsif ($w =~ m/\Ab\[/)    {$s .= '⟦'}                                       # Open bracket
+    elsif ($w =~ m/\Ab\</)    {$s .= '⟨'}                                       # Open bracket
+    elsif ($w =~ m(\Ab(\d+))) {$s .= c $1, "b"}                                 # Open bracket
+    elsif ($w =~ m/\AB\)/)    {$s .= '】'}                                       # Open bracket
+    elsif ($w =~ m/\AB\]/)    {$s .= '⟧'}                                       # Open bracket
+    elsif ($w =~ m/\AB\>/)    {$s .= '⟩'}                                       # Open bracket
+    elsif ($w =~ m(\AB(\d+))) {$s .= c $1, "B"}                                 # Close bracket
+    elsif ($w =~ m(\Ad(\d+))) {$s .= c $1, "d"}                                 # Dyad   chosen by number
     elsif ($w =~ m(\Ad(\w+))) {$s .= $dyad->($1)}                               # Dyad-1 name
     elsif ($w =~ m(\Ae\*))    {$s .= "✕"}                                       # Multiply
     elsif ($w =~ m(\Ae\+))    {$s .= "＋"}                                       # Plus
-    elsif ($w =~ m(\Ae(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::e[$1]} # Dyad2  chosen by number
-    elsif ($w =~ m(\Ap(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::p[$1]} # Prefix chosen by number
-    elsif ($w =~ m(\Aq(\d+))) {$s .= chr Nasm::X86::Unisyn::Lex::Letter::q[$1]} # Suffix chosen by number
-    elsif ($w =~ m(\AS\Z))    {$s .= chr Nasm::X86::Unisyn::Lex::Letter::s[0]}  # Semicolon
+    elsif ($w =~ m(\Ae(\d+))) {$s .= c $1, "e"}                                 # Dyad2  chosen by number
+    elsif ($w =~ m(\Ap(\d+))) {$s .= c $1, "p"}                                 # Prefix chosen by number
+    elsif ($w =~ m(\Aq(\d+))) {$s .= c $1, "q"}                                 # Suffix chosen by number
+    elsif ($w =~ m(\AS\Z))    {$s .= c $1, "s"}                                 # Semicolon
     elsif ($w =~ m(\As\Z))    {$s .= ' '}                                       # Space
     elsif ($w =~ m(\Av(\w+))) {$s .= $var ->($1)}                               # Variable name
-    else {confess "Cannot create Earl Zero from $w"}                            # Variable name
+    else {confess "Cannot create Unisyn from $w"}                               # Variable name
    }
+
   writeTempFile $s                                                              # Composed string to temporary file
  }
 
@@ -30826,7 +30840,7 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
     $p => [    $A, $b,                             $v],
     $q => [$a, $A,     $B, $d, $e, $F,         $s    ],
     $s => [    $A, $b, $B,         $F, $p,     $s, $v],
-    $S => [    $A,                 $F, $p,     $s, $v],
+    $S => [    $A, $b,             $F, $p,     $s, $v],
     $v => [$a,         $B, $d, $e, $F,     $q, $s    ],
   );
 
@@ -30864,220 +30878,9 @@ sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitions
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::PermissibleTransitions $a;
-  $t->dump('Lex');
+  $t->size->outNL;
   ok Assemble eq => <<END, avx512=>1;
-Lex
-At: 1940                    length:    1,  data: 1980,  nodes: 19C0,  first:   80, root, parent,  trees:   1
-  Index:    0
-  Keys :    4
-  Data : 120*
-  Nodes:  E80 1880
-     At: 1200               length:    3,  data: 1240,  nodes: 1280,  first: 11C0, root, leaf
-       Index:    0    1    2
-       Keys :    2    6    A
-       Data :    1    1    1
-     end
-    At:  E80                length:    1,  data:  EC0,  nodes:  F00,  first:   80,  up: 1940, parent,  trees:   1
-      Index:    0
-      Keys :    2
-      Data :  C4*
-      Nodes:  340 12C0
-         At:  C40           length:    2,  data:  C80,  nodes:  CC0,  first:  A80, root, parent
-           Index:    0    1
-           Keys :    5    9
-           Data :    1    1
-           Nodes:  AC0  B80  D00
-             At:  AC0       length:    2,  data:  B00,  nodes:  B40,  first:  A80,  up:  C40, leaf
-               Index:    0    1
-               Keys :    1    3
-               Data :    1    1
-             end
-             At:  B80       length:    2,  data:  BC0,  nodes:  C00,  first:  A80,  up:  C40, leaf
-               Index:    0    1
-               Keys :    7    8
-               Data :    1    1
-             end
-             At:  D00       length:    1,  data:  D40,  nodes:  D80,  first:  A80,  up:  C40, leaf
-               Index:    0
-               Keys :    B
-               Data :    1
-             end
-         end
-        At:  340            length:    1,  data:  380,  nodes:  3C0,  first:   80,  up:  E80, leaf,  trees:   1
-          Index:    0
-          Keys :    0
-          Data :  28*
-             At:  280       length:    1,  data:  2C0,  nodes:  300,  first:   C0, root, parent
-               Index:    0
-               Keys :    2
-               Data :    1
-               Nodes:  100  1C0
-                 At:  100   length:    1,  data:  140,  nodes:  180,  first:   C0,  up:  280, leaf
-                   Index:    0
-                   Keys :    1
-                   Data :    1
-                 end
-                 At:  1C0   length:    3,  data:  200,  nodes:  240,  first:   C0,  up:  280, leaf
-                   Index:    0    1    2
-                   Keys :    4    6    8
-                   Data :    1    1    1
-                 end
-             end
-        end
-        At: 12C0            length:    1,  data: 1300,  nodes: 1340,  first:   80,  up:  E80, leaf,  trees:   1
-          Index:    0
-          Keys :    3
-          Data : 110*
-             At: 1100       length:    1,  data: 1140,  nodes: 1180,  first:  F40, root, parent
-               Index:    0
-               Keys :    A
-               Data :    1
-               Nodes:  F80 1040
-                 At:  F80   length:    3,  data:  FC0,  nodes: 1000,  first:  F40,  up: 1100, leaf
-                   Index:    0    1    2
-                   Keys :    2    4    6
-                   Data :    1    1    1
-                 end
-                 At: 1040   length:    1,  data: 1080,  nodes: 10C0,  first:  F40,  up: 1100, leaf
-                   Index:    0
-                   Keys :    B
-                   Data :    1
-                 end
-             end
-        end
-    end
-    At: 1880                length:    2,  data: 18C0,  nodes: 1900,  first:   80,  up: 1940, parent,  trees:  11
-      Index:    0    1
-      Keys :    6    A
-      Data : 164*  5C*
-      Nodes: 17C0 1FC0  DC0
-         At: 1640           length:    2,  data: 1680,  nodes: 16C0,  first: 1480, root, parent
-           Index:    0    1
-           Keys :    5    9
-           Data :    1    1
-           Nodes: 14C0 1580 1700
-             At: 14C0       length:    2,  data: 1500,  nodes: 1540,  first: 1480,  up: 1640, leaf
-               Index:    0    1
-               Keys :    1    3
-               Data :    1    1
-             end
-             At: 1580       length:    2,  data: 15C0,  nodes: 1600,  first: 1480,  up: 1640, leaf
-               Index:    0    1
-               Keys :    7    8
-               Data :    1    1
-             end
-             At: 1700       length:    1,  data: 1740,  nodes: 1780,  first: 1480,  up: 1640, leaf
-               Index:    0
-               Keys :    B
-               Data :    1
-             end
-         end
-         At:  5C0           length:    2,  data:  600,  nodes:  640,  first:  400, root, parent
-           Index:    0    1
-           Keys :    4    A
-           Data :    1    1
-           Nodes:  440  680  500
-             At:  440       length:    1,  data:  480,  nodes:  4C0,  first:  400,  up:  5C0, leaf
-               Index:    0
-               Keys :    2
-               Data :    1
-             end
-             At:  680       length:    2,  data:  6C0,  nodes:  700,  first:  400,  up:  5C0, leaf
-               Index:    0    1
-               Keys :    6    8
-               Data :    1    1
-             end
-             At:  500       length:    1,  data:  540,  nodes:  580,  first:  400,  up:  5C0, leaf
-               Index:    0
-               Keys :    B
-               Data :    1
-             end
-         end
-        At: 17C0            length:    1,  data: 1800,  nodes: 1840,  first:   80,  up: 1880, leaf,  trees:   1
-          Index:    0
-          Keys :    5
-          Data : 13C*
-             At: 13C0       length:    3,  data: 1400,  nodes: 1440,  first: 1380, root, leaf
-               Index:    0    1    2
-               Keys :    2    6    A
-               Data :    1    1    1
-             end
-        end
-        At: 1FC0            length:    3,  data: 2000,  nodes: 2040,  first:   80,  up: 1880, leaf,  trees: 111
-          Index:    0    1    2
-          Keys :    7    8    9
-          Data : 1BC* 1E4* 20C*
-             At: 1BC0       length:    1,  data: 1C00,  nodes: 1C40,  first: 1A00, root, parent
-               Index:    0
-               Keys :    5
-               Data :    1
-               Nodes: 1A40 1B00
-                 At: 1A40   length:    3,  data: 1A80,  nodes: 1AC0,  first: 1A00,  up: 1BC0, leaf
-                   Index:    0    1    2
-                   Keys :    1    2    3
-                   Data :    1    1    1
-                 end
-                 At: 1B00   length:    3,  data: 1B40,  nodes: 1B80,  first: 1A00,  up: 1BC0, leaf
-                   Index:    0    1    2
-                   Keys :    8    9    B
-                   Data :    1    1    1
-                 end
-             end
-             At: 1E40       length:    2,  data: 1E80,  nodes: 1EC0,  first: 1C80, root, parent
-               Index:    0    1
-               Keys :    2    A
-               Data :    1    1
-               Nodes: 1CC0 1F00 1D80
-                 At: 1CC0   length:    1,  data: 1D00,  nodes: 1D40,  first: 1C80,  up: 1E40, leaf
-                   Index:    0
-                   Keys :    1
-                   Data :    1
-                 end
-                 At: 1F00   length:    3,  data: 1F40,  nodes: 1F80,  first: 1C80,  up: 1E40, leaf
-                   Index:    0    1    2
-                   Keys :    4    6    8
-                   Data :    1    1    1
-                 end
-                 At: 1D80   length:    1,  data: 1DC0,  nodes: 1E00,  first: 1C80,  up: 1E40, leaf
-                   Index:    0
-                   Keys :    B
-                   Data :    1
-                 end
-             end
-             At: 20C0       length:    3,  data: 2100,  nodes: 2140,  first: 2080, root, leaf
-               Index:    0    1    2
-               Keys :    2    6    A
-               Data :    1    1    1
-             end
-        end
-        At:  DC0            length:    1,  data:  E00,  nodes:  E40,  first:   80,  up: 1880, leaf,  trees:   1
-          Index:    0
-          Keys :    B
-          Data :  90*
-             At:  900       length:    2,  data:  940,  nodes:  980,  first:  740, root, parent
-               Index:    0    1
-               Keys :    5    9
-               Data :    1    1
-               Nodes:  780  840  9C0
-                 At:  780   length:    2,  data:  7C0,  nodes:  800,  first:  740,  up:  900, leaf
-                   Index:    0    1
-                   Keys :    1    3
-                   Data :    1    1
-                 end
-                 At:  840   length:    2,  data:  880,  nodes:  8C0,  first:  740,  up:  900, leaf
-                   Index:    0    1
-                   Keys :    7    8
-                   Data :    1    1
-                 end
-                 At:  9C0   length:    1,  data:  A00,  nodes:  A40,  first:  740,  up:  900, leaf
-                   Index:    0
-                   Keys :    B
-                   Data :    1
-                 end
-             end
-        end
-    end
-end
+size of tree: .... .... .... ...B
 END
  }
 
@@ -31126,8 +30929,8 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('va a= b1 vb e+ vc B1 e* vd dif ve');
-  is_deeply readFile($f), "𝗔＝｟𝗕＋𝗖｠✕𝗗𝐈𝐅𝗘\n";
+   ('va a= b( vb e+ vc B) e* vd dif ve');
+  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
   $s8->outNL;
 
@@ -31217,6 +31020,33 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
   my $lastNew     = V lastNew     => 0;                                         # Last lexical created
   my $started;                                                                  # True after we have added the first symbol and so can have a previous symbol
 
+  my $dumpStack = sub                                                           # Dump the parse stack
+   {my $i = V i => 0;                                                           # Position in stack
+    PrintOutStringNL "Dump parse stack";
+    $parse->by(sub                                                              # Each item on stack
+     {my ($T, $start, $next) = @_;
+      my $t = $T->describeTree->position($T->data);                             # Assume that each stack element is a parse tree
+
+      $i++; $i->outRightInDec(K width => 4);
+      $t->find(K key => Nasm::X86::Unisyn::Lex::type);
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::S), Then {PrintOutString "Start    "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::F), Then {PrintOutString "End      "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::A), Then {PrintOutString "ASCII    "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::d), Then {PrintOutString "Infix3   "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::p), Then {PrintOutString "Prefix   "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::a), Then {PrintOutString "Assign   "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::v), Then {PrintOutString "Variable "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::q), Then {PrintOutString "Suffix   "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::s), Then {PrintOutString "Seperator"};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::e), Then {PrintOutString "Infix4   "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::b), Then {PrintOutString "Open     "};
+      If $t->data == K(t => Nasm::X86::Unisyn::Lex::Number::B), Then {PrintOutString "Close    "};
+
+      $t->data->outRightInDec(K width => 4);  PrintOutString "  ";
+      $t->dumpParseTree($a8);
+     });
+   };
+
   my $updateLength = sub                                                        # Update the length of the previous lexical item
    {my $t = $parse->position($lastNew);                                         # The description of the last lexical item
     my $length = $position - $startPos;                                         # Length of previous item
@@ -31225,6 +31055,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $new = sub                                                                 # Create a new lexical item
    {my $l = $area->CreateTree(length => 3);                                     # Tree to hold lexical item description
+    $l->put(K(t => Nasm::X86::Unisyn::Lex::length),   K(one => 1));             # Length so far of lexical item - not really necessary but it does aid debugging
     $l->put(K(t => Nasm::X86::Unisyn::Lex::type),     $last);                   # Last lexical item recognized
     $l->put(K(t => Nasm::X86::Unisyn::Lex::position), $position);               # Position of lexical item
     if ($started)
@@ -31247,7 +31078,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $prev = sub                                                                # Lexical type of the previous item on the parse stack
    {my $p = $parse->peekSubTree(K one => 1);
-    $p->find(K key => 0);                                                       # Lexical type
+    $p->find(K type => Nasm::X86::Unisyn::Lex::type);                           # Lexical type
     $p                                                                          # Guaranteed to exist
    };
 
@@ -31259,7 +31090,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $double = sub                                                              # Double reduction - the right most item is placed under the second right most item
    {my $right = $parse->popSubTree;
-    &$prev->put(K(l => Nasm::X86::Unisyn::Lex::left), $right)
+    &$prev->put(K(l => Nasm::X86::Unisyn::Lex::left), $right);
    };
 
   my $triple = sub                                                              # Triple reduction
@@ -31415,6 +31246,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
     $parseChar->copy($char);                                                    # Copy the current character
+
     If $fail > 0,
     Then                                                                        # Failed to convert a utf8 character
      {$parseReason  ->copy(Nasm::X86::Unisyn::Lex::Reason::BadUtf8);
@@ -31430,7 +31262,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
     my $change = V change => 0;                                                 # Changing from one lexical item to the next
 
-    If $alphabets->data == Nasm::X86::Unisyn::Lex::Number::b,                   # Match brackets
+    If $alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::b),        # Match brackets
     Then                                                                        # Opening bracket
      {$openClose->find($char);                                                  # Locate corresponding closer
       my $t = $area->CreateTree(length => 3);                                   # Tree recording the details of the opening bracket
@@ -31441,7 +31273,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       $change->copy(1);                                                         # Changing because we are on a bracket
 #     &$b;                                                                      # Push the open bracket
      },
-    Ef {$alphabets->data == Nasm::X86::Unisyn::Lex::Number::B}
+    Ef {$alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::B)}
     Then                                                                        # Closing bracket
      {my $t = $brackets->popSubTree;                                            # Match with brackets stack
       If $t->found > 0,                                                         # Something to match with on the brackets stack
@@ -31525,33 +31357,30 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parseReason)                                                               # The reason code describing the failure
  } # Parse
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('va a= b1 vb e+ vc B1 e* vd dif ve');
-  is_deeply readFile($f), "𝗔＝｟𝗕＋𝗖｠✕𝗗𝐈𝐅𝗘\n";
+   ('va a= b( vb e+ vc B) e* vd dif ve');
+  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
   $_->outNL for @a;
-# $parse->dump8("AAAAA");
-  $parse->dumpParseTree($a8, "Parse Tree");
+  $parse->dumpParseTree($a8);
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END, avx512=>1;   ## Wrong
 parseChar: .... .... ...1 D5D8
 parseFail: .... .... .... ....
 pos: .... .... .... ..2B
 parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
-Parse Tree
 ＝
-  𝗔
-  𝐈𝐅
-    ✕
-    𝗘
-
+._𝗔
+._𝐈𝐅
+._._✕
+._._𝗘
 END
   unlink $f;
  }
@@ -31565,11 +31394,10 @@ if (1) {                                                                        
   my $a = CreateArea;                                                           # Area in which we will do the parse
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
-  $parse->dumpParseTree($a8, "Parse Tree");
-# $parse->dump8("AAAAA");
+  $parse->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1;
-Parse Tree
+
 
 END
   unlink $f;
@@ -31584,13 +31412,10 @@ if (1) {                                                                        
   my $a = CreateArea;                                                           # Area in which we will do the parse
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
-  $parse->dumpParseTree($a8, "Parse Tree");
-# $parse->dump8("AAAAA");
+  $parse->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1;
-Parse Tree
 𝗔
-
 END
   unlink $f;
  }
@@ -31604,22 +31429,123 @@ if (1) {                                                                        
   my $a = CreateArea;                                                           # Area in which we will do the parse
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
-  $parse->dumpParseTree($a8, "Parse Tree");
-# $parse->dump8("AAAAA");
+  $parse->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1;
-Parse Tree
-𝗔
-  ＝
-    𝗔
-
+＝
+._𝗔
+._𝗔
 END
   unlink $f;
  }
 
-sub Nasm::X86::Tree::dumpParseTree($$$)                                         # Dump a parse tree
- {my ($tree, $source, $title) = @_;                                             # Tree, variable addressing source being parsed, title
-  @_ == 3 or confess "Three parameters";
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('va e+ vb');
+  is_deeply readFile($f), "𝗔＋𝗕\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+
+  $parse->dumpParseTree($a8);
+
+  ok Assemble eq => <<END, avx512=>1;
+＋
+._𝗔
+._𝗕
+END
+  unlink $f;
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('va a= vb e+ vc');
+  is_deeply readFile($f), "𝗔＝𝗕＋𝗖\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+
+  $parse->dumpParseTree($a8);
+
+  ok Assemble eq => <<END, avx512=>1;
+＝
+._𝗔
+._＋
+._._𝗕
+._._𝗖
+END
+  unlink $f;
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('va a= vb e* vc');
+  is_deeply readFile($f), "𝗔＝𝗕✕𝗖\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+
+  $parse->dumpParseTree($a8);
+
+  ok Assemble eq => <<END, avx512=>1;
+＝
+._𝗔
+._✕
+._._𝗕
+._._𝗖
+END
+  unlink $f;
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('b( B)');
+  is_deeply readFile($f), "【】\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+
+# $parse->dump("AAA");
+  $parse->dumpParseTree($a8);
+
+  ok Assemble eq => <<END, avx512=>1;
+【
+END
+  unlink $f;
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('b( b[ b< B> B] B)');
+  is_deeply readFile($f), "【⟦⟨⟩⟧】\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+
+# $parse->dump("AAA");
+  $parse->dumpParseTree($a8);
+
+  ok Assemble eq => <<END, avx512=>1;    ### Wrong!
+⟦
+._【
+._⟨
+END
+  unlink $f;
+ }
+
+sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
+ {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
+  @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -31649,7 +31575,9 @@ sub Nasm::X86::Tree::dumpParseTree($$$)                                         
 
     If $length > 0,                                                             # Source text of lexical item
     Then
-     {($depth*2)->outSpaces;
+     {$depth->for(sub
+       {PrintOutString "._";
+       });
       ($source + $position)->printOutMemoryNL($length);
      };
 
@@ -31666,21 +31594,21 @@ sub Nasm::X86::Tree::dumpParseTree($$$)                                         
    } structures => {tree => $tree}, parameters=>[qw(depth source)],
      name       => "Nasm::X86::Tree::dumpParseTree";
 
-  PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
+# PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
 
   If $tree->size == 0,                                                          # Empty tree
   Then
-   {PrintOutStringNL "- empty";
+   {#PrintOutStringNL "- empty";
    },
   Else
    {#PrintOutString ": ";
     $s->call(structures => {tree => $tree}, parameters => {depth => K(depth => 0), source=> $source});        # Print root node
-    PrintOutNL;
+    #PrintOutNL;
    };
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+if (0) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b1 vb e+ vc B1 e* vd dif ve');
   is_deeply readFile($f), "𝗔＝｟𝗕＋𝗖｠✕𝗗𝐈𝐅𝗘\n";
@@ -31690,8 +31618,7 @@ if (1) {                                                                        
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
   $_->outNL for @a;
-# $parse->dump("AAAA");
-  $parse->dumpParseTree($a8, "Parse Tree");
+  $parse->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1;
 parseChar: .... .... ...1 D5D8
@@ -31699,17 +31626,14 @@ parseFail: .... .... .... ....
 pos: .... .... .... ..2B
 parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
-Parse Tree
 ＝
-  𝗔
-  𝐈𝐅
-    ✕
-    𝗘
-
+._𝗔
+._𝐈𝐅
+._._✕
+._._𝗘
 END
   unlink $f;
  }
-
 
 #latest:
 if (0) {                                                                        #
