@@ -31130,8 +31130,8 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     Then
      {$parse->pop;
      };
-    If &$prev->data != K(p => Nasm::X86::Unisyn::Lex::Number::b),               # Non empty pair of brackets
-    Then
+#    If &$prev->data != K(p => Nasm::X86::Unisyn::Lex::Number::b),               # Non empty pair of brackets - a single intervening bracket represents a previously collapsed bracketed expression
+#    Then
      {Block
        {my ($end, $start) = @_;
         my $p = &$prev2;
@@ -31139,7 +31139,8 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
         Then                                                                    # Single item in brackets
          {&$double;
          },
-        Else                                                                    # Left operator right
+        Ef {$p->data != K(p => Nasm::X86::Unisyn::Lex::Number::S)}
+        Then                                                                    # Triple reduce back to start
          {&$triple;
           Jmp $start;                                                           # Keep on reducing until we meet the matching opening bracket
          };
@@ -31525,6 +31526,26 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('b( b[ B] B)');
+  is_deeply readFile($f), "【⟦⟧】\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+
+# $parse->dump("AAA");
+  $parse->dumpParseTree($a8);
+
+  ok Assemble eq => <<END, avx512=>1;
+【
+._⟦
+END
+  unlink $f;
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('b( b[ b< B> B] B)');
   is_deeply readFile($f), "【⟦⟨⟩⟧】\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
@@ -31535,10 +31556,12 @@ if (1) {                                                                        
 # $parse->dump("AAA");
   $parse->dumpParseTree($a8);
 
-  ok Assemble eq => <<END, avx512=>1;    ### Wrong!
-⟦
-._【
-._⟨
+  ok Assemble eq => <<END, avx512=>1;
+【
+._⟦
+._._⟨
+
+
 END
   unlink $f;
  }
