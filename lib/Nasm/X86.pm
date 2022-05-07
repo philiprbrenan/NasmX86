@@ -31404,10 +31404,15 @@ unisynParse 'va a= va',          "𝗔＝𝗔\n",     qq(＝\n._𝗔\n._𝗔\n);
 unisynParse 'va e+ vb',          "𝗔＋𝗕\n",     qq(＋\n._𝗔\n._𝗕\n);
 unisynParse 'va a= vb e+ vc',    "𝗔＝𝗕＋𝗖\n",  qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
 unisynParse 'va a= vb e* vc',    "𝗔＝𝗕✕𝗖\n",  qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
-
 unisynParse 'b( B)',             "【】\n",      qq(【\n);
 unisynParse 'b( b[ B] B)',       "【⟦⟧】\n",    qq(【\n._⟦\n);
 unisynParse 'b( b[ b< B> B] B)', "【⟦⟨⟩⟧】\n",   qq(【\n._⟦\n._._⟨\n);
+
+latest:
+unisynParse 'b( va B)',              "【𝗔】\n",       qq(【\n._𝗔\n);
+unisynParse 'b( b[ va B] B)',        "【⟦𝗔⟧】\n",     qq(【\n._⟦\n._._𝗔\n);
+unisynParse 'b( b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧】\n",  qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
+exit;
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
  {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
@@ -31420,8 +31425,8 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
     my $source = $$p{source};                                                   # Source
     my $depth  = $$p{depth};                                                    # Depth
     my $area   = $t->area;                                                      # Area
-    If $depth < K(key => 3),
-    Then {
+    If $depth < K(key => 99),
+    Then {                                                                      # Not in a recursive loop yet ?
                   $t->find(K pos => Nasm::X86::Unisyn::Lex::length);
     my $length   = $t->data->clone("Length");                                   # Length of input
 
