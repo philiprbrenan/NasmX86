@@ -30805,8 +30805,8 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                  # 
     elsif ($w =~ m(\Ae(\d+))) {$s .= c $1, "e"}                                 # Dyad2  chosen by number
     elsif ($w =~ m(\Ap(\d+))) {$s .= c $1, "p"}                                 # Prefix chosen by number
     elsif ($w =~ m(\Aq(\d+))) {$s .= c $1, "q"}                                 # Suffix chosen by number
-    elsif ($w =~ m(\AS\Z))    {$s .= c $1, "s"}                                 # Semicolon
-    elsif ($w =~ m(\As\Z))    {$s .= ' '}                                       # Space
+    elsif ($w =~ m(\As\Z))    {$s .= c 0, "s"}                                 # Semicolon
+    elsif ($w =~ m(\AS\Z))    {$s .= ' '}                                       # Space
     elsif ($w =~ m(\Av(\w+))) {$s .= $var ->($1)}                               # Variable name
     else {confess "Cannot create Unisyn from $w"}                               # Variable name
    }
@@ -31206,6 +31206,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       my $p = &$prev;                                                           # Previous item
       If OR                                                                     # Separator preceded by open or start - do nothing
        (sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::b},
+        sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::s},
         sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::S}),
       Then                                                                      # Eliminate useless statement separator
        {Jmp $end;
@@ -31294,6 +31295,10 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
      },
     Ef {$alphabets->data != $last}
     Then                                                                        # Change of current lexical item
+     {$change->copy(1);                                                         # Changing because we are on a different lexical item
+     },
+    Ef {$alphabets->data == K(sep => Nasm::X86::Unisyn::Lex::Number::s)}
+    Then                                                                        # Statement separator is always one character wide as more would be pointless
      {$change->copy(1);                                                         # Changing because we are on a different lexical item
      };
 
@@ -31384,7 +31389,7 @@ END
  }
 
 sub unisynParse($$$)                                                            # Test the parse of a unisyn expression
- {my ($compose, $text, $parse) = @_;                                            # The comping expression used to create some unisyn, the expected composed expression, the expected parse tree
+ {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
   say STDERR readFile($f);
   is_deeply readFile($f), $text;
@@ -31400,21 +31405,28 @@ sub unisynParse($$$)                                                            
  };
 
 #latest:
-unisynParse '',                  "\n",         qq(\n\n);
-unisynParse 'va',                "𝗔\n",        qq(𝗔\n);
-unisynParse 'va a= va',          "𝗔＝𝗔\n",     qq(＝\n._𝗔\n._𝗔\n);
-unisynParse 'va e+ vb',          "𝗔＋𝗕\n",     qq(＋\n._𝗔\n._𝗕\n);
-unisynParse 'va a= vb e+ vc',    "𝗔＝𝗕＋𝗖\n",  qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
-unisynParse 'va a= vb e* vc',    "𝗔＝𝗕✕𝗖\n",  qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
-unisynParse 'b( B)',             "【】\n",      qq(【\n);
-unisynParse 'b( b[ B] B)',       "【⟦⟧】\n",    qq(【\n._⟦\n);
-unisynParse 'b( b[ b< B> B] B)', "【⟦⟨⟩⟧】\n",   qq(【\n._⟦\n._._⟨\n);
+unisynParse '',                                        "\n",           qq(\n\n);
+unisynParse 'va',                                      "𝗔\n",          qq(𝗔\n);
+unisynParse 'va a= va',                                "𝗔＝𝗔\n",       qq(＝\n._𝗔\n._𝗔\n);
+unisynParse 'va e+ vb',                                "𝗔＋𝗕\n",       qq(＋\n._𝗔\n._𝗕\n);
+unisynParse 'va a= vb e+ vc',                          "𝗔＝𝗕＋𝗖\n",    qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
+unisynParse 'va a= vb e* vc',                          "𝗔＝𝗕✕𝗖\n",    qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
+unisynParse 'b( B)',                                   "【】\n",        qq(【\n);
+unisynParse 'b( b[ B] B)',                             "【⟦⟧】\n",      qq(【\n._⟦\n);
+unisynParse 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",     qq(【\n._⟦\n._._⟨\n);
 
-unisynParse 'b( va B)',              "【𝗔】\n",       qq(【\n._𝗔\n);
-unisynParse 'b( b[ va B] B)',        "【⟦𝗔⟧】\n",     qq(【\n._⟦\n._._𝗔\n);
-unisynParse 'b( b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧】\n",  qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
-latest:
+unisynParse 'b( va B)',                                "【𝗔】\n",       qq(【\n._𝗔\n);
+unisynParse 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",     qq(【\n._⟦\n._._𝗔\n);
+unisynParse 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",  qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
 unisynParse 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",  qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
+unisynParse 's s s s s',  '⟢⟢⟢⟢⟢', qq();
+unisynParse 'va s vb',                                 "𝗔⟢𝗕\n",       qq(⟢\n._𝗔\n._𝗕\n);
+
+latest:
+unisynParse 'va s s vb',  "𝗔⟢⟢𝗕\n", qq(⟢\n._𝗔\n._𝗕\n);
+
+latest:
+unisynParse 's s va s s vb s s',  "⟢⟢𝗔⟢⟢𝗕⟢⟢\n", qq(⟢\n._𝗔\n._𝗕\n);
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
  {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
