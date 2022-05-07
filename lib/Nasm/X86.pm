@@ -31419,11 +31419,9 @@ unisynParse 'b( va B)',                                "【𝗔】\n",       qq(
 unisynParse 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",     qq(【\n._⟦\n._._𝗔\n);
 unisynParse 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",  qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
 unisynParse 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",  qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
-unisynParse 's s s s s',  '⟢⟢⟢⟢⟢', qq();
+unisynParse 's s s s s',                               "⟢⟢⟢⟢⟢\n",     qq();
 unisynParse 'va s vb',                                 "𝗔⟢𝗕\n",       qq(⟢\n._𝗔\n._𝗕\n);
-
-latest:
-unisynParse 'va s s vb',  "𝗔⟢⟢𝗕\n", qq(⟢\n._𝗔\n._𝗕\n);
+unisynParse 'va s s vb',                               "𝗔⟢⟢𝗕\n",      qq(⟢\n._𝗔\n._𝗕\n);
 
 latest:
 unisynParse 's s va s s vb s s',  "⟢⟢𝗔⟢⟢𝗕⟢⟢\n", qq(⟢\n._𝗔\n._𝗕\n);
