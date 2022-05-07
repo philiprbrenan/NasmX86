@@ -31104,6 +31104,13 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $a = sub                                                                   # Dyad2 = right to left associative
    {PrintErrStringNL "Type: a";
+    my $q = &$prev2;                                                            # Second previous item
+    If OR
+     (sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::d},               # Dyad2 preceeded by dyad3 or dyad4
+      sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::e}),
+    Then
+     {&$triple;                                                                 # Reduce
+     };
     &$push;                                                                     # Push dyad2
    };
 
@@ -31405,26 +31412,33 @@ sub unisynParse($$$)                                                            
  };
 
 #latest:
-unisynParse '',                                        "\n",           qq(\n\n);
-unisynParse 'va',                                      "𝗔\n",          qq(𝗔\n);
-unisynParse 'va a= va',                                "𝗔＝𝗔\n",       qq(＝\n._𝗔\n._𝗔\n);
-unisynParse 'va e+ vb',                                "𝗔＋𝗕\n",       qq(＋\n._𝗔\n._𝗕\n);
-unisynParse 'va a= vb e+ vc',                          "𝗔＝𝗕＋𝗖\n",    qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
-unisynParse 'va a= vb e* vc',                          "𝗔＝𝗕✕𝗖\n",    qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
-unisynParse 'b( B)',                                   "【】\n",        qq(【\n);
-unisynParse 'b( b[ B] B)',                             "【⟦⟧】\n",      qq(【\n._⟦\n);
-unisynParse 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",     qq(【\n._⟦\n._._⟨\n);
+unisynParse '',                                        "\n",                    qq(\n\n);
+unisynParse 'va',                                      "𝗔\n",                   qq(𝗔\n);
+unisynParse 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
+unisynParse 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
+unisynParse 'va a= vb e+ vc',                          "𝗔＝𝗕＋𝗖\n",               qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
+unisynParse 'va a= vb e* vc',                          "𝗔＝𝗕✕𝗖\n",              qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
+unisynParse 'b( B)',                                   "【】\n",                  qq(【\n);
+unisynParse 'b( b[ B] B)',                             "【⟦⟧】\n",                qq(【\n._⟦\n);
+unisynParse 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",              qq(【\n._⟦\n._._⟨\n);
 
-unisynParse 'b( va B)',                                "【𝗔】\n",       qq(【\n._𝗔\n);
-unisynParse 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",     qq(【\n._⟦\n._._𝗔\n);
-unisynParse 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",  qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
-unisynParse 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",  qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
-unisynParse 's s s s s',                               "⟢⟢⟢⟢⟢\n",     qq();
-unisynParse 'va s vb',                                 "𝗔⟢𝗕\n",       qq(⟢\n._𝗔\n._𝗕\n);
-unisynParse 'va s s vb',                               "𝗔⟢⟢𝗕\n",      qq(⟢\n._𝗔\n._𝗕\n);
+unisynParse 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
+unisynParse 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
+unisynParse 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",             qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
+unisynParse 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",       qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
+unisynParse 's s s s s',                               "⟢⟢⟢⟢⟢\n",               qq();
+unisynParse 'va s vb',                                 "𝗔⟢𝗕\n",                 qq(⟢\n._𝗔\n._𝗕\n);
+unisynParse 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
+unisynParse 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
+unisynParse 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
+unisynParse 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
+unisynParse 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
+unisynParse 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
+unisynParse 'va dif vb delse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖\n",           qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
 
 latest:
-unisynParse 's s va s s vb s s',  "⟢⟢𝗔⟢⟢𝗕⟢⟢\n", qq(⟢\n._𝗔\n._𝗕\n);
+unisynParse 'va dif vb delse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖\n",           qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
+
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
  {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
