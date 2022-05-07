@@ -31386,6 +31386,7 @@ END
 sub unisynParse($$$)                                                            # Test the parse of a unisyn expression
  {my ($compose, $text, $parse) = @_;                                            # The comping expression used to create some unisyn, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
+  say STDERR readFile($f);
   is_deeply readFile($f), $text;
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
@@ -31394,6 +31395,7 @@ sub unisynParse($$$)                                                            
 
   $p->dumpParseTree($a8);
   ok Assemble eq => $parse, avx512=>1;
+  say STDERR readFile(q(zzzOut.txt)) =~ s(\n) (\\n)gsr;
   unlink $f;
  };
 
@@ -31408,11 +31410,11 @@ unisynParse 'b( B)',             "【】\n",      qq(【\n);
 unisynParse 'b( b[ B] B)',       "【⟦⟧】\n",    qq(【\n._⟦\n);
 unisynParse 'b( b[ b< B> B] B)', "【⟦⟨⟩⟧】\n",   qq(【\n._⟦\n._._⟨\n);
 
-latest:
 unisynParse 'b( va B)',              "【𝗔】\n",       qq(【\n._𝗔\n);
 unisynParse 'b( b[ va B] B)',        "【⟦𝗔⟧】\n",     qq(【\n._⟦\n._._𝗔\n);
 unisynParse 'b( b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧】\n",  qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
-exit;
+latest:
+unisynParse 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",  qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
  {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
