@@ -2687,6 +2687,13 @@ sub Nasm::X86::Variable::update($$)                                             
   PopR;
  }
 
+sub addressAndLengthOfConstantStringAsVariables($)                              # Return the address and length of a constant string as two variables.
+ {my ($string) = @_;                                                            # Constant string
+  my $l = K length => length $string;
+  my $s = V string => Rutf8 $string;
+  ($s, $l)
+ }
+
 #D2 Operations                                                                  # Variable operations
 
 if (1)                                                                          # Define operator overloading for Variables
@@ -3511,7 +3518,7 @@ sub Nasm::X86::Variable::clearMemory($$)                                        
 sub Nasm::X86::Variable::copyMemory($$$)                                        # Copy from one block of memory to another.
  {my ($target, $source, $size) = @_;                                            # Address of target, address of source, length to copy
   @_ == 3 or confess "Three parameters";
-  &CopyMemory(target => $target, source => $source, size => $size);             # Copy the memory
+  &CopyMemory($source, $target, $size);                                         # Copy the memory
  }
 
 sub Nasm::X86::Variable::printMemory($$$)                                       # Print the specified number of bytes from the memory addressed by the variable on the specified channel.
@@ -23916,6 +23923,16 @@ END
  }
 
 #latest:
+if (1) {                                                                        #addressAndLengthOfConstantStringAsVariables
+  my ($t, $l) = addressAndLengthOfConstantStringAsVariables("Hello World");
+  $t->printOutMemoryNL($l);
+
+  ok Assemble eq => <<END, avx512=>1;
+Hello World
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::Variable::allocateMemory #TNasm::X86::Variable::freeMemory
   my $N = K size => 2048;
   my $q = Rs('a'..'p');
@@ -31446,8 +31463,6 @@ unisynParse 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】�
 unisynParse 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝑳\n._._𝗕\n);
 unisynParse 'va e+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇\n",              qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
 unisynParse 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",           qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
-
-latest:;
 unisynParse 'va e+ p11 vb q11 dif p21 b( vc e* vd B) q22 delse ve e* vf',
             "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙\n",                                          qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._＋\n._._._𝗔\n._._._𝙇\n._._._._𝑳\n._._._._._𝗕\n._._𝙒\n._._._𝑽\n._._._._【\n._._._._._✕\n._._._._._._𝗖\n._._._._._._𝗗\n._✕\n._._𝗘\n._._𝗙\n);
 
@@ -31491,12 +31506,14 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
 
     If $leftF > 0,
     Then                                                                        # There is a left sub tree
-     {$sub->call(structures => {tree => $t->position($left)},  parameters => {depth => $depth+1, source=> $source});
+     {$sub->call(structures => {tree  => $t->position($left)},
+                 parameters => {depth => $depth+1, source=> $source});
      };
 
     If $rightF > 0,
     Then                                                                        # There is a right sub tree
-     {$sub->call(structures => {tree => $t->position($right)}, parameters => {depth => $depth+1, source=> $source});
+     {$sub->call(structures => {tree  => $t->position($right)},
+                 parameters => {depth => $depth+1, source=> $source});
      };
      };
    } structures => {tree => $tree}, parameters=>[qw(depth source)],
@@ -31508,11 +31525,33 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
   Then
    {#PrintOutStringNL "- empty";
    },
-  Else
+  Else                                                                          # Print root node
    {#PrintOutString ": ";
-    $s->call(structures => {tree => $tree}, parameters => {depth => K(depth => 0), source=> $source});        # Print root node
+    $s->call(structures => {tree  => $tree},
+             parameters => {depth => K(depth => 0), source=> $source});
     #PrintOutNL;
    };
+ }
+
+#D1 Quarks                                                                      # Translate between a unique string and a unique number.
+
+sub Nasm::X86::Quarks::StringToNumber {0}                                       # The field in the quarks tree that contains the offset of the tree that maps strings to numbers
+sub Nasm::X86::Quarks::NumberToString {1}                                       # The field in the quarks tree that contains the offset of the tree that maps numbers to strings
+
+sub Nasm::X86::Area::CreateQuarks($%)                                           # Create a set if quarks in an area.
+ {my ($area, %options) = @_;                                                    # Area description, quark options
+  @_ % 2 == 1 or confess "Odd number of parameters required";
+
+  bless $area->DescribeTree(%options), q(Nasm::X86::Quarks)                     # Return a descriptor for a set of  quarks == tree in the specified area
+ }
+
+latest:
+if (1) {                                                                        #
+  my $a =     CreateArea;
+  my $q = $a->CreateQuarks;
+
+  ok Assemble eq => <<END, avx512=>1;
+END
  }
 
 #latest:
