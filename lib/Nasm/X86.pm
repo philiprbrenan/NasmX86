@@ -30836,7 +30836,7 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
     $b => [    $A, $b, $B,             $p,     $s, $v],
     $B => [$a,         $B, $d, $e, $F,     $q, $s    ],
     $d => [    $A, $b, $B,             $p,         $v],
-    $e => [    $A, $b,                             $v],
+    $e => [    $A, $b,                 $p,         $v],
     $p => [    $A, $b,                             $v],
     $q => [$a, $A,     $B, $d, $e, $F,         $s    ],
     $s => [    $A, $b, $B,         $F, $p,     $s, $v],
@@ -31191,7 +31191,6 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
        {Jmp $end;
        };
      });
-
     my ($top) = map {$parse->popSubTree} 1..4;                                  # Top of the parse tree - with three starts below
     $parse->push($top);                                                         # New top of the parse tree
    };
@@ -31203,7 +31202,9 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $q = sub                                                                   # Suffix
    {PrintErrStringNL "Type: q";
-    &$push->push($parse->popSubTree);                                           # Place suffix above its left operand
+    my $t = $parse->popSubTree;                                                 # Pop existing item description
+    my $p = &$push;                                                             # Push suffix
+    $p->push($t);                                                               # Restore previous item but now under suffix
    };
 
   my $s = sub                                                                   # Statement separator
@@ -31430,17 +31431,24 @@ unisynParse 's s s s s',                               "⟢⟢⟢⟢⟢\n",     
 unisynParse 'va s vb',                                 "𝗔⟢𝗕\n",                 qq(⟢\n._𝗔\n._𝗕\n);
 unisynParse 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
 unisynParse 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
+unisynParse 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖\n",               qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
 unisynParse 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
 unisynParse 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
 unisynParse 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
-unisynParse 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
 unisynParse 'va dif vb delse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖\n",           qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
 unisynParse 'va a= b1 vb e+ vc B1 e* vd dif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘\n",        qq(＝\n._𝗔\n._𝐈𝐅\n._._✕\n._._._⌊\n._._._._＋\n._._._._._𝗕\n._._._._._𝗖\n._._._𝗗\n._._𝗘\n);
+unisynParse 'va a= vb dif  vc e* vd s vA a= vB dif  vC e* vD s',
+                                                       "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
+unisynParse 'p11 va',                                  "𝑳𝗔\n",                  qq(𝑳\n._𝗔\n);
+unisynParse 'va q11',                                  "𝗔𝙇\n",                  qq(𝙇\n._𝗔\n);
+unisynParse 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
+unisynParse 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
+unisynParse 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
+unisynParse 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝑳\n._._𝗕\n);
+unisynParse 'va e+ p11 vb q11',     "𝗔＋𝑳𝗕𝙇\n",         qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
 
 latest:
-unisynParse 'va a= vb dif  vc e* vd s va a= vb dif  vc e* vd s',       "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢\n",        qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n);
-
-
+unisynParse 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",   qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
  {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
@@ -31504,34 +31512,6 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
     $s->call(structures => {tree => $tree}, parameters => {depth => K(depth => 0), source=> $source});        # Print root node
     #PrintOutNL;
    };
- }
-
-#latest:
-if (0) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('va a= b1 vb e+ vc B1 e* vd dif ve');
-  is_deeply readFile($f), "𝗔＝｟𝗕＋𝗖｠✕𝗗𝐈𝐅𝗘\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
-
-  $_->outNL for @a;
-  $parse->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1;
-parseChar: .... .... ...1 D5D8
-parseFail: .... .... .... ....
-pos: .... .... .... ..2B
-parseMatch: .... .... .... ....
-parseReason: .... .... .... ....
-＝
-._𝗔
-._𝐈𝐅
-._._✕
-._._𝗘
-END
-  unlink $f;
  }
 
 #latest:
