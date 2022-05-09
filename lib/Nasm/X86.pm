@@ -31581,6 +31581,12 @@ sub Nasm::X86::Area::CreateQuarks($%)                                           
   bless {%$q}, q(Nasm::X86::Quarks)                                             # A tree descriptor for a set of  quarks == tree in the specified area
  }
 
+sub Nasm::X86::Quarks::dump($$)                                                 # Dump quarks
+ {my ($quarks, $title) = @_;                                                    # Area description, quark options
+  @_ == 2 or confess "Two parameters";
+  (bless {%$quarks}, q(Nasm::X86::Tree))->dump($title);
+ }
+
 sub Nasm::X86::Quarks::put($$$)                                                 # Add a string of specified length to the set of quarks and return its number as as a variable.
  {my ($quarks, $address, $size) = @_;                                           # Area description, quark options
   @_ == 3 or confess "Three parameters";
@@ -31753,6 +31759,8 @@ if (1) {                                                                        
 
   $_->outRightInDecNL(K width => 1) for $n1, $N1, $n2, $N2, $n3, $N3;
 
+  $q->dump("AA");
+
   ok Assemble eq => <<END, avx512=>1;
 0
 0
@@ -31760,6 +31768,52 @@ if (1) {                                                                        
 1
 2
 2
+AA
+At:  100                    length:    2,  data:  140,  nodes:  180,  first:   40, root, leaf,  trees:  11
+  Index:    0    1
+  Keys :    0    1
+  Data :  30*  48*
+     At:  300               length:    3,  data:  340,  nodes:  380,  first:   80, root, leaf,  trees: 111
+       Index:    0    1    2
+       Keys :    1    2    3
+       Data :  3C*  68*  88*
+          At:  3C0          length:    1,  data:  400,  nodes:  440,  first:  2C0, root, leaf
+            Index:    0
+            Keys :   31
+            Data :    0
+          end
+          At:  680          length:    1,  data:  6C0,  nodes:  700,  first:  640, root, leaf
+            Index:    0
+            Keys : 3231
+            Data :    1
+          end
+          At:  880          length:    1,  data:  8C0,  nodes:  900,  first:  840, root, leaf
+            Index:    0
+            Keys : 3231
+            Data :    2
+          end
+     end
+     At:  480               length:    3,  data:  4C0,  nodes:  500,  first:   C0, root, leaf,  trees: 111
+       Index:    0    1    2
+       Keys :    0    1    2
+       Data :  20*  58*  78*
+          At:  200          length:    3,  data:  240,  nodes:  280,  first:  1C0, root, leaf
+            Index:    0    1    2
+            Keys :    0    1    2
+            Data :    1   49    0
+          end
+          At:  580          length:    3,  data:  5C0,  nodes:  600,  first:  540, root, leaf
+            Index:    0    1    2
+            Keys :    0    1    2
+            Data :    2 12849    1
+          end
+          At:  780          length:    3,  data:  7C0,  nodes:  800,  first:  740, root, leaf
+            Index:    0    1    2
+            Keys :    0    1    2
+            Data :    3 3355185    2
+          end
+     end
+end
 END
  }
 
