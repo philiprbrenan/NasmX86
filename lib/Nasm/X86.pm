@@ -31635,6 +31635,18 @@ if (1) {                                                                        
   my ($s, $l) = addressAndLengthOfConstantStringAsVariables("1234567");
   my $t = $a->treeFromString($s, $l);
      $t->dump8xx("AA");
+
+  $t->push(my $v = K key => 0x99);
+  $t->dump8xx("BB");
+
+  my $T = $a->CreateTree(length => 3);
+     $T->putString($t);
+     $T->dump8xx("CC");
+
+     $t->pop;
+  my $S = $T->getString($t);
+     $S->found->outNL;
+     $S->data ->outNL;
   ok Assemble eq => <<END, avx512=>1;
 AA
 Tree: .... .... .... ..40
@@ -31643,6 +31655,45 @@ At:       80                                                                    
   Keys :        0        1        2
   Data :        7 34333231   373635
 end
+BB
+Tree: .... .... .... ..40
+At:      200                                                                                length:        1,  data:      240,  nodes:      280,  first:       40, root, parent
+  Index:        0
+  Keys :        1
+  Data : 34333231
+  Nodes:       80      140
+    At:       80                                                                            length:        1,  data:       C0,  nodes:      100,  first:       40,  up:      200, leaf
+      Index:        0
+      Keys :        0
+      Data :        7
+    end
+    At:      140                                                                            length:        2,  data:      180,  nodes:      1C0,  first:       40,  up:      200, leaf
+      Index:        0        1
+      Keys :        2        3
+      Data :   373635       99
+    end
+end
+CC
+Tree: .... .... .... .2C0
+At:      340                                                                                length:        1,  data:      380,  nodes:      3C0,  first:      2C0, root, leaf,  trees:   1
+  Index:        0
+  Keys :        7
+  Data :      30*
+   Tree:      300
+     At:      440                                                                           length:        1,  data:      480,  nodes:      4C0,  first:      300, root, leaf,  trees:   1
+       Index:        0
+       Keys : 34333231
+       Data :      40*
+        Tree:      400
+          At:      500                                                                      length:        1,  data:      540,  nodes:      580,  first:      400, root, leaf
+            Index:        0
+            Keys :   373635
+            Data :       99
+          end
+     end
+end
+found: .... .... .... ...1
+data: .... .... .... ..99
 END
  }
 
