@@ -31630,9 +31630,9 @@ END
  }
 
 latest:
-if (1) {                                                                        #
-  my $a =     CreateArea;
-  my ($s, $l)  = addressAndLengthOfConstantStringAsVariables("1234567");
+if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
+  my $a = CreateArea;
+  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("1234567");
   my $t = $a->treeFromString($s, $l);
      $t->dump8xx("AA");
   ok Assemble eq => <<END, avx512=>1;
