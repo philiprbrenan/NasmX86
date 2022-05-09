@@ -31636,6 +31636,13 @@ if (1) {                                                                        
   my $t = $a->treeFromString($s, $l);
      $t->dump8xx("AA");
   ok Assemble eq => <<END, avx512=>1;
+AA
+Tree: .... .... .... ..40
+At:       80                                                                                length:        3,  data:       C0,  nodes:      100,  first:       40, root, leaf
+  Index:        0        1        2
+  Keys :        0        1        2
+  Data :        7 34333231   373635
+end
 END
  }
 
