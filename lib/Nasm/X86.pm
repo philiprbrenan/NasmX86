@@ -2689,8 +2689,10 @@ sub Nasm::X86::Variable::update($$)                                             
 
 sub addressAndLengthOfConstantStringAsVariables($)                              # Return the address and length of a constant string as two variables.
  {my ($string) = @_;                                                            # Constant string
-  my $l = K length => length $string;
-  return ($l, $l) unless length $string;
+  use bytes;
+  my $L = length($string);
+  my $l = K length => $L;
+  return ($l, $l) unless $L;
   my $s = V string => Rutf8 $string;
   ($s, $l)
  }
@@ -6777,7 +6779,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
         $Q->copy($n);                                                           # Corresponding node
        });
       PrintErrTraceBack "Stuck in find prev";                                   # We seem to be looping endlessly
-     };                                                          # Find completed successfully
+     };                                                                         # Find completed successfully
     PopR;
    } parameters=>[qw(key)],
      structures=>{tree=>$tree},
@@ -6795,6 +6797,23 @@ sub Nasm::X86::Tree::findAndReload($$)                                          
   Then
    {$t->first->copy($t->data);                                                  # Copy the data variable to the first variable without checking whether it is valid
    };
+ }
+
+sub Nasm::X86::Tree::findSubTree($$)                                            # Find a key in the specified tree and create a sub tree from the data field if possible
+ {my ($t, $key) = @_;                                                           # Tree descriptor, key as a dword
+  @_ == 2 or confess "Two parameters";
+
+  my $s = $t->describeTree;                                                     # The sub tree we are attempting to load
+     $s->found->copy(0);                                                        # Assume we will not find the sub tree
+
+  $t->find($key);                                                               # Find the key
+
+  If AND(sub{$t->found > 0}, sub{$t->subTree > 0}),                             # Make the found data the new  tree
+  Then
+   {$s->first->copy($t->data);                                                  # Copy the data variable to the first variable without checking whether it is valid
+    $s->found->copy(1);
+   };
+  $s
  }
 
 sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      #P Return the offset of the left most or right most node.
@@ -31554,19 +31573,35 @@ sub Nasm::X86::Area::CreateQuarks($%)                                           
  {my ($area, %options) = @_;                                                    # Area description, quark options
   @_ % 2 == 1 or confess "Odd number of parameters required";
 
-  my $q = bless $area->DescribeTree(%options), q(Nasm::X86::Quarks);            # A tree descriptor for a set of  quarks == tree in the specified area
+  my $q = $area->CreateTree(length => 3);                                       # A tree descriptor for a set of  quarks == tree in the specified area
   my $s = $area->CreateTree(length => 3);                                       # Strings to numbers
   my $n = $area->CreateTree(length => 3);                                       # Numbers to strings
   $q->put(K(key => Nasm::X86::Quarks::StringToNumber), $s);                     # Strings to numbers
   $q->put(K(key => Nasm::X86::Quarks::NumberToString), $n);                     # Numbers to strings
-  $q
+  bless {%$q}, q(Nasm::X86::Quarks)                                             # A tree descriptor for a set of  quarks == tree in the specified area
  }
 
 sub Nasm::X86::Quarks::put($$$)                                                 # Add a string of specified length to the set of quarks and return its number as as a variable.
- {my ($area, %options) = @_;                                                    # Area description, quark options
-  @_ % 2 == 1 or confess "Odd number of parameters required";
+ {my ($quarks, $address, $size) = @_;                                           # Area description, quark options
+  @_ == 3 or confess "Three parameters";
+  my $t = bless {%$quarks}, "Nasm::X86::Tree";                                  # Quarks == Tree
+  my $s = $t->findSubTree(K key => Nasm::X86::Quarks::StringToNumber);          # Strings to numbers
+  my $n = $t->findSubTree(K key => Nasm::X86::Quarks::NumberToString);          # Numbers to strings
 
-  bless $area->DescribeTree(%options), q(Nasm::X86::Quarks)                     # Return a descriptor for a set of  quarks == tree in the specified area
+  my $i = $t->area->treeFromString($address, $size);                            # Create an input tree string - expensive - we should look up the quark directly from the input string but this way is easier to code.
+  my $I = $s->getString($i);
+  my $q = $n->size;
+  If $I->found == 0,                                                            # We can add it as it does not exist
+  Then
+   {$i->push($q);
+    $s->putString($i);
+    $n->push($i);
+   },
+  Else                                                                          # It already exists so returns its number
+   {$q->copy($I->data);
+    $i->free;                                                                   # We do not need the tree string as it is already present int the string tree.
+   };
+  $q
  }
 
 sub Nasm::X86::Area::treeFromString($$$)                                        # Create a tree from a string of bytes held at a variable address with a variable length and return the resulting tree.  The first element of the tree is the specified length, in bytes, of the string.
@@ -31629,15 +31664,15 @@ if (0) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
   my $a = CreateArea;
   my ($s, $l) = addressAndLengthOfConstantStringAsVariables("1234567");
   my $t = $a->treeFromString($s, $l);
      $t->dump8xx("AA");
 
-  $t->push(my $v = K key => 0x99);
-  $t->dump8xx("BB");
+     $t->push(my $v = K key => 0x99);
+     $t->dump8xx("BB");
 
   my $T = $a->CreateTree(length => 3);
      $T->putString($t);
@@ -31694,6 +31729,37 @@ At:      340                                                                    
 end
 found: .... .... .... ...1
 data: .... .... .... ..99
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
+  my $a = CreateArea;
+  my $q = $a->CreateQuarks;
+
+  my sub put($)                                                                 # Quark from string
+   {my ($string) = @_;                                                          # String to load
+    my ($a, $l) = addressAndLengthOfConstantStringAsVariables($string);
+    $q->put($a, $l)
+   }
+
+  my $n1 = put("1");
+  my $n2 = put("12");
+  my $n3 = put("123");
+
+  my $N1 = put("1");
+  my $N2 = put("12");
+  my $N3 = put("123");
+
+  $_->outRightInDecNL(K width => 1) for $n1, $N1, $n2, $N2, $n3, $N3;
+
+  ok Assemble eq => <<END, avx512=>1;
+0
+0
+1
+1
+2
+2
 END
  }
 
