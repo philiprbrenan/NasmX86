@@ -2690,6 +2690,7 @@ sub Nasm::X86::Variable::update($$)                                             
 sub addressAndLengthOfConstantStringAsVariables($)                              # Return the address and length of a constant string as two variables.
  {my ($string) = @_;                                                            # Constant string
   my $l = K length => length $string;
+  return ($l, $l) unless length $string;
   my $s = V string => Rutf8 $string;
   ($s, $l)
  }
@@ -8067,7 +8068,7 @@ sub Nasm::X86::Tree::intersection($)                                            
   $i                                                                            # Intersection
  }
 
-#D3 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.  The inverse operations is much easier as we just have to look up a string by number in a tree.
+#D3 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.  The inverse operation is much easier as we just have to look up a string by number in a tree.
 
 sub Nasm::X86::Tree::putString($$)                                              # The last element of the string is the value, the preceding elements are the keys so such a string must have at least two elements. We create a string tree to index strings to values
  {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
@@ -8143,9 +8144,9 @@ sub Nasm::X86::Tree::getString($$)                                              
 
 #D2 Print                                                                       # Print a tree
 
-sub Nasm::X86::Tree::dumpWithWidth($$$$$)                                       #P Dump a tree and all its sub trees.
- {my ($tree, $title, $width, $margin, $first) = @_;                             # Tree, title, width of offset field, the maximum width of the indented area, whether to print the offset of the tree
-  @_ == 5 or confess "Five parameters";
+sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     #P Dump a tree and all its sub trees.
+ {my ($tree, $title, $width, $margin, $first, $keyX, $dataX) = @_;              # Tree, title, width of offset field, the maximum width of the indented area, whether to print the offset of the tree, whether to print the key field in hex or decimal, whether to print the data field in hex or decimal
+  @_ == 7 or confess "Seven parameters";
 
   PushR my $F = 31;
 
@@ -8221,7 +8222,7 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$)                                       
       PrintOutNL;
 
       my $printKD = sub                                                         # Print keys or data or nodes
-       {my ($name, $zmm, $nodes, $tb) = @_;                                     # Key or data or node, zmm containing key or data or node, hex if true else decimal, print tree bits if tree
+       {my ($name, $zmm, $nodes, $tb) = @_;                                     # Key or data or node, zmm containing key or data or node, print nodes if true, print tree bits if true
         $I->outSpaces; PrintOutString $name;                                    # Keys
         Mov $treeBitsIndexR, 1 if $tb;                                          # Check each tree bit position
 
@@ -8233,15 +8234,13 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$)                                       
           if (!$tb)                                                             # No tree bits
            {PrintOutString ' ';
             $k->outRightInHex(K width => $width);
-            #$k->outRightInHex(K width => 4) if  $nodes;
-            #$k->outRightInDec(K width => 4) if !$nodes;
            }
           else
            {Test $treeBitsR, $treeBitsIndexR;                                   # Check for a tree bit
             IfNz
             Then                                                                # This key indexes a sub tree
              {if ($first)                                                       # Print out the offset of the first block as used by the sub tree
-               {($k >> K(four => 4))->outRightInHex(K width => $width);          # This field indicates the offset of the first block
+               {($k >> K(four => 4))->outRightInHex(K width => $width);         # This field indicates the offset of the first block
                }
               else                                                              # This key indexes a sub tree and for a reason which I have no desire to call to mind, I once thought it necessary to print the offset of the first node rather than the first block.
                {PushR 31;
@@ -8254,7 +8253,14 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$)                                       
              },
             Else
              {PrintOutString ' ';
-              $k->outRightInDec(K width => $width);
+              if ($name =~ m(key))
+               {$k->outRightInHex(K width => $width) if     $keyX;
+                $k->outRightInDec(K width => $width) unless $keyX;
+               }
+              else
+               {$k->outRightInHex(K width => $width) if     $dataX;
+                $k->outRightInDec(K width => $width) unless $dataX;
+               }
              };
            }
           Shl $treeBitsIndexR, 1 if $tb;                                        # Next tree bit position
@@ -8262,8 +8268,8 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$)                                       
         PrintOutNL;
        };
 
-      $printKD->('Keys :', $K, 0, 0);                                           # Print keys
-      $printKD->('Data :', $D, 0, 1);                                           # Print data either as _hex for a sub tree reference or in decimal for data
+      $printKD->('Keys :', $K, 0, 0);                                           # Print key
+      $printKD->('Data :', $D, 0, 1);                                           # Print data
       If dFromZ($N, 0) > 0,                                                     # If the first node is not zero we are not on a leaf
       Then
        {$printKD->('Nodes:', $N, 1, 0);
@@ -8353,13 +8359,19 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$)                                       
 sub Nasm::X86::Tree::dump($$)                                                   #P Dump a tree and all its sub trees.
  {my ($tree, $title) = @_;                                                      # Tree, title
   @_ == 2 or confess "Two parameters";
-  $tree->dumpWithWidth($title, 4, 20, 0)
+  $tree->dumpWithWidth($title, 4, 20, 0, 1, 0)
  }
 
 sub Nasm::X86::Tree::dump8($$)                                                  #P Dump a tree and all its sub trees using 8 character fields for numbers.
  {my ($tree, $title) = @_;                                                      # Tree, title
   @_ == 2 or confess "Two parameters";
-  $tree->dumpWithWidth($title, 8, 80, 1)
+  $tree->dumpWithWidth($title, 8, 80, 1, 1, 0)
+ }
+
+sub Nasm::X86::Tree::dump8xx($$)                                                #P Dump a tree and all its sub trees using 8 character fields for numbers printing the keys and data in hexadeximal.
+ {my ($tree, $title) = @_;                                                      # Tree, title
+  @_ == 2 or confess "Two parameters";
+  $tree->dumpWithWidth($title, 8, 80, 1, 1, 1)
  }
 
 sub Nasm::X86::Tree::printInOrder($$)                                           # Print a tree in order
@@ -31542,14 +31554,87 @@ sub Nasm::X86::Area::CreateQuarks($%)                                           
  {my ($area, %options) = @_;                                                    # Area description, quark options
   @_ % 2 == 1 or confess "Odd number of parameters required";
 
+  my $q = bless $area->DescribeTree(%options), q(Nasm::X86::Quarks);            # A tree descriptor for a set of  quarks == tree in the specified area
+  my $s = $area->CreateTree(length => 3);                                       # Strings to numbers
+  my $n = $area->CreateTree(length => 3);                                       # Numbers to strings
+  $q->put(K(key => Nasm::X86::Quarks::StringToNumber), $s);                     # Strings to numbers
+  $q->put(K(key => Nasm::X86::Quarks::NumberToString), $n);                     # Numbers to strings
+  $q
+ }
+
+sub Nasm::X86::Quarks::put($$$)                                                 # Add a string of specified length to the set of quarks and return its number as as a variable.
+ {my ($area, %options) = @_;                                                    # Area description, quark options
+  @_ % 2 == 1 or confess "Odd number of parameters required";
+
   bless $area->DescribeTree(%options), q(Nasm::X86::Quarks)                     # Return a descriptor for a set of  quarks == tree in the specified area
+ }
+
+sub Nasm::X86::Area::treeFromString($$$)                                        # Create a tree from a string of bytes held at a variable address with a variable length and return the resulting tree.  The first element of the tree is the specified length, in bytes, of the string.
+ {my ($area, $address, $size) = @_;                                             # Area description, address of string, length of string in bytes
+  @_ == 3 or confess "Three parameters";
+
+  my $t = $area->CreateTree(length => 3);                                       # Create a tree to be used to store the string
+
+  $t->push($size);                                                              # Push the length of the string
+
+  If $size > 0,
+  Then                                                                          # Push string of non zero length
+   {PushR 13, 14, 15;
+
+    my $two = K two => 2;
+   ($size >> $two)->for(sub                                                     # Push each full dword of the input string into the tree
+     {my ($i, $start, $next, $end) = @_;
+      $i->setReg(15);                                                           # Index of chunk to push
+      $address->setReg(14);                                                     # Start of string
+      Mov r15, "[r14+4*r15]";                                                   # 4 means dword
+      $t->push(V chunk => r15)                                                  # Load chunk and push into string tree
+     });
+
+    ClearRegisters r13;
+    $address->setReg(14);                                                       # Start of string
+    $size   ->setReg(15);                                                       # Length of string in bytes
+
+    my $remainder = $size  - ($size >> $two << $two);                           # Any remainder
+    If $remainder == 3,
+    Then                                                                        # Last three bytes
+     {Mov r13w, "[r14+r15-2]";                                                  # Last two bytes
+      Shl r13, 8;                                                               # Make room for remaining word
+      Mov r13b, "[r14+r15-3]";                                                  # Third last byte
+     },
+    Ef {$remainder == 2}
+    Then                                                                        # Last two bytes
+     {Mov r13w, "[r14+r15-2]";                                                  # Last two bytes
+     },
+    Ef {$remainder == 1}
+    Then                                                                        # Last byte
+     {Mov r13w, "[r14+r15-1]";                                                  # Last byte
+     };
+
+    If $remainder > 0,
+    Then                                                                        # Save last few bytes
+     {$t->push(V last => r13)                                                   # Last few bytes
+     };
+   };
+
+  PopR;
+  $t                                                                            # Description of tree loaded from string
+ }
+
+#latest:
+if (0) {                                                                        #
+  my $a =     CreateArea;
+  my $q = $a->CreateQuarks;
+
+  ok Assemble eq => <<END, avx512=>1;
+END
  }
 
 latest:
 if (1) {                                                                        #
   my $a =     CreateArea;
-  my $q = $a->CreateQuarks;
-
+  my ($s, $l)  = addressAndLengthOfConstantStringAsVariables("1234567");
+  my $t = $a->treeFromString($s, $l);
+     $t->dump8xx("AA");
   ok Assemble eq => <<END, avx512=>1;
 END
  }
