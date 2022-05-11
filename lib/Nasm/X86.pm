@@ -1172,7 +1172,7 @@ sub ForEver(&)                                                                  
 
 my @VariableStack = (1);                                                        # Counts the number of parameters and variables on the stack in each invocation of L<Subroutine>.  There is at least one variable - the first holds the traceback.
 
-sub SubroutineStartStack22()                                                    # Initialize a new stack frame.  The first quad of each frame has the address of the name of the sub in the low dword, and the parameter count in the upper byte of the quad.  This field is all zeroes in the initial frame.
+sub SubroutineStartStack()                                                      #P Initialize a new stack frame.  The first quad of each frame has the address of the name of the sub in the low dword, and the parameter count in the upper byte of the quad.  This field is all zeroes in the initial frame.
  {push @VariableStack, 1;                                                       # Counts the number of variables on the stack in each invocation of L<Subroutine>.  The first quad provides the traceback.
  }
 
@@ -1327,7 +1327,7 @@ sub Subroutine(&%)                                                              
 
   if (1)                                                                        # Validate options
    {my %o = %options;
-    delete $o{$_} for qw(parameters structures name call);
+    delete $o{$_} for qw(parameters structures name call trace);
     if (my @i = sort keys %o)
      {confess "Invalid parameters: ".join(', ',@i);
      }
@@ -1345,7 +1345,7 @@ sub Subroutine(&%)                                                              
     $c{$_}++ && confess "Duplicate parameter $_" for @$parameters;
    }
 
-  SubroutineStartStack22;                                                       # Open new stack layout with references to parameters
+  SubroutineStartStack;                                                         # Open new stack layout with references to parameters
   my %parameters = map {$_ => R($_)} @$parameters;                              # Create a reference for each parameter.
 
   my %structureCopies;                                                          # Copies of the structures being passed that can be use inside the subroutine to access their variables in the stack frame of the subroutine
@@ -5327,8 +5327,6 @@ sub Nasm::X86::Area::printOut($$$)                                              
   PushR rax, rdi, rsi;
   ($area->address + $offset)->setReg(rax);
   $length                   ->setReg(rdi);
-Mov rsi, "[rax]";
-PrintErrRegisterInHex rsi;
   PrintOutMemoryNL;
   PopR;
  }
@@ -8609,7 +8607,7 @@ sub Start()                                                                     
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
   @PushR = @extern = @link = @VariableStack = ();
 # @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});               # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
-  SubroutineStartStack22;                                                       # Number of variables at each lexical level
+  SubroutineStartStack;                                                       # Number of variables at each lexical level
   $Labels = 0;
  }
 
@@ -31933,6 +31931,38 @@ if (1) {                                                                        
   PrintOutRegisterInHex rax;
   eval {Assemble avx512=>1, trace=>1, mix=>0};
   ok readFile(q(zzzTraceBack.txt)) =~ m(TraceBack start:)s;
+ }
+
+#latest:
+if (0) {                                                                        #TTraceMode
+
+  $TraceMode = 1;
+
+  my $S = Subroutine                                                            # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    Mov rax, Rq(0x11);
+    Mov rax, "[rax]";
+    If $$p{fail} > 0,
+    Then
+     {Mov rax, "[rax]";
+     };
+   } name => "s", parameters=>[qw(fail)], trace=>1;
+
+
+  my $T = Subroutine                                                            # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    Mov rax, Rq(0x22);
+    Mov rax, "[rax]";
+    $S->call(parameters => {fail => K(zero=> 1)});
+    PrintErrRegisterInHex rax;
+   } name => "t";
+
+
+  $S->call(parameters => {fail => K(zero=> 0)});
+  $T->call;
+
+  Assemble eq=><<END, avx512=>1, trace=>1, mix=>0;
+END
  }
 
 #latest:
