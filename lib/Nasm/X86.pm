@@ -41,13 +41,15 @@ my $interpreter = q(-I /usr/lib64/ld-linux-x86-64.so.2);                        
 my $develop     = -e q(/home/phil/);                                            # Developing
 my $sdeMixOut   = q(sde-mix-out.txt);                                           # Emulator output file
 
-our $stdin  = 0;                                                                # File descriptor for standard input
-our $stdout = 1;                                                                # File descriptor for standard output
-our $stderr = 2;                                                                # File descriptor for standard error
+our $stdin      = 0;                                                            # File descriptor for standard input
+our $stdout     = 1;                                                            # File descriptor for standard output
+our $stderr     = 2;                                                            # File descriptor for standard error
+
+our $TraceMode  = 0;                                                            # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.
 
 my %Registers;                                                                  # The names of all the registers
 my %RegisterContaining;                                                         # The largest register containing a register
-my @GeneralPurposeRegisters = qw(rax rbx rcx rdx rsi rdi), map {"r$_"} 8..15; # General purpose registers
+my @GeneralPurposeRegisters = qw(rax rbx rcx rdx rsi rdi), map {"r$_"} 8..15;   # General purpose registers
 my $bitsInByte;                                                                 # The number of bits in a byte
 my @declarations;                                                               # Register and instruction declarations
 
@@ -96,7 +98,7 @@ cmova cmovae cmovb cmovbe cmovc cmove cmovg cmovge cmovl cmovle
 cmovna cmovnae cmovnb cmp
 enter
 imul
-kmov knot kortest ktest lea lzcnt mov movd movdqa
+kmov knot kortest ktest lea lzcnt mov movd movq movw  movdqa
 or popcnt sal sar shl shr sub test tzcnt
 vcvtudq2pd vcvtuqq2pd vcvtudq2ps vmovdqu vmovdqu32 vmovdqu64 vmovdqu8
 vpcompressd vpcompressq vpexpandd vpexpandq xchg xor
@@ -191,8 +193,7 @@ END
        $s .= <<END;
        sub $I()
         {\@_ == 0 or confess "No arguments allowed";
-         my \$s = '  ' x scalar(my \@d = caller);
-         push \@text, qq(\${s}$i\\n);
+         push \@text, qq($i\\n);
         }
 END
      }
@@ -209,8 +210,7 @@ END
        sub $I
         {my (\$target) = \@_;
          \@_ == 1 or confess "One argument required, not ".scalar(\@_);
-         my \$s = '  ' x scalar(my \@d = caller);
-         push \@text, qq(\${s}$i \$target\\n);
+         push \@text, qq($i \$target\\n);
         }
 END
      }
@@ -227,10 +227,8 @@ END
        sub $I(\@)
         {my (\$target, \$source) = \@_;
          \@_ == 2 or confess "Two arguments required, not ".scalar(\@_);
-#TEST         Keep(\$target)    if "$i" =~ m(\\Amov\\Z) and \$Registers{\$target};
-#TEST         KeepSet(\$source) if "$i" =~ m(\\Amov\\Z) and \$Registers{\$source};
-         my \$s = '  ' x scalar(my \@d = caller);
-         push \@text, qq(\${s}$i \$target, \$source\\n);
+         &traceInstruction(q($i));
+         push \@text, qq($i \$target, \$source\\n);
         }
 END
      }
@@ -248,8 +246,7 @@ END
        sub $I(\@)
         {my (\$target, \$source, \$bits) = \@_;
          \@_ == 3 or confess "Three arguments required, not ".scalar(\@_);
-         my \$s = '  ' x scalar(my \@d = caller);
-         push \@text, qq(\${s}$j \$target, \$source, \$bits\\n);
+         push \@text, qq($j \$target, \$source, \$bits\\n);
         }
 END
      }
@@ -266,13 +263,36 @@ END
        sub $I(\@)
         {my (\$target, \$source, \$bits, \$zero) = \@_;
          \@_ == 4 or confess "Four arguments required, not ".scalar(\@_);
-         my \$s = '  ' x scalar(my \@d = caller);
-         push \@text, qq(\${s}$i \$target, \$source, \$bits, \$zero\\n);
+         push \@text, qq($i \$target, \$source, \$bits, \$zero\\n);
         }
 END
      }
     eval "$s$@";
     confess $@ if $@;
+   }
+
+  sub traceInstruction($)                                                       # Trace the location of this instruction in  the source code
+   {my ($i) = @_;                                                               # Instruction
+    return unless $TraceMode and $i =~ m(\Amov\Z);                              # Trace just these instructions and only when tracing is enabled
+    my @c;
+
+    push @text, <<END;                                                          # Tracing destroys mm0 so that we can use r11
+  movq mm0, r11;
+END
+
+    for(1..100)                                                                 # Write line numbers of traceback
+     {my @c = caller $_;
+      last unless @c;
+      $c[3] =~ s(Nasm::X86::) ();
+      my (undef, undef, $line, $file) = @c;
+      push @text, <<END;
+  mov r11, $line;
+END
+     }
+
+    push @text, <<END;                                                          # Restore r11 from destroyed mm0
+  movq r11, mm0;
+END
    }
  }
 
@@ -8682,6 +8702,35 @@ sub hasAvx512()                                                                 
   $hasAvx512 = qx(cat /proc/cpuinfo | grep avx512) =~ m(\S) ? 1 : 0;            # Cache avx512 result
  }
 
+sub locateRunTimeError                                                          # Locate the traceback of the last known good position in the trace file before the error occurred
+ {my @a = readFile q(sde-debugtrace-out.txt);                                   # Read trace file
+  my $s = 0;                                                                    # Parse state
+  my @p;                                                                        # Position in source file
+  for my $a(reverse @a)                                                         # Read backwards
+   {if (!$s)                                                                    # Looking for traceback start
+     {if ($a =~ m(\AINS 0x[[:xdigit:]]{16}\s+MMX\s+movq\sr11,\s+mm0))
+       {$s = 1;
+       }
+     }
+    elsif ($s == 1)                                                             # In the traceback
+     {if ($a =~ m(\AINS\s+0x[[:xdigit:]]{16}\s+BASE\s+mov r11, (0x[[:xdigit:]]+)))
+       {unshift @p, eval $1;
+        next;
+       }
+      last;                                                                     # Finished the scan of the tracebook
+     }
+   }
+  push my @t, "TraceBack start: ", "_"x80;                                      # Write the traceback
+  for my $i(keys @p)
+   {push @t, sprintf "%4d called at $0 line %d", $i, $p[$i];
+   }
+  push @t, "_" x 80;
+  my $t = join "\n", @t;
+  say STDERR $t;                                                                # Print so we can see it
+  owf("zzzTraceBack.txt", $t);                                                  # Place into a well known file
+ }
+
+
 our $assembliesPerformed  = 0;                                                  # Number of assemblies performed
 our $instructionsExecuted = 0;                                                  # Total number of instructions executed
 our $totalBytesAssembled  = 0;                                                  # Total size of the output programs
@@ -8690,8 +8739,9 @@ sub Assemble(%)                                                                 
  {my (%options) = @_;                                                           # Options
   my $aStart = time;
   my $library    = $options{library};                                           # Create  the named library if supplied from the supplied assembler code
+  my $list       = $options{list};                                              # Create and retain a listing file so we can see where a trace error occurs
   my $debug      = $options{debug}//0;                                          # Debug: 0 - none (minimal output), 1 - normal (debug output and confess of failure), 2 - failures (debug output and no confess on failure) .
-  my $debugTrace = $options{trace}//0;                                          # Trace: 0 - none (minimal output), 1 - trace with sde64
+  my $trace      = $options{trace}//0;                                          # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
   my $keep       = $options{keep};                                              # Keep the executable
 
   my $sourceFile = q(z.asm);                                                    # Source file
@@ -8806,20 +8856,21 @@ END
      {unlink $f if $f =~ m(sde-mix-out);
      }
    }
-  unlink qw(sde-ptr-check.out.txt sde-mix-out.txt sde-debugtrace-out.txt);
+  unlink qw(sde-ptr-check.out.txt sde-mix-out.txt sde-debugtrace-out.txt zzzTraceBack.txt);
 
   if (1)                                                                        # Assemble
    {my $I = @link ? $interpreter : '';                                          # Interpreter only required if calling C
     my $L = join " ",  map {qq(-l$_)} @link;                                    # List of libraries to link supplied via Link directive.
     my $e = $execFile;
-    my $a = qq(nasm -O0 -l $listFile -o $objectFile $sourceFile);               # Assembly options
+    my $l = $trace ? qq(-l $listFile) : q();                                    # Create a list file if we are tracing because otherwise it it is difficult to know what we are tracing
+    my $a = qq(nasm -O0 $l -o $objectFile $sourceFile);                         # Assembly options
 
     my $cmd  = $library
       ? qq($a -fbin)
       : qq($a -felf64 -g  && ld $I $L -o $e $objectFile && chmod 744 $e);
 
-#say STDERR $cmd;
     qx($cmd);
+#say STDERR $cmd; exit;
     confess "Assembly failed $?" if $?;                                         # Stop if assembly failed
    }
 
@@ -8830,11 +8881,11 @@ END
 
   my $exec = sub                                                                # Execution string
    {my $o = qq($sde -mix -ptr-check);                                           # Emulator options
-       $o = qq($sde -mix -ptr-check -debugtrace -footprint) if $debugTrace;     # Emulator options - tracing
+       $o = qq($sde -mix -ptr-check -debugtrace -footprint) if $trace;          # Emulator options - tracing
     my $e = $execFile;
 
     my $E = $options{emulator};                                                 # Emulator required
-    if ($E or $avx512 && !hasAvx512 or $debugTrace)                             # Command to execute program via the  emulator
+    if ($E or $avx512 && !hasAvx512 or $trace)                                  # Command to execute program via the  emulator
      {return qq($o -- ./$e $err $out)
      }
 
@@ -8842,8 +8893,9 @@ END
    }->();
 
   my $eStart = time;
-#say STDERR $exec;
+
   qx($exec) if $run;                                                            # Run unless suppressed by user or library
+#say STDERR $exec;exit;
   my $er     = $?;                                                              # Execution result
   my $eTime  = time - $eStart;
 
@@ -8881,7 +8933,8 @@ END
    }
 
   if ($run and $debug < 2 and -e $o2 and readFile($o2) =~ m(SDE ERROR:)s)       # Emulator detected an error
-   {confess "SDE ERROR\n".readFile($o2);
+   {locateRunTimeError;                                                         # Locate the last known good position in the trace file before the error occurred
+    confess "SDE ERROR\n".readFile($o2);
    }
 
   confess "Failed $er" if $debug < 2 and $er;                                   # Check that the run succeeded
@@ -31738,7 +31791,7 @@ data: .... .... .... ..99
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
   my $a = CreateArea;
   my $q = $a->CreateQuarks;
@@ -31761,7 +31814,8 @@ if (1) {                                                                        
 
   $q->dump("AA");
 
-  ok Assemble eq => <<END, avx512=>1;
+#  1         105,382         357,640         105,382         357,640      1.069422          0.38  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 31764
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
 0
 0
 1
@@ -31817,6 +31871,19 @@ end
 END
  }
 
+latest:
+if (1) {                                                                        #TTraceMode
+  $TraceMode = 1;
+  Mov rax, Rq(0x22);
+  Mov rax, "[rax]";
+  Mov rax, "[rax]";
+  Mov rax, "[rax]";
+
+  PrintOutRegisterInHex rax;
+  eval {Assemble avx512=>1, trace=>1};
+  ok readFile(q(zzzTraceBack.txt)) =~ m(TraceBack start:)s;
+ }
+
 #latest:
 if (0) {                                                                        #
   ok Assemble eq => <<END, avx512=>1;
@@ -31825,7 +31892,7 @@ END
 
 done_testing;
 
-unlink $_ for qw(sde-footprint.txt sde-log.txt z.txt);
+unlink $_ for qw(sde-footprint.txt sde-log.txt);
 
 say STDERR sprintf("# Time: %.2fs, bytes: %s, execs: %s",
   time - $start,
