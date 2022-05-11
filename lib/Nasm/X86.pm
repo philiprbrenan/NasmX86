@@ -8702,10 +8702,28 @@ sub hasAvx512()                                                                 
   $hasAvx512 = qx(cat /proc/cpuinfo | grep avx512) =~ m(\S) ? 1 : 0;            # Cache avx512 result
  }
 
-sub locateRunTimeError                                                          # Locate the traceback of the last known good position in the trace file before the error occurred
+sub lineNumbersToSubNamesFromSource                                             # Create a hash mapping line numbers to subroutine definitions
+ {my @s = readFile $0;                                                          # Read source file
+  my %l;                                                                        # Mapping from line number to curent sub
+  my $c;                                                                        # The current sub
+  for my $i(keys @s)                                                            # Each line number
+   {my $s = $s[$i];
+    if ($s =~ m(\Asub ([^ \(]+)))
+     {$c = $1 =~ s(\ANasm::X86::) ()r;                                          # Subroutine name  minus package name and parameters
+     }
+    if ($s =~ m(\A }))                                                          # End of sub
+     {$c = undef;
+     }
+    $l{$i+1} = $c if $c;
+   }
+  %l
+ }
+
+sub locateRunTimeErrorInDebugTraceOutput                                        # Locate the traceback of the last known good position in the trace file before the error occurred
  {my @a = readFile q(sde-debugtrace-out.txt);                                   # Read trace file
   my $s = 0;                                                                    # Parse state
   my @p;                                                                        # Position in source file
+
   for my $a(reverse @a)                                                         # Read backwards
    {if (!$s)                                                                    # Looking for traceback start
      {if ($a =~ m(\AINS 0x[[:xdigit:]]{16}\s+MMX\s+movq\sr11,\s+mm0))
@@ -8720,16 +8738,32 @@ sub locateRunTimeError                                                          
       last;                                                                     # Finished the scan of the tracebook
      }
    }
+
   push my @t, "TraceBack start: ", "_"x80;                                      # Write the traceback
+  my %l = lineNumbersToSubNamesFromSource();
   for my $i(keys @p)
-   {push @t, sprintf "%4d called at $0 line %d", $i, $p[$i];
+   {my $p =  $p[$i];
+    push @t, sprintf "%4d %s called at $0 line %d", $i, $l{$p}//'', $p;
    }
   push @t, "_" x 80;
   my $t = join "\n", @t;
-  say STDERR $t;                                                                # Print so we can see it
+  say STDERR $t;                                                                # Print trace back so we can see it in geany messages
   owf("zzzTraceBack.txt", $t);                                                  # Place into a well known file
  }
 
+sub fixMixOutput                                                                # Fix mix output so we know where the code comes from in the source file
+ {my @a = readFile q(sde-mix-out.txt);                                          # Read mix output
+  my %l = lineNumbersToSubNamesFromSource();
+
+  for my $i(keys @a)                                                            # Each line of output
+   {if ($a[$i] =~ m(\AXDIS\s+[[:xdigit:]]{16}:\s+BASE\s+[[:xdigit:]]+\s+mov\s+r11,\s+(0x[[:xdigit:]]+)))
+     {my $l = eval($1)+1;
+      $a[$i] = sprintf "    %s called at $0 line %d\n", $l{$l}//'', $l;
+     }
+   }
+  owf q(sde-mix-out.txt), join "", @a;                                          # Update mix out
+  say STDERR              join "", @a;                                          # Write mix out
+ }
 
 our $assembliesPerformed  = 0;                                                  # Number of assemblies performed
 our $instructionsExecuted = 0;                                                  # Total number of instructions executed
@@ -8743,6 +8777,7 @@ sub Assemble(%)                                                                 
   my $debug      = $options{debug}//0;                                          # Debug: 0 - none (minimal output), 1 - normal (debug output and confess of failure), 2 - failures (debug output and no confess on failure) .
   my $trace      = $options{trace}//0;                                          # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
   my $keep       = $options{keep};                                              # Keep the executable
+  my $mix        = $options{mix};                                               # Create mix output and fix with line number locations in source
 
   my $sourceFile = q(z.asm);                                                    # Source file
   my $execFile   = $keep // q(z);                                               # Executable file
@@ -8880,8 +8915,9 @@ END
   my $err  = $run ? "2>$o2" : '';
 
   my $exec = sub                                                                # Execution string
-   {my $o = qq($sde -mix -ptr-check);                                           # Emulator options
-       $o = qq($sde -mix -ptr-check -debugtrace -footprint) if $trace;          # Emulator options - tracing
+   {my $m = $mix ? '-mix' : '';                                                 # Mix output option
+    my $o = qq($sde $m -ptr-check);                                             # Emulator options
+       $o = qq($sde $m -ptr-check -debugtrace -footprint) if $trace;            # Emulator options - tracing
     my $e = $execFile;
 
     my $E = $options{emulator};                                                 # Emulator required
@@ -8932,8 +8968,10 @@ END
     say STDERR readFile($o2) if -e $o2;
    }
 
+  fixMixOutput if $run and $mix;                                                # Fix mix output to show where code came from in the source file
+
   if ($run and $debug < 2 and -e $o2 and readFile($o2) =~ m(SDE ERROR:)s)       # Emulator detected an error
-   {locateRunTimeError;                                                         # Locate the last known good position in the trace file before the error occurred
+   {locateRunTimeErrorInDebugTraceOutput if $trace;                             # Locate the last known good position in the debug trace file, if it exists,  before the error occurred
     confess "SDE ERROR\n".readFile($o2);
    }
 
@@ -31482,7 +31520,7 @@ if (1) {                                                                        
   $_->outNL for @a;
   $parse->dumpParseTree($a8);
 
-  ok Assemble eq => <<END, avx512=>1;   ## Wrong
+  ok Assemble eq => <<END, avx512=>1;
 parseChar: .... .... ...1 D5D8
 parseFail: .... .... .... ....
 pos: .... .... .... ..2B
@@ -31492,6 +31530,11 @@ parseReason: .... .... .... ....
 ._𝗔
 ._𝐈𝐅
 ._._✕
+._._._【
+._._._._＋
+._._._._._𝗕
+._._._._._𝗖
+._._._𝗗
 ._._𝗘
 END
   unlink $f;
@@ -31544,7 +31587,7 @@ unisynParse 'va q11',                                  "𝗔𝙇\n",            
 unisynParse 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
 unisynParse 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
 unisynParse 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
-unisynParse 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝑳\n._._𝗕\n);
+unisynParse 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝙇\n._._𝗕\n);
 unisynParse 'va e+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇\n",              qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
 unisynParse 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",           qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
 unisynParse 'va e+ p11 vb q11 dif p21 b( vc e* vd B) q22 delse ve e* vf',
@@ -31871,7 +31914,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TTraceMode
   $TraceMode = 1;
   Mov rax, Rq(0x22);
@@ -31888,7 +31931,7 @@ if (1) {                                                                        
   Mov rax, Rq(0x22);
 
   PrintOutRegisterInHex rax;
-  eval {Assemble avx512=>1, trace=>1};
+  eval {Assemble avx512=>1, trace=>1, mix=>0};
   ok readFile(q(zzzTraceBack.txt)) =~ m(TraceBack start:)s;
  }
 
