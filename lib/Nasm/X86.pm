@@ -45,7 +45,7 @@ our $stdin      = 0;                                                            
 our $stdout     = 1;                                                            # File descriptor for standard output
 our $stderr     = 2;                                                            # File descriptor for standard error
 
-our $TraceMode  = 0;                                                            # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.
+our $TraceMode  = 0;                                                            # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.  This mode assumes that you will not be using the mm0 register (most people are not)and that you have any IDE like Geany that can interpret a Perl error line number and position on that line in this file.
 
 my %Registers;                                                                  # The names of all the registers
 my %RegisterContaining;                                                         # The largest register containing a register
@@ -31875,9 +31875,17 @@ latest:
 if (1) {                                                                        #TTraceMode
   $TraceMode = 1;
   Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
   Mov rax, "[rax]";
   Mov rax, "[rax]";
   Mov rax, "[rax]";
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
 
   PrintOutRegisterInHex rax;
   eval {Assemble avx512=>1, trace=>1};
