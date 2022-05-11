@@ -8754,7 +8754,7 @@ sub locateRunTimeErrorInDebugTraceOutput                                        
   my %l = lineNumbersToSubNamesFromSource();
   for my $i(keys @p)
    {my $p =  $p[$i];
-    push @t, sprintf "%4d %s called at $0 line %d", $i, $l{$p}//'', $p;
+    push @t, sprintf "%6d %s called at $0 line %d", $p, pad($l{$p}//'.', 32), $p;
    }
   push @t, "_" x 80;
   my $t = join "\n", @t;
@@ -31948,14 +31948,13 @@ if (1) {                                                                        
 
 latest:
 if (1) {                                                                        #TTraceMode
-
   $TraceMode = 1;                                                               # Enabling tracing
 
-  my $S = Subroutine                                                            # Fail if requested to do so otherwise load and print rax
+  my $S = Subroutine                                                            # Load and print rax
    {my ($p, $s, $sub) = @_;
     Mov rax, "[rax]";
     PrintOutRegisterInHex rax;
-    If $$p{fail} > 0,
+    If $$p{fail} > 0,                                                           # Fail if requested
     Then
      {Mov rax, "[rax]";
      };
