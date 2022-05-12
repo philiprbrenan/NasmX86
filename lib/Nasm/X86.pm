@@ -5297,7 +5297,7 @@ sub Nasm::X86::Area::read($@)                                                   
     Comment "Read an area";
     my ($address, $size) = ReadFile $$p{file};
     my $area = $$s{area};
-    $area->m($address, $size);                                                  # Move data into area
+    $area->appendMemory($address, $size);                                       # Move data into area
     FreeMemory($size, $address);                                                # Free memory allocated by read
    } structures => {area=>$area},
      parameters => [qw(file)],
