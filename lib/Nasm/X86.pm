@@ -5212,7 +5212,7 @@ sub Nasm::X86::Area::char($$)                                                   
  {my ($area, $char) = @_;                                                       # Area descriptor, number of character to be appended
   @_ == 2 or confess "Two parameters";
   my $s = Rb(ord($char));
-  $area->appendMemory(V(address => $s), K size => 1);                                      # Move data
+  $area->appendMemory(V(address => $s), K size => 1);                           # Move data
  }
 
 sub Nasm::X86::Area::nl($)                                                      # Append a new line to the area addressed by rax.
@@ -5221,7 +5221,7 @@ sub Nasm::X86::Area::nl($)                                                      
   $area->char("\n");
  }
 
-sub Nasm::X86::Area::z($)                                                       # Append a trailing zero to the area addressed by rax.
+sub Nasm::X86::Area::zero($)                                                    # Append a trailing zero to the area addressed by rax.
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
   $area->char("\0");
