@@ -5159,7 +5159,7 @@ sub Nasm::X86::Area::establishYggdrasil($)                                      
 
 #D2 Areas as Strings                                                            # Use the memory supplied by the area as a string - however, in general, this is too slow unless coupled with another slow operation such as executing a command, mapping a file or writing to a file.
 
-sub Nasm::X86::Area::m($$$)                                                     # Append the variable addressed content of variable size to the specified area.
+sub Nasm::X86::Area::appendMemory($$$)                                          # Append the variable addressed content in memory of variable size to the specified area.
  {my ($area, $address, $size) = @_;                                             # Area descriptor, variable address of content, variable length of content
   @_ == 3 or confess "Three parameters";
 
@@ -5196,7 +5196,7 @@ sub Nasm::X86::Area::q($$)                                                      
   @_ == 2 or confess "Two parameters";
 
   my $s = Rs($string);
-  $area->m(V('address', $s), V('size', length($string)));
+  $area->appendMemory(V('address', $s), V('size', length($string)));
  }
 
 sub Nasm::X86::Area::ql($$)                                                     # Append a quoted string containing new line characters to the specified area.
@@ -5212,7 +5212,7 @@ sub Nasm::X86::Area::char($$)                                                   
  {my ($area, $char) = @_;                                                       # Area descriptor, number of character to be appended
   @_ == 2 or confess "Two parameters";
   my $s = Rb(ord($char));
-  $area->m(V(address => $s), K size => 1);                                      # Move data
+  $area->appendMemory(V(address => $s), K size => 1);                                      # Move data
  }
 
 sub Nasm::X86::Area::nl($)                                                      # Append a new line to the area addressed by rax.
@@ -5236,7 +5236,7 @@ sub Nasm::X86::Area::append($@)                                                 
   Mov rdi, "[rax+$$source{usedOffset}]";
   Sub rdi, $source->dataOffset;
   Lea rsi, "[rax+$$source{dataOffset}]";
-  $target->m(V(address => rsi), V size => rdi);
+  $target->appendMemory(V(address => rsi), V size => rdi);
   RestoreFirstFour;
  }
 
