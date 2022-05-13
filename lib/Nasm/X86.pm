@@ -9033,7 +9033,15 @@ END
       say STDERR "Got  $b2\n", firstNChars($G, 80);
       say STDERR "Want: ", dump($e);
       say STDERR "Got : ", dump($g);
-      confess "Test failed";# unless $ENV{GITHUB_REPOSITORY_OWNER};               # Test failed unless we are debugging test failures
+
+      if ($ENV{GITHUB_REPOSITORY_OWNER})                                        # Dump output files that might show why the failure occurred
+       {for my $f(qw(zzzOut.txt zzzErr.txt sde-mix-out.txt sde-debugtrace-out.txt zzzTraceBack.txt))
+         {if (-e $f)                                                             # Dump the file if it exists
+           {say STDERR qx(ls -la $f; cat $f);
+           }
+         }
+       }
+      confess "Test failed";# unless $ENV{GITHUB_REPOSITORY_OWNER};             # Test failed unless we are debugging test failures
      }
     return 1;                                                                   # Test passed
    }
@@ -16428,7 +16436,7 @@ A
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::push
   my $b = Rb(0x41..0x51);
   my $a = CreateArea;
@@ -16440,41 +16448,49 @@ if (1) {                                                                        
     $T = $t;
    }
 
-  $T->dump("T");
+  $T->dump8xx("T");
   ok Assemble eq => <<END, avx512=>1;
 T
-At:  780                    length:    2,  data:  7C0,  nodes:  800,  first:  740, root, leaf,  trees:  10
-  Index:    0    1
-  Keys :    0    1
-  Data :   65  68*
-     At:  680               length:    2,  data:  6C0,  nodes:  700,  first:  640, root, leaf,  trees:  10
-       Index:    0    1
-       Keys :    0    1
-       Data :   65  58*
-          At:  580          length:    2,  data:  5C0,  nodes:  600,  first:  540, root, leaf,  trees:  10
-            Index:    0    1
-            Keys :    0    1
-            Data :   65  48*
-               At:  480     length:    2,  data:  4C0,  nodes:  500,  first:  440, root, leaf,  trees:  10
-                 Index:    0    1
-                 Keys :    0    1
-                 Data :   65  38*
-                    At:  380length:    2,  data:  3C0,  nodes:  400,  first:  340, root, leaf,  trees:  10
-                      Index:    0    1
-                      Keys :    0    1
-                      Data :   65  28*
-                         At:  280length:    2,  data:  2C0,  nodes:  300,  first:  240, root, leaf,  trees:  10
-                           Index:    0    1
-                           Keys :    0    1
-                           Data :   65  18*
-                              At:  180length:    2,  data:  1C0,  nodes:  200,  first:  140, root, leaf,  trees:  10
-                                Index:    0    1
-                                Keys :    0    1
-                                Data :   65   8*
-                                   At:   80length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
-                                     Index:    0
-                                     Keys :    0
-                                     Data :   65
+Tree: .... .... .... .740
+At:      780                                                                                length:        2,  data:      7C0,  nodes:      800,  first:      740, root, leaf,  trees:  10
+  Index:        0        1
+  Keys :        0        1
+  Data :       41      64*
+   Tree:      640
+     At:      680                                                                           length:        2,  data:      6C0,  nodes:      700,  first:      640, root, leaf,  trees:  10
+       Index:        0        1
+       Keys :        0        1
+       Data :       41      54*
+        Tree:      540
+          At:      580                                                                      length:        2,  data:      5C0,  nodes:      600,  first:      540, root, leaf,  trees:  10
+            Index:        0        1
+            Keys :        0        1
+            Data :       41      44*
+             Tree:      440
+               At:      480                                                                 length:        2,  data:      4C0,  nodes:      500,  first:      440, root, leaf,  trees:  10
+                 Index:        0        1
+                 Keys :        0        1
+                 Data :       41      34*
+                  Tree:      340
+                    At:      380                                                            length:        2,  data:      3C0,  nodes:      400,  first:      340, root, leaf,  trees:  10
+                      Index:        0        1
+                      Keys :        0        1
+                      Data :       41      24*
+                       Tree:      240
+                         At:      280                                                       length:        2,  data:      2C0,  nodes:      300,  first:      240, root, leaf,  trees:  10
+                           Index:        0        1
+                           Keys :        0        1
+                           Data :       41      14*
+                            Tree:      140
+                              At:      180                                                  length:        2,  data:      1C0,  nodes:      200,  first:      140, root, leaf,  trees:  10
+                                Index:        0        1
+                                Keys :        0        1
+                                Data :       41       4*
+                                 Tree:       40
+                                   At:       80                                             length:        1,  data:       C0,  nodes:      100,  first:       40, root, leaf
+                                     Index:        0
+                                     Keys :        0
+                                     Data :       41
                                    end
                               end
                          end
