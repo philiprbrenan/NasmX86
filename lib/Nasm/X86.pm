@@ -8302,7 +8302,8 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
               PrintOutString '*';
              },
             Else
-             {PrintOutString ' ';
+            #{PrintOutString ' ';
+             {PrintOutString '-';
               if ($name =~ m(key))
                {$k->outRightInHex(K width => $width) if     $keyX;
                 $k->outRightInDec(K width => $width) unless $keyX;
@@ -16451,7 +16452,7 @@ if (1) {                                                                        
    }
 
   $T->dump8xx("T");
-  ok Assemble eq => <<END, avx512=>1, mix=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
 T
 Tree: .... .... .... .740
 At:      780                                                                                length:        2,  data:      7C0,  nodes:      800,  first:      740, root, leaf,  trees:  10
