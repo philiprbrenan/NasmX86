@@ -8776,6 +8776,10 @@ sub fixMixOutput                                                                
   say STDERR              join "", @a;                                          # Write mix out
  }
 
+sub onGitHub                                                                    # Whether we are on GitHub or not
+ {$ENV{GITHUB_REPOSITORY_OWNER}
+ }
+
 our $assembliesPerformed  = 0;                                                  # Number of assemblies performed
 our $instructionsExecuted = 0;                                                  # Total number of instructions executed
 our $totalBytesAssembled  = 0;                                                  # Total size of the output programs
@@ -8797,10 +8801,7 @@ sub Assemble(%)                                                                 
   my $o1         = 'zzzOut.txt';                                                # Stdout from run
   my $o2         = 'zzzErr.txt';                                                # Stderr from run
 
-  my $onGitHub = $ENV{GITHUB_REPOSITORY_OWNER};                                 # Whether we are on GitHub or not
-
   @PushR and confess "Mismatch PushR, PopR";                                    # Match PushR with PopR
-
 
   unlink $o1, $o2, $objectFile, $execFile, $listFile, $sourceFile;              # Remove output files
 
@@ -9034,14 +9035,14 @@ END
       say STDERR "Want: ", dump($e);
       say STDERR "Got : ", dump($g);
 
-      if ($ENV{GITHUB_REPOSITORY_OWNER})                                        # Dump output files that might show why the failure occurred
+      if (onGitHub)                                                             # Dump output files that might show why the failure occurred
        {for my $f(qw(zzzOut.txt zzzErr.txt sde-mix-out.txt sde-debugtrace-out.txt zzzTraceBack.txt))
-         {if (-e $f)                                                             # Dump the file if it exists
+         {if (-e $f)                                                            # Dump the file if it exists
            {say STDERR qx(ls -la $f; cat $f);
            }
          }
        }
-      confess "Test failed";# unless $ENV{GITHUB_REPOSITORY_OWNER};             # Test failed unless we are debugging test failures
+      confess "Test failed";# unless $onGitHub;                                 # Test failed unless we are debugging test failures
      }
     return 1;                                                                   # Test passed
    }
@@ -9058,6 +9059,7 @@ sub totalBytesAssembled                                                         
 #-------------------------------------------------------------------------------
 # Export - eeee
 #-------------------------------------------------------------------------------
+
 if (0)                                                                          # Print exports
  {my @e = (@declarations);
   for my $a(readFile $0)
@@ -9700,7 +9702,7 @@ test unless caller;
 use Time::HiRes qw(time);
 use Test::Most;
 
-bail_on_fail unless $ENV{GITHUB_REPOSITORY_OWNER};
+bail_on_fail unless onGitHub;
 
 my $localTest = ((caller(1))[0]//'Nasm::X86') eq "Nasm::X86";                   # Local testing mode
 my $homeTest  = -e q(/home/phil/);                                              # Testing on a local machine
@@ -9719,7 +9721,7 @@ else
 
 my $start = time;                                                               # Tests
 
-eval {goto latest} if !caller(0) and -e "/home/phil";                           # Go to latest test if specified
+eval {goto latest} if !caller(0);# and !onGitHub;                               # Go to latest test if specified
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -16500,6 +16502,7 @@ At:      780                                                                    
      end
 end
 END
+exit;
  }
 
 #latest:
