@@ -5681,7 +5681,7 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
   $a
  } # allocBlock
 
-sub Nasm::X86::Tree::freeBlock($$$$$)                                           #P Free a keys/data/node block whise keys  block entry is located at the specified offset.
+sub Nasm::X86::Tree::freeBlock($$$$$)                                           #P Free a keys/data/node block whose keys  block entry is located at the specified offset.
  {my ($tree, $k, $K, $D, $N) = @_;                                              # Tree descriptor, offset of keys block, numbered zmm for keys, numbered zmm for data, numbered zmm for children
   @_ == 5 or confess "Five parameters";
   my $d = $tree->getLoop($K);
@@ -12000,6 +12000,26 @@ This should happen!
 END
  }
 
+if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
+  my $a = CreateArea;
+  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("01234567");
+
+  my $q = $a->CreateQuarks;
+  $q->put($s, $l-$l+$_)        for 0..7;
+  $q->put($s, $l-$l+$_)->outNL for 0..7;
+
+  ok Assemble(debug => 0, mix => 0, eq => <<END, avx512=>1);
+size of tree: .... .... .... ....
+size of tree: .... .... .... ...1
+size of tree: .... .... .... ...2
+size of tree: .... .... .... ...3
+size of tree: .... .... .... ...4
+size of tree: .... .... .... ...5
+size of tree: .... .... .... ...6
+size of tree: .... .... .... ...7
+END
+ }
+
 #latest:
 if (0) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put #TNasm::X86::Quarks::putSub #TNasm::X86::Quarks::dump #TNasm::X86::Quarks::subFromQuarkViaQuarks #TNasm::X86::Quarks::subFromQuarkNumber #TNasm::X86::Quarks::subFromShortString #TNasm::X86::Quarks::callSubFromShortString
   my $s = Subroutine33
@@ -17062,12 +17082,14 @@ sub Nasm::X86::Unisyn::Lex::length   {1};                                       
 sub Nasm::X86::Unisyn::Lex::type     {2};                                       # Type of the lexical item
 sub Nasm::X86::Unisyn::Lex::left     {3};                                       # Left operand
 sub Nasm::X86::Unisyn::Lex::right    {4};                                       # Right operand
+sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       # Symbol
 
 sub Nasm::X86::Unisyn::Parse($$$)                                               # Parse a string of utf8 characters
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
   my $brackets    = $area->CreateTree(length => 3);                             # Bracket stack
   my $parse       = $area->CreateTree(length => 3);                             # Parse tree stack
+  my $symbols     = $area->CreateQuarks;                                        # Quarks assigning every lexical item string a unique number
 
   my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
   my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
@@ -17115,8 +17137,11 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $updateLength = sub                                                        # Update the length of the previous lexical item
    {my $t = $parse->position($lastNew);                                         # The description of the last lexical item
-    my $length = $position - $startPos;                                         # Length of previous item
-    $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $length);                   # Record length of previous item in its describing tree
+
+    my $l = $position - $startPos;                                              # Length of previous item
+    $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $l);                        # Record length of previous item in its describing tree
+#   my $s = $symbols->put($a8+$startPos, $l);                                   # The symbol number for the last lexical item
+#    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
    };
 
   my $new = sub                                                                 # Create a new lexical item
@@ -17169,7 +17194,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $a = sub                                                                   # Dyad2 = right to left associative
-   {PrintErrStringNL "Type: a";
+   {#PrintErrStringNL "Type: a";
     my $q = &$prev2;                                                            # Second previous item
     If OR
      (sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::d},               # Dyad2 preceeded by dyad3 or dyad4
@@ -17181,7 +17206,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $A = sub                                                                   # Ascii
-   {PrintErrStringNL "Type: A";
+   {#PrintErrStringNL "Type: A";
     my $p = &$prev;
     If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator
@@ -17193,12 +17218,12 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $b = sub                                                                   # Open bracket
-   {PrintErrStringNL "Type: b";
+   {#PrintErrStringNL "Type: b";
     &$push;                                                                     # Push open bracket
    };
 
   my $B = sub                                                                   # Close bracket
-   {PrintErrStringNL "Type: B";
+   {#PrintErrStringNL "Type: B";
     If &$prev->data == K(p => Nasm::X86::Unisyn::Lex::Number::s),               # Pointless statement separator
     Then
      {$parse->pop;
@@ -17234,7 +17259,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $e = sub                                                                   # Dyad4
-   {PrintErrStringNL "Type: e";
+   {#PrintErrStringNL "Type: e";
     my $q = &$prev2;                                                            # Second previous item
     If $q->data == K(p => Nasm::X86::Unisyn::Lex::Number::e),
     Then                                                                        # Dyad4 preceded by dyad4
@@ -17244,7 +17269,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $F = sub                                                                   # Final: at this point there are no brackets left.
-   {PrintErrStringNL "Type: F";
+   {#PrintErrStringNL "Type: F";
     &$updateLength;                                                             # Update the length of the previous lexical item - if there were none it will the length of the start symbol that is updated
     $parse->size->for(sub                                                       # Reduce
      {my ($index, $start, $next, $end) = @_;
@@ -17262,19 +17287,19 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $p = sub                                                                   # Prefix
-   {PrintErrStringNL "Type: p";
+   {#PrintErrStringNL "Type: p";
     &$push;                                                                     # Push prefix
    };
 
   my $q = sub                                                                   # Suffix
-   {PrintErrStringNL "Type: q";
+   {#PrintErrStringNL "Type: q";
     my $t = $parse->popSubTree;                                                 # Pop existing item description
     my $p = &$push;                                                             # Push suffix
     $p->push($t);                                                               # Restore previous item but now under suffix
    };
 
   my $s = sub                                                                   # Statement separator
-   {PrintErrStringNL "Type: s";
+   {#PrintErrStringNL "Type: s";
     Block
      {my ($end, $start) = @_;
       my $p = &$prev;                                                           # Previous item
@@ -17304,7 +17329,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $v = sub                                                                   # Variable
-   {PrintErrStringNL "Type: v";
+   {#PrintErrStringNL "Type: v";
     my $p = &$prev;
     If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator
@@ -17470,7 +17495,7 @@ END
 sub unisynParse($$$)                                                            # Test the parse of a unisyn expression
  {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
-  say STDERR readFile($f);
+# say STDERR readFile($f);
   is_deeply readFile($f), $text;
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
@@ -17478,12 +17503,11 @@ sub unisynParse($$$)                                                            
   my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
-  ok Assemble eq => $parse, avx512=>1;
+  ok Assemble eq => $parse, avx512=>1, mix=>0;
   say STDERR readFile(q(zzzOut.txt)) =~ s(\n) (\\n)gsr;
   unlink $f;
  };
 
-#latest:
 unisynParse '',                                        "\n",                    qq(\n\n);
 unisynParse 'va',                                      "𝗔\n",                   qq(𝗔\n);
 unisynParse 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
@@ -17616,10 +17640,10 @@ sub Nasm::X86::Quarks::put($$$)                                                 
   my $t = bless {%$quarks}, "Nasm::X86::Tree";                                  # Quarks == Tree
   my $s = $t->findSubTree(K key => Nasm::X86::Quarks::StringToNumber);          # Strings to numbers
   my $n = $t->findSubTree(K key => Nasm::X86::Quarks::NumberToString);          # Numbers to strings
+  my $q = $n->size;
 
   my $i = $t->area->treeFromString($address, $size);                            # Create an input tree string - expensive - we should look up the quark directly from the input string but this way is easier to code.
-  my $I = $s->getString($i);
-  my $q = $n->size;
+  my $I = $s->getString($i);                                                    # Look up the input string
   If $I->found == 0,                                                            # We can add it as it does not exist
   Then
    {$i->push($q);
@@ -17678,9 +17702,9 @@ sub Nasm::X86::Area::treeFromString($$$)                                        
     Then                                                                        # Save last few bytes
      {$t->push(V last => r13)                                                   # Last few bytes
      };
+    PopR;
    };
 
-  PopR;
   $t                                                                            # Description of tree loaded from string
  }
 
@@ -17876,7 +17900,6 @@ if (1) {                                                                        
      };
    } name => "s", parameters=>[qw(fail)], trace=>1;
 
-
   my $T = Subroutine                                                            # Fail
    {my ($p, $s, $sub) = @_;
     Mov rax, Rq(0x22);
@@ -17893,6 +17916,8 @@ if (1) {                                                                        
    rax: .... .... .... ..22
 END
  }
+
+latest:
 
 #latest:
 if (0) {                                                                        #
