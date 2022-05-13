@@ -8302,8 +8302,7 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
               PrintOutString '*';
              },
             Else
-            #{PrintOutString ' ';
-             {PrintOutString '-';
+             {PrintOutString ' ';
               if ($name =~ m(key))
                {$k->outRightInHex(K width => $width) if     $keyX;
                 $k->outRightInDec(K width => $width) unless $keyX;
@@ -16503,6 +16502,7 @@ At:      780                                                                    
      end
 end
 END
+done_testing;
 exit;
  }
 
