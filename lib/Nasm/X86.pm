@@ -8289,7 +8289,8 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
            {Test $treeBitsR, $treeBitsIndexR;                                   # Check for a tree bit
             IfNz
             Then                                                                # This key indexes a sub tree
-             {if ($first)                                                       # Print out the offset of the first block as used by the sub tree
+             {PrintErrStringNL "AAAA";
+              if ($first)                                                       # Print out the offset of the first block as used by the sub tree
                {($k >> K(four => 4))->outRightInHex(K width => $width);         # This field indicates the offset of the first block
                }
               else                                                              # This key indexes a sub tree and for a reason which I have no desire to call to mind, I once thought it necessary to print the offset of the first node rather than the first block.
@@ -8302,7 +8303,8 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
               PrintOutString '*';
              },
             Else
-             {PrintOutString ' ';
+             {PrintErrStringNL "BBBB";
+              PrintOutString ' ';
               if ($name =~ m(key))
                {$k->outRightInHex(K width => $width) if     $keyX;
                 $k->outRightInDec(K width => $width) unless $keyX;
@@ -16438,7 +16440,7 @@ A
 END
  }
 
-latest:
+latest:    #TTTT
 if (1) {                                                                        #TNasm::X86::Tree::push
   my $b = Rb(0x41..0x51);
   my $a = CreateArea;
