@@ -44,6 +44,8 @@ my $sdeMixOut   = q(sde-mix-out.txt);                                           
 my $sdeTraceOut = q(sde-debugtrace-out.txt);                                    # Emulator trace output file
 my $sdePtrCheck = q(sde-ptr-check.out.txt);                                     # Emulator pointer check file
 my $traceBack   = q(zzzTraceBack.txt);                                          # Trace back of last error observed in emulator trace file if tracing is on
+my $programErr  = q(zzzErr.txt);                                                # Program error  file
+my $programOut  = q(zzzOut.txt);                                                # Program output file
 
 our $stdin      = 0;                                                            # File descriptor for standard input
 our $stdout     = 1;                                                            # File descriptor for standard output
@@ -5366,8 +5368,8 @@ sub Nasm::X86::Area::printOut($$$)                                              
   PopR;
  }
 
-#sub Nasm::X86::Area::outPartNL($)                                               # Print part of the specified area on sysout followed by a new line.
-# {my ($area) = @_;                                                              # Area descriptor
+#sub Nasm::X86::Area::outPartNL($)                                              # Print part of the specified area on sysout followed by a new line.
+# {my ($area) = @_;                                                             # Area descriptor
 #  @_ == 1 or confess "One parameter";
 #
 #  $area->outPart;
@@ -6161,7 +6163,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
     Block
      {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
-      my $t     = $$s{tree};                                                    # Tree
+      my $t    = $$s{tree};                                                     # Tree
       my $area = $t->area;                                                      # Area
 
       PushR 22...31;
@@ -6217,8 +6219,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
        };
 
       $t->putBlock        ($r,      $RK, $RD, $RN);                             # Save right block
-
-     };                                                          # Insert completed successfully
+     };                                                                         # Insert completed successfully
     PopR;
    }  structures => {tree => $tree},
       parameters => [qw(offset split)],
@@ -7911,7 +7912,7 @@ sub Nasm::X86::Tree::peek($$)                                                   
   $tree
  }
 
-sub Nasm::X86::Tree::peekSubTree($)                                              # Pop the last value out of a tree and return a tree descriptor positioned on it with the first/found fields set.
+sub Nasm::X86::Tree::peekSubTree($)                                             # Pop the last value out of a tree and return a tree descriptor positioned on it with the first/found fields set.
  {my ($tree, $back) = @_;                                                       # Tree descriptor, how far back to go with 1 being the top
   @_ == 2 or confess "Two parameters";
   ref($back) =~ m(Variable) or confess "Must be a variable, not: ", dump($back);
@@ -8642,7 +8643,7 @@ sub Start()                                                                     
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
   @PushR = @extern = @link = @VariableStack = ();
 # @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});               # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
-  SubroutineStartStack;                                                       # Number of variables at each lexical level
+  SubroutineStartStack;                                                         # Number of variables at each lexical level
   $Labels = 0;
  }
 
@@ -8823,8 +8824,8 @@ sub Assemble(%)                                                                 
   my $execFile   = $keep // q(z);                                               # Executable file
   my $listFile   = q(z.txt);                                                    # Assembler listing
   my $objectFile = $library // q(z.o);                                          # Object file
-  my $o1         = 'zzzOut.txt';                                                # Stdout from run
-  my $o2         = 'zzzErr.txt';                                                # Stderr from run
+  my $o1         = $programOut;                                                 # Stdout from run
+  my $o2         = $programErr;                                                 # Stderr from run
 
   @PushR and confess "Mismatch PushR, PopR";                                    # Match PushR with PopR
 
@@ -16906,7 +16907,7 @@ sub Nasm::X86::Unisyn::Lex::Letter::b {(0x2308,0x230a,0x2329,0x2768,0x276a,0x276
 sub Nasm::X86::Unisyn::Lex::Number::B {11}                                      # Close
 sub Nasm::X86::Unisyn::Lex::Letter::B {(0x2309,0x230b,0x232a,0x2769,0x276b,0x276d,0x276f,0x2771,0x2773,0x2775,0x27e7,0x27e9,0x27eb,0x27ed,0x27ef,0x2984,0x2986,0x2988,0x298a,0x298c,0x298e,0x2990,0x2992,0x2994,0x2996,0x2998,0x29fd,0x2e29,0x3009,0x300b,0x3011,0x3015,0x3017,0x3019,0x301b,0xfd3f,0xff09,0xff60)} # Close
 
-sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                  # Compose phrases of Earl Zero, write them to a temporary file, return the temporary file name
+sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    # Compose phrases of Earl Zero, write them to a temporary file, return the temporary file name
  {my ($words) = @_;                                                             # String of words
   my $s = '';
 
@@ -16948,7 +16949,7 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                  # 
     elsif ($w =~ m(\Ae(\d+))) {$s .= c $1, "e"}                                 # Dyad2  chosen by number
     elsif ($w =~ m(\Ap(\d+))) {$s .= c $1, "p"}                                 # Prefix chosen by number
     elsif ($w =~ m(\Aq(\d+))) {$s .= c $1, "q"}                                 # Suffix chosen by number
-    elsif ($w =~ m(\As\Z))    {$s .= c 0, "s"}                                 # Semicolon
+    elsif ($w =~ m(\As\Z))    {$s .= c 0, "s"}                                  # Semicolon
     elsif ($w =~ m(\AS\Z))    {$s .= ' '}                                       # Space
     elsif ($w =~ m(\Av(\w+))) {$s .= $var ->($1)}                               # Variable name
     else {confess "Cannot create Unisyn from $w"}                               # Variable name
@@ -17561,11 +17562,12 @@ sub unisynParse($$$;$)                                                          
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
+$TraceMode = 1;
   my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
   ok Assemble eq => $parse, avx512=>1, list=>$trace, mix=>$trace;
-  say STDERR readFile(q(zzzOut.txt)) =~ s(\n) (\\n)gsr;
+  say STDERR readFile($programOut) =~ s(\n) (\\n)gsr if -e $programOut;
   unlink $f;
  };
 
