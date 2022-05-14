@@ -15,6 +15,7 @@
 # Update PrintOut to use V2 every where then rename
 # Replace calls to Tree::position with Tree::down
 # Make Pop return a tree when it is on a sub tree
+# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls.  rsi rdi are free - we should probably make r11 free as well.
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -1185,7 +1186,7 @@ sub PrintTraceBack($)                                                           
     my $count     = r14;
     my $index     = r13;
     my $parameter = r12;                                                        # Number of parameters
-    my $maxCount  = r8;                                                         # Maximum number of parameters - should be r11 when we have found out why r11 does not print correctly.
+    my $maxCount  = r8;                                                         # Maximum number of parameters - should be r11 but r11 is free in linux and does not survive syscalls.
     my $depth     = r10;                                                        # Depth of trace back
     ClearRegisters @save;
 
@@ -8205,7 +8206,7 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
     my $t = $$s{tree};                                                          # Tree
     my $I = $$p{indentation};                                                   # Indentation to apply to the start of each new line
 
-    PushR my $transfer = r8, my $treeBitsR = r10, my $treeBitsIndexR = r11,
+    PushR my $transfer = r8, my $treeBitsR = r9, my $treeBitsIndexR = r10,
           my $K = 30, my $D = 29, my $N = 28;
 
     Block                                                                       # Print each node in the tree
@@ -8440,7 +8441,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
     my $t = $$s{tree};                                                          # Tree
     my $area = $t->area;                                                        # Area
 
-    PushR my $treeBitsR = r10, my $treeBitsIndexR = r11,
+    PushR my $treeBitsR = r8, my $treeBitsIndexR = r9,
           my $K = 30, my $D = 29, my $N = 28;
 
     Block                                                                       # Print each node in the tree
