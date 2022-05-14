@@ -40,7 +40,10 @@ my @extern;                                                                     
 my @link;                                                                       # Specify libraries which to link against in the final assembly stage
 my $interpreter = q(-I /usr/lib64/ld-linux-x86-64.so.2);                        # The ld command needs an interpreter if we are linking with C.
 my $develop     = -e q(/home/phil/);                                            # Developing
-my $sdeMixOut   = q(sde-mix-out.txt);                                           # Emulator output file
+my $sdeMixOut   = q(sde-mix-out.txt);                                           # Emulator hot spot output file
+my $sdeTraceOut = q(sde-debugtrace-out.txt);                                    # Emulator trace output file
+my $sdePtrCheck = q(sde-ptr-check.out.txt);                                     # Emulator pointer check file
+my $traceBack   = q(zzzTraceBack.txt);                                          # Trace back of last error observed in emulator trace file if tracing is on
 
 our $stdin      = 0;                                                            # File descriptor for standard input
 our $stdout     = 1;                                                            # File descriptor for standard output
@@ -8750,7 +8753,9 @@ sub lineNumbersToSubNamesFromSource                                             
  }
 
 sub locateRunTimeErrorInDebugTraceOutput                                        # Locate the traceback of the last known good position in the trace file before the error occurred
- {my @a = readFile q(sde-debugtrace-out.txt);                                   # Read trace file
+ {unlink $traceBack;                                                            # Traceback file
+  return unless -e $sdeTraceOut;                                                # Need a trace file to get a traceback
+  my @a = readFile $sdeTraceOut;                                                # Read trace file
   my $s = 0;                                                                    # Parse state
   my @p;                                                                        # Position in source file
 
@@ -8778,11 +8783,11 @@ sub locateRunTimeErrorInDebugTraceOutput                                        
   push @t, "_" x 80;
   my $t = join "\n", @t;
   say STDERR $t;                                                                # Print trace back so we can see it in geany messages
-  owf("zzzTraceBack.txt", $t);                                                  # Place into a well known file
+  owf($traceBack, $t);                                                          # Place into a well known file
  }
 
 sub fixMixOutput                                                                # Fix mix output so we know where the code comes from in the source file
- {my @a = readFile q(sde-mix-out.txt);                                          # Read mix output
+ {my @a = readFile $sdeMixOut;                                                  # Read mix output
   my %l = lineNumbersToSubNamesFromSource();
 
   for my $i(keys @a)                                                            # Each line of output
@@ -8791,7 +8796,7 @@ sub fixMixOutput                                                                
       $a[$i] = sprintf "    %s called at $0 line %d\n", $l{$l}//'', $l;
      }
    }
-  owf q(sde-mix-out.txt), join "", @a;                                          # Update mix out
+  owf $sdeMixOut, join "", @a;                                                  # Update mix out
   say STDERR              join "", @a;                                          # Write mix out
  }
 
@@ -8922,7 +8927,7 @@ END
      {unlink $f if $f =~ m(sde-mix-out);
      }
    }
-  unlink qw(sde-ptr-check.out.txt sde-mix-out.txt sde-debugtrace-out.txt zzzTraceBack.txt);
+  unlink $sdePtrCheck, $sdeMixOut, $sdeTraceOut, $traceBack;
 
   if (1)                                                                        # Assemble
    {my $I = @link ? $interpreter : '';                                          # Interpreter only required if calling C
@@ -9055,7 +9060,8 @@ END
       say STDERR "Got : ", dump($g);
 
       if (onGitHub)                                                             # Dump output files that might show why the failure occurred
-       {for my $f(qw(zzzOut.txt zzzErr.txt sde-mix-out.txt sde-debugtrace-out.txt zzzTraceBack.txt))
+       {for my $f($sdeMixOut, $sdePtrCheck, $sdeMixOut, $sdeTraceOut,
+                  $o1, $o2, $traceBack)
          {if (-e $f)                                                            # Dump the file if it exists
            {say STDERR qx(ls -la $f; cat $f);
            }
@@ -17533,8 +17539,8 @@ END
   unlink $f;
  }
 
-sub unisynParse($$$)                                                            # Test the parse of a unisyn expression
- {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
+sub unisynParse($$$;$)                                                          # Test the parse of a unisyn expression
+ {my ($compose, $text, $parse, $trace) = @_;                                    # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree, whether we should trace or not
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
 # say STDERR readFile($f);
   is_deeply readFile($f), $text;
@@ -17544,7 +17550,7 @@ sub unisynParse($$$)                                                            
   my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
-  ok Assemble eq => $parse, avx512=>1, list=>0, mix=>1;
+  ok Assemble eq => $parse, avx512=>1, list=>$trace, mix=>$trace;
   say STDERR readFile(q(zzzOut.txt)) =~ s(\n) (\\n)gsr;
   unlink $f;
  };
@@ -17924,7 +17930,7 @@ if (1) {                                                                        
 
   PrintOutRegisterInHex rax;
   eval {Assemble avx512=>1, trace=>1, mix=>0};
-  ok readFile(q(zzzTraceBack.txt)) =~ m(TraceBack start:)s;
+  ok readFile($traceBack) =~ m(TraceBack start:)s;
  }
 
 #latest:
@@ -17958,10 +17964,10 @@ if (1) {                                                                        
 END
  }
 
-latest:
-unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
+#latest:
+unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
 
-latest:
+#latest:
 if (1) {                                                                        #
   my ($s, $l) =                                                                 #TCopyMemory64
     addressAndLengthOfConstantStringAsVariables('0123456789abcdef'x64);
