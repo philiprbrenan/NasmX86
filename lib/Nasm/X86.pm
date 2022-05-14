@@ -17521,7 +17521,7 @@ sub unisynParse($$$)                                                            
   my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
-  ok Assemble eq => $parse, avx512=>1, list=>1, mix=>1;
+  ok Assemble eq => $parse, avx512=>1, list=>0, mix=>0;
   say STDERR readFile(q(zzzOut.txt)) =~ s(\n) (\\n)gsr;
   unlink $f;
  };
