@@ -8787,7 +8787,8 @@ sub locateRunTimeErrorInDebugTraceOutput                                        
  }
 
 sub fixMixOutput                                                                # Fix mix output so we know where the code comes from in the source file
- {my @a = readFile $sdeMixOut;                                                  # Read mix output
+ {return unless -e $sdeMixOut;                                                  # Need a mix file to make this work
+  my @a = readFile $sdeMixOut;                                                  # Read mix output
   my %l = lineNumbersToSubNamesFromSource();
 
   for my $i(keys @a)                                                            # Each line of output
@@ -10844,6 +10845,19 @@ if (1) {                                                                        
   xmm0: .... .... .... ...4  .... ...3 ...2 .1..
   xmm1: .... .... .... ...4  .... ...3 ...2 .1..
 __.1 .2__ .3__ ____  .4__ ____ ____ ____
+END
+ }
+
+#latest:
+if (1) {                                                                        #
+  my ($s, $l) =                                                                 #TCopyMemory64
+    addressAndLengthOfConstantStringAsVariables('0123456789abcdef'x64);
+  my $t = $l->allocateMemory;
+  my $N = K blocks => 2;
+  CopyMemory64($s, $t, $N);
+  $t->printOutMemoryNL($N*16);
+  ok Assemble eq => <<END, avx512=>1;
+0123456789abcdef0123456789abcdef
 END
  }
 
@@ -17964,21 +17978,8 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
-
-#latest:
-if (1) {                                                                        #
-  my ($s, $l) =                                                                 #TCopyMemory64
-    addressAndLengthOfConstantStringAsVariables('0123456789abcdef'x64);
-  my $t = $l->allocateMemory;
-  my $N = K blocks => 2;
-  CopyMemory64($s, $t, $N);
-  $t->printOutMemoryNL($N*16);
-  ok Assemble eq => <<END, avx512=>1;
-0123456789abcdef0123456789abcdef
-END
- }
 
 #latest:
 if (0) {                                                                        #
