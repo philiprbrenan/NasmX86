@@ -15,7 +15,7 @@
 # Update PrintOut to use V2 every where then rename
 # Replace calls to Tree::position with Tree::down
 # Make Pop return a tree when it is on a sub tree
-# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls.  rsi rdi are free - we should probably make r11 free as well.
+# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls.  rsi rdi are free - likewise r11 because linux occasionally sets it to the contents of the flags register on return from syscall.
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -8287,13 +8287,10 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
             $k->outRightInHex(K width => $width);
            }
           else
-           {PrintErrStringNL "CCCC";
-PrintErrRegisterInHex $treeBitsR, $treeBitsIndexR;
-            Test $treeBitsR, $treeBitsIndexR;                                   # Check for a tree bit
+           {Test $treeBitsR, $treeBitsIndexR;                                   # Check for a tree bit
             IfNz
             Then                                                                # This key indexes a sub tree
-             {PrintErrStringNL "AAAA";
-              if ($first)                                                       # Print out the offset of the first block as used by the sub tree
+             {if ($first)                                                       # Print out the offset of the first block as used by the sub tree
                {($k >> K(four => 4))->outRightInHex(K width => $width);         # This field indicates the offset of the first block
                }
               else                                                              # This key indexes a sub tree and for a reason which I have no desire to call to mind, I once thought it necessary to print the offset of the first node rather than the first block.
@@ -8306,8 +8303,7 @@ PrintErrRegisterInHex $treeBitsR, $treeBitsIndexR;
               PrintOutString '*';
              },
             Else
-             {PrintErrStringNL "BBBB";
-              PrintOutString ' ';
+             {PrintOutString ' ';
               if ($name =~ m(key))
                {$k->outRightInHex(K width => $width) if     $keyX;
                 $k->outRightInDec(K width => $width) unless $keyX;
@@ -16443,7 +16439,7 @@ A
 END
  }
 
-latest:    #TTTT
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::push
   my $b = Rb(0x41..0x51);
   my $a = CreateArea;
@@ -16507,8 +16503,6 @@ At:      780                                                                    
      end
 end
 END
-done_testing;
-exit;
  }
 
 #latest:
