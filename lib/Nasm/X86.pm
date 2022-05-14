@@ -4024,9 +4024,9 @@ sub CopyMemory($$$)                                                             
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     SaveFirstSeven;
-    $$p{source}->setReg(rsi);
-    $$p{target}->setReg(rax);
-    $$p{size}  ->setReg(rdi);
+    $$p{source}->setReg(rsi);                                                   # Source location
+    $$p{target}->setReg(rax);                                                   # Target location
+    $$p{size}  ->setReg(rdi);                                                   # Size of area to copy
     ClearRegisters rdx;
     For                                                                         # Clear memory
      {Mov "r8b", "[rsi+rdx]";
@@ -8910,7 +8910,7 @@ END
    {my $I = @link ? $interpreter : '';                                          # Interpreter only required if calling C
     my $L = join " ",  map {qq(-l$_)} @link;                                    # List of libraries to link supplied via Link directive.
     my $e = $execFile;
-    my $l = $trace ? qq(-l $listFile) : q();                                    # Create a list file if we are tracing because otherwise it it is difficult to know what we are tracing
+    my $l = $trace || $list ? qq(-l $listFile) : q();                           # Create a list file if we are tracing because otherwise it it is difficult to know what we are tracing
     my $a = qq(nasm -O0 $l -o $objectFile $sourceFile);                         # Assembly options
 
     my $cmd  = $library
@@ -17159,8 +17159,12 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
     my $l = $position - $startPos;                                              # Length of previous item
     $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $l);                        # Record length of previous item in its describing tree
-#   my $s = $symbols->put($a8+$startPos, $l);                                   # The symbol number for the last lexical item
-#    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
+# 22,887,163 with next 2 commented out
+# 23,043,541           1
+# 23,117,942           0
+# unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
+    my $s = $symbols->put($a8+$startPos, $l);                                   # The symbol number for the last lexical item
+    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
    };
 
   my $new = sub                                                                 # Create a new lexical item
@@ -17522,7 +17526,7 @@ sub unisynParse($$$)                                                            
   my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
-  ok Assemble eq => $parse, avx512=>1, mix=>0;
+  ok Assemble eq => $parse, avx512=>1, list=>1, mix=>1;
   say STDERR readFile(q(zzzOut.txt)) =~ s(\n) (\\n)gsr;
   unlink $f;
  };
@@ -17936,7 +17940,8 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
+unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
 
 #latest:
 if (0) {                                                                        #
