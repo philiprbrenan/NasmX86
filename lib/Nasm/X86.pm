@@ -4021,21 +4021,16 @@ sub CopyMemory($$$)                                                             
  {my ($source, $target, $size) = @_;                                            # Source address variable, target address variable, length variable
   @_ == 3 or confess "Source, target, size required";
 
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-    SaveFirstSeven;
-    $$p{source}->setReg(rsi);                                                   # Source location
-    $$p{target}->setReg(rax);                                                   # Target location
-    $$p{size}  ->setReg(rdi);                                                   # Size of area to copy
-    ClearRegisters rdx;
-    For                                                                         # Clear memory
-     {Mov "r8b", "[rsi+rdx]";
-      Mov "[rax+rdx]", "r8b";
-     } rdx, rdi, 1;
-    RestoreFirstSeven;
-   } parameters=>[qw(source target size)], name => 'CopyMemory';
-
-  $s->call(parameters=>{source => $source, target=>$target, size=>$size});
+  SaveFirstSeven;
+  $source->setReg(rsi);                                                         # Source location
+  $target->setReg(rax);                                                         # Target location
+  $size  ->setReg(rdi);                                                         # Size of area to copy
+  ClearRegisters rdx;
+  For                                                                           # Clear memory
+   {Mov "r8b", "[rsi+rdx]";
+    Mov "[rax+rdx]", "r8b";
+   } rdx, rdi, 1;
+  RestoreFirstSeven;
  }
 
 #D2 Files                                                                       # Interact with the operating system via files.
