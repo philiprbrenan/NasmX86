@@ -3624,8 +3624,8 @@ sub Nasm::X86::Variable::freeMemory($$)                                         
   &FreeMemory($address, $size);                                                 # Free the memory
  }
 
-sub Nasm::X86::Variable::allocateMemory($)                                      # Allocate the specified amount of memory via mmap and return its address.
- {my ($size) = @_;                                                              # Size
+sub Nasm::X86::Variable::allocateMemory($)                                      # Allocate a variable amount of memory via mmap and return its address.
+ {my ($size) = @_;                                                              # Size as a variable
   @_ == 1 or confess "One parameter";
   AllocateMemory($size);
  }
@@ -4031,6 +4031,29 @@ sub CopyMemory($$$)                                                             
     Mov "[rax+rdx]", "r8b";
    } rdx, rdi, 1;
   RestoreFirstSeven;
+ }
+
+sub CopyMemory64($$$)                                                           # Copy memory in 64 byte blocks.
+ {my ($source, $target, $size) = @_;                                            # Source address variable, target address variable, number of 64 byte blocks to move
+  @_ == 3 or confess "Source, target, size required";
+
+  PushR my $s = r8, my $t = r9, my $z = r10, my $c = r11, 31;
+
+  $source->setReg($s);                                                          # Source location
+  $target->setReg($t);                                                          # Target location
+  $size  ->setReg($c);                                                          # Size of area to copy
+  my $end = Label;                                                              # End of move loopo
+  Cmp $c, 0;
+  Je $end;                                                                      # Nothing to move
+  my $start = SetLabel;                                                         # Move loop
+    Vmovdqu64 zmm31, "[$s]";
+    Vmovdqu64 "[$t]", zmm31;
+    Add $s, 64;
+    Add $t, 64;
+    Sub $c, 1;
+    Jnz $start;
+  SetLabel $end;
+  PopR;
  }
 
 #D2 Files                                                                       # Interact with the operating system via files.
@@ -4882,7 +4905,7 @@ sub Nasm::X86::Area::size($)                                                    
   $size                                                                         # Return size
  }
 
-sub Nasm::X86::Area::updateSpace($$)                                            #P Make sure that the variable addressed area has enough space to accommodate content of the variable size.
+sub Nasm::X86::Area::updateSpace($$)                                            #P Make sure that a variable addressed area has enough space to accommodate content of a variable size.
  {my ($area, $size) = @_;                                                       # Area descriptor, variable size needed
   @_ == 2 or confess "Two parameters";
 
@@ -4917,7 +4940,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
        });
 
       my $address = AllocateMemory V size => $proposed;                         # Create new area
-      CopyMemory($area->address, $address, $area->size);                        # Copy old area into new area
+      CopyMemory64($area->address, $address, $area->size>>K(sixtyFour => 6));   # Copy old area into new area
       FreeMemory $area->address, $area->size;                                   # Free previous memory previously occupied area
       $area->address->copy($address);                                           # Save new area address
       $address->setReg($base);                                                  # Address area
@@ -17521,7 +17544,7 @@ sub unisynParse($$$)                                                            
   my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
-  ok Assemble eq => $parse, avx512=>1, list=>0, mix=>0;
+  ok Assemble eq => $parse, avx512=>1, list=>0, mix=>1;
   say STDERR readFile(q(zzzOut.txt)) =~ s(\n) (\\n)gsr;
   unlink $f;
  };
@@ -17937,6 +17960,19 @@ END
 
 latest:
 unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
+
+latest:
+if (1) {                                                                        #
+  my ($s, $l) =                                                                 #TCopyMemory64
+    addressAndLengthOfConstantStringAsVariables('0123456789abcdef'x64);
+  my $t = $l->allocateMemory;
+  my $N = K blocks => 2;
+  CopyMemory64($s, $t, $N);
+  $t->printOutMemoryNL($N*16);
+  ok Assemble eq => <<END, avx512=>1;
+0123456789abcdef0123456789abcdef
+END
+ }
 
 #latest:
 if (0) {                                                                        #
