@@ -8286,7 +8286,9 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
             $k->outRightInHex(K width => $width);
            }
           else
-           {Test $treeBitsR, $treeBitsIndexR;                                   # Check for a tree bit
+           {PrintErrStringNL "CCCC";
+PrintErrRegisterInHex $treeBitsR, $treeBitsIndexR;
+            Test $treeBitsR, $treeBitsIndexR;                                   # Check for a tree bit
             IfNz
             Then                                                                # This key indexes a sub tree
              {PrintErrStringNL "AAAA";
@@ -8327,7 +8329,7 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
        {$printKD->('Nodes:', $N, 1, 0);
        };
 
-      Cmp $treeBitsR, 0;                                                        # Any tree bit sets?
+      Cmp $treeBitsR, 0;                                                        # Any tree bits set?
       IfNe
       Then                                                                      # Tree bits present
        {Mov $treeBitsIndexR, 1;                                                 # Check each tree bit position
