@@ -7376,7 +7376,7 @@ sub Nasm::X86::Tree::mergeOrSteal($$)                                           
      structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::mergeOrSteal($$tree{length})";
 
-  $s->inline
+  $s->call
    (structures => {tree   => $tree},
     parameters => {offset => $offset, changed => my $changed = V changed => 0});
 
@@ -18064,11 +18064,12 @@ END
 #   14,876,443       1,247,840      14,876,443       1,247,840      2.506694          1.83  insertKeyDataTreeIntoLeaf
 #   14,873,853       1,257,656      14,873,853       1,257,656      2.530187          1.91  splitRoot
 #   14,871,893       1,371,472      14,871,893       1,371,472      2.540378          4.41  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 17619
+#   14,505,119       1,264,408      14,505,119       1,264,408      2.846307          4.87  vcopy constant
 
-#latest:
+latest:
 if (1)
  {unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
-#exit;
+exit;
  }
 
 #          705         164,776             705         164,776      0.106918          0.15  1 push
