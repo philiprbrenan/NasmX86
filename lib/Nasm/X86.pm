@@ -6760,7 +6760,7 @@ sub Nasm::X86::Tree::findLast($)                                                
    } structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::findLast($$tree{length})";
 
-  $s->call(structures=>{tree => $tree});
+  $s->inline(structures=>{tree => $tree});
  } # findLast
 
 sub Nasm::X86::Tree::findNext($$)                                               # Find the next key greater than the one specified.
@@ -18067,16 +18067,16 @@ END
 #   14,505,119       1,264,408      14,505,119       1,264,408      2.846307          4.87  variable::copy constant
 #   14,506,287       1,154,376      14,506,287       1,154,376      2.903949          1.90  mergeOrSteal not inlined
 
-latest:
+#latest:
 if (1)
  {unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
  }
 
 #          705         164,776             705         164,776      0.106918          0.15  1 push
 #        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+#        1,274         164,072           1,274         164,072      0.371407          0.17  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18086
+latest:
+if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
 
@@ -18086,35 +18086,6 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
 END
  }
-
-#latest:
-if (1) {
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;
-   } name => "s", structures=>{tree=>$t};
-
-  my $p = V key => 1;
-  $s->call(structures=>{tree=>$t});
-
-  Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
-END
- }
-
-#latest:
-if (1) {
-Comment("AAAA");
-  my $a = V(key => 0);
-Comment("BBBB");
-
-  $a->copy(1);
-Comment("CCCC");
-  Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
-END
- }
-
-
 
 #latest:
 if (0) {                                                                        #
