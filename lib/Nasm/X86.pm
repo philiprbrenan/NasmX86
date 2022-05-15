@@ -6790,7 +6790,7 @@ sub Nasm::X86::Tree::findLast($)                                                
    } structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::findLast($$tree{length})";
 
-  $s->inline(structures=>{tree => $tree});
+  $s->call(structures=>{tree => $tree});                                        # Inline causes very long assembly times so we call instead.
  } # findLast
 
 sub Nasm::X86::Tree::findNext($$)                                               # Find the next key greater than the one specified.
@@ -17204,7 +17204,7 @@ END
   unlink $f;
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TOR #TAND
   my $a = K(key => 1);
 
