@@ -6761,14 +6761,15 @@ sub Nasm::X86::Tree::findLast($)                                                
         K(loop => 99)->for(sub                                                  # Step down through the tree a reasonable number of times
          {my ($i, $start, $next, $end) = @_;
           my $l = $t->lengthFromKeys($K);
-          my $o  = ($l - 1) * $t->width;
-          my $k = dFromZ($K, $o);
-          my $d = dFromZ($D, $o);
-          my $b = $t->getTreeBit($K, $l);
 
           If $t->leafFromNodes($N),                                             # Leaf node means we have arrived
           Then
-           {$t->found  ->copy(1);
+           {my $o  = ($l - 1) * $t->width;
+            my $k = dFromZ($K, $o);
+            my $d = dFromZ($D, $o);
+            my $b = $t->getTreeBit($K, $l);
+
+            $t->found  ->copy(1);
             $t->key    ->copy($k);
             $t->data   ->copy($d);
             $t->subTree->copy($b);
@@ -18130,7 +18131,7 @@ if (1)
 #        1,199         176,688           1,199         176,688      0.374408          0.18
 #        1,136         174,896          12,330         184,632      0.353687          0.16  PushR, PopR
 
-#latest:
+latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
