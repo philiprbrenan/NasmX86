@@ -6726,20 +6726,18 @@ sub Nasm::X86::Tree::findLast($)                                                
 
       If $t->sizeFromFirst($F) >  0,                                            # Non empty tree
       Then
-       {my $root = $t->rootFromFirst($F);                                         # Root of tree
-        $t->getBlock($root, $K, $D, $N);                                          # Load root
+       {my $root = $t->rootFromFirst($F);                                       # Root of tree
+        $t->getBlock($root, $K, $D, $N);                                        # Load root
 
-        K(loop => 99)->for(sub                                                    # Step down through the tree a reasonable number of times
+        K(loop => 99)->for(sub                                                  # Step down through the tree a reasonable number of times
          {my ($i, $start, $next, $end) = @_;
           my $l = $t->lengthFromKeys($K);
           my $o  = ($l - 1) * $t->width;
-          my $O  = ($l + 0) * $t->width;
           my $k = dFromZ($K, $o);
           my $d = dFromZ($D, $o);
-          my $n = dFromZ($N, $O);
           my $b = $t->getTreeBit($K, $l);
 
-          If $t->leafFromNodes($N),                                               # Leaf node means we have arrived
+          If $t->leafFromNodes($N),                                             # Leaf node means we have arrived
           Then
            {$t->found  ->copy(1);
             $t->key    ->copy($k);
@@ -6748,11 +6746,13 @@ sub Nasm::X86::Tree::findLast($)                                                
             Jmp $success
            };
 
+          my $O = $l * $t->width;
+          my $n = dFromZ($N, $O);                                               # Step down to the next level
           $t->getBlock($n, $K, $D, $N);
          });
         PrintErrTraceBack "Stuck looking for last";
-       };                                                          # Find completed successfully
-     };                                                          # Find completed successfully
+       };
+     };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::findLast($$tree{length})";
