@@ -3202,22 +3202,6 @@ sub Nasm::X86::Variable::getReg($$)                                             
   my $r = registerNameFromNumber $register;
   if ($variable->isRef)                                                         # Move to the location referred to by this variable
    {Comment "Get variable value from register $r";
-    my $p = $r eq rsi ? rdi : rsi;
-    Mov $p, $variable->addressExpr;
-    Mov "[$p]", $r;
-   }
-  else                                                                          # Move to this variable
-   {Mov $variable->addressExpr, $r;
-   }
-  $variable                                                                     # Chain
- }
-
-sub Nasm::X86::Variable::getReg22($$)                                             # Load the variable from a register expression.
- {my ($variable, $register) = @_;                                               # Variable, register expression to load
-  @_ == 2 or confess "Two parameters";
-  my $r = registerNameFromNumber $register;
-  if ($variable->isRef)                                                         # Move to the location referred to by this variable
-   {Comment "Get variable value from register $r";
     my $p = $r eq r15 ? r14 : r15;
     PushR $p;
     Mov $p, $variable->addressExpr;
