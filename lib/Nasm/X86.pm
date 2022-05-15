@@ -2438,14 +2438,14 @@ sub Variable($;$%)                                                              
      {if ($Registers{$expr} and $expr =~ m(\Ar))                                # Expression is ready to go
        {Mov "[$label]", $expr;
        }
-#     else                                                                      # Transfer expression
-#      {PushR 15;
-#       Mov r15, $expr;
-#       Mov "[$label]", r15;
-#       PopR;
-#      }
-      else                                                                      # Transfer expression
+      elsif ($expr =~ m(\A\d+\Z))                                                # Transfer constant expression
        {Mov "qword[$label]", $expr;
+       }
+      else                                                                      # Transfer expression
+       {PushR 15;
+        Mov r15, $expr;
+        Mov "[$label]", r15;
+        PopR;
        }
      }
    }
@@ -18074,7 +18074,7 @@ if (1)
 #          705         164,776             705         164,776      0.106918          0.15  1 push
 #        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -18086,7 +18086,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18101,7 +18101,7 @@ if (1) {
 END
  }
 
-latest:
+#latest:
 if (1) {
 Comment("AAAA");
   my $a = V(key => 0);
