@@ -17204,7 +17204,7 @@ END
   unlink $f;
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TOR #TAND
   my $a = K(key => 1);
 
@@ -18093,7 +18093,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Subroutine::inline
   my $s = Subroutine                                                            # Load and print rax
    {my ($p, $s, $sub) = @_;
@@ -18125,7 +18125,7 @@ END
 
 #latest:
 if (1)
- {unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
+ {unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
  }
 
 #          705         164,776             705         164,776      0.106918          0.15  1 push
