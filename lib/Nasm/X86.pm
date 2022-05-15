@@ -1536,7 +1536,8 @@ sub Nasm::X86::Subroutine::call($%)                                             
     undef
    }->();
 
-  PushR my $w = RegisterSize r15;                                               # Use this register to transfer between the current frame and the next frame
+  my $w = RegisterSize r15;                                                     # Size of a parameter
+  PushR 15;                                                                     # Use this register to transfer between the current frame and the next frame
   Mov "dword[rsp  -$w*3]", Rs($sub->name);                                      # Point to subroutine name
   Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable trace back with parameters
 
@@ -4589,6 +4590,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
       $$p{fail}->getConst(1);                                                   # Conversion failed
      };
 
+
     PopR;
    } parameters=>[qw(in out  size  fail)], name => 'GetNextUtf8CharAsUtf32';
 
@@ -4642,7 +4644,7 @@ sub ConvertUtf8ToUtf32($$)                                                      
       Jge $end;                                                                 # Exhausted input string
     });
 
-    $$p{count} ->getReg(r12);                                                   # Number of unicode points converted from utf8 to utf32
+    $$p{count}->getReg(r12);                                                    # Number of unicode points converted from utf8 to utf32
     PopR;
    } parameters=>[qw(a8 s8 a32 s32 count fail)], name => 'ConvertUtf8ToUtf32';
 
@@ -18068,7 +18070,7 @@ if (1)
 #          705         164,776             705         164,776      0.106918          0.15  1 push
 #        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -18076,7 +18078,7 @@ if (1) {                                                                        
   $t->push(K one => 1);
   $t->push(K one => 1);
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
 END
  }
 
