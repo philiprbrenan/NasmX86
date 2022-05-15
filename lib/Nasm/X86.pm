@@ -8836,8 +8836,8 @@ sub locateRunTimeErrorInDebugTraceOutput                                        
    }
   push @t, "_" x 80;
   my $t = join "\n", @t;
-  say STDERR $t;                                                                # Print trace back so we can see it in geany messages
   owf($traceBack, $t);                                                          # Place into a well known file
+  $t
  }
 
 sub fixMixOutput                                                                # Fix mix output so we know where the code comes from in the source file
@@ -8851,8 +8851,9 @@ sub fixMixOutput                                                                
       $a[$i] = sprintf "    %s called at $0 line %d\n", pad($l{$l}//'', 32), $l;
      }
    }
-  owf $sdeMixOut, join "", @a;                                                  # Update mix out
-  say STDERR              join "", @a;                                          # Write mix out
+  my $a = join "", @a;                                                          # Updated mix out
+  owf $sdeMixOut, join "", @a;                                                  # sabe updated mix out
+  $a
  }
 
 sub onGitHub                                                                    # Whether we are on GitHub or not
@@ -9059,14 +9060,14 @@ END
     say STDERR readFile($o2) if -e $o2;
    }
 
-  fixMixOutput if $run and $mix;                                                # Fix mix output to show where code came from in the source file
+  sub{my $a = fixMixOutput; say STDERR $a if $mix >= 2}->() if $run and $mix;   # Fix mix output to show where code came from in the source file
 
   if ($run and $debug < 2 and -e $o2 and readFile($o2) =~ m(SDE ERROR:)s)       # Emulator detected an error
-   {locateRunTimeErrorInDebugTraceOutput if $trace;                             # Locate the last known good position in the debug trace file, if it exists,  before the error occurred
-    #confess "Stopping on SDE ERROR\n";
+   {if ($trace)                                                                 # Locate the last known good position in the debug trace file, if it exists,  before the error occurred
+     {my $a = locateRunTimeErrorInDebugTraceOutput;
+      say STDERR $a if $trace >= 2;
+     }
    }
-
-# confess "Failed $er" if $debug < 2 and $er;                                   # Check that the run succeeded
 
   unlink $objectFile unless $library;                                           # Delete files
   unlink $execFile   unless $keep;                                              # Delete executable unless asked to keep it or its a library
