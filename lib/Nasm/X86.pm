@@ -534,26 +534,31 @@ sub PopRR(@)                                                                    
   my $w = RegisterSize rax;
   my $W = RegisterSize zmm0;
   my $z = 0;                                                                    # Offset in stack of zmm register
+  @r = reverse map{&registerNameFromNumber($_)} @r;                             # Pop registers in reverse order- any zmm registers will be first
 
-  for my $r(reverse map{&registerNameFromNumber($_)}  @r)                       # Pop registers in reverse order
-   {my $size = RegisterSize $r;
-    if    ($size == $W)                                                         # The zmm registers come last and so can be popped by offset
+  for my $r(@r)                                                                 # Pop registers in reverse order- any zmm registers will be first
+   {if ($r =~ m(\Azmm))                                                         # The zmm registers come first and are popped by offset
      {Vmovdqu64 $r, "[rsp+$z]";
       $z += $W;
      }
-    elsif    ($size > $w)
+   }
+  Add rsp, $z if $z;                                                            # Move up over any zmm registers
+
+  for my $r(@r)                                                                 # Pop non zmm registers in reverse order
+   {my $size = RegisterSize $r;
+    if    ($size == $W) {}                                                      # The zmm registers have already been popped
+    elsif    ($size > $w)                                                       # Xmm, ymm
      {Vmovdqu64 $r, "[rsp]";
       Add rsp, $size;
      }
-    elsif ($r =~ m(\Ak))
+    elsif ($r =~ m(\Ak))                                                        # Mask registers
      {Kmovq $r, "[rsp]";
       Add rsp, $size;
      }
-    else
+    else                                                                        # General purpose registers
      {Pop $r;
      }
    }
-  Add rsp, $z if $z;                                                            # Move up over any zmm registers
  }
 
 sub PopR(@)                                                                     # Pop registers from the stack. Use the last stored set if none explicitly supplied.  Pops are done in reverse order to match the original pushing order.
@@ -3598,7 +3603,7 @@ sub Nasm::X86::Variable::qIntoZ($$$)                                            
 sub Nasm::X86::Variable::clearMemory($$)                                        # Clear the memory described in this variable.
  {my ($address, $size) = @_;                                                    # Address of memory to clear, size of the memory to clear
   @_ == 2 or confess "Two parameters";
-  &ClearMemory(size=>$size, address=>$address);                                 # Free the memory
+  &ClearMemory($address, $size);                                                # Free the memory
  }
 
 sub Nasm::X86::Variable::copyMemory($$$)                                        # Copy from one block of memory to another.
@@ -4037,7 +4042,7 @@ sub ClearMemory($$)                                                             
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
-    PushR zmm0, rax, rdi, rsi, rdx;
+    PushR zmm0; PushR rax, rdi, rsi, rdx;                                       # Reliance on push order which no longer matches the order of the arguments
     $$p{address}->setReg(rax);
     $$p{size}   ->setReg(rdi);
     Lea rdx, "[rax+rdi]";                                                       # Address of upper limit of buffer
@@ -4060,7 +4065,7 @@ sub ClearMemory($$)                                                             
      {Vmovdqu64 "[rax]", zmm0;
      } rax, rdx, RegisterSize zmm0;
 
-    PopR;
+    PopR; PopR;
    } parameters=>[qw(size address)], name => 'ClearMemory';
 
   $s->call(parameters => {address => $address, size => $size});
@@ -10452,6 +10457,30 @@ if (1) {                                                                        
 END
  }
 
+#latest:
+if (1) {                                                                        #TPushR #TPopR
+  LoadZmm(17, 0x10..0x50);
+  PrintOutRegisterInHex zmm17;
+  Mov r14, 2; Mov r15, 3;
+  PrintOutRegisterInHex r14, r15;
+  PushR 14, 15, 16..31;
+  LoadZmm(17, 0x20..0x70);
+  PrintOutRegisterInHex zmm17;
+  Mov r14, 22; Mov r15, 33;
+  PopR;
+  PrintOutRegisterInHex zmm17;
+  PrintOutRegisterInHex r14, r15;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
+ zmm17: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 + 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+   r14: .... .... .... ...2
+   r15: .... .... .... ...3
+ zmm17: 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150 - 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 + 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+ zmm17: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 + 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+   r14: .... .... .... ...2
+   r15: .... .... .... ...3
+END
+ }
+
 #latest:;
 if (1) {                                                                        #TClearMemory
   K(loop => 8+1)->for(sub
@@ -10787,13 +10816,14 @@ END
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Area::checkYggdrasilCreated #TNasm::X86::Area::establishYggdrasil
+$TraceMode = 1;
   my $A = CreateArea;
   my $t = $A->checkYggdrasilCreated;
      $t->found->outNL;
   my $y = $A->establishYggdrasil;
   my $T = $A->checkYggdrasilCreated;
      $T->found->outNL;
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>1;
 found: .... .... .... ....
 found: .... .... .... ...1
 END
@@ -18096,23 +18126,11 @@ if (1)
 
 #          705         164,776             705         164,776      0.106918          0.15  1 push
 #        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
-#        1,274         164,072           1,274         164,072      0.371407          0.17  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18086
-#        1,199         176,688           1,199         176,688      0.374408          0.18  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18086
-latest:
-if (1) {
-  LoadZmm(17, 0x10..0x50);
-  PrintErrRegisterInHex zmm17;
-  PushR 14, 15, 16..31;
-  LoadZmm(17, 0x20..0x70);
-  PrintErrRegisterInHex zmm17;
-  PopR;
-  PrintErrRegisterInHex zmm17;
-  PrintErrRegisterInHex zmm30;
-  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
-END
- }
+#        1,274         164,072           1,274         164,072      0.371407          0.17
+#        1,199         176,688           1,199         176,688      0.374408          0.18
+#        1,136         174,896          12,330         184,632      0.353687          0.16  PushR, PopR
 
-latest:
+#latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -18123,6 +18141,8 @@ if (1) {
   ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
 END
  }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
   my $a = CreateArea;
   my ($s, $l) = addressAndLengthOfConstantStringAsVariables("01234567");
