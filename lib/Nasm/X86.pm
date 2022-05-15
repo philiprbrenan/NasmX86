@@ -3202,6 +3202,22 @@ sub Nasm::X86::Variable::getReg($$)                                             
   my $r = registerNameFromNumber $register;
   if ($variable->isRef)                                                         # Move to the location referred to by this variable
    {Comment "Get variable value from register $r";
+    my $p = $r eq rsi ? rdi : rsi;
+    Mov $p, $variable->addressExpr;
+    Mov "[$p]", $r;
+   }
+  else                                                                          # Move to this variable
+   {Mov $variable->addressExpr, $r;
+   }
+  $variable                                                                     # Chain
+ }
+
+sub Nasm::X86::Variable::getReg22($$)                                             # Load the variable from a register expression.
+ {my ($variable, $register) = @_;                                               # Variable, register expression to load
+  @_ == 2 or confess "Two parameters";
+  my $r = registerNameFromNumber $register;
+  if ($variable->isRef)                                                         # Move to the location referred to by this variable
+   {Comment "Get variable value from register $r";
     my $p = $r eq r15 ? r14 : r15;
     PushR $p;
     Mov $p, $variable->addressExpr;
@@ -5002,7 +5018,8 @@ sub Nasm::X86::Area::updateSpace($$)                                            
      structures => {area => $area},
      name       => 'Nasm::X86::Area::updateSpace';
 
-  $s->call(parameters=>{size => $size}, structures=>{area => $area});
+  $s->call
+   (parameters=>{size => $size}, structures=>{area => $area});
  } # updateSpace
 
 sub Nasm::X86::Area::makeReadOnly($)                                            # Make an area read only.
@@ -7227,7 +7244,7 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
      structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::extract($K, $D, $N, $$tree{length})";
 
-  $s->call(structures=>{tree => $tree}, parameters=>{point => $point});
+  $s->inline(structures=>{tree => $tree}, parameters=>{point => $point});
  } # extract
 
 sub Nasm::X86::Tree::extractFirst($$$$)                                         #P Extract the first key/data and tree bit at the specified point from the block held in the specified zmm registers and place the extracted data/bit in tree data/subTree.
@@ -7369,9 +7386,9 @@ sub Nasm::X86::Tree::mergeOrSteal($$)                                           
      structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::mergeOrSteal($$tree{length})";
 
-  $s->call(structures=>
-   {tree       =>  $tree},
-    parameters => {offset=> $offset, changed => my $changed = V changed => 0});
+  $s->inline
+   (structures => {tree   => $tree},
+    parameters => {offset => $offset, changed => my $changed = V changed => 0});
 
   $changed                                                                      # Whether we did a merge or steal
  } # mergeOrSteal
@@ -18046,7 +18063,6 @@ ppp: .... .... .... ..AA
 END
  }
 
-latest:
 #   16,948,886  with 64 byte moves
 #   16,885,371  with 4K byte moves
 #       Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
@@ -18057,8 +18073,28 @@ latest:
 #   14,993,215       1,246,272      14,993,215       1,246,272      2.496290          1.93  overWriteKeyDataTreeInLeaf
 #   14,876,443       1,247,840      14,876,443       1,247,840      2.506694          1.83  insertKeyDataTreeIntoLeaf
 #   14,873,853       1,257,656      14,873,853       1,257,656      2.530187          1.91  splitRoot
+#   14,871,893       1,371,472      14,871,893       1,371,472      2.540378          4.41  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 17619
 
-unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
+#latest:
+if (1)
+ {unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
+#exit;
+ }
+
+#          705         164,776             705         164,776      0.106918          0.15  1 push
+#        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+  my $a = CreateArea;
+  my $t = $a->CreateTree(length => 3);
+
+  $t->push(K one => 1);
+  $t->push(K one => 1);
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+END
+ }
 
 #latest:
 if (0) {                                                                        #
