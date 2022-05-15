@@ -6258,7 +6258,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       $t->getBlock($offset, $LK, $LD, $LN);                                     # Load node as left
 
       my $length = $t->lengthFromKeys($LK);
-      If $t->lengthFromKeys($LK) < $t->maxKeys,
+      If $length < $t->maxKeys,
       Then                                                                      # Only split full blocks
        {$split->copy(K split => 0);                                             # Split not required
         Jmp $success;
@@ -6577,10 +6577,13 @@ sub Nasm::X86::Tree::put($$$)                                                   
         Jmp $success;
        };
 
-      my $split = $t->splitNode($Q);                                            # Split blocks that are full
-      If $split > 0,
-      Then
-       {Jmp $start;                                                             # Restart the descent now that this block has been split
+      If $t->lengthFromKeys($K) >= $t->maxKeys,
+      Then                                                                      # Split full blocks
+       {my $split = $t->splitNode($Q);
+        If $split > 0,                                                          # Split succeeded
+        Then
+         {Jmp $start;                                                           # Restart the descent now that this block has been split
+         };
        };
 
       If $t->leafFromNodes($N) > 0,
@@ -18131,7 +18134,7 @@ if (1)
 #        1,199         176,688           1,199         176,688      0.374408          0.18
 #        1,136         174,896          12,330         184,632      0.353687          0.16  PushR, PopR
 
-latest:
+#latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
