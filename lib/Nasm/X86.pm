@@ -6579,11 +6579,8 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
       If $t->lengthFromKeys($K) >= $t->maxKeys,
       Then                                                                      # Split full blocks
-       {my $split = $t->splitNode($Q);
-        If $split > 0,                                                          # Split succeeded
-        Then
-         {Jmp $start;                                                           # Restart the descent now that this block has been split
-         };
+       {$t->splitNode($Q);
+        Jmp $start;                                                             # Restart the descent now that this block has been split
        };
 
       If $t->leafFromNodes($N) > 0,
@@ -18093,7 +18090,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Subroutine::inline
   my $s = Subroutine                                                            # Load and print rax
    {my ($p, $s, $sub) = @_;
@@ -18133,8 +18130,7 @@ if (1)
 #        1,274         164,072           1,274         164,072      0.371407          0.17
 #        1,199         176,688           1,199         176,688      0.374408          0.18
 #        1,136         174,896          12,330         184,632      0.353687          0.16  PushR, PopR
-
-#latest:
+latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
