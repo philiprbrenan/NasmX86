@@ -6487,7 +6487,7 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
   name       => "Nasm::X86::Tree::splitRoot".
           "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
 
-  $s->call
+  $s->inline
    (structures => {tree => $tree},
     parameters => {newLeft => $nLeft, newRight => $nRight});
  } # splitRoot
@@ -6694,7 +6694,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
         $t->getBlock($n, $K, $D, $N);
        });
       PrintErrTraceBack "Stuck looking for first";
-     };                                                          # Find completed successfully
+     };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::findFirst($$tree{length})";
@@ -6954,15 +6954,16 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
        });
       PrintErrStringNL "Stuck in LeftOrRightMost";
       Exit(1);
-     };                                                          # Insert completed successfully
+     };                                                                         # Insert completed successfully
     PopR;
    } structures => {tree => $tree},
      parameters => [qw(node offset)],
      name       => $dir==0 ? "Nasm::X86::Tree::leftMost" :
                              "Nasm::X86::Tree::rightMost";
 
-  $s->call(structures => {tree=>$tree},
-           parameters => {node => $node, offset=>$offset});
+  $s->call
+   (structures => {tree=>$tree},
+    parameters => {node => $node, offset=>$offset});
  }
 
 sub Nasm::X86::Tree::leftMost($$$)                                              #P Return the offset of the left most node from the specified node.
@@ -18055,6 +18056,8 @@ latest:
 #   14,994,473       1,245,784      14,994,473       1,245,784      2.674707          1.96  allocBlock in
 #   14,993,215       1,246,272      14,993,215       1,246,272      2.496290          1.93  overWriteKeyDataTreeInLeaf
 #   14,876,443       1,247,840      14,876,443       1,247,840      2.506694          1.83  insertKeyDataTreeIntoLeaf
+#   14,873,853       1,257,656      14,873,853       1,257,656      2.530187          1.91  splitRoot
+
 unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
 
 #latest:
