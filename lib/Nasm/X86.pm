@@ -5827,9 +5827,8 @@ sub Nasm::X86::Tree::incLengthInKeys($$)                                        
   @_ == 2 or confess "Two parameters";
   my $l = $t->lengthOffset;                                                     # Offset of length bits
   PushR 15;
-  ClearRegisters r15;
   bRegFromZmm r15, $K, $l;                                                      # Length
-  Cmp r15, $t->length;
+  Cmp r15b, $t->length;
   IfLt
   Then
    {Inc r15;
