@@ -491,7 +491,7 @@ sub PushRR(@)                                                                   
     $size or confess "No such register: $r";
     if    ($size > $w)                                                          # Wide registers
      {Sub rsp, $size;
-      Vmovdqu32 "[rsp]", $r;
+      Vmovdqu64 "[rsp]", $r;
      }
     elsif ($r =~ m(\Ak))                                                        # Mask as they do not respond to push
      {Sub rsp, $size;
