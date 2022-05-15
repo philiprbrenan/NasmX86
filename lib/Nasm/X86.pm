@@ -486,40 +486,63 @@ sub RegisterSize($)                                                             
 sub PushRR(@)                                                                   #P Push registers onto the stack without tracking.
  {my (@r) = @_;                                                                 # Register
   my $w = RegisterSize rax;
+  my @p;                                                                        # Non zmm registers
+  my @z;                                                                        # Zmm registers
   for my $r(map {&registerNameFromNumber($_)} @r)
-   {my $size = RegisterSize $r;
-    $size or confess "No such register: $r";
-    if    ($size > $w)                                                          # Wide registers
-     {Sub rsp, $size;
-      Vmovdqu64 "[rsp]", $r;
+   {if ($r =~ m(\Azmm))                                                         # Do zmm's last as they can be optimized
+     {unshift @z, $r;
      }
-    elsif ($r =~ m(\Ak))                                                        # Mask as they do not respond to push
-     {Sub rsp, $size;
-      Kmovq "[rsp]", $r;
-     }
-    else                                                                        # Normal register
-     {Push $r;
+    else                                                                        # Non zmm registers
+     {push @p, $r;
+      my $size = RegisterSize $r;
+      $size or confess "No such register: $r";
+      if    ($size > $w)                                                        # Wide registers
+       {Sub rsp, $size;
+        Vmovdqu64 "[rsp]", $r;
+       }
+      elsif ($r =~ m(\Ak))                                                      # Mask as they do not respond to push
+       {Sub rsp, $size;
+        Kmovq "[rsp]", $r;
+       }
+      else                                                                      # Normal register
+       {Push $r;
+       }
      }
    }
+  if (@z)                                                                       # Zmm registers
+   {my $w = RegisterSize(zmm0);                                                 # Register width
+    Sub rsp, $w * @z;                                                           # Reduce stack to make room for zmm registers being pushed
+    for my $i(keys @z)                                                          # Copy each zmm register being pushed to the stack
+     {Vmovdqu64 "[rsp+$i*$w]", $z[$i];
+     }
+   }
+
+  (@p, reverse @z)                                                                      # Actual push sequence
  }
 
 my @PushR;                                                                      # Track pushes
 
 sub PushR(@)                                                                    #P Push registers onto the stack.
  {my (@r) = @_;                                                                 # Registers
-  push @PushR, [@r];
-# CommentWithTraceBack;
-  PushRR   @r;                                                                  # Push
+  my @p = PushRR @r;                                                            # Push
+  push @PushR, [@p];                                                            # Registers pushed we can pop them in order
   scalar(@PushR)                                                                # Stack depth
  }
 
 sub PopRR(@)                                                                    #P Pop registers from the stack without tracking.
  {my (@r) = @_;                                                                 # Register
   my $w = RegisterSize rax;
+  my $W = RegisterSize zmm0;
+  my $z = 0;                                                                    # Offset in stack of zmm register
+
   for my $r(reverse map{&registerNameFromNumber($_)}  @r)                       # Pop registers in reverse order
    {my $size = RegisterSize $r;
-    if    ($size > $w)
-     {Vmovdqu32 $r, "[rsp]";
+    if    ($size == $W)                                                         # The zmm registers come last and so can be popped by offset
+     {Vmovdqu64 $r, "[rsp+$z]";
+      $z += $W;
+     }
+    elsif    ($size > $w)
+     {Vmovdqu64 $r, "[rsp]";
       Add rsp, $size;
      }
     elsif ($r =~ m(\Ak))
@@ -530,6 +553,7 @@ sub PopRR(@)                                                                    
      {Pop $r;
      }
    }
+  Add rsp, $z if $z;                                                            # Move up over any zmm registers
  }
 
 sub PopR(@)                                                                     # Pop registers from the stack. Use the last stored set if none explicitly supplied.  Pops are done in reverse order to match the original pushing order.
@@ -18074,6 +18098,20 @@ if (1)
 #        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
 #        1,274         164,072           1,274         164,072      0.371407          0.17  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18086
 #        1,199         176,688           1,199         176,688      0.374408          0.18  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18086
+latest:
+if (1) {
+  LoadZmm(17, 0x10..0x50);
+  PrintErrRegisterInHex zmm17;
+  PushR 14, 15, 16..31;
+  LoadZmm(17, 0x20..0x70);
+  PrintErrRegisterInHex zmm17;
+  PopR;
+  PrintErrRegisterInHex zmm17;
+  PrintErrRegisterInHex zmm30;
+  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
+END
+ }
+
 latest:
 if (1) {
   my $a = CreateArea;
