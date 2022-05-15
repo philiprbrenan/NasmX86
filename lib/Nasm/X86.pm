@@ -1464,15 +1464,14 @@ sub Nasm::X86::Subroutine::uploadToNewStackFrame($$$)                           
   Mov "[$q-$w*2]", r15;                                                         # Step over subroutine name pointer and previous frame pointer.
  }
 
-sub Nasm::X86::Subroutine::call($%)                                             #P Call a sub optionally passing it parameters.
+sub Nasm::X86::Subroutine::validateParameters($%)                               #P Check that the parameters and structures presented in a call to a subroutine math those defined for the subroutine.
  {my ($sub, %options) = @_;                                                     # Subroutine descriptor, options
 
-  if (1)                                                                        # Validate options
-   {my %o = %options;
-    delete $o{$_} for qw(parameters structures override library);               # Parameters are variables, structures are Perl data structures with variables embedded in them,  override is a variable that contains the actual address of the subroutine
-    if (my @i = sort keys %o)
-     {confess "Invalid parameters: ".join(', ',@i);
-     }
+  my %o = %options;                                                           # Validate options
+  delete $o{$_} for qw(parameters structures override library);               # Parameters are variables, structures are Perl data structures with variables embedded in them,  override is a variable that contains the actual address of the subroutine
+
+  if (my @i = sort keys %o)
+   {confess "Invalid parameters: ".join(', ',@i);
    }
 
   my $parameters = $options{parameters};                                        # Parameters hash
@@ -1498,7 +1497,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
       confess join '', map {"$_\n"} @m;
      }
    }
-  elsif ($sub->parameters->@*)
+  elsif ($sub->parameters->@*)                                                  # Complain about a lack of parameters if parameters have been defined for this subroutine
    {confess "Parameters required";
    }
 
@@ -1517,19 +1516,27 @@ sub Nasm::X86::Subroutine::call($%)                                             
       confess join '', map {"$_\n"} @m;
      }
    }
-  elsif ($sub->options and $sub->options->{structures} and $sub->options->{structures}->%*)
+  elsif ($sub->options and                                                      # Complain about a lack of structures if structures have been defined for this subroutine
+         $sub->options->{structures} and $sub->options->{structures}->%*)
    {confess "Structures required";
    }
 
-  my $new = sub                                                                 # Regenerate the subroutine if we are tracing in general and this sybroutineis specifically traceable.  We do not trace all subroutines because the generated asm code would be big.
-   {if ($sub->options->{trace} and $TraceMode)
+  ($parameters, $structures)
+ }
+
+sub Nasm::X86::Subroutine::call($%)                                             # Call a sub optionally passing it parameters.
+ {my ($sub, %options) = @_;                                                     # Subroutine descriptor, options
+
+  my ($parameters, $structures) = $sub->validateParameters(%options);           # Validate the supplied parameters and structures against the specification defining this subroutine
+
+  my $new = sub                                                                 # Regenerate the subroutine if we are tracing in general and this subroutine is specifically traceable.  We do not trace all subroutines because the generated asm code would be big.
+   {if ($sub->options->{trace} and $TraceMode)                                  # Call the latest version of this subroutine not the original version in case the latest version fails so we can see the exact call stack of the latest version than the call stack of the original version in the context in which it was originally called.
      {return Subroutine(sub{$$sub{block}->&*}, $sub->options->%*);
      }
     undef
    }->();
 
-  my $w = RegisterSize r15;
-  PushR 15;                                                                     # Use this register to transfer between the current frame and the next frame
+  PushR my $w = RegisterSize r15;                                               # Use this register to transfer between the current frame and the next frame
   Mov "dword[rsp  -$w*3]", Rs($sub->name);                                      # Point to subroutine name
   Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable trace back with parameters
 
@@ -1567,6 +1574,14 @@ sub Nasm::X86::Subroutine::call($%)                                             
      }
    }
   PopR;
+ }
+
+sub Nasm::X86::Subroutine::inline($%)                                           # Call a sub by in-lining it, optionally passing it parameters.
+ {my ($sub, %options) = @_;                                                     # Subroutine descriptor, options
+
+  my ($parameters, $structures) = $sub->validateParameters(%options);           # Validate the supplied parameters and structures against the specification defining this subroutine
+
+  $sub->block->($parameters, $structures, $sub);                                # Generate code using the supplied parameters and structures
  }
 
 #D1 Comments                                                                    # Inserts comments into the generated assember code.
@@ -4061,6 +4076,33 @@ sub CopyMemory64($$$)                                                           
   PopR;
  }
 
+sub CopyMemory4K($$$)                                                           # Copy memory in 4K byte blocks.
+ {my ($source, $target, $size) = @_;                                            # Source address variable, target address variable, number of 4K byte blocks to move
+  @_ == 3 or confess "Source, target, size required";
+
+  PushR my $s = r8, my $t = r9, my $z = r10, my $c = r11, zmm(0..31);
+  my $k2 = 2 ** 11;                                                             # Half of 4K == the bytes we can shift in one go using all zmm registers
+  $size  ->setReg($c);                                                          # Size of area to copy
+  my $end = Label;                                                              # End of move loop
+  Cmp $c, 0;
+  Je $end;                                                                      # Nothing to move
+
+  $source->setReg($s);                                                          # Source location
+  $target->setReg($t);                                                          # Target location
+  ClearRegisters $z;                                                            # Offset into move
+
+  my $start = SetLabel;                                                         # Move loop
+    Vmovdqu64 "zmm$_", "[$s+$z+64*$_]"              for 0..31;                  # Load 2K
+    Vmovdqu64          "[$t+$z+64*$_]",     "zmm$_" for 0..31;                  # Store 2k
+    Vmovdqu64 "zmm$_", "[$s+$z+64*$_+$k2]"          for 0..31;                  # Load next 2k
+    Vmovdqu64          "[$t+$z+64*$_+$k2]", "zmm$_" for 0..31;                  # Store next 2k
+    Add $z, $k2 * 2;                                                            # Next move offset
+    Sub $c, 1;                                                                  # Decrement loop counter
+    Jnz $start;                                                                 # Continue unless we are finished
+  SetLabel $end;
+  PopR;
+ }
+
 #D2 Files                                                                       # Interact with the operating system via files.
 
 sub OpenRead()                                                                  # Open a file, whose name is addressed by rax, for read and return the file descriptor in rax.
@@ -4830,7 +4872,8 @@ our $AreaFreeChain = 0;                                                         
 
 sub DescribeArea(%)                                                             # Describe a relocatable area.
  {my (%options) = @_;                                                           # Optional variable addressing the start of the area
-  my $N = 4096;                                                                 # Initial size of area
+  my $B = 12;                                                                   # Log2 of size of initial allocation for the area
+  my $N = 2 ** $B;                                                              # Initial size of area
   my $w = RegisterSize 31;
 
   my $quad = RegisterSize rax;                                                  # Field offsets
@@ -4841,6 +4884,7 @@ sub DescribeArea(%)                                                             
   my $data = $w;                                                                # Data starts in the next zmm block
 
   genHash(__PACKAGE__."::Area",                                                 # Definition of area
+    B          => $B,                                                           # Log2 of size of initial allocation
     N          => $N,                                                           # Initial allocation
     sizeOffset => $size,                                                        # Size field offset
     usedOffset => $used,                                                        # Used field offset
@@ -4945,7 +4989,8 @@ sub Nasm::X86::Area::updateSpace($$)                                            
        });
 
       my $address = AllocateMemory V size => $proposed;                         # Create new area
-      CopyMemory64($area->address, $address, $area->size>>K(sixtyFour => 6));   # Copy old area into new area
+#     CopyMemory64($area->address, $address, $area->size>>K(k4 => 6));          # Copy old area into new area 4K at a time
+      CopyMemory4K($area->address, $address, $area->size>>K(k4 => $area->B));   # Copy old area into new area 4K at a time
       FreeMemory $area->address, $area->size;                                   # Free previous memory previously occupied area
       $area->address->copy($address);                                           # Save new area address
       $address->setReg($base);                                                  # Address area
@@ -17562,7 +17607,6 @@ sub unisynParse($$$;$)                                                          
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-$TraceMode = 1;
   my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
@@ -17980,7 +18024,27 @@ if (1) {                                                                        
 END
  }
 
+
 latest:
+if (1) {                                                                        #TTraceMode
+  my $S = Subroutine                                                            # Load and print rax
+   {my ($p, $s, $sub) = @_;
+    $$p{ppp}->outNL;
+   } name => "s", parameters=>[qw(ppp)];
+
+  $S->call  (parameters => {ppp => V ppp => 0x99});                             # Call   378
+  $S->inline(parameters => {ppp => V ppp => 0xaa});                             # Inline 364
+
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
+ppp: .... .... .... ..99
+ppp: .... .... .... ..AA
+END
+exit;
+ }
+
+latest:
+#   16,885,371  with 4K byte moves
+#   16,948,886  with 64 byte moves
 unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
 
 #latest:
