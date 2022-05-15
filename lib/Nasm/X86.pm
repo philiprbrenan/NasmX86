@@ -2438,11 +2438,14 @@ sub Variable($;$%)                                                              
      {if ($Registers{$expr} and $expr =~ m(\Ar))                                # Expression is ready to go
        {Mov "[$label]", $expr;
        }
+#     else                                                                      # Transfer expression
+#      {PushR 15;
+#       Mov r15, $expr;
+#       Mov "[$label]", r15;
+#       PopR;
+#      }
       else                                                                      # Transfer expression
-       {PushR 15;
-        Mov r15, $expr;
-        Mov "[$label]", r15;
-        PopR;
+       {Mov "qword[$label]", $expr;
        }
      }
    }
@@ -6742,7 +6745,7 @@ sub Nasm::X86::Tree::findLast($)                                                
 
         If $t->leafFromNodes($N),                                               # Leaf node means we have arrived
         Then
-         {$t->found   ->copy(1);
+         {$t->found  ->copy(1);
           $t->key    ->copy($k);
           $t->data   ->copy($d);
           $t->subTree->copy($b);
@@ -18071,7 +18074,7 @@ if (1)
 #          705         164,776             705         164,776      0.106918          0.15  1 push
 #        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -18094,6 +18097,18 @@ if (1) {
   my $p = V key => 1;
   $s->call(structures=>{tree=>$t});
 
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
+END
+ }
+
+latest:
+if (1) {
+Comment("AAAA");
+  my $a = V(key => 0);
+Comment("BBBB");
+
+  $a->copy(1);
+Comment("CCCC");
   Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
 END
  }
