@@ -6723,38 +6723,35 @@ sub Nasm::X86::Tree::findLast($)                                                
       PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
       $t->firstFromMemory($F);                                                  # Update the size of the tree
-      my $size = $t->sizeFromFirst($F);                                         # Size of tree
 
-      If $size == 0,                                                            # Empty tree
+      If $t->sizeFromFirst($F) >  0,                                            # Non empty tree
       Then
-       {Jmp $success
-       };
+       {my $root = $t->rootFromFirst($F);                                         # Root of tree
+        $t->getBlock($root, $K, $D, $N);                                          # Load root
 
-      my $root = $t->rootFromFirst($F);                                         # Root of tree
-      $t->getBlock($root, $K, $D, $N);                                          # Load root
+        K(loop => 99)->for(sub                                                    # Step down through the tree a reasonable number of times
+         {my ($i, $start, $next, $end) = @_;
+          my $l = $t->lengthFromKeys($K);
+          my $o  = ($l - 1) * $t->width;
+          my $O  = ($l + 0) * $t->width;
+          my $k = dFromZ($K, $o);
+          my $d = dFromZ($D, $o);
+          my $n = dFromZ($N, $O);
+          my $b = $t->getTreeBit($K, $l);
 
-      K(loop => 99)->for(sub                                                    # Step down through the tree a reasonable number of times
-       {my ($i, $start, $next, $end) = @_;
-        my $l = $t->lengthFromKeys($K);
-        my $o  = ($l - 1) * $t->width;
-        my $O  = ($l + 0) * $t->width;
-        my $k = dFromZ($K, $o);
-        my $d = dFromZ($D, $o);
-        my $n = dFromZ($N, $O);
-        my $b = $t->getTreeBit($K, $l);
+          If $t->leafFromNodes($N),                                               # Leaf node means we have arrived
+          Then
+           {$t->found  ->copy(1);
+            $t->key    ->copy($k);
+            $t->data   ->copy($d);
+            $t->subTree->copy($b);
+            Jmp $success
+           };
 
-        If $t->leafFromNodes($N),                                               # Leaf node means we have arrived
-        Then
-         {$t->found  ->copy(1);
-          $t->key    ->copy($k);
-          $t->data   ->copy($d);
-          $t->subTree->copy($b);
-          Jmp $success
-         };
-
-        $t->getBlock($n, $K, $D, $N);
-       });
-      PrintErrTraceBack "Stuck looking for last";
+          $t->getBlock($n, $K, $D, $N);
+         });
+        PrintErrTraceBack "Stuck looking for last";
+       };                                                          # Find completed successfully
      };                                                          # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
@@ -12108,13 +12105,14 @@ This should happen!
 END
  }
 
+#latest:;
 if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
   my $a = CreateArea;
   my ($s, $l) = addressAndLengthOfConstantStringAsVariables("01234567");
 
   my $q = $a->CreateQuarks;
-  $q->put($s, $l-$l+$_)        for 0..7;
-  $q->put($s, $l-$l+$_)->outNL for 0..7;
+  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)});
+  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)->outNL});
 
   ok Assemble(debug => 0, mix => 0, eq => <<END, avx512=>1);
 size of tree: .... .... .... ....
@@ -18085,6 +18083,25 @@ if (1) {
   $t->push(K one => 1);
 
   ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
+END
+ }
+if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
+  my $a = CreateArea;
+  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("01234567");
+
+  my $q = $a->CreateQuarks;
+  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)});
+  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)->outNL});
+
+  ok Assemble(debug => 0, mix => 0, eq => <<END, avx512=>1);
+size of tree: .... .... .... ....
+size of tree: .... .... .... ...1
+size of tree: .... .... .... ...2
+size of tree: .... .... .... ...3
+size of tree: .... .... .... ...4
+size of tree: .... .... .... ...5
+size of tree: .... .... .... ...6
+size of tree: .... .... .... ...7
 END
  }
 
