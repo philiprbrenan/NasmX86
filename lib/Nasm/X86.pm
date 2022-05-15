@@ -6717,45 +6717,44 @@ sub Nasm::X86::Tree::findLast($)                                                
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     Block
      {my ($success) = @_;                                                       # Successfully completed
-
       my $t = $$s{tree}->zero;                                                  # Tree to search
 
-      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+      PushR my $F = 31;
 
       $t->firstFromMemory($F);                                                  # Update the size of the tree
-      my $size = $t->sizeFromFirst($F);                                         # Size of tree
 
-      If $size == 0,                                                            # Empty tree
+      If $t->sizeFromFirst($F) > 0,                                             # Empty tree
       Then
-       {Jmp $success
+       {my $root = $t->rootFromFirst($F);                                       # Root of tree
+        PushR my $K = 30, my $D = 29, my $N = 28;
+
+        $t->getBlock($root, $K, $D, $N);                                        # Load root
+
+        K(loop => 99)->for(sub                                                  # Step down through the tree a reasonable number of times
+         {my ($i, $start, $next, $end) = @_;
+          my $l = $t->lengthFromKeys($K);
+          my $o  = ($l - 1) * $t->width;
+          my $O  = ($l + 0) * $t->width;
+          my $k = dFromZ($K, $o);
+          my $d = dFromZ($D, $o);
+          my $n = dFromZ($N, $O);
+          my $b = $t->getTreeBit($K, $l);
+
+          If $t->leafFromNodes($N),                                             # Leaf node means we have arrived
+          Then
+           {$t->found  ->copy(1);
+            $t->key    ->copy($k);
+            $t->data   ->copy($d);
+            $t->subTree->copy($b);
+            Jmp $success
+           };
+
+          $t->getBlock($n, $K, $D, $N);
+         });
+        PrintErrTraceBack "Stuck looking for last";
+        PopR;
        };
-
-      my $root = $t->rootFromFirst($F);                                         # Root of tree
-      $t->getBlock($root, $K, $D, $N);                                          # Load root
-
-      K(loop => 99)->for(sub                                                    # Step down through the tree a reasonable number of times
-       {my ($i, $start, $next, $end) = @_;
-        my $l = $t->lengthFromKeys($K);
-        my $o  = ($l - 1) * $t->width;
-        my $O  = ($l + 0) * $t->width;
-        my $k = dFromZ($K, $o);
-        my $d = dFromZ($D, $o);
-        my $n = dFromZ($N, $O);
-        my $b = $t->getTreeBit($K, $l);
-
-        If $t->leafFromNodes($N),                                               # Leaf node means we have arrived
-        Then
-         {$t->found  ->copy(1);
-          $t->key    ->copy($k);
-          $t->data   ->copy($d);
-          $t->subTree->copy($b);
-          Jmp $success
-         };
-
-        $t->getBlock($n, $K, $D, $N);
-       });
-      PrintErrTraceBack "Stuck looking for last";
-     };                                                          # Find completed successfully
+     };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
      name => "Nasm::X86::Tree::findLast($$tree{length})";
@@ -18075,6 +18074,9 @@ if (1)
 #          705         164,776             705         164,776      0.106918          0.15  1 push
 #        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
 #        1,274         164,072           1,274         164,072      0.371407          0.17  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18086
+#        1,199         176,688           1,199         176,688      0.374408          0.18  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18086
+#        1,181         176,808           1,181         176,808      0.398123          0.19  findLast
+#        1,180         176,648           1,180         176,648      0.439654          0.18  Converted If ... Then Jmp to else
 latest:
 if (1) {
   my $a = CreateArea;
