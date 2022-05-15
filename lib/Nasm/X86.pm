@@ -4001,7 +4001,7 @@ sub FreeMemory($$)                                                              
   $s->call(parameters => {address=>$address, size=>$size});
  }
 
-sub ClearMemory($$)                                                             # Clear memory wit a variable address and variable length
+sub ClearMemory($$)                                                             # Clear memory with a variable address and variable length
  {my ($address, $size) = @_;                                                    # Address of memory as a variable, size of memory as a variable
   @_ == 2 or confess "address, size required";
   Comment "Clear memory";
@@ -5744,8 +5744,9 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
      parameters => [qw(address)],
      name       => qq(Nasm::X86::Tree::allocBlock::${K}::${D}::${N});           # Create a subroutine for each combination of registers encountered
 
-  $s->call(structures => {tree => $tree},
-           parameters => {address =>  my $a = V address => 0});
+  $s->inline
+   (structures => {tree => $tree},
+    parameters => {address =>  my $a = V address => 0});
 
   $a
  } # allocBlock
@@ -6107,10 +6108,11 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
      structures => {tree=>$tree},
      parameters => [qw(point key data subTree)];
 
-  $s->call(structures => {tree  => $tree},
-           parameters => {key   => $IK, data => $ID,
-                          point => $point, subTree => $subTree});
- }
+  $s->inline
+   (structures => {tree  => $tree},
+    parameters => {key   => $IK, data => $ID,
+                   point => $point, subTree => $subTree});
+ } # overWriteKeyDataTreeInLeaf
 
 #D2 Insert                                                                      # Insert a key into the tree.
 
@@ -6189,10 +6191,11 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
      structures => {tree=>$tree},
      parameters => [qw(point key data subTree)];
 
-  $s->call(structures => {tree  => $tree},
-           parameters => {key   => $IK, data => $ID,
-                          point => $point, subTree => $subTree});
- }
+  $s->inline
+   (structures => {tree  => $tree},
+    parameters => {key   => $IK, data => $ID,
+                   point => $point, subTree => $subTree});
+ } # insertKeyDataTreeIntoLeaf
 
 sub Nasm::X86::Tree::splitNode($$)                                              #P Split a node if it it is full returning a variable that indicates whether a split occurred or not.
  {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in area of tree as a variable
@@ -6232,8 +6235,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       Then                                                                      # Not the root node because it has a parent
        {$t->upIntoData      ($parent, $RD);                                     # Address existing parent from new right
         $t->getBlock        ($parent, $PK, $PD, $PN);                           # Load extant parent
-        $t->splitNotRoot
-                            ($r,      $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
+        $t->splitNotRoot    ($r,      $PK, $PD, $PN, $LK,$LD,$LN, $RK,$RD,$RN);
         $t->putBlock        ($parent, $PK, $PD, $PN);
         $t->putBlock        ($offset, $LK, $LD, $LN);
        },
@@ -6270,8 +6272,9 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       parameters => [qw(offset split)],
       name       => 'Nasm::X86::Tree::splitNode';
 
-  $s->call(structures => {tree   => $tree},
-           parameters => {offset => $offset, split => my $p = V split => 1});
+  $s->inline
+   (structures => {tree   => $tree},
+    parameters => {offset => $offset, split => my $p = V split => 1});
 
   $p                                                                            # Return a variable containing one if the node was split else zero.
  } # splitNode
@@ -6409,10 +6412,11 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
   name       => "Nasm::X86::Tree::splitNotRoot".
           "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
 
-  $s->call(
+  $s->inline(
     structures => {tree => $tree},
     parameters => {newRight => $newRight});
- }
+ } # splitNotRoot
+
 sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    #P Split a non root node into left and right nodes with the left half left in the left node and splitting key/data pushed into the parent node with the remainder pushed into the new right node
  {my ($tree, $nLeft, $nRight, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN) = @_;# Tree definition, variable offset in area of new left node block, variable offset in area of new right node block, parent keys zmm, data zmm, nodes zmm, left keys zmm, data zmm, nodes zmm, right keys, data , nodes zmm
   @_ == 12 or confess "Twelve parameters required";
@@ -6486,7 +6490,7 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
   $s->call
    (structures => {tree => $tree},
     parameters => {newLeft => $nLeft, newRight => $nRight});
- }
+ } # splitRoot
 
 sub Nasm::X86::Tree::put($$$)                                                   # Put a variable key and data into a tree. The data could be a tree descriptor to place a sub tree into a tree at the indicated key.
  {my ($tree, $key, $data) = @_;                                                 # Tree definition, key as a variable, data as a variable or a tree descriptor
@@ -6575,7 +6579,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
                             data    => $data->first,
                             subTree => K(key => 1)});
    }
- }
+ } # put
 
 #D2 Find                                                                        # Find a key in the tree. Trees have dword integer keys and so can act as arrays as well.
 
@@ -8840,7 +8844,7 @@ sub fixMixOutput                                                                
   for my $i(keys @a)                                                            # Each line of output
    {if ($a[$i] =~ m(\AXDIS\s+[[:xdigit:]]{16}:\s+BASE\s+[[:xdigit:]]+\s+mov\s+r11,\s+(0x[[:xdigit:]]+)))
      {my $l = eval($1)+1;
-      $a[$i] = sprintf "    %s called at $0 line %d\n", $l{$l}//'', $l;
+      $a[$i] = sprintf "    %s called at $0 line %d\n", pad($l{$l}//'', 32), $l;
      }
    }
   owf $sdeMixOut, join "", @a;                                                  # Update mix out
@@ -18025,26 +18029,32 @@ END
  }
 
 
-latest:
-if (1) {                                                                        #TTraceMode
-  my $S = Subroutine                                                            # Load and print rax
+#latest:
+if (1) {                                                                        #TNasm::X86::Subroutine::inline
+  my $s = Subroutine                                                            # Load and print rax
    {my ($p, $s, $sub) = @_;
     $$p{ppp}->outNL;
    } name => "s", parameters=>[qw(ppp)];
 
-  $S->call  (parameters => {ppp => V ppp => 0x99});                             # Call   378
-  $S->inline(parameters => {ppp => V ppp => 0xaa});                             # Inline 364
+  $s->call  (parameters => {ppp => V ppp => 0x99});                             # Call   378
+  $s->inline(parameters => {ppp => V ppp => 0xaa});                             # Inline 364
 
   Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
 ppp: .... .... .... ..99
 ppp: .... .... .... ..AA
 END
-exit;
  }
 
 latest:
-#   16,885,371  with 4K byte moves
 #   16,948,886  with 64 byte moves
+#   16,885,371  with 4K byte moves
+#       Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
+#   16,885,371       1,187,232      16,885,371       1,187,232      2.856018          2.15  splitNode called
+#   15,178,043       1,210,568      15,178,043       1,210,568      2.975869          2.08  splitNode in
+#   15,088,868       1,217,312      15,088,868       1,217,312      3.013716          2.10  splitNotRoot in
+#   14,994,473       1,245,784      14,994,473       1,245,784      2.674707          1.96  allocBlock in
+#   14,993,215       1,246,272      14,993,215       1,246,272      2.496290          1.93  overWriteKeyDataTreeInLeaf
+#   14,876,443       1,247,840      14,876,443       1,247,840      2.506694          1.83  insertKeyDataTreeIntoLeaf
 unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n), 1;
 
 #latest:
