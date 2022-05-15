@@ -15,6 +15,7 @@
 # Update PrintOut to use V2 every where then rename
 # Replace calls to Tree::position with Tree::down
 # Make Pop return a tree when it is on a sub tree
+# PushR - optimize zmm pushes
 # Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls.  rsi rdi are free - likewise r11 because linux occasionally sets it to the contents of the flags register on return from syscall.
 package Nasm::X86;
 our $VERSION = "20211204";
@@ -18033,7 +18034,6 @@ if (1) {                                                                        
 END
  }
 
-
 #latest:
 if (1) {                                                                        #TNasm::X86::Subroutine::inline
   my $s = Subroutine                                                            # Load and print rax
@@ -18071,7 +18071,7 @@ if (1)
 #          705         164,776             705         164,776      0.106918          0.15  1 push
 #        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -18082,6 +18082,23 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
 END
  }
+
+latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+   } name => "s", structures=>{tree=>$t};
+
+  my $p = V key => 1;
+  $s->call(structures=>{tree=>$t});
+
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
+END
+ }
+
+
 
 #latest:
 if (0) {                                                                        #
