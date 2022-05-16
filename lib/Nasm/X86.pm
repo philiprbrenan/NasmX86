@@ -6192,9 +6192,9 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
 
 #D2 Insert                                                                      # Insert a key into the tree.
 
-sub Nasm::X86::Tree::indexXX($$$$)                                              #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
- {my ($tree, $key, $K, $cmp) = @_;                                              # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>
-  @_ == 4 or confess "Four parameters";
+sub Nasm::X86::Tree::indexXX($$$$$)                                             #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
+ {my ($tree, $key, $K, $cmp, $inc) = @_;                                        # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>, whetehr to increment the result by one
+  @_ == 5 or confess "Five parameters";
 
   my $A = $K == 17 ? 18 : 17;                                                   # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
   PushR rcx, r14, r15, k7, $A;                                                  # Registers
@@ -6209,6 +6209,7 @@ sub Nasm::X86::Tree::indexXX($$$$)                                              
   Dec   r15;                                                                    # Reduce to fill block with ones
   Kmovq r14, k7;                                                                # Matching keys
   And   r15, r14;                                                               # Matching keys in mask area
+  Inc r15 if $inc;                                                              # Its faster to to do any adjustment here rather than using variable arithmetic later
   my $r = V index => r15;                                                       # Save result as a variable
   PopR;
 
@@ -6219,14 +6220,14 @@ sub Nasm::X86::Tree::indexEq($$$)                                               
  {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
   @_ == 3 or confess "Three parameters";
 
-  $tree->indexXX($key, $K, $Vpcmp->eq);                                         # Check for equal keys from the broadcasted memory
+  $tree->indexXX($key, $K, $Vpcmp->eq, 0);                                         # Check for equal keys from the broadcasted memory
  }
 
 sub Nasm::X86::Tree::insertionPoint($$$)                                        #P Return the position at which a key should be inserted into a zmm as a point in a variable.
  {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
   @_ == 3 or confess "Three parameters";
 
-  $tree->indexXX($key, $K, $Vpcmp->le) + 1;                                     # Check for less than or equal keys
+  $tree->indexXX($key, $K, $Vpcmp->le, 1);                                      # Check for less than or equal keys
  }
 
 sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
@@ -17542,13 +17543,15 @@ END
 #  2,623,415         177,952       2,623,415         177,952      0.429488          0.16
 #  2,611,013         177,952       2,611,013         177,952      0.398965          0.16  Improved allocZmmBlock
 #  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
+#  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
 
 latest:
 if (1)
  {my $a = CreateArea;
+#$TraceMode = 1;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-  ok Assemble eq=><<END, avx512=>1, mix=>1;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1;
 2826
 END
  }
