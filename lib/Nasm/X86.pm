@@ -16337,7 +16337,7 @@ sub Nasm::X86::Library::call($$%)                                               
 latest:
 say STDERR "BBBBB";
 
-if (1) {                                                                        #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
+if (0) {                                                                        #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
   my $l = CreateLibrary
    (subroutines =>
      [sub
@@ -16370,8 +16370,8 @@ END
   unlink $l->file;
  }
 say STDERR "CCCCC";
-done_testing;
-exit;
+#done_testing;
+#exit;
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::dClassify
