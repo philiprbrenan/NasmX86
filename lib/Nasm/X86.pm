@@ -9881,11 +9881,6 @@ my $start = time;                                                               
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
-say STDERR "ZZZZZ";
-done_testing;
-exit;
-
-
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
   PrintOutStringNL "Hello World";
@@ -16262,9 +16257,8 @@ a: .... .... .... ....
 END
  }
 
-say STDERR "AAAAAA";
-done_testing;
-exit;
+say STDERR "AAAAAA ", 163;
+
 #latest:
 if (1) {
           V(a => 2);
@@ -16377,6 +16371,8 @@ END
   unlink $l->file;
  }
 say STDERR "CCCCC";
+done_testing;
+exit;
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::dClassify
