@@ -16,7 +16,7 @@
 # Replace calls to Tree::position with Tree::down
 # Make Pop return a tree when it is on a sub tree
 # PushR - optimize zmm pushes
-# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls.  rsi rdi are free - likewise r11 because linux occasionally sets it to the contents of the flags register on return from syscall.
+# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls.  rsi rdi are free - likewise r11 because linux occasionally sets it to the contents of the flags register on return from syscall. Likewise the mmx registers.
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -17545,7 +17545,7 @@ END
 #  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
 #  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
 
-latest:
+#latest:
 if (1)
  {my $a = CreateArea;
 #$TraceMode = 1;
