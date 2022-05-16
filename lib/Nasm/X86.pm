@@ -14878,7 +14878,7 @@ X   3:    1   2   4
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -15051,38 +15051,16 @@ if (1) {                                                                        
   $t->dump("1");
   ok Assemble eq => <<END, avx512=>1;
 0
-At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0
-  Keys :    2
-  Data :   22
-  Nodes:   80  140
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    1
-      Data :   11
-    end
-    At:  140                length:    2,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
-      Index:    0    1
-      Keys :    3    4
-      Data :   33   44
-    end
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :   11   22   33   44
 end
 3
-At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0
-  Keys :    2
-  Data :   22
-  Nodes:   80  140
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    1
-      Data :   11
-    end
-    At:  140                length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    4
-      Data :   44
-    end
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    4
+  Data :   11   22   44
 end
 4
 At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -15127,143 +15105,45 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1;
    8
 1
-At:  500                    length:    1,  data:  540,  nodes:  580,  first:   40, root, parent
-  Index:    0
-  Keys :    4
-  Data :    4
-  Nodes:  200  440
-    At:  200                length:    1,  data:  240,  nodes:  280,  first:   40,  up:  500, parent
-      Index:    0
-      Keys :    2
-      Data :    2
-      Nodes:   80  140
-        At:   80            length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
-          Index:    0
-          Keys :    1
-          Data :    1
-        end
-        At:  140            length:    1,  data:  180,  nodes:  1C0,  first:   40,  up:  200, leaf
-          Index:    0
-          Keys :    3
-          Data :    3
-        end
-    end
-    At:  440                length:    1,  data:  480,  nodes:  4C0,  first:   40,  up:  500, parent
-      Index:    0
-      Keys :    6
-      Data :    6
-      Nodes:  2C0  380
-        At:  2C0            length:    1,  data:  300,  nodes:  340,  first:   40,  up:  440, leaf
-          Index:    0
-          Keys :    5
-          Data :    5
-        end
-        At:  380            length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  440, leaf
-          Index:    0    1
-          Keys :    7    8
-          Data :    7    8
-        end
-    end
+At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5    6    7
+  Keys :    1    2    3    4    5    6    7    8
+  Data :    1    2    3    4    5    6    7    8
 end
    7
 2
-At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0    1
-  Keys :    4    6
-  Data :    4    6
-  Nodes:   80  2C0  380
-    At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
-      Index:    0    1
-      Keys :    2    3
-      Data :    2    3
-    end
-    At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    5
-      Data :    5
-    end
-    At:  380                length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
-      Index:    0    1
-      Keys :    7    8
-      Data :    7    8
-    end
+At:   80                    length:    7,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5    6
+  Keys :    2    3    4    5    6    7    8
+  Data :    2    3    4    5    6    7    8
 end
    6
 3
-At:  200                    length:    2,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0    1
-  Keys :    4    6
-  Data :    4    6
-  Nodes:   80  2C0  380
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    3
-      Data :    3
-    end
-    At:  2C0                length:    1,  data:  300,  nodes:  340,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    5
-      Data :    5
-    end
-    At:  380                length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
-      Index:    0    1
-      Keys :    7    8
-      Data :    7    8
-    end
+At:   80                    length:    6,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5
+  Keys :    3    4    5    6    7    8
+  Data :    3    4    5    6    7    8
 end
    5
 4
-At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0
-  Keys :    6
-  Data :    6
-  Nodes:   80  380
-    At:   80                length:    2,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
-      Index:    0    1
-      Keys :    4    5
-      Data :    4    5
-    end
-    At:  380                length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
-      Index:    0    1
-      Keys :    7    8
-      Data :    7    8
-    end
+At:   80                    length:    5,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4
+  Keys :    4    5    6    7    8
+  Data :    4    5    6    7    8
 end
    4
 5
-At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0
-  Keys :    6
-  Data :    6
-  Nodes:   80  380
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    5
-      Data :    5
-    end
-    At:  380                length:    2,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
-      Index:    0    1
-      Keys :    7    8
-      Data :    7    8
-    end
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    5    6    7    8
+  Data :    5    6    7    8
 end
    3
 6
-At:  200                    length:    1,  data:  240,  nodes:  280,  first:   40, root, parent
-  Index:    0
-  Keys :    7
-  Data :    7
-  Nodes:   80  380
-    At:   80                length:    1,  data:   C0,  nodes:  100,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    6
-      Data :    6
-    end
-    At:  380                length:    1,  data:  3C0,  nodes:  400,  first:   40,  up:  200, leaf
-      Index:    0
-      Keys :    8
-      Data :    8
-    end
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    6    7    8
+  Data :    6    7    8
 end
    2
 7
@@ -15665,20 +15545,20 @@ if (1) {                                                                        
    });
 
   ok Assemble eq => <<END, avx512=>1;
-   0 -> f: .... .... .... ...1 key: .... .... .... ...2.
-   1 -> f: .... .... .... ...1 key: .... .... .... ...2.
-   2 -> f: .... .... .... ...1 key: .... .... .... ...4.
-   3 -> f: .... .... .... ...1 key: .... .... .... ...4.
-   4 -> f: .... .... .... ...1 key: .... .... .... ...6.
-   5 -> f: .... .... .... ...1 key: .... .... .... ...6.
-   6 -> f: .... .... .... ...1 key: .... .... .... ...8.
-   7 -> f: .... .... .... ...1 key: .... .... .... ...8.
-   8 -> f: .... .... .... ...1 key: .... .... .... ...A.
-   9 -> f: .... .... .... ...1 key: .... .... .... ...A.
-  10 -> f: .... .... .... ...1 key: .... .... .... ...C.
-  11 -> f: .... .... .... ...1 key: .... .... .... ...C.
-  12 -> f: .... .... .... ...2 key: .... .... .... ...E.
-  13 -> f: .... .... .... ...2 key: .... .... .... ...E.
+   0 -> f: .... .... .... ...2 key: .... .... .... ...2.
+   1 -> f: .... .... .... ...2 key: .... .... .... ...2.
+   2 -> f: .... .... .... ...4 key: .... .... .... ...4.
+   3 -> f: .... .... .... ...4 key: .... .... .... ...4.
+   4 -> f: .... .... .... ...8 key: .... .... .... ...6.
+   5 -> f: .... .... .... ...8 key: .... .... .... ...6.
+   6 -> f: .... .... .... ..10 key: .... .... .... ...8.
+   7 -> f: .... .... .... ..10 key: .... .... .... ...8.
+   8 -> f: .... .... .... ..20 key: .... .... .... ...A.
+   9 -> f: .... .... .... ..20 key: .... .... .... ...A.
+  10 -> f: .... .... .... ..40 key: .... .... .... ...C.
+  11 -> f: .... .... .... ..40 key: .... .... .... ...C.
+  12 -> f: .... .... .... ..80 key: .... .... .... ...E.
+  13 -> f: .... .... .... ..80 key: .... .... .... ...E.
   14 -> f: .... .... .... .... .
   15 -> f: .... .... .... .... .
 END
@@ -15707,19 +15587,19 @@ if (1) {                                                                        
    0 -> f: .... .... .... .... .
    1 -> f: .... .... .... ...1 key: .... .... .... .....
    2 -> f: .... .... .... ...1 key: .... .... .... .....
-   3 -> f: .... .... .... ...1 key: .... .... .... ...2.
-   4 -> f: .... .... .... ...1 key: .... .... .... ...2.
-   5 -> f: .... .... .... ...1 key: .... .... .... ...4.
-   6 -> f: .... .... .... ...1 key: .... .... .... ...4.
-   7 -> f: .... .... .... ...1 key: .... .... .... ...6.
-   8 -> f: .... .... .... ...1 key: .... .... .... ...6.
-   9 -> f: .... .... .... ...1 key: .... .... .... ...8.
-  10 -> f: .... .... .... ...1 key: .... .... .... ...8.
-  11 -> f: .... .... .... ...1 key: .... .... .... ...A.
-  12 -> f: .... .... .... ...1 key: .... .... .... ...A.
-  13 -> f: .... .... .... ...1 key: .... .... .... ...C.
-  14 -> f: .... .... .... ...1 key: .... .... .... ...C.
-  15 -> f: .... .... .... ...2 key: .... .... .... ...E.
+   3 -> f: .... .... .... ...2 key: .... .... .... ...2.
+   4 -> f: .... .... .... ...2 key: .... .... .... ...2.
+   5 -> f: .... .... .... ...4 key: .... .... .... ...4.
+   6 -> f: .... .... .... ...4 key: .... .... .... ...4.
+   7 -> f: .... .... .... ...8 key: .... .... .... ...6.
+   8 -> f: .... .... .... ...8 key: .... .... .... ...6.
+   9 -> f: .... .... .... ..10 key: .... .... .... ...8.
+  10 -> f: .... .... .... ..10 key: .... .... .... ...8.
+  11 -> f: .... .... .... ..20 key: .... .... .... ...A.
+  12 -> f: .... .... .... ..20 key: .... .... .... ...A.
+  13 -> f: .... .... .... ..40 key: .... .... .... ...C.
+  14 -> f: .... .... .... ..40 key: .... .... .... ...C.
+  15 -> f: .... .... .... ..80 key: .... .... .... ...E.
 END
  }
 
@@ -15820,10 +15700,10 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1;
 data: .... .... .... ...F
 data: .... .... .... ...E
-found: .... .... .... ...1
+found: .... .... .... ..40
 found: .... .... .... ....
 size of tree: .... .... .... ..10
-f: .... .... .... ...1 i: .... .... .... ...8 data: .... .... .... ...8
+f: .... .... .... ...2 i: .... .... .... ...8 data: .... .... .... ...8
 f: .... .... .... ...1 i: .... .... .... ...F data: .... .... .... ...F
 f: .... .... .... ...1 i: .... .... .... ...E data: .... .... .... ...E
 f: .... .... .... ...1 i: .... .... .... ...D data: .... .... .... ...D
@@ -15884,11 +15764,11 @@ if (1) {                                                                        
   $a->size->outNL;
 
   ok Assemble eq => <<END, avx512=>1;
-t: .... .... .... ..10 u: .... .... .... .B80 f: .... .... .... .... size of area: .... .... .... 10..
-t: .... .... .... .... u: .... .... .... .B80 f: .... .... .... .B40 size of area: .... .... .... 10..
-t: .... .... .... ..10 u: .... .... .... .B80 f: .... .... .... .... size of area: .... .... .... 10..
-t: .... .... .... .... u: .... .... .... .B80 f: .... .... .... .B40 size of area: .... .... .... 10..
-Clear tree:            u: .... .... .... .B80 f: .... .... .... .B40 size of area: .... .... .... 10..
+t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... .... size of area: .... .... .... 10..
+t: .... .... .... .... u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
+t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... .... size of area: .... .... .... 10..
+t: .... .... .... .... u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
+Clear tree:            u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
 Clear area:            u: .... .... .... .... f: .... .... .... .... size of area: .... .... .... 10..
 END
  }
@@ -16119,37 +15999,37 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0;
 T
 Tree: .... .... .... .740
-At:      780                                                                                length:        2,  data:      7C0,  nodes:      800,  first:      740, root, leaf,  trees:  10
+At:      780                                                                                length:        2,  data:      7C0,  nodes:      800,  first:      740, root, leaf,  trees:            10
   Index:        0        1
   Keys :        0        1
   Data :       41      64*
    Tree:      640
-     At:      680                                                                           length:        2,  data:      6C0,  nodes:      700,  first:      640, root, leaf,  trees:  10
+     At:      680                                                                           length:        2,  data:      6C0,  nodes:      700,  first:      640, root, leaf,  trees:            10
        Index:        0        1
        Keys :        0        1
        Data :       41      54*
         Tree:      540
-          At:      580                                                                      length:        2,  data:      5C0,  nodes:      600,  first:      540, root, leaf,  trees:  10
+          At:      580                                                                      length:        2,  data:      5C0,  nodes:      600,  first:      540, root, leaf,  trees:            10
             Index:        0        1
             Keys :        0        1
             Data :       41      44*
              Tree:      440
-               At:      480                                                                 length:        2,  data:      4C0,  nodes:      500,  first:      440, root, leaf,  trees:  10
+               At:      480                                                                 length:        2,  data:      4C0,  nodes:      500,  first:      440, root, leaf,  trees:            10
                  Index:        0        1
                  Keys :        0        1
                  Data :       41      34*
                   Tree:      340
-                    At:      380                                                            length:        2,  data:      3C0,  nodes:      400,  first:      340, root, leaf,  trees:  10
+                    At:      380                                                            length:        2,  data:      3C0,  nodes:      400,  first:      340, root, leaf,  trees:            10
                       Index:        0        1
                       Keys :        0        1
                       Data :       41      24*
                        Tree:      240
-                         At:      280                                                       length:        2,  data:      2C0,  nodes:      300,  first:      240, root, leaf,  trees:  10
+                         At:      280                                                       length:        2,  data:      2C0,  nodes:      300,  first:      240, root, leaf,  trees:            10
                            Index:        0        1
                            Keys :        0        1
                            Data :       41      14*
                             Tree:      140
-                              At:      180                                                  length:        2,  data:      1C0,  nodes:      200,  first:      140, root, leaf,  trees:  10
+                              At:      180                                                  length:        2,  data:      1C0,  nodes:      200,  first:      140, root, leaf,  trees:            10
                                 Index:        0        1
                                 Keys :        0        1
                                 Data :       41       4*
@@ -16184,7 +16064,7 @@ if (1) {                                                                        
   $p +=    K(char => ord $_) for split //, 'abf4';
 
   $t->putString($_) for $s, $r, $q, $p;
-  $t->dump('t = abcd');
+  $t->dump8xx('t = abcd');
 
   $t->find(K key => 0x61);
   for my $f(qw(found key data subTree offset))
@@ -16199,42 +16079,34 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END, avx512=>1;
 t = abcd
-At:  AC0                    length:    1,  data:  B00,  nodes:  B40,  first:  140, root, leaf,  trees:   1
-  Index:    0
-  Keys :   61
-  Data :  BC*
-     At:  BC0               length:    1,  data:  C00,  nodes:  C40,  first:  A80, root, leaf,  trees:   1
-       Index:    0
-       Keys :   62
-       Data :  E0*
-          At:  E00          length:    1,  data:  E40,  nodes:  E80,  first:  B80, root, parent
-            Index:    0
-            Keys :   64
-            Data :   50
-            Nodes:  C80  D40
-              At:  C80      length:    1,  data:  CC0,  nodes:  D00,  first:  B80,  up:  E00, leaf
-                Index:    0
-                Keys :   63
-                Data :   49
-              end
-              At:  D40      length:    2,  data:  D80,  nodes:  DC0,  first:  B80,  up:  E00, leaf
-                Index:    0    1
-                Keys :   65   66
-                Data :   51   52
-              end
+Tree: .... .... .... .140
+At:      4C0                                                                                length:        1,  data:      500,  nodes:      540,  first:      140, root, leaf,  trees:             1
+  Index:        0
+  Keys :       61
+  Data :      48*
+   Tree:      480
+     At:      5C0                                                                           length:        1,  data:      600,  nodes:      640,  first:      480, root, leaf,  trees:             1
+       Index:        0
+       Keys :       62
+       Data :      58*
+        Tree:      580
+          At:      680                                                                      length:        4,  data:      6C0,  nodes:      700,  first:      580, root, leaf
+            Index:        0        1        2        3
+            Keys :       63       64       65       66
+            Data :       31       32       33       34
           end
      end
 end
 found   .... .... .... ...1
 key     .... .... .... ..61
-data    .... .... .... .A80
+data    .... .... .... .480
 subTree .... .... .... ...1
-offset  .... .... .... .AC0
+offset  .... .... .... .4C0
 found:  .... .... .... ...1
 found:  .... .... .... ...1
 data:   .... .... .... ..31
 found:  .... .... .... ...1
-data:   .... .... .... .B80
+data:   .... .... .... .580
 END
  }
 
@@ -16246,14 +16118,14 @@ if (1) {                                                                        
 
   $T->push(K key => 1);
   $t->push($T);
-  $t->dump8('AA');
+  $t->dump8xx('AA');
   my $s = $t->popSubTree;
-  $t->dump8('BB');
-  $s->dump8('CC');
+  $t->dump8xx('BB');
+  $s->dump8xx('CC');
   ok Assemble eq => <<END, avx512=>1;
 AA
 Tree: .... .... .... ..40
-At:      180                                                                                length:        1,  data:      1C0,  nodes:      200,  first:       40, root, leaf,  trees:   1
+At:      180                                                                                length:        1,  data:      1C0,  nodes:      200,  first:       40, root, leaf,  trees:             1
   Index:        0
   Keys :        0
   Data :       8*
@@ -16301,7 +16173,7 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END, avx512=>1;
 input 1 2  1 3
-At:  280                    length:    2,  data:  2C0,  nodes:  300,  first:   C0, root, leaf,  trees:  11
+At:  280                    length:    2,  data:  2C0,  nodes:  300,  first:   C0, root, leaf,  trees:            11
   Index:    0    1
   Keys :    0    1
   Data :  10*  1C*
@@ -16690,7 +16562,7 @@ if (1) {                                                                        
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->find(K alpha => ord('𝝰')); $t->found->outNL; $t->data ->outNL;
   ok Assemble eq => <<END, avx512=>1;
-found: .... .... .... ...1
+found: .... .... .... ...8
 data: .... .... .... ...6
 END
  }
@@ -17428,35 +17300,24 @@ At:       80                                                                    
 end
 BB
 Tree: .... .... .... ..40
-At:      200                                                                                length:        1,  data:      240,  nodes:      280,  first:       40, root, parent
-  Index:        0
-  Keys :        1
-  Data : 34333231
-  Nodes:       80      140
-    At:       80                                                                            length:        1,  data:       C0,  nodes:      100,  first:       40,  up:      200, leaf
-      Index:        0
-      Keys :        0
-      Data :        7
-    end
-    At:      140                                                                            length:        2,  data:      180,  nodes:      1C0,  first:       40,  up:      200, leaf
-      Index:        0        1
-      Keys :        2        3
-      Data :   373635       99
-    end
+At:       80                                                                                length:        4,  data:       C0,  nodes:      100,  first:       40, root, leaf
+  Index:        0        1        2        3
+  Keys :        0        1        2        3
+  Data :        7 34333231   373635       99
 end
 CC
-Tree: .... .... .... .2C0
-At:      340                                                                                length:        1,  data:      380,  nodes:      3C0,  first:      2C0, root, leaf,  trees:   1
+Tree: .... .... .... .140
+At:      1C0                                                                                length:        1,  data:      200,  nodes:      240,  first:      140, root, leaf,  trees:             1
   Index:        0
   Keys :        7
-  Data :      30*
-   Tree:      300
-     At:      440                                                                           length:        1,  data:      480,  nodes:      4C0,  first:      300, root, leaf,  trees:   1
+  Data :      18*
+   Tree:      180
+     At:      2C0                                                                           length:        1,  data:      300,  nodes:      340,  first:      180, root, leaf,  trees:             1
        Index:        0
        Keys : 34333231
-       Data :      40*
-        Tree:      400
-          At:      500                                                                      length:        1,  data:      540,  nodes:      580,  first:      400, root, leaf
+       Data :      28*
+        Tree:      280
+          At:      380                                                                      length:        1,  data:      3C0,  nodes:      400,  first:      280, root, leaf
             Index:        0
             Keys :   373635
             Data :       99
@@ -17500,11 +17361,11 @@ if (1) {                                                                        
 2
 2
 AA
-At:  100                    length:    2,  data:  140,  nodes:  180,  first:   40, root, leaf,  trees:  11
+At:  100                    length:    2,  data:  140,  nodes:  180,  first:   40, root, leaf,  trees:            11
   Index:    0    1
   Keys :    0    1
   Data :  30*  48*
-     At:  300               length:    3,  data:  340,  nodes:  380,  first:   80, root, leaf,  trees: 111
+     At:  300               length:    3,  data:  340,  nodes:  380,  first:   80, root, leaf,  trees:           111
        Index:    0    1    2
        Keys :    1    2    3
        Data :  3C*  68*  88*
@@ -17524,7 +17385,7 @@ At:  100                    length:    2,  data:  140,  nodes:  180,  first:   4
             Data :    2
           end
      end
-     At:  480               length:    3,  data:  4C0,  nodes:  500,  first:   C0, root, leaf,  trees: 111
+     At:  480               length:    3,  data:  4C0,  nodes:  500,  first:   C0, root, leaf,  trees:           111
        Index:    0    1    2
        Keys :    0    1    2
        Data :  20*  58*  78*
@@ -17644,7 +17505,7 @@ if (1)
   my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
-  ok Assemble eq => <<END, avx512=>1, mix=>1;
+  ok Assemble eq => <<END, avx512=>1, mix=>0;
 ⟢
 ._＝
 ._._𝗔
@@ -17664,7 +17525,7 @@ END
   unlink $f;
  }
 
-#latest:
+latest:
 if (1)
  {my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
