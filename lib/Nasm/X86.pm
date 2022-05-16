@@ -16258,6 +16258,8 @@ END
  }
 
 say STDERR "AAAAAA";
+done_testing;
+exit;
 #latest:
 if (1) {
           V(a => 2);
