@@ -5802,9 +5802,11 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
 
     my $t = $$s{tree};                                                          # Tree
     my $a = $t->area;                                                           # Area
-    my $k = $a->allocZmmBlock;                                                  # Keys
-    my $d = $a->allocZmmBlock;                                                  # Data
-    my $n = $a->allocZmmBlock;                                                  # Children
+#    my $k = $a->allocZmmBlock;                                                  # Keys
+#    my $d = $a->allocZmmBlock;                                                  # Data
+#    my $n = $a->allocZmmBlock;                                                  # Children
+
+    my ($k, $d, $n) = $a->allocZmmBlock3;                                       # Keys, data, children
 
     PushR 8;
     $t->putLoop($d, $K);                                                        # Set the link from key to data
@@ -17525,7 +17527,7 @@ END
   unlink $f;
  }
 
-latest:
+#latest:
 if (1)
  {my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -17539,12 +17541,16 @@ END
 #     Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
 #  2,623,415         177,952       2,623,415         177,952      0.429488          0.16
 #  2,611,013         177,952       2,611,013         177,952      0.398965          0.16  Improved allocZmmBlock
+#  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
 
-#latest:
+latest:
 if (1)
  {my $a = CreateArea;
-  Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
-  Assemble avx512=>1, mix=>1;
+  my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
+  $t->size->outRightInDecNL(K width => 4);
+  ok Assemble eq=><<END, avx512=>1, mix=>1;
+2826
+END
  }
 
 #latest:
