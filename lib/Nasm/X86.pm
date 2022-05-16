@@ -5037,7 +5037,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
      structures => {area => $area},
      name       => 'Nasm::X86::Area::updateSpace';
 
-  $s->call
+  $s->call                                                                      # The gain from inline is not offset by the increased assembly cost
    (parameters=>{size => $size}, structures=>{area => $area});
  } # updateSpace
 
@@ -5101,6 +5101,40 @@ sub Nasm::X86::Area::allocate($$)                                               
  }
 
 sub Nasm::X86::Area::allocZmmBlock($)                                           # Allocate a block to hold a zmm register in the specified area and return the offset of the block as a variable.
+ {my ($area) = @_;                                                              # Area
+  @_ == 1 or confess "One parameter";
+  my $offset = V(offset => 0);                                                  # Variable to hold offset of allocation
+
+  PushR rax;
+
+  $area->address->setReg(rax);                                                  # Address of area
+  my $firstBlock = "dword[rax+$$area{freeOffset}]";                             # Offset of first block in free chain if such a block exists
+  Cmp $firstBlock, 0;
+
+  IfGt
+  Then                                                                          # Free block available
+   {PushR my $first = r14, my $second = r15, 31;
+    my $firstD  = $first.'d';
+    my $secondD = $second.'d';
+    Mov $firstD, $firstBlock;                                                   # Offset of first block
+    $area->getZmmBlock(V(offset => $first), 31);                                # Load the first block on the free chain
+    dFromZ(31, 0)->setReg($second);                                             # The location of the second block if any
+    Mov $firstBlock, $secondD;                                                  # Offset of first block in free chain if such a block exists
+    ClearRegisters 31;                                                          # Clear the zmm block - possibly this only needs to be done if we are reusing a block
+    $offset->getReg($first);                                                    # First block is the allocated block
+    $area->putZmmBlock($offset, 31);
+    PopR;
+   },
+  Else                                                                          # Cannot reuse a free block so allocate
+   {$offset->copy($area->allocate(K size => $area->zmmBlock));                  # Copy offset of allocation
+   };
+
+  PopR;
+
+  $offset                                                                       # Return offset of allocated block
+ }
+
+sub Nasm::X86::Area::allocZmmBlock3($)                                          # Allocate three zmm blocks in one go and return their offsets
  {my ($area) = @_;                                                              # Area
   @_ == 1 or confess "One parameter";
   my $offset = V(offset => 0);                                                  # Variable to hold offset of allocation
@@ -18170,6 +18204,7 @@ END
 
 #     Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
 #  2,623,415         177,952       2,623,415         177,952      0.429488          0.16
+#  2,611,013         177,952       2,611,013         177,952      0.398965          0.16  Improved allocZmmBlock
 
 latest:
 if (1)
