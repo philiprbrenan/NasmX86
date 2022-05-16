@@ -9879,7 +9879,7 @@ else
 
 my $start = time;                                                               # Tests
 
-eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
+eval {goto latest} if !caller(0);# and !onGitHub;                                 # Go to latest test if specified
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -16257,8 +16257,6 @@ a: .... .... .... ....
 END
  }
 
-say STDERR "AAAAAA ", 163;
-
 #latest:
 if (1) {
           V(a => 2);
@@ -16276,7 +16274,6 @@ deref (addr a add 16): .... .... .... ...2
 deref (addr a add 16): .... .... .... ...3
 END
  }
-say STDERR "BBBBB";
 
 #D1 Library                                                                     # Create a library and call the methods contained in it.
 
@@ -16337,7 +16334,9 @@ sub Nasm::X86::Library::call($$%)                                               
   $library->name->{$name}->call(library => $library->address, %options);
  }
 
-#latest:
+latest:
+say STDERR "BBBBB";
+
 if (1) {                                                                        #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
   my $l = CreateLibrary
    (subroutines =>
