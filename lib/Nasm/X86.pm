@@ -9881,6 +9881,11 @@ my $start = time;                                                               
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
+say STDERR "ZZZZZ";
+done_testing;
+exit;
+
+
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
   PrintOutStringNL "Hello World";
