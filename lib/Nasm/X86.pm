@@ -16257,6 +16257,7 @@ a: .... .... .... ....
 END
  }
 
+say STDERR "AAAAAA";
 #latest:
 if (1) {
           V(a => 2);
@@ -16274,6 +16275,7 @@ deref (addr a add 16): .... .... .... ...2
 deref (addr a add 16): .... .... .... ...3
 END
  }
+say STDERR "BBBBB";
 
 #D1 Library                                                                     # Create a library and call the methods contained in it.
 
@@ -16367,6 +16369,7 @@ p: .... .... .... ..2A
 END
   unlink $l->file;
  }
+say STDERR "CCCCC";
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::dClassify
@@ -16539,6 +16542,7 @@ OC  38: 2308230A23292768276A276C276E27702772277427E627E827EA27EC27EE298329852987
 CO  38: 2309230B232A2769276B276D276F27712773277527E727E927EB27ED27EF298429862988298A298C298E2990299229942996299829FD2E293009300B3011301530173019301BFD3FFF09FF60
 END
  }
+say STDERR "DDDDD";
 
 sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
  {my ($a) = @_;                                                                 # Area in which to create the table
@@ -16569,6 +16573,7 @@ found: .... .... .... ...8
 data: .... .... .... ...6
 END
  }
+say STDERR "EEEEE";
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
@@ -17545,7 +17550,7 @@ END
 #  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
 #  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
 
-#latest:
+latest:
 if (1)
  {my $a = CreateArea;
 #$TraceMode = 1;
