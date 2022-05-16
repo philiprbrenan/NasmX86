@@ -907,9 +907,9 @@ sub LoadConstantIntoMaskRegister($$)                                            
  {my ($mask, $value) = @_;                                                      # Number of mask register to load, constant to load
   @_ == 2 or confess "Two parameters";
   CheckMaskRegisterNumber $mask;
-  $mask     = registerNameFromNumber $mask;
+  my $m = registerNameFromNumber $mask;
   Mov rdi, $value;                                                              # Load mask into a general purpose register
-  Kmovq $mask, rdi;                                                             # Load mask register from general purpose register
+  Kmovq $m, rdi;                                                                # Load mask register from general purpose register
  }
 
 sub createBitNumberFromAlternatingPattern($@)                                   # Create a number from a bit pattern.
@@ -917,9 +917,9 @@ sub createBitNumberFromAlternatingPattern($@)                                   
   @_ > 1 or confess "Four or more parameters required";                         # Must have some values
 
   $prefix =~ m(\A[01]*\Z) or confess "Prefix must be binary";                   # Prefix must be binary
-  grep {$_ == 0} @values and confess "Values must not be zero";                 # No value may be zero
+  @values = grep {$_ != 0} @values;                                             # Remove zeroes as they would produce no string
 
-  for my $i(0..$#values-1)                                                      # Check values alternate
+  for my $i(0..$#values-1)                                                      # Check each value alternates with the following values
    {($values[$i] > 0 && $values[$i+1] > 0  or
      $values[$i] < 0 && $values[$i+1] < 0) and confess "Signs must alternate";
    }
@@ -5515,8 +5515,9 @@ sub DescribeTree(%)                                                             
 
   my $keyAreaWidth = $b - $o * 2 ;                                              # Key / data area width  in bytes
   my $kwdw   = $keyAreaWidth / $o;                                              # Number of keys in a maximal block
-  my $length = $options{length} // $keyAreaWidth / $o;                          # Length of block to split
+  my $length = 13; #$options{length} // $keyAreaWidth / $o;                          # Length of block to split
 
+  confess "Length: $length is even not odd" unless $length % 2;                  # Ideally length is odd
   confess "Length must be greater than 2, not: $length" unless $length > 2;     # Check minimum length
   confess "Length must be less than or equal to $kwdw, not $length"             # Check maximum length
     unless $length <= $kwdw;
@@ -5591,13 +5592,13 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $tree  = $$s{tree};                                                      # Tree
+    my $tree = $$s{tree};                                                       # Tree
     $tree->first->copy($tree->area->allocZmmBlock);                             # Allocate header
 
    } structures=>{area => $area, tree => $tree},
-     name => 'Nasm::X86::Area::CreateTree';
+     name => qq(Nasm::X86::Area::CreateTree-$$tree{length});
 
-  $s->call(structures=>{area => $area, tree => $tree});
+  $s->inline(structures=>{area => $area, tree => $tree});
 
   $tree                                                                         # Description of array
  }
@@ -5611,7 +5612,7 @@ sub Nasm::X86::Tree::describeTree($%)                                           
 
 sub Nasm::X86::Tree::position($$)                                               # Create a new tree description for a tree positioned at the specified location
  {my ($tree, $first) = @_;                                                      # Tree descriptor, offset of tree
-  my $t = $tree->describeTree;
+  my $t = $tree->describeTree(length=>$tree->length);                           # Length of new tree must be same as old tree
 
   $t->first->copy($first);                                                      # Variable addressing offset to first block of keys.
   $t                                                                            # Return new descriptor
@@ -5626,7 +5627,7 @@ sub Nasm::X86::Tree::reposition($$)                                             
 sub Nasm::X86::Tree::cloneDescriptor($)                                         # Clone the descriptor of a tree to make a new tree descriptor
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  my $t = $tree->describeTree;                                                  # New tree descriptor
+  my $t = $tree->describeTree(length=>$tree->length);                           # Length of new tree must be same as old tree
   $t->first->copy($tree->first);                                                # Load new descriptor from original descriptor
   $t                                                                            # Return new descriptor
  }
@@ -5764,10 +5765,10 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree
-    my $area = $t->area;                                                        # Area
-    my $k = $area->allocZmmBlock;                                               # Keys
-    my $d = $area->allocZmmBlock;                                               # Data
-    my $n = $area->allocZmmBlock;                                               # Children
+    my $a = $t->area;                                                           # Area
+    my $k = $a->allocZmmBlock;                                                  # Keys
+    my $d = $a->allocZmmBlock;                                                  # Data
+    my $n = $a->allocZmmBlock;                                                  # Children
 
     PushR 8;
     $t->putLoop($d, $K);                                                        # Set the link from key to data
@@ -5778,7 +5779,8 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
     PopR;
    } structures => {tree => $tree},
      parameters => [qw(address)],
-     name       => qq(Nasm::X86::Tree::allocBlock::${K}::${D}::${N});           # Create a subroutine for each combination of registers encountered
+     name       =>
+     qq(Nasm::X86::Tree::allocBlock-${K}-${D}-${N}-$$tree{length});             # Create a subroutine for each combination of registers encountered
 
   $s->inline
    (structures => {tree => $tree},
@@ -6097,7 +6099,7 @@ sub Nasm::X86::Tree::expand($$)                                                 
     PopR;
    } parameters=>[qw(offset)],
      structures=>{tree=>$tree},
-     name => 'Nasm::X86::Tree::expand';
+     name => qq(Nasm::X86::Tree::expand-$$tree{length});
 
   $s->call(structures=>{tree => $tree}, parameters=>{offset => $offset});
  } # expand
@@ -6139,7 +6141,8 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
      };
 
     PopR;
-   } name => "Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($K, $D)",             # Different variants for different blocks of registers.
+   } name =>
+     qq(Nasm::X86::Tree::overWriteKeyDataTreeInLeaf-$K-$D-$$tree{length}),      # Different variants for different blocks of registers.
      structures => {tree=>$tree},
      parameters => [qw(point key data subTree)];
 
@@ -6222,7 +6225,8 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
     $t->incSizeInFirst($F);                                                     # Update number of elements in entire tree.
 
     PopR;
-   } name => "Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($F, $K, $D)",          # Different variants for different blocks of registers.
+   } name =>
+     qq(Nasm::X86::Tree::insertKeyDataTreeIntoLeaf-$F-$K-$D-$$tree{length}),    # Different variants for different blocks of registers.
      structures => {tree=>$tree},
      parameters => [qw(point key data subTree)];
 
@@ -6305,7 +6309,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
     PopR;
    }  structures => {tree => $tree},
       parameters => [qw(offset split)],
-      name       => 'Nasm::X86::Tree::splitNode';
+      name       => qq(Nasm::X86::Tree::splitNode-$$tree{length});
 
   $s->inline
    (structures => {tree   => $tree},
@@ -6346,16 +6350,17 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
       LoadBitsIntoMaskRegister(7, $prefix, @onesAndZeroes);                     # Load k7 with mask
      };
 
-    &$mask("00", $zwk);                                                         # Area to clear in keys and data preserving last qword
-    Vmovdqu32    zmmM($RK, 7),  zmm($LK);
-    Vmovdqu32    zmmM($RD, 7),  zmm($LD);
+    &$mask("00", $zwk);                                                         # Copy Left node to right node
 
-    &$mask("0",  $zwn);                                                         # Area to clear in nodes preserving last dword
-    Vmovdqu32    zmmM($RN, 7),  zmm($LN);
+    Vmovdqu32    zmmM($RK, 7),  zmm($LK);                                       # Copy keys from left to right
+    Vmovdqu32    zmmM($RD, 7),  zmm($LD);                                       # Copy data from left to right
+
+    &$mask("0",  $zwn);
+    Vmovdqu32    zmmM($RN, 7),  zmm($LN);                                       # Copy nodes from left to right
 
     &$mask("00", $lw-$zwk,  $lr, -$ll-1);                                       # Compress right data/keys
-    Vpcompressd  zmmM($RK, 7),  zmm($RK);
-    Vpcompressd  zmmM($RD, 7),  zmm($RD);
+    Vpcompressd  zmmM($RK, 7),  zmm($RK);                                       # Compress copied right keys
+    Vpcompressd  zmmM($RD, 7),  zmm($RD);                                       # Compress right copied data
 
     &$mask("0",  $lw-$zwk, $lr+1, -$lr-1);                                      # Compress right nodes
     Vpcompressd  zmmM($RN, 7),  zmm($RN);
@@ -6444,8 +6449,8 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
    }
   structures => {tree => $tree},
   parameters => [qw(newRight)],
-  name       => "Nasm::X86::Tree::splitNotRoot".
-          "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
+  name       => join('-', qq(Nasm::X86::Tree::splitNotRoot), $$tree{length},
+                          $lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN);
 
   $s->inline(
     structures => {tree => $tree},
@@ -6519,8 +6524,8 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
    }
   structures => {tree => $tree},
   parameters => [qw(newLeft newRight)],
-  name       => "Nasm::X86::Tree::splitRoot".
-          "($lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)";
+  name       => join '-', "Nasm::X86::Tree::splitRoot", $$tree{length},
+                  $lw, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN;
 
   $s->inline
    (structures => {tree => $tree},
@@ -6598,7 +6603,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
       Jmp $descend;                                                             # Descend to the next level
      };
     PopR;
-   } name => "Nasm::X86::Tree::put",
+   } name => qq(Nasm::X86::Tree::put-$$tree{length}),
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
@@ -6678,9 +6683,9 @@ sub Nasm::X86::Tree::find($$)                                                   
       PrintErrTraceBack "Stuck in find";                                        # We seem to be looping endlessly
      };                                                                         # Find completed successfully
     PopR;
-   } parameters=>[qw(key)],
-     structures=>{tree=>$tree},
-     name => 'Nasm::X86::Tree::find';
+   } parameters => [qw(key)],
+     structures => {tree=>$tree},
+     name       => qq(Nasm::X86::Tree::find-$$tree{length});
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # find
@@ -6732,7 +6737,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
      };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::findFirst($$tree{length})";
+     name => qq(Nasm::X86::Tree::findFirst-$$tree{length});
 
   $s->call(structures=>{tree => $tree});
  } # findFirst
@@ -6784,7 +6789,7 @@ sub Nasm::X86::Tree::findLast($)                                                
      };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::findLast($$tree{length})";
+     name => qq(Nasm::X86::Tree::findLast-$$tree{length});
 
   $s->call(structures=>{tree => $tree});                                        # Inline causes very long assembly times so we call instead.
  } # findLast
@@ -6847,9 +6852,9 @@ sub Nasm::X86::Tree::findNext($$)                                               
       PrintErrTraceBack "Stuck in find next";                                   # We seem to be looping endlessly
      };                                                          # Find completed successfully
     PopR;
-   } parameters=>[qw(key)],
-     structures=>{tree=>$tree},
-     name => 'Nasm::X86::Tree::findNext';
+   } parameters => [qw(key)],
+     structures => {tree=>$tree},
+     name       => qq(Nasm::X86::Tree::findNext-$$tree{length});
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # findNext
@@ -6917,9 +6922,9 @@ sub Nasm::X86::Tree::findPrev($$)                                               
       PrintErrTraceBack "Stuck in find prev";                                   # We seem to be looping endlessly
      };                                                                         # Find completed successfully
     PopR;
-   } parameters=>[qw(key)],
-     structures=>{tree=>$tree},
-     name => 'Nasm::X86::Tree::findPrev';
+   } parameters => [qw(key)],
+     structures => {tree=>$tree},
+     name       => qq(Nasm::X86::Tree::findPrev-$$tree{length});
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # findPrev
@@ -6991,8 +6996,8 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
     PopR;
    } structures => {tree => $tree},
      parameters => [qw(node offset)],
-     name       => $dir==0 ? "Nasm::X86::Tree::leftMost" :
-                             "Nasm::X86::Tree::rightMost";
+     name       => $dir==0 ? qq(Nasm::X86::Tree::leftMost-$$tree{length}) :
+                             qq(Nasm::X86::Tree::rightMost-$$tree{length});
 
   $s->call
    (structures => {tree=>$tree},
@@ -7045,7 +7050,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
     PopR;
    }  structures => {tree => $tree},
       parameters => [qw(node depth)],
-      name       => 'Nasm::X86::Tree::depth';
+      name       => qq(Nasm::X86::Tree::depth-$$tree{length});
 
   $s->call(structures => {tree => $tree->copyDescription},
            parameters => {node => $node, depth => my $d = V depth => 0});
@@ -7256,9 +7261,9 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
     $t->decLengthInKeys($K);                                                    # Reduce length by  one
 
     PopR;
-   } parameters=>[qw(point)],
-     structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::extract($K, $D, $N, $$tree{length})";
+   } parameters => [qw(point)],
+     structures => {tree=>$tree},
+     name       => qq(Nasm::X86::Tree::extract-$K-$D-$N-$$tree{length});
 
   $s->inline(structures=>{tree => $tree}, parameters=>{point => $point});
  } # extract
@@ -7298,7 +7303,7 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
 
     PopR;
    } structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::extractFirst($K, $D, $N, $$tree{length})";
+     name => qq(Nasm::X86::Tree::extractFirst-$K-$D-$N-$$tree{length});
 
   $s->call(structures=>{tree => $tree});
  } # extractFirst
@@ -7398,9 +7403,9 @@ sub Nasm::X86::Tree::mergeOrSteal($$)                                           
        };
      };
     PopR;
-   } parameters=>[qw(offset changed)],
-     structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::mergeOrSteal($$tree{length})";
+   } parameters => [qw(offset changed)],
+     structures => {tree=>$tree},
+     name       => qq(Nasm::X86::Tree::mergeOrSteal-$$tree{length});
 
   $s->call
    (structures => {tree   => $tree},
@@ -7487,8 +7492,9 @@ sub Nasm::X86::Tree::stealFromRight($$$$$$$$$$)                                 
      };
     PopR;
    }
-  name       =>
-  "Nasm::X86::Tree::stealFromRight($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  name       => join('::',
+   "Nasm::X86::Tree::stealFromRight",
+    $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN, $tree->length),
   structures => {tree => $tree};
 
   $s->call(structures => {tree   => $tree});
@@ -7569,8 +7575,10 @@ sub Nasm::X86::Tree::stealFromLeft($$$$$$$$$$)                                  
      };
     PopR;
    }
-  name       =>
-  "Nasm::X86::Tree::stealFromLeft($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  name       => join('::',
+   "Nasm::X86::Tree::stealFromLeft",
+    $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN, $tree->length),
+
   structures => {tree => $tree};
 
   $s->call(structures => {tree   => $tree});
@@ -7680,8 +7688,9 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
      };
     PopR;
    }
-  name       =>
-  "Nasm::X86::Tree::merge($$tree{length}, $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN)",
+  name       => join('::',
+   "Nasm::X86::Tree::merge",
+    $PK, $PD, $PN, $LK, $LD, $LN, $RK, $RD, $RN, $tree->length),
   structures => {tree => $tree};
 
   $s->call(structures => {tree=> $tree});
@@ -7727,7 +7736,7 @@ sub Nasm::X86::Tree::deleteFirstKeyAndData($$$)                                 
      };
     PopR;
    }
-  name       => "Nasm::X86::Tree::deleteFirstKeyAndData($K, $D)",
+  name => qq(Nasm::X86::Tree::deleteFirstKeyAndData::$K::$D-$$tree{length}),
   structures => {tree => $tree};
 
   $s->call(structures => {tree => $tree});
@@ -7863,9 +7872,9 @@ sub Nasm::X86::Tree::delete($$)                                                 
       PrintErrTraceBack "Stuck looking for leaf";
      };                                                          # Find completed successfully
     PopR;
-   } parameters=>[qw(key)],
-     structures=>{tree=>$tree},
-     name => "Nasm::X86::Tree::delete($$tree{length})";
+   } parameters =>[qw(key)],
+     structures =>{tree=>$tree},
+     name       => qq(Nasm::X86::Tree::delete-$$tree{length});
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # delete
@@ -7903,7 +7912,7 @@ sub Nasm::X86::Tree::clear($)                                                   
     PopR;
    } parameters => [qw(offset)],
      structures => {tree => $tree},
-     name       => "Nasm::X86::Tree::clear";
+     name       => qq(Nasm::X86::Tree::clear-$$tree{length});
 
   PushR my $F = 31;
   $tree->firstFromMemory($F);
@@ -8081,8 +8090,9 @@ sub Nasm::X86::Tree::appendAscii($$$)                                           
       $s->push(V byte => rax);
      } r15, r14, 1;
     PopR;
-   } structures=>{string=>$string},
-     parameters=>[qw(address size)], name => 'Nasm::X86::Tree::m';
+   } structures => {string=>$string},
+     parameters => [qw(address size)],
+     name       =>  qq(Nasm::X86::Tree::m::$$string{length});
 
   $s->call(parameters=>{address => $address, size=>$size},
            structures=>{string=>$string});
@@ -8491,7 +8501,7 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
     PopR;
    } parameters => [qw(indentation offset)],
      structures => {tree => $tree},
-     name       => "Nasm::X86::Tree::dump_$width-$margin-$first";
+     name => "Nasm::X86::Tree::dump-$$tree{length}-$width-$margin-$first";
 
   PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
 
@@ -8579,7 +8589,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
     PopR;
    } parameters => [qw(offset)],
      structures => {tree => $tree},
-     name       => "Nasm::X86::Tree::printInOrder";
+     name       => qq(Nasm::X86::Tree::printInOrder-$$tree{length});
 
   PrintOutString $title;                                                        # Title of the piece so we do not lose it
 
@@ -9092,11 +9102,9 @@ END
 
   sub{my $a = fixMixOutput; say STDERR $a if $mix >= 2}->() if $run and $mix;   # Fix mix output to show where code came from in the source file
 
-  if ($run and $debug < 2 and -e $o2 and readFile($o2) =~ m(SDE ERROR:)s)       # Emulator detected an error
-   {if ($trace)                                                                 # Locate the last known good position in the debug trace file, if it exists,  before the error occurred
-     {my $a = locateRunTimeErrorInDebugTraceOutput;
-      say STDERR $a if $trace >= 2;
-     }
+  if ($run and $trace)                                                          # Locate last execution point
+   {my $a = locateRunTimeErrorInDebugTraceOutput;
+    say STDERR $a if $trace >= 2;
    }
 
   unlink $objectFile unless $library;                                           # Delete files
@@ -17152,7 +17160,7 @@ END
 
 sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
  {my ($a) = @_;                                                                 # Area in which to create the table
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree(length => 5);
   my @l = qw(A a b B d e p q s v);
   for my $l(@l)
    {my $n = K lex   => eval "Nasm::X86::Unisyn::Lex::Number::$l";
@@ -17308,10 +17316,6 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
     my $l = $position - $startPos;                                              # Length of previous item
     $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $l);                        # Record length of previous item in its describing tree
-# 22,887,163 with next 2 commented out
-# 23,043,541           1
-# 23,117,942           0
-# unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
     my $s = $symbols->put($a8+$startPos, $l);                                   # The symbol number for the last lexical item
     $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
    };
@@ -17664,8 +17668,8 @@ END
   unlink $f;
  }
 
-sub unisynParse($$$;$)                                                          # Test the parse of a unisyn expression
- {my ($compose, $text, $parse, $trace) = @_;                                    # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree, whether we should trace or not
+sub unisynParse($$$)                                                            # Test the parse of a unisyn expression
+ {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
 # say STDERR readFile($f);
   is_deeply readFile($f), $text;
@@ -17675,7 +17679,7 @@ sub unisynParse($$$;$)                                                          
   my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
-  ok Assemble eq => $parse, avx512=>1, list=>$trace, mix=>$trace;
+  ok Assemble eq => $parse, avx512=>1;
   say STDERR readFile($programOut) =~ s(\n) (\\n)gsr if -e $programOut;
   unlink $f;
  };
@@ -18121,45 +18125,57 @@ END
 
 #latest:
 if (1)
- {unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
- }
+ {my $compose = 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s';
+  my $text    = "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n";
+  my $parse  = q(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
 
-#          705         164,776             705         164,776      0.106918          0.15  1 push
-#        1,340         166,160           1,340         166,160      0.159481          0.16  2 push
-#        1,274         164,072           1,274         164,072      0.371407          0.17
-#        1,199         176,688           1,199         176,688      0.374408          0.18
-#        1,136         174,896          12,330         184,632      0.353687          0.16  PushR, PopR
-latest:
-if (1) {
-  my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
+  is_deeply readFile($f), $text;
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
-  $t->push(K one => 1);
-  $t->push(K one => 1);
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
 
-  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
+  $p->dumpParseTree($a8);
+  ok Assemble eq => <<END, avx512=>1, mix=>1;
+⟢
+._＝
+._._𝗔
+._._𝐈𝐅
+._._._𝗕
+._._._✕
+._._._._𝗖
+._._._._𝗗
+._＝
+._._𝝰
+._._𝐈𝐅
+._._._𝝱
+._._._✕
+._._._._𝝲
+._._._._𝝳
 END
+  unlink $f;
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
-  my $a = CreateArea;
-  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("01234567");
-
-  my $q = $a->CreateQuarks;
-  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)});
-  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)->outNL});
-
-  ok Assemble(debug => 0, mix => 0, eq => <<END, avx512=>1);
-size of tree: .... .... .... ....
-size of tree: .... .... .... ...1
-size of tree: .... .... .... ...2
-size of tree: .... .... .... ...3
-size of tree: .... .... .... ...4
-size of tree: .... .... .... ...5
-size of tree: .... .... .... ...6
-size of tree: .... .... .... ...7
+if (1)
+ {my $a = CreateArea;
+  my $t = $a->CreateTree(length => 3);
+  K(key => 100)->for(sub{my ($i) = @_; $t->put($i, $i)});
+  $t->size->outNL;
+  ok Assemble eq =><<END, avx512=>1, mix=>1;
+size of tree: .... .... .... ..64
 END
+ }
+
+#     Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
+#  2,623,415         177,952       2,623,415         177,952      0.429488          0.16
+
+latest:
+if (1)
+ {my $a = CreateArea;
+  Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
+  Assemble avx512=>1, mix=>1;
  }
 
 #latest:
