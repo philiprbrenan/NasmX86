@@ -16,7 +16,7 @@
 # Replace calls to Tree::position with Tree::down
 # Make Pop return a tree when it is on a sub tree
 # PushR - optimize zmm pushes
-# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls.  rsi rdi are free - likewise r11 because linux occasionally sets it to the contents of the flags register on return from syscall. Likewise the mmx registers.
+# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls.  rsi rdi are free (possibly rbx, rcx, rdx are as well)  - likewise r11 because linux occasionally sets it to the contents of the flags register on return from syscall. Likewise the mmx registers.
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -589,6 +589,26 @@ sub ChooseRegisters($@)                                                         
  }
 
 sub InsertZeroIntoRegisterAtPoint($$)                                           # Insert a zero into the specified register at the point indicated by another general purpose or mask register moving the higher bits one position to the left.
+ {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
+
+  ref($point) and confess "Point must be a register";
+
+  my $mask = rdi, my $low = rsi, my $high = rbx;                                   # Choose three work registers and push them
+  if (&CheckMaskRegister($point))                                               # Mask register showing point
+   {Kmovq $mask, $point;
+   }
+  else                                                                          # General purpose register showing point
+   {Mov  $mask, $point;
+   }
+
+  Dec  $mask;                                                                   # Fill mask to the right of point with ones
+  Andn $high, $mask, $in;                                                       # Part of in be shifted
+  Shl  $high, 1;                                                                # Shift high part
+  And  $in,  $mask;                                                             # Clear high part of target
+  Or   $in,  $high;                                                             # Or in new shifted high part
+ }
+
+sub InsertZeroIntoRegisterAtPoint22($$)                                         # Insert a zero into the specified register at the point indicated by another general purpose or mask register moving the higher bits one position to the left.
  {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
 
   ref($point) and confess "Point must be a register";
@@ -8771,12 +8791,15 @@ sub Link(@)                                                                     
   push @link, @_;
  }
 
+my $lastAsmFinishTime;                                                          # The last time we finished an assembly
+
 sub Start()                                                                     # Initialize the assembler.
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
   @PushR = @extern = @link = @VariableStack = ();
 # @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});               # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
   SubroutineStartStack;                                                         # Number of variables at each lexical level
   $Labels = 0;
+  $lastAsmFinishTime = time;                                                    # The last time we finished an assembly
  }
 
 sub Exit(;$)                                                                    # Exit with the specified return code or zero if no return code supplied.  Assemble() automatically adds a call to Exit(0) if the last operation in the program is not a call to Exit.
@@ -9063,6 +9086,7 @@ END
      }
    }
   unlink $sdePtrCheck, $sdeMixOut, $sdeTraceOut, $traceBack;
+  my $perlTime = 0; $perlTime = time - $lastAsmFinishTime if $lastAsmFinishTime;# Time we spent in Perl preparing for the assembly
 
   if (1)                                                                        # Assemble
    {my $I = @link ? $interpreter : '';                                          # Interpreter only required if calling C
@@ -9118,16 +9142,16 @@ END
 
     my (undef, $file, $line) = caller();                                        # Line in caller
 
-    say STDERR sprintf("        %12s    %12s    %12s    %12s  %12s  %12s",      # Header if necessary
-       "Clocks", "Bytes", "Total Clocks", "Total Bytes", "Run Time", "Assembler")
+    say STDERR sprintf("        %12s    %12s    %12s    %12s  %12s  %12s  %12s",# Header if necessary
+       "Clocks", "Bytes", "Total Clocks", "Total Bytes", "Run Time", "Assembler", "Perl")
       if $assembliesPerformed % 100 == 1;
 
     say STDERR                                                                  # Rows
-      sprintf("%4d    %12s    %12s    %12s    %12s  %12.6f  %12.2f  at $file line $line",
+      sprintf("%4d    %12s    %12s    %12s    %12s  %12.6f  %12.2f  %12.2f  at $file line $line",
       $assembliesPerformed,
       (map {numberWithCommas $_} $instructions,         $bytes,
                                  $instructionsExecuted, $totalBytesAssembled),
-                                 $eTime, $aTime);
+                                 $eTime, $aTime, $perlTime);
    }
 
   if ($run and $debug == 0 and -e $o2)                                          # Print errors if not debugging
@@ -9881,6 +9905,7 @@ my $start = time;                                                               
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
+if (0) { #JUMP
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
   PrintOutStringNL "Hello World";
@@ -13441,6 +13466,8 @@ if (1) {                                                                        
 END
  }
 
+} # JUMP
+
 #latest:
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
@@ -16335,7 +16362,7 @@ sub Nasm::X86::Library::call($$%)                                               
  }
 
 #latest:
-if (1) {     #### Failing on GitHUB                                                                   #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
+if (1) {     #### Failing on GitHUB ???                                         #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
   my $l = CreateLibrary
    (subroutines =>
      [sub
@@ -17544,8 +17571,8 @@ END
 #  2,611,013         177,952       2,611,013         177,952      0.398965          0.16  Improved allocZmmBlock
 #  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
 #  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
-
-latest:
+#  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
+#latest:
 if (1)
  {my $a = CreateArea;
 #$TraceMode = 1;
