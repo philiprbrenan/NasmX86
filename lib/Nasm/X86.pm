@@ -3213,10 +3213,10 @@ sub Nasm::X86::Variable::setReg($$)                                             
      {confess "Cannot set a mask register to the address of a variable";
      }
     else
-     {#PushR 15;
-      Mov rdi, $variable->addressExpr;
-      Kmovq $r, rdi;
-      #PopR;
+     {PushR 15;
+      Mov r15, $variable->addressExpr;
+      Kmovq $r, r15;
+      PopR;
      }
    }
   else                                                                          # Set normal register
@@ -3233,24 +3233,6 @@ sub Nasm::X86::Variable::setReg($$)                                             
  }
 
 sub Nasm::X86::Variable::getReg($$)                                             # Load the variable from a register expression.
- {my ($variable, $register) = @_;                                               # Variable, register expression to load
-  @_ == 2 or confess "Two parameters";
-  my $r = registerNameFromNumber $register;
-  if ($variable->isRef)                                                         # Move to the location referred to by this variable
-   {Comment "Get variable value from register $r";
-    my $p = $r eq rdi ? rsi : rdi;                                              # Choose a work register
-#    PushR $p;
-    Mov $p, $variable->addressExpr;
-    Mov "[$p]", $r;
-#    PopR $p;
-   }
-  else                                                                          # Move to this variable
-   {Mov $variable->addressExpr, $r;
-   }
-  $variable                                                                     # Chain
- }
-
-sub Nasm::X86::Variable::getReg22($$)                                             # Load the variable from a register expression.
  {my ($variable, $register) = @_;                                               # Variable, register expression to load
   @_ == 2 or confess "Two parameters";
   my $r = registerNameFromNumber $register;
@@ -3276,29 +3258,6 @@ sub Nasm::X86::Variable::getConst($$)                                           
  }
 
 sub Nasm::X86::Variable::incDec($$)                                             # Increment or decrement a variable.
- {my ($left, $op) = @_;                                                         # Left variable operator, address of operator to perform inc or dec
-  $left->constant and confess "Cannot increment or decrement a constant";
-  my $l = $left->addressExpr;
-  if ($left->reference)
-   {PushR rdi, rdx;                                                             # Violates the rdi/rdx rule if removed
-    Mov rdx, $l;
-    Mov rdi, "[rdx]";
-    &$op(rdi);
-    Mov "[rdx]", rdi;
-    PopR;
-    return $left;
-   }
-  else
-   {PushR rdx;
-    Mov rdx, $l;
-    &$op(rdx);
-    Mov $l, rdx;
-    PopR;
-    return $left;
-   }
- }
-
-sub Nasm::X86::Variable::incDec22($$)                                             # Increment or decrement a variable.
  {my ($left, $op) = @_;                                                         # Left variable operator, address of operator to perform inc or dec
   $left->constant and confess "Cannot increment or decrement a constant";
   my $l = $left->addressExpr;
