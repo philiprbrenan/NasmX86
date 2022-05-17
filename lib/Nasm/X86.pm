@@ -5017,23 +5017,19 @@ sub Nasm::X86::Area::updateSpace($$)                                            
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine
-   {my ($p, $s) = @_;                                                           # Parameters, structures
-#   PushR rax, 10, 12..15;
+   {my ($p, $s)  = @_;                                                           # Parameters, structures
     my $base     = rbx;                                                         # Base of area
-    my $size     = rcx;                                                         # Current size
-    my $request  = rsi;                                                         # Requested space
     my $newSize  = rdi;                                                         # New size needed
     my $proposed = rdx;                                                         # Proposed size
 
     my $area = $$s{area};                                                       # Area
     $area->address->setReg($base);                                              # Address area
-    $$p{size}->setReg($request);                                                # Requested space
 
-    Mov $size, "[$base+$$area{sizeOffset}]";
     Mov $newSize, "[$base+$$area{usedOffset}]";
-    Add $newSize, $request;
+    my $request  = $$p{size}->label;
+    Add $newSize, "[$request]";
 
-    Cmp $newSize, $size;                                                        # New size needed
+    Cmp $newSize, "[$base+$$area{sizeOffset}]";                                 # New size needed
     IfGt                                                                        # New size is bigger than current size
     Then                                                                        # More space needed
      {Mov $proposed, $area->N;                                                  # Minimum proposed area size
@@ -5053,8 +5049,6 @@ sub Nasm::X86::Area::updateSpace($$)                                            
       Mov "[$base+$$area{sizeOffset}]", $proposed;                              # Save the new size in the area
       PopR;
      };
-
-#   PopR;
    } parameters => [qw(size)],
      structures => {area => $area},
      name       => 'Nasm::X86::Area::updateSpace';
@@ -17641,6 +17635,7 @@ END
 #  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
 #  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
 #  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
+#  2,224,800         185,872       2,276,422       1,568,592      0.405153          0.15  ditto
 latest:
 if (1)
  {my $a = CreateArea;
