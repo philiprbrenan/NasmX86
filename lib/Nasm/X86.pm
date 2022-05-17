@@ -13254,6 +13254,9 @@ Final Right
  zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
 END
  }
+done_testing;
+exit;
+} # JUMP
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::setTree  #TNasm::X86::Tree::clearTree #TNasm::X86::Tree::insertZeroIntoTreeBits #TNasm::X86::Tree::insertOneIntoTreeBits #TNasm::X86::Tree::getTreeBits #TNasm::X86::Tree::setTreeBits #TNasm::X86::Tree::isTree
@@ -13496,9 +13499,6 @@ if (1) {                                                                        
     k7: .... .... .... 7FFF
 END
  }
-done_testing;
-exit;
-} # JUMP
 
 #latest:
 if (1) {                                                                        # Perform the insertion
