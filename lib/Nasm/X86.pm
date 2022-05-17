@@ -8887,7 +8887,7 @@ sub lineNumbersToSubNamesFromSource                                             
 
 sub locateRunTimeErrorInDebugTraceOutput                                        # Locate the traceback of the last known good position in the trace file before the error occurred
  {unlink $traceBack;                                                            # Traceback file
-  return unless -e $sdeTraceOut;                                                # Need a trace file to get a traceback
+  return '' unless -e $sdeTraceOut;                                             # Need a trace file to get a traceback
   my @a = readFile $sdeTraceOut;                                                # Read trace file
   my $s = 0;                                                                    # Parse state
   my @p;                                                                        # Position in source file
@@ -8920,7 +8920,7 @@ sub locateRunTimeErrorInDebugTraceOutput                                        
  }
 
 sub fixMixOutput                                                                # Fix mix output so we know where the code comes from in the source file
- {return unless -e $sdeMixOut;                                                  # Need a mix file to make this work
+ {return '' unless -e $sdeMixOut;                                               # Need a mix file to make this work
   my @a = readFile $sdeMixOut;                                                  # Read mix output
   my %l = lineNumbersToSubNamesFromSource();
 
@@ -9879,7 +9879,7 @@ else
 
 my $start = time;                                                               # Tests
 
-eval {goto latest} if !caller(0);# and !onGitHub;                                 # Go to latest test if specified
+eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -16334,10 +16334,7 @@ sub Nasm::X86::Library::call($$%)                                               
   $library->name->{$name}->call(library => $library->address, %options);
  }
 
-latest:
-say STDERR "BBBBB";
-
-if (0) {                                                                        #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
+if (0) {     #### Failing on GitHUB                                                                   #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
   my $l = CreateLibrary
    (subroutines =>
      [sub
@@ -16369,9 +16366,6 @@ p: .... .... .... ..2A
 END
   unlink $l->file;
  }
-say STDERR "CCCCC";
-#done_testing;
-#exit;
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::dClassify
