@@ -5032,7 +5032,8 @@ sub Nasm::X86::Area::updateSpace($$)                                            
     Cmp $newSize, "[$base+$$area{sizeOffset}]";                                 # New size needed
     IfGt                                                                        # New size is bigger than current size
     Then                                                                        # More space needed
-     {Mov $proposed, $area->N;                                                  # Minimum proposed area size
+     {PushR $base, $proposed;
+      Mov $proposed, $area->N;                                                  # Minimum proposed area size
       K(loop=>36)->for(sub                                                      # Maximum number of shifts
        {my ($index, $start, $next, $end) = @_;
         Shl $proposed, 1;                                                       # New proposed size
@@ -5040,7 +5041,6 @@ sub Nasm::X86::Area::updateSpace($$)                                            
         Jge $end;                                                               # Big enough!
        });
 
-      PushR $base, $proposed;
       my $address = AllocateMemory V size => $proposed;                         # Create new area
       CopyMemory4K($area->address, $address, $area->size>>K(k4 => $area->B));   # Copy old area into new area 4K at a time
       FreeMemory $area->address, $area->size;                                   # Free previous memory previously occupied area
