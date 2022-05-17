@@ -1,4 +1,4 @@
-# Test NasmX86 2022-05-17 at 03:50:10
+# Test NasmX86 2022-05-17 at 04:54:48
 
 name: Test
 
@@ -52,6 +52,10 @@ jobs:
       run: |
         sudo apt-get install -y nasm
 
-    - name: Test
+    - name: Test1
+      run: |
+        perl -Ilib lib/Nasm/X86.pm 1
+
+    - name: Test2
       run: |
         perl -Ilib lib/Nasm/X86.pm
