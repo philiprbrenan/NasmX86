@@ -3101,42 +3101,6 @@ sub Nasm::X86::Variable::not($)                                                 
   V "neg" => rdi;                                                               # Save result in a new variable
  }
 
-sub Nasm::X86::Variable::boolean22($$$$)                                        # Combine the left hand variable with the right hand variable via a boolean operator.
- {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
-
-  !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
-  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
-
-  Comment "Boolean Arithmetic Start";
-  PushR 15;
-
-  Mov r15, $left ->addressExpr;
-  if ($left->reference)                                                         # Dereference left if necessary
-   {Mov r15, "[r15]";
-   }
-  if (ref($right) and $right->reference)                                        # Dereference on right if necessary
-   {PushR 14;
-    Mov r14, $right ->addressExpr;
-    Mov r14, "[r14]";
-    Cmp r15, r14;
-    PopR;
-   }
-  elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp r15, $right->addressExpr;
-   }
-  else                                                                          # Constant on the right
-   {Cmp r15, $right;
-   }
-
-  &$sub(sub {Mov  r15, 1}, sub {Mov  r15, 0});
-  my $v = V(join(' ', '('.$left->name, $op, (ref($right) ? $right->name : '').')'), r15);
-
-  PopR;
-  Comment "Boolean Arithmetic end";
-
-  $v
- }
-
 sub Nasm::X86::Variable::booleanZF($$$$)                                        # Combine the left hand variable with the right hand variable via a boolean operator and indicate the result by setting the zero flag if the result is true.
  {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
 
@@ -3202,42 +3166,6 @@ sub Nasm::X86::Variable::booleanZF2($$$$)                                       
   Comment "Boolean ZF Arithmetic end";
 
   V(empty => undef);                                                            # Return an empty variable so that If regenerates the follow on code
- }
-
-sub Nasm::X86::Variable::booleanC22($$$$)                                       # Combine the left hand variable with the right hand variable via a boolean operator using a conditional move instruction.
- {my ($cmov, $op, $left, $right) = @_;                                          # Conditional move instruction name, operator name, Left variable,  right variable
-
-  !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
-  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
-
-  PushR 15;
-  Mov r15, $left ->addressExpr;
-  if ($left->reference)                                                         # Dereference left if necessary
-   {Mov r15, "[r15]";
-   }
-  if (ref($right) and $right->reference)                                        # Dereference on right if necessary
-   {PushR 14;
-    Mov r14, $right ->addressExpr;
-    Mov r14, "[r14]";
-    Cmp r15, r14;
-    PopR;
-   }
-  elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp r15, $right->addressExpr;
-   }
-  else                                                                          # Constant on the right
-   {Cmp r15, $right;
-   }
-
-  Mov r15, 1;                                                                   # Place a one below the stack
-  my $w = RegisterSize r15;
-  Mov "[rsp-$w]", r15;
-  Mov r15, 0;                                                                   # Assume the result was false
-  &$cmov(r15, "[rsp-$w]");                                                      # Indicate true result
-  my $v = V(join(' ', '('.$left->name, $op, (ref($right) ? $right->name : '').')'), r15);
-  PopR;
-
-  $v
  }
 
 sub Nasm::X86::Variable::eq($$)                                                 # Check whether the left hand variable is equal to the right hand variable.
