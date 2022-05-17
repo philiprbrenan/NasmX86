@@ -16334,7 +16334,8 @@ sub Nasm::X86::Library::call($$%)                                               
   $library->name->{$name}->call(library => $library->address, %options);
  }
 
-if (0) {     #### Failing on GitHUB                                                                   #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
+#latest:
+if (1) {     #### Failing on GitHUB                                                                   #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
   my $l = CreateLibrary
    (subroutines =>
      [sub
@@ -16538,7 +16539,6 @@ OC  38: 2308230A23292768276A276C276E27702772277427E627E827EA27EC27EE298329852987
 CO  38: 2309230B232A2769276B276D276F27712773277527E727E927EB27ED27EF298429862988298A298C298E2990299229942996299829FD2E293009300B3011301530173019301BFD3FFF09FF60
 END
  }
-say STDERR "DDDDD";
 
 sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
  {my ($a) = @_;                                                                 # Area in which to create the table
@@ -16569,7 +16569,6 @@ found: .... .... .... ...8
 data: .... .... .... ...6
 END
  }
-say STDERR "EEEEE";
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
