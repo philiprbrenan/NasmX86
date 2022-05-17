@@ -3145,6 +3145,7 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
 
   Comment "Boolean ZF Arithmetic Start";
 
+PushR rsi;
   Mov rsi, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov rsi, "[rsi]";
@@ -3164,7 +3165,7 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
   &$sub(sub {Cmp rsp, rsp}, sub {Test rsp, rsp});
 
   Comment "Boolean ZF Arithmetic end";
-
+PopR;
   V(empty => undef);                                                            # Return an empty variable so that If regenerates the follow on code
  }
 
