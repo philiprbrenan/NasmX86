@@ -3213,7 +3213,7 @@ sub Nasm::X86::Variable::setReg($$)                                             
      {confess "Cannot set a mask register to the address of a variable";
      }
     else
-     {PushR 15;
+     {#PushR 15;
       Mov r15, $variable->addressExpr;
       Kmovq $r, r15;
       PopR;
@@ -3410,6 +3410,17 @@ sub Nasm::X86::Variable::setMaskFirst($$)                                       
  }
 
 sub Nasm::X86::Variable::setMaskBit($$)                                         # Set a bit in the specified mask register retaining the other bits.
+ {my ($index, $mask) = @_;                                                      # Variable containing bit position to set, mask register
+  @_ == 2 or confess "Two parameters";
+  $mask =~ m(\Ak)i or confess "Mask register required";
+  my ($l, $b) = (rdi, rsi);
+  Kmovq $b, $mask;
+  $index->setReg($l);
+  Bts $b, $l;
+  Kmovq $mask, $b;                                                              # Set mask register if provided
+ }
+
+sub Nasm::X86::Variable::setMaskBit22($$)                                         # Set a bit in the specified mask register retaining the other bits.
  {my ($index, $mask) = @_;                                                      # Variable containing bit position to set, mask register
   @_ == 2 or confess "Two parameters";
   $mask =~ m(\Ak)i or confess "Mask register required";
