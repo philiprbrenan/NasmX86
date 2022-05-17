@@ -5038,7 +5038,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
     Cmp $newSize,$size;                                                         # New size needed
     IfGt                                                                        # New size is bigger than current size
     Then                                                                        # More space needed
-     {Mov $proposed, 4096 * 1;                                                  # Minimum proposed area size
+     {Mov $proposed, $area->N;                                                  # Minimum proposed area size
       K(loop=>36)->for(sub                                                      # Maximum number of shifts
        {my ($index, $start, $next, $end) = @_;
         Shl $proposed, 1;                                                       # New proposed size
