@@ -4576,8 +4576,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
 
-#   PushR my $r1 = 11, my $r2 = 12, my $r3 = 13, my $r4 = 14, my $r = 15;
-    PushR my $r1 = 11, my $r2 = 12, 13, 14, 15;
+    PushR 11, 12, 13, 14, 15;
     $$p{fail}->getConst(0);                                                     # Clear failure indicator
     $$p{in}->setReg(15);                                                        # Character to convert
     ClearRegisters 14;                                                          # Move to byte register below does not clear the entire register
@@ -4609,15 +4608,15 @@ sub GetNextUtf8CharAsUtf32($)                                                   
       Cmp r14, 0xef;                                                            # Char size is: 3 bytes
       IfLe
       Then
-       {Mov $r2.'b', "[r15+2]";
-        And $r2, 0x3f;
+       {Mov r12b, "[r15+2]";
+        And r12, 0x3f;
         Mov r13b, "[r15+1]";
         And r13, 0x3f;
         And r14, 0x0f;
         Shl r13,  6;
         Shl r14, 12;
         Or  r14,  r13;
-        Or  r14,  $r2;
+        Or  r14,  r12;
         $$p{out}->getReg(r14);
         $$p{size}->copy(3);
         Jmp $success;
@@ -4626,19 +4625,19 @@ sub GetNextUtf8CharAsUtf32($)                                                   
       Cmp r14, 0xf7;                                                            # Char size is: 4 bytes
       IfLe
       Then
-       {Mov $r1.'b', "[r15+3]";
-        And $r1, 0x3f;
-        Mov $r2.'b', "[r15+2]";
-        And $r2, 0x3f;
+       {Mov r11b, "[r15+3]";
+        And r11, 0x3f;
+        Mov r12b, "[r15+2]";
+        And r12, 0x3f;
         Mov r13b, "[r15+1]";
         And r13, 0x3f;
         And r14, 0x07;
-        Shl $r2,  6;
+        Shl r12,  6;
         Shl r13, 12;
         Shl r14, 18;
         Or  r14,  r13;
-        Or  r14,  $r2;
-        Or  r14,  $r1;
+        Or  r14,  r12;
+        Or  r14,  r11;
         $$p{out}->getReg(r14);
         $$p{size}->copy(4);
         Jmp $success;
