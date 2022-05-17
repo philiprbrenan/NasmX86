@@ -3502,7 +3502,7 @@ sub Nasm::X86::Variable::qFromZ($$$)                                            
 
 sub Nasm::X86::Variable::dFromPointInZ($$)                                      # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
  {my ($point, $zmm) = @_;                                                       # Point, numbered zmm
-  PushR 7, 14, 15, $zmm;
+  PushR 7, 15, $zmm;
   $point->setReg(15);
   Kmovq k7, r15;
   my ($z) = zmm $zmm;
