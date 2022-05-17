@@ -4579,9 +4579,9 @@ sub GetNextUtf8CharAsUtf32($)                                                   
 
     PushR 11, 12, 13, 14, 15;
     $$p{fail}->getConst(0);                                                     # Clear failure indicator
-    $$p{in}->setReg(15);                                                        # Character to convert
-    ClearRegisters 14;                                                          # Move to byte register below does not clear the entire register
-    Mov r14b, "[r15]";
+    $$p{in}->setReg(rbx);                                                       # Character to convert
+    ClearRegisters r14;                                                         # Move to byte register below does not clear the entire register
+    Mov r14b, "[rbx]";
     Block
      {my ($success) = @_;                                                       # As shown at: https://en.wikipedia.org/wiki/UTF-8
 
@@ -4596,7 +4596,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
       Cmp r14, 0xdf;                                                            # Char size is: 2 bytes
       IfLe
       Then
-       {Mov r13b, "[r15+1]";
+       {Mov r13b, "[rbx+1]";
         And r13, 0x3f;
         And r14, 0x1f;
         Shl r14, 6;
@@ -4609,9 +4609,9 @@ sub GetNextUtf8CharAsUtf32($)                                                   
       Cmp r14, 0xef;                                                            # Char size is: 3 bytes
       IfLe
       Then
-       {Mov r12b, "[r15+2]";
+       {Mov r12b, "[rbx+2]";
         And r12, 0x3f;
-        Mov r13b, "[r15+1]";
+        Mov r13b, "[rbx+1]";
         And r13, 0x3f;
         And r14, 0x0f;
         Shl r13,  6;
@@ -4626,11 +4626,11 @@ sub GetNextUtf8CharAsUtf32($)                                                   
       Cmp r14, 0xf7;                                                            # Char size is: 4 bytes
       IfLe
       Then
-       {Mov r11b, "[r15+3]";
+       {Mov r11b, "[rbx+3]";
         And r11, 0x3f;
-        Mov r12b, "[r15+2]";
+        Mov r12b, "[rbx+2]";
         And r12, 0x3f;
-        Mov r13b, "[r15+1]";
+        Mov r13b, "[rbx+1]";
         And r13, 0x3f;
         And r14, 0x07;
         Shl r12,  6;
@@ -4646,7 +4646,6 @@ sub GetNextUtf8CharAsUtf32($)                                                   
 
       $$p{fail}->getConst(1);                                                   # Conversion failed
      };
-
 
     PopR;
    } parameters=>[qw(in out  size  fail)], name => 'GetNextUtf8CharAsUtf32';
