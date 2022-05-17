@@ -5015,46 +5015,51 @@ sub Nasm::X86::Area::size($)                                                    
 sub Nasm::X86::Area::updateSpace($$)                                            #P Make sure that a variable addressed area has enough space to accommodate content of a variable size.
  {my ($area, $size) = @_;                                                       # Area descriptor, variable size needed
   @_ == 2 or confess "Two parameters";
+  my $base     = rbx;                                                           # Base of area
+  my $newSize  = rdi;                                                           # New size needed
+  my $proposed = rdx;                                                           # Proposed size
+  my $areaSize = "[$base+$$area{sizeOffset}]";                                  # Size of area
+  my $areaUsed = "[$base+$$area{usedOffset}]";                                  # Used space in area
 
   my $s = Subroutine
-   {my ($p, $s)  = @_;                                                           # Parameters, structures
-    my $base     = rbx;                                                         # Base of area
-    my $newSize  = rdi;                                                         # New size needed
-    my $proposed = rdx;                                                         # Proposed size
-
+   {my ($p, $s)  = @_;                                                          # Parameters, structures
     my $area = $$s{area};                                                       # Area
     $area->address->setReg($base);                                              # Address area
 
-    Mov $newSize, "[$base+$$area{usedOffset}]";
-    my $request  = $$p{size}->label;
-    Add $newSize, "[$request]";
+    $$p{size}->setReg($newSize);                                                # Space requested
+    Add $newSize, $areaUsed;                                                        # Space needed in area
 
-    Cmp $newSize, "[$base+$$area{sizeOffset}]";                                 # New size needed
-    IfGt                                                                        # New size is bigger than current size
-    Then                                                                        # More space needed
-     {PushR $base, $proposed;
-      Mov $proposed, $area->N;                                                  # Minimum proposed area size
-      K(loop=>36)->for(sub                                                      # Maximum number of shifts
-       {my ($index, $start, $next, $end) = @_;
-        Shl $proposed, 1;                                                       # New proposed size
-        Cmp $proposed, $newSize;                                                # Big enough?
-        Jge $end;                                                               # Big enough!
-       });
+    PushR $base, $proposed;
 
-      my $address = AllocateMemory V size => $proposed;                         # Create new area
-      CopyMemory4K($area->address, $address, $area->size>>K(k4 => $area->B));   # Copy old area into new area 4K at a time
-      FreeMemory $area->address, $area->size;                                   # Free previous memory previously occupied area
-      $area->address->copy($address);                                           # Save new area address
-      $address->setReg($base);                                                  # Address area
-      Mov "[$base+$$area{sizeOffset}]", $proposed;                              # Save the new size in the area
-      PopR;
-     };
+    Mov $proposed, $areaSize;                                                       # Minimum proposed area size
+
+    K(loop=>36)->for(sub                                                        # Maximum number of shifts
+     {my ($index, $start, $next, $end) = @_;
+      Shl $proposed, 1;                                                         # New proposed size
+      Cmp $proposed, $newSize;                                                  # Big enough?
+      Jge $end;                                                                 # Big enough!
+     });
+
+    my $address = AllocateMemory V size => $proposed;                           # Create new area
+    CopyMemory4K($area->address, $address, $area->size>>K(k4 => $area->B));     # Copy old area into new area 4K at a time
+    FreeMemory $area->address, $area->size;                                     # Free previous memory previously occupied area
+    $area->address->copy($address);                                             # Save new area address
+    $address->setReg($base);                                                    # Address area
+    Mov "[$base+$$area{sizeOffset}]", $proposed;                                # Save the new size in the area
+
+    PopR;
    } parameters => [qw(size)],
      structures => {area => $area},
      name       => 'Nasm::X86::Area::updateSpace';
 
-  $s->call                                                                      # The gain from inline is not offset by the increased assembly cost
-   (parameters=>{size => $size}, structures=>{area => $area});
+  $area->address->setReg($base);                                                # Address area
+  $size->setReg($newSize);                                                      # Space requested
+  Add $newSize, $areaUsed;                                                          # Space needed in area
+  Cmp $newSize, $areaSize;                                                          # Compare size needed with current size
+  IfGt                                                                          # New size is bigger than current size
+  Then                                                                          # More space needed
+   {$s->call(parameters=>{size => $size}, structures=>{area => $area});         # Allocate more space for area
+   };
  } # updateSpace
 
 sub Nasm::X86::Area::updateSpace22($$)                                          #P Make sure that a variable addressed area has enough space to accommodate content of a variable size.
@@ -13207,6 +13212,9 @@ Right
  zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
 END
  }
+done_testing;
+exit;
+} # JUMP
 
 #latest:
 if (1) {                                                                        # Split a root node held in zmm28..zmm26 into a parent in zmm31..zmm29 and a right node held in zmm25..zmm23
@@ -13281,9 +13289,6 @@ Final Right
  zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
 END
  }
-done_testing;
-exit;
-} # JUMP
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::setTree  #TNasm::X86::Tree::clearTree #TNasm::X86::Tree::insertZeroIntoTreeBits #TNasm::X86::Tree::insertOneIntoTreeBits #TNasm::X86::Tree::getTreeBits #TNasm::X86::Tree::setTreeBits #TNasm::X86::Tree::isTree
@@ -17580,7 +17585,7 @@ END
 #   14,505,119       1,264,408      14,505,119       1,264,408      2.846307          4.87  variable::copy constant
 #   14,506,287       1,154,376      14,506,287       1,154,376      2.903949          1.90  mergeOrSteal not inlined
 
-latest:
+#latest:
 if (1)
  {my $compose = 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s';
   my $text    = "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n";
@@ -17635,8 +17640,9 @@ END
 #  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
 #  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
 #  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
-#  2,224,800         185,872       2,276,422       1,568,592      0.405153          0.15  ditto
-latest:
+#  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
+
+latest:;
 if (1)
  {my $a = CreateArea;
 #$TraceMode = 1;
