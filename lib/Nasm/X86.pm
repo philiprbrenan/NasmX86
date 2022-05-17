@@ -3528,6 +3528,15 @@ sub Nasm::X86::Variable::dFromPointInZ22($$)                                    
 
 sub Nasm::X86::Variable::dIntoPointInZ($$$)                                     # Put the variable double word content into the numbered zmm register at a point specified by the variable.
  {my ($point, $zmm, $content) = @_;                                             # Point, numbered zmm, content to be inserted as a variable
+  $content->setReg(rdi);
+  $point->setReg(rsi);
+  Kmovq k1, rsi;
+  Vpbroadcastd zmmM($zmm, 1), edi;                                              # Insert dword at desired location
+  PopR;
+ }
+
+sub Nasm::X86::Variable::dIntoPointInZ22($$$)                                     # Put the variable double word content into the numbered zmm register at a point specified by the variable.
+ {my ($point, $zmm, $content) = @_;                                             # Point, numbered zmm, content to be inserted as a variable
   PushR 7, 14, 15;
   $content->setReg(14);
   $point->setReg(15);
