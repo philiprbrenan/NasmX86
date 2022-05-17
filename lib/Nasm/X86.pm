@@ -18,6 +18,8 @@
 # PushR - optimize zmm pushes
 # Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, k1, likewise the mmx registers.
 # Temporize the registers in: GetNextUtf8CharAsUtf32
+# Use double zmm registers
+# Variable::at
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -2509,6 +2511,11 @@ sub Variable($;$%)                                                              
     reference => $options{reference},                                           # Reference to another variable
 #    width     => RegisterSize(rax),                                            # Size of the variable in bytes
    );
+ }
+
+sub Nasm::X86::Variable::at($)                                                  # Return a "[register expression]" to address the data in the variable in the current stack frame
+ {my ($variable) = @_;                                                          # Variable descriptor
+  "[".$variable->label."]"
  }
 
 #sub G(*;$%)                                                                    # Define a global variable. Global variables with the same name are not necessarily the same variable.  Two global variables are identical iff they have have the same label field.
@@ -5015,23 +5022,24 @@ sub Nasm::X86::Area::size($)                                                    
 sub Nasm::X86::Area::updateSpace($$)                                            #P Make sure that a variable addressed area has enough space to accommodate content of a variable size.
  {my ($area, $size) = @_;                                                       # Area descriptor, variable size needed
   @_ == 2 or confess "Two parameters";
-  my $base     = rbx;                                                           # Base of area
-  my $newSize  = rdi;                                                           # New size needed
-  my $proposed = rdx;                                                           # Proposed size
+  my $base     = rdi;                                                           # Base of area
+  my $newSize  = rsi;                                                           # New size needed
   my $areaSize = "[$base+$$area{sizeOffset}]";                                  # Size of area
   my $areaUsed = "[$base+$$area{usedOffset}]";                                  # Used space in area
 
   my $s = Subroutine
    {my ($p, $s)  = @_;                                                          # Parameters, structures
+    PushR my $base = r15, my $newSize = r14, my $proposed = r13;                # Base of area, New size needed, Proposed size
+    my $areaSize = "[$base+$$area{sizeOffset}]";                                # Size of area
+    my $areaUsed = "[$base+$$area{usedOffset}]";                                # Used space in area
+
     my $area = $$s{area};                                                       # Area
     $area->address->setReg($base);                                              # Address area
 
     $$p{size}->setReg($newSize);                                                # Space requested
-    Add $newSize, $areaUsed;                                                        # Space needed in area
+    Add $newSize, $areaUsed;                                                    # Space needed in area
 
-    PushR $base, $proposed;
-
-    Mov $proposed, $areaSize;                                                       # Minimum proposed area size
+    Mov $proposed, $areaSize;                                                   # Minimum proposed area size
 
     K(loop=>36)->for(sub                                                        # Maximum number of shifts
      {my ($index, $start, $next, $end) = @_;
@@ -10318,12 +10326,22 @@ END
  }
 
 #latest:
-if (1) {                                                                        #addressAndLengthOfConstantStringAsVariables
+if (1) {                                                                        #TaddressAndLengthOfConstantStringAsVariables
   my ($t, $l) = addressAndLengthOfConstantStringAsVariables("Hello World");
   $t->printOutMemoryNL($l);
 
   ok Assemble eq => <<END, avx512=>1;
 Hello World
+END
+ }
+
+#latest:;
+if (1)                                                                          #TNasm::X86::Variable::at
+ {my $v = V var => 2;
+  Mov rax, $v->at;
+  PrintOutRegisterInHex rax;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1;
+   rax: .... .... .... ...2
 END
  }
 
@@ -17642,7 +17660,7 @@ END
 #  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
 #  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
 
-latest:;
+#latest:;
 if (1)
  {my $a = CreateArea;
 #$TraceMode = 1;
