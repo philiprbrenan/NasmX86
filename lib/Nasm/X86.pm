@@ -3101,7 +3101,7 @@ sub Nasm::X86::Variable::not($)                                                 
   V "neg" => rdi;                                                               # Save result in a new variable
  }
 
-sub Nasm::X86::Variable::boolean($$$$)                                          # Combine the left hand variable with the right hand variable via a boolean operator.
+sub Nasm::X86::Variable::boolean22($$$$)                                        # Combine the left hand variable with the right hand variable via a boolean operator.
  {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
 
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
@@ -3145,20 +3145,20 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
 
   Comment "Boolean ZF Arithmetic Start";
 
-  Mov rdx, $left ->addressExpr;
+  Mov rsi, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
-   {Mov rdx, "[rdx]";
+   {Mov rsi, "[rsi]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
-   {Mov rbx, $right ->addressExpr;
-    Mov rbx, "[rbx]";
-    Cmp rdx, rbx;
+   {Mov rdi, $right ->addressExpr;
+    Mov rdi, "[rdi]";
+    Cmp rsi, rdi;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp rdx, $right->addressExpr;
+   {Cmp rsi, $right->addressExpr;
    }
   else                                                                          # Constant on the right
-   {Cmp rdx, $right;
+   {Cmp rsi, $right;
    }
 
   &$sub(sub {Cmp rsp, rsp}, sub {Test rsp, rsp});
@@ -3203,7 +3203,7 @@ sub Nasm::X86::Variable::booleanZF2($$$$)                                       
   V(empty => undef);                                                            # Return an empty variable so that If regenerates the follow on code
  }
 
-sub Nasm::X86::Variable::booleanC($$$$)                                         # Combine the left hand variable with the right hand variable via a boolean operator using a conditional move instruction.
+sub Nasm::X86::Variable::booleanC22($$$$)                                       # Combine the left hand variable with the right hand variable via a boolean operator using a conditional move instruction.
  {my ($cmov, $op, $left, $right) = @_;                                          # Conditional move instruction name, operator name, Left variable,  right variable
 
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
@@ -17637,6 +17637,7 @@ END
 #  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
 #  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
 #  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
+
 latest:
 if (1)
  {my $a = CreateArea;
