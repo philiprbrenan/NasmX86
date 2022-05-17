@@ -4577,69 +4577,69 @@ sub GetNextUtf8CharAsUtf32($)                                                   
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
 
-    PushR 11, 12, 13, 14, 15;
+#   PushR 11, 12, 13, 14, 15;
     $$p{fail}->getConst(0);                                                     # Clear failure indicator
     $$p{in}->setReg(rbx);                                                       # Character to convert
-    ClearRegisters r14;                                                         # Move to byte register below does not clear the entire register
-    Mov r14b, "[rbx]";
+    ClearRegisters rdx;                                                         # Move to byte register below does not clear the entire register
+    Mov dl, "[rbx]";
     Block
      {my ($success) = @_;                                                       # As shown at: https://en.wikipedia.org/wiki/UTF-8
 
-      Cmp r14, 0x7f;                                                            # Ascii
+      Cmp rdx, 0x7f;                                                            # Ascii
       IfLe
       Then
-       {$$p{out}->getReg(r14);
+       {$$p{out}->getReg(rdx);
         $$p{size}->copy(1);
         Jmp $success;
        };
 
-      Cmp r14, 0xdf;                                                            # Char size is: 2 bytes
+      Cmp rdx, 0xdf;                                                            # Char size is: 2 bytes
       IfLe
       Then
-       {Mov r13b, "[rbx+1]";
-        And r13, 0x3f;
-        And r14, 0x1f;
-        Shl r14, 6;
-        Or  r14,  r13;
-        $$p{out}->getReg(r14);
+       {Mov dil, "[rbx+1]";
+        And rdi, 0x3f;
+        And rdx, 0x1f;
+        Shl rdx, 6;
+        Or  rdx,  rdi;
+        $$p{out}->getReg(rdx);
         $$p{size}->copy(2);
         Jmp $success;
        };
 
-      Cmp r14, 0xef;                                                            # Char size is: 3 bytes
+      Cmp rdx, 0xef;                                                            # Char size is: 3 bytes
       IfLe
       Then
-       {Mov r12b, "[rbx+2]";
-        And r12, 0x3f;
-        Mov r13b, "[rbx+1]";
-        And r13, 0x3f;
-        And r14, 0x0f;
-        Shl r13,  6;
-        Shl r14, 12;
-        Or  r14,  r13;
-        Or  r14,  r12;
-        $$p{out}->getReg(r14);
+       {Mov sil, "[rbx+2]";
+        And rsi, 0x3f;
+        Mov dil, "[rbx+1]";
+        And rdi, 0x3f;
+        And rdx, 0x0f;
+        Shl rdi,  6;
+        Shl rdx, 12;
+        Or  rdx,  rdi;
+        Or  rdx,  rsi;
+        $$p{out}->getReg(rdx);
         $$p{size}->copy(3);
         Jmp $success;
        };
 
-      Cmp r14, 0xf7;                                                            # Char size is: 4 bytes
+      Cmp rdx, 0xf7;                                                            # Char size is: 4 bytes
       IfLe
       Then
        {Mov r11b, "[rbx+3]";
         And r11, 0x3f;
-        Mov r12b, "[rbx+2]";
-        And r12, 0x3f;
-        Mov r13b, "[rbx+1]";
-        And r13, 0x3f;
-        And r14, 0x07;
-        Shl r12,  6;
-        Shl r13, 12;
-        Shl r14, 18;
-        Or  r14,  r13;
-        Or  r14,  r12;
-        Or  r14,  r11;
-        $$p{out}->getReg(r14);
+        Mov sil, "[rbx+2]";
+        And rsi, 0x3f;
+        Mov dil, "[rbx+1]";
+        And rdi, 0x3f;
+        And rdx, 0x07;
+        Shl rsi,  6;
+        Shl rdi, 12;
+        Shl rdx, 18;
+        Or  rdx,  rdi;
+        Or  rdx,  rsi;
+        Or  rdx,  r11;
+        $$p{out}->getReg(rdx);
         $$p{size}->copy(4);
         Jmp $success;
        };
@@ -4647,7 +4647,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
       $$p{fail}->getConst(1);                                                   # Conversion failed
      };
 
-    PopR;
+#    PopR;
    } parameters=>[qw(in out  size  fail)], name => 'GetNextUtf8CharAsUtf32';
 
   my $out  = V(out  => 0);                                                      # Utf32 equivalent
@@ -17534,7 +17534,7 @@ END
 #   14,505,119       1,264,408      14,505,119       1,264,408      2.846307          4.87  variable::copy constant
 #   14,506,287       1,154,376      14,506,287       1,154,376      2.903949          1.90  mergeOrSteal not inlined
 
-#latest:
+latest:
 if (1)
  {my $compose = 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s';
   my $text    = "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n";
