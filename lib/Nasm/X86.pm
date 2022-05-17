@@ -4576,69 +4576,69 @@ sub GetNextUtf8CharAsUtf32($)                                                   
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
 
-    PushR 11, 12, 13, 14, 15;
+    PushR my $r1 = 11, my $r2 = 12, my $r3 = 13, my $r4 = 14, my $r5 = 15;
     $$p{fail}->getConst(0);                                                     # Clear failure indicator
     $$p{in}->setReg(15);                                                        # Character to convert
     ClearRegisters 14;                                                          # Move to byte register below does not clear the entire register
-    Mov r14b, "[r15]";
+    Mov $r4.'b', "[$r5]";
     Block
      {my ($success) = @_;                                                       # As shown at: https://en.wikipedia.org/wiki/UTF-8
 
-      Cmp r14, 0x7f;                                                            # Ascii
+      Cmp $r4, 0x7f;                                                            # Ascii
       IfLe
       Then
-       {$$p{out}->getReg(r14);
+       {$$p{out}->getReg($r4);
         $$p{size}->copy(1);
         Jmp $success;
        };
 
-      Cmp r14, 0xdf;                                                            # Char size is: 2 bytes
+      Cmp $r4, 0xdf;                                                            # Char size is: 2 bytes
       IfLe
       Then
-       {Mov r13b, "[r15+1]";
-        And r13, 0x3f;
-        And r14, 0x1f;
-        Shl r14, 6;
-        Or  r14,  r13;
-        $$p{out}->getReg(r14);
+       {Mov $r3.'b', "[$r5+1]";
+        And $r3, 0x3f;
+        And $r4, 0x1f;
+        Shl $r4, 6;
+        Or  $r4,  $r3;
+        $$p{out}->getReg($r4);
         $$p{size}->copy(2);
         Jmp $success;
        };
 
-      Cmp r14, 0xef;                                                            # Char size is: 3 bytes
+      Cmp $r4, 0xef;                                                            # Char size is: 3 bytes
       IfLe
       Then
-       {Mov r12b, "[r15+2]";
-        And r12, 0x3f;
-        Mov r13b, "[r15+1]";
-        And r13, 0x3f;
-        And r14, 0x0f;
-        Shl r13,  6;
-        Shl r14, 12;
-        Or  r14,  r13;
-        Or  r14,  r12;
-        $$p{out}->getReg(r14);
+       {Mov $r2.'b', "[$r5+2]";
+        And $r2, 0x3f;
+        Mov $r3.'b', "[$r5+1]";
+        And $r3, 0x3f;
+        And $r4, 0x0f;
+        Shl $r3,  6;
+        Shl $r4, 12;
+        Or  $r4,  $r3;
+        Or  $r4,  $r2;
+        $$p{out}->getReg($r4);
         $$p{size}->copy(3);
         Jmp $success;
        };
 
-      Cmp r14, 0xf7;                                                            # Char size is: 4 bytes
+      Cmp $r4, 0xf7;                                                            # Char size is: 4 bytes
       IfLe
       Then
-       {Mov r11b, "[r15+3]";
-        And r11, 0x3f;
-        Mov r12b, "[r15+2]";
-        And r12, 0x3f;
-        Mov r13b, "[r15+1]";
-        And r13, 0x3f;
-        And r14, 0x07;
-        Shl r12,  6;
-        Shl r13, 12;
-        Shl r14, 18;
-        Or  r14,  r13;
-        Or  r14,  r12;
-        Or  r14,  r11;
-        $$p{out}->getReg(r14);
+       {Mov $r1.'b', "[$r5+3]";
+        And $r1, 0x3f;
+        Mov $r2.'b', "[$r5+2]";
+        And $r2, 0x3f;
+        Mov $r3.'b', "[$r5+1]";
+        And $r3, 0x3f;
+        And $r4, 0x07;
+        Shl $r2,  6;
+        Shl $r3, 12;
+        Shl $r4, 18;
+        Or  $r4,  $r3;
+        Or  $r4,  $r2;
+        Or  $r4,  $r1;
+        $$p{out}->getReg($r4);
         $$p{size}->copy(4);
         Jmp $success;
        };
