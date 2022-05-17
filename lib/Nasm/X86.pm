@@ -5020,10 +5020,10 @@ sub Nasm::X86::Area::updateSpace($$)                                            
    {my ($p, $s) = @_;                                                           # Parameters, structures
     PushR rax, 10, 12..15;
     my $base     = rbx;                                                         # Base of area
-    my $size     = r15;                                                         # Current size
-    my $used     = r14;                                                         # Currently used space
-    my $request  = r13;                                                         # Requested space
-    my $newSize  = r12;                                                         # New size needed
+    my $size     = rcx;                                                         # Current size
+    my $used     = r11;                                                         # Currently used space
+    my $request  = rsi;                                                         # Requested space
+    my $newSize  = rdi;                                                         # New size needed
     my $proposed = rdx;                                                         # Proposed size
 
     my $area = $$s{area};                                                       # Area
