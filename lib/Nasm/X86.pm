@@ -5024,7 +5024,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
     my $used     = r14;                                                         # Currently used space
     my $request  = r13;                                                         # Requested space
     my $newSize  = r12;                                                         # New size needed
-    my $proposed = r10;                                                         # Proposed size
+    my $proposed = rdx;                                                         # Proposed size
 
     my $area = $$s{area};                                                       # Area
     $area->address->setReg($base);                                              # Address area
