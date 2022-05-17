@@ -3280,6 +3280,29 @@ sub Nasm::X86::Variable::incDec($$)                                             
   $left->constant and confess "Cannot increment or decrement a constant";
   my $l = $left->addressExpr;
   if ($left->reference)
+   {PushR rdi, rdx;                                                             # Violates the rdi/rdx rule if removed
+    Mov rdx, $l;
+    Mov rdi, "[rdx]";
+    &$op(rdi);
+    Mov "[rdx]", rdi;
+    PopR;
+    return $left;
+   }
+  else
+   {PushR rdx;
+    Mov rdx, $l;
+    &$op(rdx);
+    Mov $l, rdx;
+    PopR;
+    return $left;
+   }
+ }
+
+sub Nasm::X86::Variable::incDec22($$)                                             # Increment or decrement a variable.
+ {my ($left, $op) = @_;                                                         # Left variable operator, address of operator to perform inc or dec
+  $left->constant and confess "Cannot increment or decrement a constant";
+  my $l = $left->addressExpr;
+  if ($left->reference)
    {PushR r14, r15;                                                             # Violates the r14/r15 rule if removed
     Mov r15, $l;
     Mov r14, "[r15]";
