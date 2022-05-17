@@ -17,6 +17,7 @@
 # Make Pop return a tree when it is on a sub tree
 # PushR - optimize zmm pushes
 # Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, k1, likewise the mmx registers.
+# Temporize the registers in: GetNextUtf8CharAsUtf32
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -4654,7 +4655,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
   my $size = V(size => 0);                                                      # Size of utf8 converted
   my $fail = V(fail => 0);                                                      # Failed if true else false
 
-  $s->call(parameters=>{in=>$in, out=>$out, size=>$size, fail=>$fail});
+  $s->inline(parameters=>{in=>$in, out=>$out, size=>$size, fail=>$fail});
 
  ($out, $size, $fail)                                                           # Output character variable, output size of input, output error if any
 
