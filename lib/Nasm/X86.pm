@@ -5018,7 +5018,58 @@ sub Nasm::X86::Area::updateSpace($$)                                            
 
   my $s = Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, structures
-    PushR rax, 10, 12..15;
+#   PushR rax, 10, 12..15;
+    my $base     = rbx;                                                         # Base of area
+    my $size     = rcx;                                                         # Current size
+    my $request  = rsi;                                                         # Requested space
+    my $newSize  = rdi;                                                         # New size needed
+    my $proposed = rdx;                                                         # Proposed size
+
+    my $area = $$s{area};                                                       # Area
+    $area->address->setReg($base);                                              # Address area
+    $$p{size}->setReg($request);                                                # Requested space
+
+    Mov $size, "[$base+$$area{sizeOffset}]";
+    Mov $newSize, "[$base+$$area{usedOffset}]";
+    Add $newSize, $request;
+
+    Cmp $newSize, $size;                                                        # New size needed
+    IfGt                                                                        # New size is bigger than current size
+    Then                                                                        # More space needed
+     {Mov $proposed, $area->N;                                                  # Minimum proposed area size
+      K(loop=>36)->for(sub                                                      # Maximum number of shifts
+       {my ($index, $start, $next, $end) = @_;
+        Shl $proposed, 1;                                                       # New proposed size
+        Cmp $proposed, $newSize;                                                # Big enough?
+        Jge $end;                                                               # Big enough!
+       });
+
+      PushR $base, $proposed;
+      my $address = AllocateMemory V size => $proposed;                         # Create new area
+      CopyMemory4K($area->address, $address, $area->size>>K(k4 => $area->B));   # Copy old area into new area 4K at a time
+      FreeMemory $area->address, $area->size;                                   # Free previous memory previously occupied area
+      $area->address->copy($address);                                           # Save new area address
+      $address->setReg($base);                                                  # Address area
+      Mov "[$base+$$area{sizeOffset}]", $proposed;                              # Save the new size in the area
+      PopR;
+     };
+
+#   PopR;
+   } parameters => [qw(size)],
+     structures => {area => $area},
+     name       => 'Nasm::X86::Area::updateSpace';
+
+  $s->call                                                                      # The gain from inline is not offset by the increased assembly cost
+   (parameters=>{size => $size}, structures=>{area => $area});
+ } # updateSpace
+
+sub Nasm::X86::Area::updateSpace22($$)                                          #P Make sure that a variable addressed area has enough space to accommodate content of a variable size.
+ {my ($area, $size) = @_;                                                       # Area descriptor, variable size needed
+  @_ == 2 or confess "Two parameters";
+
+  my $s = Subroutine
+   {my ($p, $s) = @_;                                                           # Parameters, structures
+#   PushR rax, 10, 12..15;
     my $base     = rbx;                                                         # Base of area
     my $size     = rcx;                                                         # Current size
     my $used     = r11;                                                         # Currently used space
@@ -5056,7 +5107,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
       PopR;
      };
 
-    PopR;
+#   PopR;
    } parameters => [qw(size)],
      structures => {area => $area},
      name       => 'Nasm::X86::Area::updateSpace';
@@ -17589,7 +17640,7 @@ END
 #  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
 #  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
 #  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
-#  2,231,326         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
+#  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
 latest:
 if (1)
  {my $a = CreateArea;
