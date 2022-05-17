@@ -3502,6 +3502,19 @@ sub Nasm::X86::Variable::qFromZ($$$)                                            
 
 sub Nasm::X86::Variable::dFromPointInZ($$)                                      # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
  {my ($point, $zmm) = @_;                                                       # Point, numbered zmm
+  PushR $zmm;
+  $point->setReg(rsi);
+  Kmovq k1, rsi;
+  my ($z) = zmm $zmm;
+  Vpcompressd "$z\{k1}", $z;
+  Vpextrd esi, xmm($zmm), 0;                                                   # Extract dword from corresponding xmm
+  my $r = V d => rsi;
+  PopR;
+  $r;
+ }
+
+sub Nasm::X86::Variable::dFromPointInZ22($$)                                    # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
+ {my ($point, $zmm) = @_;                                                       # Point, numbered zmm
   PushR 7, 15, $zmm;
   $point->setReg(15);
   Kmovq k7, r15;
@@ -17566,6 +17579,7 @@ END
 #  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
 #  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
 #  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
+#  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
 
 latest:
 if (1)
