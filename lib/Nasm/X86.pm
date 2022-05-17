@@ -3145,21 +3145,21 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
 
   Comment "Boolean ZF Arithmetic Start";
 
-#PushR rdx;
-  Mov rdx, $left ->addressExpr;
+#PushR r11;
+  Mov r11, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
-   {Mov rdx, "[rdx]";
+   {Mov r11, "[r11]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
    {Mov rdi, $right ->addressExpr;
     Mov rdi, "[rdi]";
-    Cmp rdx, rdi;
+    Cmp r11, rdi;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp rdx, $right->addressExpr;
+   {Cmp r11, $right->addressExpr;
    }
   else                                                                          # Constant on the right
-   {Cmp rdx, $right;
+   {Cmp r11, $right;
    }
 
   &$sub(sub {Cmp rsp, rsp}, sub {Test rsp, rsp});
