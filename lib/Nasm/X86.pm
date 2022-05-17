@@ -2990,6 +2990,28 @@ sub Nasm::X86::Variable::arithmetic($$$$)                                       
   my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
 
   Comment "Arithmetic Start";
+  Mov rsi, $l;
+  if ($left->reference)                                                         # Dereference left if necessary
+   {Mov rsi, "[rsi]";
+   }
+  Mov rbx, $r;
+  if (ref($right) and $right->reference)                                        # Dereference right if necessary
+   {Mov rbx, "[rbx]";
+   }
+  &$op(rsi, rbx);
+  my $v = V(join(' ', '('.$left->name, $name, (ref($right) ? $right->name : $right).')'), rsi);
+  Comment "Arithmetic End";
+
+  return $v;
+ }
+
+sub Nasm::X86::Variable::arithmetic22($$$$)                                       # Return a variable containing the result of an arithmetic operation on the left hand and right hand side variables.
+ {my ($op, $name, $left, $right) = @_;                                          # Operator, operator name, Left variable,  right variable
+
+  my $l = $left ->addressExpr;
+  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
+
+  Comment "Arithmetic Start";
   PushR 14, 15;
   Mov r15, $l;
   if ($left->reference)                                                         # Dereference left if necessary
@@ -9905,7 +9927,7 @@ my $start = time;                                                               
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
-if (0) { #JUMP
+if ($ARGV[0]) { #JUMP
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
   PrintOutStringNL "Hello World";
@@ -13465,7 +13487,8 @@ if (1) {                                                                        
     k7: .... .... .... 7FFF
 END
  }
-
+done_testing;
+exit;
 } # JUMP
 
 #latest:
@@ -17572,7 +17595,8 @@ END
 #  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
 #  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
 #  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
-#latest:
+#  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
+latest:
 if (1)
  {my $a = CreateArea;
 #$TraceMode = 1;
