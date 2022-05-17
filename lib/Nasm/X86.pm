@@ -9924,10 +9924,19 @@ else
  }
 
 my $start = time;                                                               # Tests
+if ($onGitHub)
+ {if (@ARGV)
+   {say STDERR "First block";
+   }
+  else
+   {say STDERR "Second block";
+   }
+ }
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
-if ($ARGV[0]) { #JUMP
+if (@ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block
+
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
   PrintOutStringNL "Hello World";
