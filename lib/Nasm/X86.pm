@@ -5019,14 +5019,14 @@ sub Nasm::X86::Area::updateSpace($$)                                            
   my $s = Subroutine
    {my ($p, $s) = @_;                                                           # Parameters, structures
     PushR rax, 10, 12..15;
-    my $base     = rax;                                                         # Base of area
+    my $base     = rbx;                                                         # Base of area
     my $size     = r15;                                                         # Current size
     my $used     = r14;                                                         # Currently used space
     my $request  = r13;                                                         # Requested space
     my $newSize  = r12;                                                         # New size needed
     my $proposed = r10;                                                         # Proposed size
 
-    my $area = $$s{area};                                                       # Address area
+    my $area = $$s{area};                                                       # Area
     $area->address->setReg($base);                                              # Address area
     $$p{size}->setReg($request);                                                # Requested space
 
@@ -5035,7 +5035,7 @@ sub Nasm::X86::Area::updateSpace($$)                                            
     Mov $newSize, $used;
     Add $newSize, $request;
 
-    Cmp $newSize,$size;                                                         # New size needed
+    Cmp $newSize, $size;                                                        # New size needed
     IfGt                                                                        # New size is bigger than current size
     Then                                                                        # More space needed
      {Mov $proposed, $area->N;                                                  # Minimum proposed area size
@@ -5046,13 +5046,14 @@ sub Nasm::X86::Area::updateSpace($$)                                            
         Jge $end;                                                               # Big enough!
        });
 
+      PushR $base, $proposed;
       my $address = AllocateMemory V size => $proposed;                         # Create new area
-#     CopyMemory64($area->address, $address, $area->size>>K(k4 => 6));          # Copy old area into new area 4K at a time
       CopyMemory4K($area->address, $address, $area->size>>K(k4 => $area->B));   # Copy old area into new area 4K at a time
       FreeMemory $area->address, $area->size;                                   # Free previous memory previously occupied area
       $area->address->copy($address);                                           # Save new area address
       $address->setReg($base);                                                  # Address area
       Mov "[$base+$$area{sizeOffset}]", $proposed;                              # Save the new size in the area
+      PopR;
      };
 
     PopR;
