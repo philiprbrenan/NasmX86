@@ -16,7 +16,7 @@
 # Replace calls to Tree::position with Tree::down
 # Make Pop return a tree when it is on a sub tree
 # PushR - optimize zmm pushes
-# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls.  rsi rdi are free (possibly rbx, rcx, rdx are as well)  - likewise r11 because linux occasionally sets it to the contents of the flags register on return from syscall. Likewise the mmx registers.
+# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, k1, likewise the mmx registers.
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -3532,7 +3532,6 @@ sub Nasm::X86::Variable::dIntoPointInZ($$$)                                     
   $point->setReg(rsi);
   Kmovq k1, rsi;
   Vpbroadcastd zmmM($zmm, 1), edi;                                              # Insert dword at desired location
-  PopR;
  }
 
 sub Nasm::X86::Variable::dIntoPointInZ22($$$)                                     # Put the variable double word content into the numbered zmm register at a point specified by the variable.
