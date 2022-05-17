@@ -9924,7 +9924,7 @@ else
  }
 
 my $start = time;                                                               # Tests
-if ($onGitHub)
+if (onGitHub)
  {if (@ARGV)
    {say STDERR "First block";
    }
