@@ -3144,29 +3144,25 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
   my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
 
   Comment "Boolean ZF Arithmetic Start";
-  PushR 15;
 
-  Mov r15, $left ->addressExpr;
+  Mov rdx, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
-   {Mov r15, "[r15]";
+   {Mov rdx, "[rdx]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
-   {PushR rbx;
-    Mov rbx, $right ->addressExpr;
+   {Mov rbx, $right ->addressExpr;
     Mov rbx, "[rbx]";
-    Cmp r15, rbx;
-    PopR;
+    Cmp rdx, rbx;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp r15, $right->addressExpr;
+   {Cmp rdx, $right->addressExpr;
    }
   else                                                                          # Constant on the right
-   {Cmp r15, $right;
+   {Cmp rdx, $right;
    }
 
   &$sub(sub {Cmp rsp, rsp}, sub {Test rsp, rsp});
 
-  PopR;
   Comment "Boolean ZF Arithmetic end";
 
   V(empty => undef);                                                            # Return an empty variable so that If regenerates the follow on code
@@ -17640,6 +17636,7 @@ END
 #  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
 #  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
 #  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
+#  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
 latest:
 if (1)
  {my $a = CreateArea;
