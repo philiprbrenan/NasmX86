@@ -1520,8 +1520,8 @@ sub Nasm::X86::Subroutine::uploadToNewStackFrame($$$)                           
 sub Nasm::X86::Subroutine::validateParameters($%)                               #P Check that the parameters and structures presented in a call to a subroutine math those defined for the subroutine.
  {my ($sub, %options) = @_;                                                     # Subroutine descriptor, options
 
-  my %o = %options;                                                           # Validate options
-  delete $o{$_} for qw(parameters structures override library);               # Parameters are variables, structures are Perl data structures with variables embedded in them,  override is a variable that contains the actual address of the subroutine
+  my %o = %options;                                                             # Validate options
+  delete $o{$_} for qw(parameters structures override library);                 # Parameters are variables, structures are Perl data structures with variables embedded in them,  override is a variable that contains the actual address of the subroutine
 
   if (my @i = sort keys %o)
    {confess "Invalid parameters: ".join(', ',@i);
@@ -6662,7 +6662,6 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
     Block
      {my ($success) = @_;                                                       # End label
-
       PushR my ($F, $K, $D, $N) = reverse 28..31;
 
       my $t = $$s{tree};
@@ -6728,6 +6727,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
+Comment("AAAAAA");
   if (ref($data) !~ m(Tree))                                                    # Whether we are a putting a sub tree
    {$s->call(structures => {tree    => $tree},                                  # Not a sub tree
              parameters => {key     => $key,
@@ -10013,6 +10013,23 @@ if (1) {                                                                        
   ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+END
+ }
+
+#latest:;
+if (1)
+ {Mov rax, 1;
+  Push rax;
+  Mov rax, rsp;
+  Vpaddq zmm31, zmm31, "[rax]{1to8}";
+  Vpaddd zmm30, zmm30, "[rax]{1to16}";
+  Mov rax, 2;
+  Vpbroadcastq zmm29, rax;
+  PrintOutRegisterInHex 29..31;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1;
+ zmm29: .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2 + .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2
+ zmm30: .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1 + .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1
+ zmm31: .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1 + .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1
 END
  }
 
@@ -17659,7 +17676,7 @@ END
 #  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
 #  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
 #  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
-
+#  2,024,522         793,288       2,024,522         793,288      1.159823          5.05  inline call to put
 #latest:;
 if (1)
  {my $a = CreateArea;
@@ -17668,6 +17685,15 @@ if (1)
   $t->size->outRightInDecNL(K width => 4);
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1;
 2826
+END
+ }
+
+#latest:;
+if (1)
+ {my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->put(K(key => 1), K(key => 1));
+  ok Assemble eq=><<END, avx512=>1, mix=> 1;
 END
  }
 
