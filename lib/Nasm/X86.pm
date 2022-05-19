@@ -16,7 +16,7 @@
 # Replace calls to Tree::position with Tree::down
 # Make Pop return a tree when it is on a sub tree
 # PushR - optimize zmm pushes
-# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, k1, likewise the mmx registers.
+# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, k1, likewise the mmx registers, zmm 0..15 and k1..3.
 # Temporize the registers in: GetNextUtf8CharAsUtf32
 # Use double zmm registers
 # Variable::at
@@ -1432,7 +1432,7 @@ sub Subroutine(&%)                                                              
     block              => $block,                                               # Block used to generate this subroutine
    );
 
-  if (my $structures = $options{structures})                                    # Map structures
+  if (my $structures = $options{structures})                                    # Map structures before we generate code so that we can put the parameters first in the new stack frame
    {$s->mapStructureVariables(\%structureCopies);
    }
 
@@ -1441,12 +1441,12 @@ sub Subroutine(&%)                                                              
   &$block({%parameters}, {%structureCopies}, $s);                               # Code with parameters and structures
 
   my $V = pop @VariableStack;                                                   # Number of variables in subroutine stack frame. As parameters and structures are mapped into variables in the subroutine stack frame these variables will be included in the count as well.
-
+     $V += RegisterSize(zmm0) / RegisterSize rax;                               # Ensures that we can save the parameter list using a full zmm register without the necessity o loading a mask register
   Leave if $V;                                                                  # Remove frame if there was one
   Ret;                                                                          # Return from the sub
   SetLabel $end;                                                                # The end point of the sub where we return to normal code
   my $w = RegisterSize rax;
-  $text[$E] = $V ? <<END : '';                                                  # Rewrite enter instruction now that we know how much stack space we need
+  $text[$E] = $V ? <<END : '';                                                  # Rewrite enter instruction now that we know how much stack space, in bytes, that we need
   Enter $V*$w, 0
 END
 
@@ -1473,8 +1473,8 @@ sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           
    }
  }
 
-sub Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame($$@)         # Create references to variables in parameter structures from variables in the stack frame of the subroutine.
- {my ($sub, $S, @P) = @_;                                                       # Sub definition, Source tree of input structures, path through sourtce structures tree
+sub Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame($$$@)        # Create references to variables in parameter structures from variables in the stack frame of the subroutine.
+ {my ($sub, $sv, $S, @P) = @_;                                                  # Sub definition, Structure variables, Source tree of input structures, path through sourtce structures tree
 
   for my $s(sort keys %$S)                                                      # Source keys
    {my $e = $$S{$s};
@@ -1485,7 +1485,7 @@ sub Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame($$@)         
       my $p = dump([@P]);                                                       # Path as string
       my $R = $sub->structureVariables->{$p};                                   # Reference
       if (defined($R))
-       {$sub->uploadToNewStackFrame($e, $R);                                    # Reference to structure variable from subroutine stack frame
+       {$sub->uploadToNewStackFrame($sv, $e, $R);                               # Reference to structure variable from subroutine stack frame
        }
       else                                                                      # Unable to locate the corresponding reference
        {confess "No entry for $p in structure variables";
@@ -1494,21 +1494,25 @@ sub Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame($$@)         
      }
     else                                                                        # A hash that is not a variable and is therefore assumed to be a non recursive substructure
      {push @P, $s;
-      $sub->uploadStructureVariablesToNewStackFrame($e, @P);
+      $sub->uploadStructureVariablesToNewStackFrame($sv, $e, @P);
       pop @P;
      }
    }
  }
 
-sub Nasm::X86::Subroutine::uploadToNewStackFrame($$$)                           #P Map a variable in the current stack into a reference in the next stack frame being the one that will be used by this sub
- {my ($sub, $source, $target) = @_;                                             # Subroutine descriptor, source variable in the current stack frame, the reference in the new stack frame
+sub Nasm::X86::Subroutine::uploadToNewStackFrame($$$$)                          #P Map a variable in the current stack into a reference in the next stack frame being the one that will be used by this sub
+ {my ($sub, $sv, $source, $target) = @_;                                        # Subroutine descriptor, structure variables, source variable in the current stack frame, the reference in the new stack frame
+  @_ == 4 or confess "Four parameters";
+
   my $label = $source->label;                                                   # Source in current frame
 
   if ($source->reference)                                                       # Source is a reference
    {Mov r15, "[$label]";
+    push @$sv, [$source, $target, 1];                                           # Source to target mapping and target is a reference
    }
   else                                                                          # Source is not a reference
    {Lea r15, "[$label]";
+    push @$sv, [$source, $target, 0];                                           # Source to target mapping and target is not a reference
    }
 
   my $q = $target->label;
@@ -1597,11 +1601,47 @@ sub Nasm::X86::Subroutine::call($%)                                             
   for my $name(sort keys $parameters->%*)                                       # Upload the variables referenced by the parameters to the new stack frame
    {my $s = $$parameters{$name};
     my $t = $sub->variables->{$name};
-    $sub->uploadToNewStackFrame($s, $t);
+    $sub->uploadToNewStackFrame(my $structureVariables = [], $s, $t);
    }
 
   if ($structures)                                                              # Upload the variables of each referenced structure to the new stack frame
-   {$sub->uploadStructureVariablesToNewStackFrame($structures);
+   {push @text, <<END;                                                          # A comment we can reverse up to if we decide to use a zmm to transfer the parameters
+;AAAAAAAA $$sub{name}
+END
+    $sub->uploadStructureVariablesToNewStackFrame
+     (my $structureVariables = [], $structures);
+    my %st;                                                                     # Source to target positions
+    for my $v(@$structureVariables)
+     {my $s = $$v[0]->position;
+      my $t = $$v[1]->position;
+      $st{sprintf "%08d", $t} = $s;
+     }
+    my @st = map{[$_+0, $st{$_}]} sort keys %st;
+
+    if (1 and @st >= 4 and 1 + $st[-1][0] - $st[0][0] == @st)                   # The mapping is compact so we can do the whole thing without masking - and - the mapping is big enough to use zmm registers.
+     {pop @text while @text and $text[-1] !~ m(\;AAAAAAAA);                     # Back up to the start of the structure parameters
+      my $w = RegisterSize rax;                                                 # Size of one parameter
+      my $W = RegisterSize zmm0;                                                # Space in parameter block
+      my $b = $W / $w;                                                          # Number of parameters per block
+      my @m;                                                                    # The offsets to load into one zmm register at a time to zap the parameters.
+      Vpbroadcastq zmm0, rbp;                                                   # Load the value of the stack pointer into every cell
+      Vpbroadcastq zmm1, rsp;                                                   # Load the value of the stack pointer into every cell
+      my $stackOffsetForParameterBlock = 1 + $st[0][0];                         # We start to load the parameters into the new stack (first) at this location
+      for my $i(keys @st)                                                       # Each source to target mapping
+       {push @m, $st[$i][1];
+        if (@m == 8 or $i == $#st)                                              # Dump the latest block of parameters
+         {push @m, 0 while @m < $b;                                             # Pad to a full block
+
+          Vpaddq zmm1, zmm0, '['.(Rq map {$w * -$_} reverse @m).']';            # Add the offsets
+#         Vmovdqu64 zmm1, '['.(Rq map {$w * -$_} reverse @m).']';               # Add the offsets
+
+          my $o = $w * $stackOffsetForParameterBlock + $W;                      # Offset at which we start the layout of the latest parameter block
+          Vmovdqu8 qq([rsp-$o]), zmm1;                                          # Layout the parameter zap table
+          $stackOffsetForParameterBlock += $b;                                  # Next block of parameters
+          @m = ();
+         }
+       }
+     }
    }
 
   if (my $l = $options{library})                                                # A variable containing the start address of a library
@@ -2474,7 +2514,8 @@ sub Variable($;$%)                                                              
 
   $ref and $const and confess "Reference to constant";
 
-  my $label;
+  my $label;                                                                    # Label associated with this variable
+  my $position;                                                                 # Position in stack frame or undef for a constant
   if ($const)                                                                   # Constant variable
    {defined($expr) or confess "Value required for constant";
     $expr =~ m(r) and confess
@@ -2483,7 +2524,7 @@ sub Variable($;$%)                                                              
     $label = Rq($expr);
    }
   else                                                                          # Local variable: Position on stack of variable
-   {my $stack = ++$VariableStack[-1];
+   {my $stack = $position = ++$VariableStack[-1];                               # Position in stack frame
     $label = "rbp-8*($stack)";
 
     if (defined $expr)                                                          # Initialize variable if an initializer was supplied
@@ -2508,6 +2549,7 @@ sub Variable($;$%)                                                              
     label     => $label,                                                        # Address in memory
     name      => $name,                                                         # Name of the variable
 #    level     => scalar @VariableStack,                                        # Lexical level
+    position  => $position,                                                     # Position in stack frame
     reference => $options{reference},                                           # Reference to another variable
 #    width     => RegisterSize(rax),                                            # Size of the variable in bytes
    );
@@ -6663,7 +6705,6 @@ sub Nasm::X86::Tree::put($$$)                                                   
     Block
      {my ($success) = @_;                                                       # End label
       PushR my ($F, $K, $D, $N) = reverse 28..31;
-
       my $t = $$s{tree};
       my $k = $$p{key};
       my $d = $$p{data};
@@ -6727,7 +6768,6 @@ sub Nasm::X86::Tree::put($$$)                                                   
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
-Comment("AAAAAA");
   if (ref($data) !~ m(Tree))                                                    # Whether we are a putting a sub tree
    {$s->call(structures => {tree    => $tree},                                  # Not a sub tree
              parameters => {key     => $key,
@@ -9033,10 +9073,12 @@ sub Assemble(%)                                                                 
   my $aStart = time;
   my $library    = $options{library};                                           # Create  the named library if supplied from the supplied assembler code
   my $list       = $options{list};                                              # Create and retain a listing file so we can see where a trace error occurs
-  my $debug      = $options{debug}//0;                                          # Debug: 0 - none (minimal output), 1 - normal (debug output and confess of failure), 2 - failures (debug output and no confess on failure) .
+  my $debug      = $options{debug}//0;                                          # Debug: 0 - print stderr and compare stdout to eq if present, 1 - print stdout and stderr and compare sdterr to eq if present
   my $trace      = $options{trace}//0;                                          # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
   my $keep       = $options{keep};                                              # Keep the executable
   my $mix        = $options{mix};                                               # Create mix output and fix with line number locations in source
+  my $clocks     = $options{clocks};                                            # Expected number of clocks if known
+  my $label      = $options{label};                                             # Label for this test if provided
 
   my $sourceFile = q(z.asm);                                                    # Source file
   my $execFile   = $keep // q(z);                                               # Executable file
@@ -9209,11 +9251,24 @@ END
       if $assembliesPerformed % 100 == 1;
 
     say STDERR                                                                  # Rows
-      sprintf("%4d    %12s    %12s    %12s    %12s  %12.6f  %12.2f  %12.2f  at $file line $line",
-      $assembliesPerformed,
+      sprintf("%4s    %12s    %12s    %12s    %12s  %12.6f  %12.2f  %12.2f  at $file line $line",
+      $label ? $label : sprintf("%4d", $assembliesPerformed),
       (map {numberWithCommas $_} $instructions,         $bytes,
                                  $instructionsExecuted, $totalBytesAssembled),
                                  $eTime, $aTime, $perlTime);
+   }
+
+  if ($run)                                                                     # Compare clocks
+   {if (my $i = $instructionsExecuted)
+     {if (my $c = $clocks)
+       {if ($i != $c)
+         {my $l = $c - $i;
+          my $g = - $l;
+          say STDERR "Clocks was $c, but now $i, less $l"       if $l > 0;
+          say STDERR "Clocks was $c, but now $i, greater by $g" if $g > 0;
+         }
+       }
+     }
    }
 
   if ($run and $debug == 0 and -e $o2)                                          # Print errors if not debugging
@@ -9260,7 +9315,7 @@ END
   Start;                                                                        # Clear work areas for next assembly
 
   if ($run and defined(my $e = $options{eq}))                                   # Diff results against expected
-   {my $g = readFile($debug < 2 ? $o1 : $o2);
+   {my $g = readFile($debug ? $o2 : $o1);
        $e =~ s(\s+#.*?\n) (\n)gs;                                               # Remove comments so we can annotate listings
     s(Subroutine trace back.*) ()s for $e, $g;                                  # Remove any trace back because the location of the subroutine in memory will vary
     if ($g ne $e)
@@ -9975,7 +10030,7 @@ if (onGitHub)
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
-if (@ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block
+if (!onGitHub or @ARGV) {                                                       # Do first block if we are on gitHub and the first block was requested else do the second block.
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -12338,7 +12393,7 @@ if (1) {                                                                        
   $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)});
   $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)->outNL});
 
-  ok Assemble(debug => 0, mix => 0, eq => <<END, avx512=>1);
+  ok Assemble debug => 0, mix => 0, eq => <<END, avx512=>1, trace=>2;
 size of tree: .... .... .... ....
 size of tree: .... .... .... ...1
 size of tree: .... .... .... ...2
@@ -16461,7 +16516,7 @@ sub Nasm::X86::Library::call($$%)                                               
  }
 
 #latest:
-if (1) {     #### Failing on GitHUB ???                                         #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
+if (1) {                                                                        #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
   my $l = CreateLibrary
    (subroutines =>
      [sub
@@ -17693,7 +17748,151 @@ if (1)
  {my $a = CreateArea;
   my $t = $a->CreateTree;
   $t->put(K(key => 1), K(key => 1));
-  ok Assemble eq=><<END, avx512=>1, mix=> 1;
+  ok Assemble eq=><<END, avx512=>1, trace=>1, mix=> 1;
+END
+ }
+
+#latest:
+if (1) {
+
+ my $h = genHash("AAAA",
+   a => V(a =>  1),
+   b => V(b =>  2),
+   c => V(c =>  3),
+   d => V(d =>  4),
+   e => V(e =>  5),
+   f => V(f =>  6),
+   g => V(g =>  7),
+   h => V(h =>  8),
+   i => V(i =>  9),
+   j => V(j => 10),
+   k => V(k => 11),
+   l => V(l => 12));
+
+ my $i = genHash("AAAA",
+   a => V(a => 0x011),
+   b => V(b => 0x022),
+   c => V(c => 0x033),
+   d => V(d => 0x044),
+   e => V(e => 0x055),
+   f => V(f => 0x066),
+   g => V(g => 0x077),
+   h => V(h => 0x088),
+   i => V(i => 0x099),
+   j => V(j => 0x111),
+   k => V(k => 0x222),
+   l => V(l => 0x333));
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    my $h = $$s{h};
+    $$h{a}->outNL;
+    $$h{b}->outNL;
+    $$h{c}->outNL;
+    $$h{d}->outNL;
+    $$h{e}->outNL;
+    $$h{f}->outNL;
+    $$h{g}->outNL;
+    $$h{h}->outNL;
+    $$h{i}->outNL;
+    $$h{j}->outNL;
+    $$h{k}->outNL;
+    $$h{l}->outNL;
+    $$p{b}->outNL;
+   } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
+
+  $s->call(structures => {h => $i}, parameters=>{a=>V(key => 1), b=>V(key => 0x111)});
+  $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
+
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>9152, label => 'aa';
+a: .... .... .... ..11
+b: .... .... .... ..22
+c: .... .... .... ..33
+d: .... .... .... ..44
+e: .... .... .... ..55
+f: .... .... .... ..66
+g: .... .... .... ..77
+h: .... .... .... ..88
+i: .... .... .... ..99
+j: .... .... .... .111
+k: .... .... .... .222
+l: .... .... .... .333
+b: .... .... .... .111
+a: .... .... .... ...1
+b: .... .... .... ...2
+c: .... .... .... ...3
+d: .... .... .... ...4
+e: .... .... .... ...5
+f: .... .... .... ...6
+g: .... .... .... ...7
+h: .... .... .... ...8
+i: .... .... .... ...9
+j: .... .... .... ...A
+k: .... .... .... ...B
+l: .... .... .... ...C
+b: .... .... .... .222
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key => 1), V(key => 1));  $t->size->outNL;
+  $t->put(K(key => 2), K(key => 2));  $t->size->outNL;
+  $t->put(V(key => 2), V(key => 2));  $t->size->outNL;
+
+  $t->put(K(key => 3), K(key => 3));  $t->size->outNL;
+  $t->put(V(key => 3), V(key => 3));  $t->size->outNL;
+
+  $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
+  $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
+
+  $t->put(K(key => 5), K(key => 5));  $t->size->outNL;
+  $t->put(V(key => 5), V(key => 5));  $t->size->outNL;
+
+  $t->put(K(key => 6), K(key => 5));  $t->size->outNL;
+  $t->put(V(key => 6), V(key => 5));  $t->size->outNL;
+
+  $t->put(K(key => 7), K(key => 7));  $t->size->outNL;
+  $t->put(V(key => 7), V(key => 7));  $t->size->outNL;
+
+  $t->put(K(key => 8), K(key => 8));  $t->size->outNL;
+  $t->put(V(key => 8), V(key => 8));  $t->size->outNL;
+
+  $t->put(K(key => 9), K(key => 9));  $t->size->outNL;
+  $t->put(V(key => 9), V(key => 9));  $t->size->outNL;
+
+  $t->put(K(key => 10), K(key => 10));  $t->size->outNL;
+  $t->put(V(key => 10), V(key => 10));  $t->size->outNL;
+
+  $t->put(K(key => 11), K(key => 11));  $t->size->outNL;
+  $t->put(V(key => 11), V(key => 11));  $t->size->outNL;
+
+  $t->put(K(key => 12), K(key => 12));  $t->size->outNL;
+  $t->put(V(key => 12), V(key => 12));  $t->size->outNL;
+
+  $t->put(K(key => 13), K(key => 13));  $t->size->outNL;
+  $t->put(V(key => 13), V(key => 13));  $t->size->outNL;
+
+  $t->put(K(key => 14), K(key => 14));  $t->size->outNL;
+  $t->put(V(key => 14), V(key => 14));  $t->size->outNL;
+
+  $t->put(K(key => 15), K(key => 15));  $t->size->outNL;
+  $t->put(V(key => 15), V(key => 15));  $t->size->outNL;
+
+ $t->put(K(key => 4), K(key => 4));
+
+# $t->dump8xx("AAA");
+
+  ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>0, mix => 1, clocks=>18177;
+size of tree: .... .... .... ...1
+size of tree: .... .... .... ...2
+size of tree: .... .... .... ...2
+size of tree: .... .... .... ...3
+size of tree: .... .... .... ...3
+size of tree: .... .... .... ...3
 END
  }
 
