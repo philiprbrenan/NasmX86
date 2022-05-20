@@ -115,6 +115,7 @@ vpcompressd vpcompressq vpexpandd vpexpandq xchg xor
 vmovd vmovq
 mulpd
 pslldq psrldq
+vpgatherqd vpgatherqq
 vpmovb2m vpmovw2m Vpmovd2m vpmovq2m
 
 vsqrtpd
@@ -1610,35 +1611,46 @@ sub Nasm::X86::Subroutine::call($%)                                             
 END
     $sub->uploadStructureVariablesToNewStackFrame
      (my $structureVariables = [], $structures);
-    my %st;                                                                     # Source to target positions
-    for my $v(@$structureVariables)
-     {my $s = $$v[0]->position;
-      my $t = $$v[1]->position;
-      $st{sprintf "%08d", $t} = $s;
+                                                                                # Use zmm registers, if possible, to reduce the number of instructions required to zap the parameter list
+    my %st; my $nr = 0; my $nd = 0;                                             # Target to source mapping for parameters. Number of references, number of direct parameters.
+    for my $v(@$structureVariables)                                             # Each source to target pair
+     {my $s = $$v[0]->position;                                                 # Source position in old stack frame
+      my $r = $$v[0]->reference ? 1 : 0;                                        # Reference parameter or direct parameter
+      my $t = $$v[1]->position;                                                 # Target position in the new stack frame
+      my $k = sprintf "%08d", $t;                                               # Normalize the target position so it can be sorted
+      $st{$k} = $s;                                                             # Target from source mapping
+      $r ? ++$nr : ++$nd;                                                       # Number of references versus number of direct parameters
      }
-    my @st = map{[$_+0, $st{$_}]} sort keys %st;
 
-    if (1 and @st >= 4 and 1 + $st[-1][0] - $st[0][0] == @st)                   # The mapping is compact so we can do the whole thing without masking - and - the mapping is big enough to use zmm registers.
+    my @st = map{[$_+0, $st{$_}]} sort keys %st;                                # Parameters in stack frame order
+
+    if (1 and !$nr || !$nd and @st >= 4 and 1 + $st[-1][0] - $st[0][0] == @st)  # The mapping is compact so we can do the whole thing without masking - and - the mapping is big enough to use zmm registers.  Further we are either doing everything by reference or everything directly - we do not have a mixture of references and directs require more instructions to handle - the goal here is, after all, to reduce the number of instructions required to construct a parameter list
      {pop @text while @text and $text[-1] !~ m(\;AAAAAAAA);                     # Back up to the start of the structure parameters
       my $w = RegisterSize rax;                                                 # Size of one parameter
       my $W = RegisterSize zmm0;                                                # Space in parameter block
       my $b = $W / $w;                                                          # Number of parameters per block
-      my @m;                                                                    # The offsets to load into one zmm register at a time to zap the parameters.
-      Vpbroadcastq zmm0, rbp;                                                   # Load the value of the stack pointer into every cell
-      Vpbroadcastq zmm1, rsp;                                                   # Load the value of the stack pointer into every cell
+      my @o;                                                                    # The offsets to load into one zmm register at a time to zap the parameter list.
+
+      Vpbroadcastq zmm0, rbp if $nd;                                            # Direct    parameters: Load the value of the stack base pointer into every cell to compute the address of each source parameter
+      Kxnorq k1, k1, k1      if $nr;                                            # Reference parameters: Set mask to all ones - we can safely load offsets of zero as they will simply load the value of rbp
+
       my $stackOffsetForParameterBlock = 1 + $st[0][0];                         # We start to load the parameters into the new stack (first) at this location
       for my $i(keys @st)                                                       # Each source to target mapping
-       {push @m, $st[$i][1];
-        if (@m == 8 or $i == $#st)                                              # Dump the latest block of parameters
-         {push @m, 0 while @m < $b;                                             # Pad to a full block
-
-          Vpaddq zmm1, zmm0, '['.(Rq map {$w * -$_} reverse @m).']';            # Add the offsets
-#         Vmovdqu64 zmm1, '['.(Rq map {$w * -$_} reverse @m).']';               # Add the offsets
-
-          my $o = $w * $stackOffsetForParameterBlock + $W;                      # Offset at which we start the layout of the latest parameter block
-          Vmovdqu8 qq([rsp-$o]), zmm1;                                          # Layout the parameter zap table
+       {push @o, $st[$i][1];                                                    # Offset of source
+        if (@o == $b or $i == $#st)                                             # Dump the latest block of parameters
+         {push @o, 0 while @o < $b;                                             # Pad to a full block
+          my $o = Rq map {$w * -$_} reverse @o;                                 # Offsets for this zap block
+          if ($nd)                                                              # All direct parameters
+           {Vpaddq zmm1, zmm0, "[$o]";                                          # Add the offsets of the base of the stack frame to get the address of each parameter
+           }
+          else                                                                  # All direct parameters
+           {Vmovdqu8 zmm0, qq([$o]);                                            # Load offsets from zap table
+            Vpgatherqq zmmM(1, 1), "[rbp+zmm0]";                                # Load the contents of memory at these offsets from rbp
+           }
+          my $p = $w * $stackOffsetForParameterBlock + $W;                      # Offset at which we start the layout of the latest parameter block
+          Vmovdqu8 qq([rsp-$p]), zmm1;                                          # Layout the parameter zap table
           $stackOffsetForParameterBlock += $b;                                  # Next block of parameters
-          @m = ();
+          @o = ();                                                              # Clear parameter block to accept new parameters
          }
        }
      }
@@ -12393,7 +12405,7 @@ if (1) {                                                                        
   $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)});
   $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)->outNL});
 
-  ok Assemble debug => 0, mix => 0, eq => <<END, avx512=>1, trace=>2;
+  ok Assemble debug => 0, mix => 0, eq => <<END, avx512=>1, trace=>0;
 size of tree: .... .... .... ....
 size of tree: .... .... .... ...1
 size of tree: .... .... .... ...2
@@ -17786,6 +17798,7 @@ if (1) {
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;
     my $h = $$s{h};
+    my $a = $$p{a};
     $$h{a}->outNL;
     $$h{b}->outNL;
     $$h{c}->outNL;
@@ -17804,7 +17817,7 @@ if (1) {
   $s->call(structures => {h => $i}, parameters=>{a=>V(key => 1), b=>V(key => 0x111)});
   $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
 
-  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>9152, label => 'aa';
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>9151, label => 'aa';
 a: .... .... .... ..11
 b: .... .... .... ..22
 c: .... .... .... ..33
@@ -17834,7 +17847,76 @@ b: .... .... .... .222
 END
  }
 
-latest:
+#latest:
+if (1) {
+
+ my $h = genHash("AAAA",
+   a => V(a =>  1),
+   b => V(b =>  2),
+   c => V(c =>  3),
+   d => V(d =>  4),
+   e => V(e =>  5),
+   f => V(f =>  6),
+   g => V(g =>  7),
+   h => V(h =>  8),
+   i => V(i =>  9),
+   j => V(j => 10),
+   k => V(k => 11),
+   l => V(l => 12));
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    my $h = $$s{h};
+    my $a = $$p{a};
+    $$h{a}->outNL;
+    $$h{b}->outNL;
+    $$h{c}->outNL;
+    $$h{d}->outNL;
+    $$h{e}->outNL;
+    $$h{f}->outNL;
+    $$h{g}->outNL;
+    $$h{h}->outNL;
+    $$h{i}->outNL;
+    $$h{j}->outNL;
+    $$h{k}->outNL;
+    $$h{l}->outNL;
+    If $a > 0,
+    Then
+     {$sub->call(structures => {h => $h}, parameters=>{a=>V(key => 0), b=>V(key => 0x111)});
+     };
+   } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
+
+  $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
+
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>17609, label => 'aaa';
+a: .... .... .... ...1
+b: .... .... .... ...2
+c: .... .... .... ...3
+d: .... .... .... ...4
+e: .... .... .... ...5
+f: .... .... .... ...6
+g: .... .... .... ...7
+h: .... .... .... ...8
+i: .... .... .... ...9
+j: .... .... .... ...A
+k: .... .... .... ...B
+l: .... .... .... ...C
+a: .... .... .... ...1
+b: .... .... .... ...2
+c: .... .... .... ...3
+d: .... .... .... ...4
+e: .... .... .... ...5
+f: .... .... .... ...6
+g: .... .... .... ...7
+h: .... .... .... ...8
+i: .... .... .... ...1
+j: .... .... .... ...2
+k: .... .... .... ...3
+l: .... .... .... ...4
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -17884,7 +17966,7 @@ if (1) {                                                                        
 
  $t->put(K(key => 4), K(key => 4));
 
-# $t->dump8xx("AAA");
+ $t->dump8xx("AAA");
 
   ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>0, mix => 1, clocks=>18177;
 size of tree: .... .... .... ...1
@@ -17892,7 +17974,69 @@ size of tree: .... .... .... ...2
 size of tree: .... .... .... ...2
 size of tree: .... .... .... ...3
 size of tree: .... .... .... ...3
-size of tree: .... .... .... ...3
+size of tree: .... .... .... ...4
+size of tree: .... .... .... ...4
+size of tree: .... .... .... ...5
+size of tree: .... .... .... ...5
+size of tree: .... .... .... ...6
+size of tree: .... .... .... ...6
+size of tree: .... .... .... ...7
+size of tree: .... .... .... ...7
+size of tree: .... .... .... ...8
+size of tree: .... .... .... ...8
+size of tree: .... .... .... ...9
+size of tree: .... .... .... ...9
+size of tree: .... .... .... ...A
+size of tree: .... .... .... ...A
+size of tree: .... .... .... ...B
+size of tree: .... .... .... ...B
+size of tree: .... .... .... ...C
+size of tree: .... .... .... ...C
+size of tree: .... .... .... ...D
+size of tree: .... .... .... ...D
+size of tree: .... .... .... ...E
+size of tree: .... .... .... ...E
+size of tree: .... .... .... ...F
+size of tree: .... .... .... ...F
+AAA
+Tree: .... .... .... ..40
+At:      200                                                                                length:        1,  data:      240,  nodes:      280,  first:       40, root, parent
+  Index:        0
+  Keys :        7
+  Data :        7
+  Nodes:       80      140
+    At:       80                                                                            length:        6,  data:       C0,  nodes:      100,  first:       40,  up:      200, leaf
+      Index:        0        1        2        3        4        5
+      Keys :        1        2        3        4        5        6
+      Data :        1        2        3        4        5        5
+    end
+    At:      140                                                                            length:        8,  data:      180,  nodes:      1C0,  first:       40,  up:      200, leaf
+      Index:        0        1        2        3        4        5        6        7
+      Keys :        8        9        A        B        C        D        E        F
+      Data :        8        9        A        B        C        D        E        F
+    end
+end
+END
+ }
+
+#latest:
+if (1) {                                                                        #TVpgatherqq
+  Mov rax, 0xCC;
+  Kmovq k1, rax;
+  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("1234567"x8);
+  $s->setReg(rax);
+  Vpgatherqq zmmM(1, 1), "[rax+zmm0]";                                          # Target register must be different from source register
+  PrintOutRegisterInHex zmm1, k1;
+  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
+  zmm1: 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ....  .... .... .... .... + 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ....  .... .... .... ....
+    k1: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TVpgatherqq
+  Vpgatherqq zmmM(1, 1), "[rax+zmm1]";                                          # Target register must be different from source register
+  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
 END
  }
 
