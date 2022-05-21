@@ -133,7 +133,7 @@ andn
 bzhi
 imul3
 kadd kand kandn kor kshiftl kshiftr kunpck kxnor kxor
-
+pdep pext
 vdpps
 vprolq
 vgetmantps
@@ -3508,15 +3508,13 @@ sub Nasm::X86::Variable::qFromZ($$$)                                            
 
 sub Nasm::X86::Variable::dFromPointInZ($$)                                      # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
  {my ($point, $zmm) = @_;                                                       # Point, numbered zmm
-  PushR $zmm;
+  my $x = $zmm =~ m(\A(zmm)?0\Z) ? 1 : 0;                                       # The zmm we will extract into
   $point->setReg(rsi);
   Kmovq k1, rsi;
   my ($z) = zmm $zmm;
-  Vpcompressd "$z\{k1}", $z;
-  Vpextrd esi, xmm($zmm), 0;                                                    # Extract dword from corresponding xmm
-  my $r = V d => rsi;
-  PopR;
-  $r;
+  Vpcompressd "zmm$x\{k1}", $z;
+  Vpextrd esi, xmm($x), 0;                                                      # Extract dword from corresponding xmm
+  V d => rsi;
  }
 
 sub Nasm::X86::Variable::dFromPointInZ22($$)                                    # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
@@ -17889,14 +17887,16 @@ END
 #  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
 #  1,793,868         181,576       1,793,868         181,576      0.349532          0.15  k7 becomes k1 and so avoids the push
 #  1,792,946         181,336       1,792,946         181,336      0.358092          0.15  tree::allocBlock
+#  1,787,294         181,264       1,787,294         181,264      0.343509          0.15  Inc length in keys
+#  1,752,298         181,216       1,752,298         181,216      0.486707          0.16  dFromPointInZ
 latest:;
 if (1)
  {my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put(K(key => 0xffffff), K(key => 1));                                     # 510 clocks
-#  $t->find(K key => 0xffffff);                                                  # 370 with inline find
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1792946;
+# $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496
+# $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1752298;
 2826
 END
  }
