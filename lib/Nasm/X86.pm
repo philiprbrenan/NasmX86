@@ -3161,7 +3161,7 @@ sub Nasm::X86::Variable::shiftRight($$)                                         
   $right->setReg(rcx);                                                          # Amount to shift
   Shr rbx, cl;                                                                  # Shift
   my $r = V "shift right" => rbx;                                               # Save result in a new variable
-  PopR;
+# PopR;
   $r
  }
 
@@ -3201,41 +3201,6 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
 
   Comment "Boolean ZF Arithmetic end";
 #PopR;
-  V(empty => undef);                                                            # Return an empty variable so that If regenerates the follow on code
- }
-
-sub Nasm::X86::Variable::booleanZF22($$$$)                                      # Combine the left hand variable with the right hand variable via a boolean operator and indicate the result by setting the zero flag if the result is true.
- {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
-
-  !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
-  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
-
-  Comment "Boolean ZF Arithmetic Start";
-  PushR 15;
-
-  Mov r15, $left ->addressExpr;
-  if ($left->reference)                                                         # Dereference left if necessary
-   {Mov r15, "[r15]";
-   }
-  if (ref($right) and $right->reference)                                        # Dereference on right if necessary
-   {PushR 14;
-    Mov r14, $right ->addressExpr;
-    Mov r14, "[r14]";
-    Cmp r15, r14;
-    PopR;
-   }
-  elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp r15, $right->addressExpr;
-   }
-  else                                                                          # Constant on the right
-   {Cmp r15, $right;
-   }
-
-  &$sub(sub {Cmp rsp, rsp}, sub {Test rsp, rsp});
-
-  PopR;
-  Comment "Boolean ZF Arithmetic end";
-
   V(empty => undef);                                                            # Return an empty variable so that If regenerates the follow on code
  }
 
