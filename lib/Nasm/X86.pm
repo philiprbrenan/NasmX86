@@ -20,6 +20,7 @@
 # Temporize the registers in: GetNextUtf8CharAsUtf32
 # Use double zmm registers
 # Variable::at
+# leafNode can be improved because the field to extract is at a fixed location as it is in getLoop as well.
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -5915,7 +5916,7 @@ sub Nasm::X86::Tree::leafFromNodes($$)                                          
   If $n == 0, Then {$l->copy(1)};                                               # Leaf if the node is zero
   $l
  }
-
+# Optimize as getLoop always accesses teh ame field
 sub Nasm::X86::Tree::getLoop($$)                                                #P Return the value of the loop field as a variable.
  {my ($t, $zmm) = @_;                                                           # Tree descriptor, numbered zmm
   @_ == 2 or confess "Two parameters";
