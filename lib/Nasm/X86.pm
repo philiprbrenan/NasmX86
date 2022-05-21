@@ -3015,21 +3015,20 @@ sub Nasm::X86::Variable::assign($$$)                                            
   $left->constant and confess "cannot assign to a constant";
 
   Comment "Variable assign";                #### We ought to be able to use free registers!!!!
-  PushR r15;
   Mov rdi, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov rdi, "[rdi]";
    }
   if (!ref($right))                                                             # Load right constant
-   {Mov r15, $right;
+   {Mov rsi, $right;
    }
   else                                                                          # Load right variable
-   {Mov r15, $right->addressExpr;
+   {Mov rsi, $right->addressExpr;
     if ($right->reference)                                                      # Dereference right if necessary
-     {Mov r15, "[r15]";
+     {Mov rsi, "[rsi]";
      }
    }
-  &$op(rdi, r15);
+  &$op(rdi, rsi);
   if ($left->reference)                                                         # Store in reference on left if necessary
    {Mov r11, $left->addressExpr;
     Mov "[r11]", rdi;
@@ -3037,7 +3036,6 @@ sub Nasm::X86::Variable::assign($$$)                                            
   else                                                                          # Store in variable
    {Mov $left ->addressExpr, rdi;
    }
-  PopR;
 
   $left;
  }
