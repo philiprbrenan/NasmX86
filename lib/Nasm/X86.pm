@@ -1730,7 +1730,7 @@ sub RComment(@)                                                                 
 END
  }
 
-#D1 Print                                                                       # Print
+#D1 Print                                                                       # Print the values of registers.  The print commands do not overwrite the free registes as doing so would make debugging difficult.
 
 sub PrintNL($)                                                                  # Print a new line to stdout  or stderr.
  {my ($channel) = @_;                                                           # Channel to write on
@@ -3031,10 +3031,8 @@ sub Nasm::X86::Variable::assign($$$)                                            
    }
   &$op(r14, r15);
   if ($left->reference)                                                         # Store in reference on left if necessary
-   {PushR 13;
-    Mov r13, $left->addressExpr;
-    Mov "[r13]", r14;
-    PopR;
+   {Mov r11, $left->addressExpr;
+    Mov "[r11]", r14;
    }
   else                                                                          # Store in variable
    {Mov $left ->addressExpr, r14;
