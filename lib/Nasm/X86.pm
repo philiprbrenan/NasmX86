@@ -5880,38 +5880,33 @@ sub Nasm::X86::Tree::incLengthInKeys($$)                                        
  {my ($t, $K) = @_;                                                             # Tree, zmm number
   @_ == 2 or confess "Two parameters";
   my $l = $t->lengthOffset;                                                     # Offset of length bits
-  PushR 15;
-  bRegFromZmm r15, $K, $l;                                                      # Length
-  Cmp r15b, $t->length;
+  bRegFromZmm rbx, $K, $l;                                                      # Length
+  Cmp bl, $t->length;
   IfLt
   Then
-   {Inc r15;
-    bRegIntoZmm r15, $K, $l;
+   {Inc rbx;
+    bRegIntoZmm rbx, $K, $l;
    },
   Else
    {PrintErrTraceBack "Cannot increment length of block beyond ".$t->length;
    };
-  PopR;
  }
 
 sub Nasm::X86::Tree::decLengthInKeys($$)                                        #P Decrement the number of keys in a keys block or complain if such is not possible
  {my ($t, $K) = @_;                                                             # Tree, zmm number
   @_ == 2 or confess "Two parameters";
   my $l = $t->lengthOffset;                                                     # Offset of length bits
-  PushR 15;
   ClearRegisters r15;
-  bRegFromZmm r15, $K, $l;                                                      # Length
-  Cmp r15, 0;
+  bRegFromZmm rbx, $K, $l;                                                      # Length
+  Cmp bl, 0;
   IfGt
   Then
-   {Dec r15;
-    bRegIntoZmm r15, $K, $l;
+   {Dec rbx;
+    bRegIntoZmm rbx, $K, $l;
    },
   Else
    {PrintErrTraceBack "Cannot decrement length of block below 0";
    };
-
-  PopR;
  }
 
 sub Nasm::X86::Tree::leafFromNodes($$)                                          #P Return a variable containing true if we are on a leaf.  We determine whether we are on a leaf by checking the offset of the first sub node.  If it is zero we are on a leaf otherwise not.
@@ -17893,6 +17888,7 @@ END
 #  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
 #  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
 #  1,793,868         181,576       1,793,868         181,576      0.349532          0.15  k7 becomes k1 and so avoids the push
+#  1,792,946         181,336       1,792,946         181,336      0.358092          0.15  tree::allocBlock
 latest:;
 if (1)
  {my $a = CreateArea;
@@ -17900,7 +17896,7 @@ if (1)
   $t->size->outRightInDecNL(K width => 4);
 # $t->put(K(key => 0xffffff), K(key => 1));                                     # 510 clocks
 #  $t->find(K key => 0xffffff);                                                  # 370 with inline find
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1793864;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1792946;
 2826
 END
  }
