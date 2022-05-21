@@ -16,7 +16,7 @@
 # Replace calls to Tree::position with Tree::down
 # Make Pop return a tree when it is on a sub tree
 # PushR - optimize zmm pushes
-# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, k1, likewise the mmx registers, zmm 0..15 and k1..3.
+# Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, likewise the mmx registers mm0-7, zmm 0..15 and k0..3.
 # Temporize the registers in: GetNextUtf8CharAsUtf32
 # Use double zmm registers
 # Variable::at
@@ -3014,7 +3014,7 @@ sub Nasm::X86::Variable::assign($$$)                                            
  {my ($left, $op, $right) = @_;                                                 # Left variable, operator, right variable
   $left->constant and confess "cannot assign to a constant";
 
-  Comment "Variable assign";
+  Comment "Variable assign";                #### We ought to be able to use free registers!!!!
   PushR 14, 15;
   Mov r14, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
@@ -3543,7 +3543,7 @@ sub Nasm::X86::Variable::dFromPointInZ($$)                                      
   Kmovq k1, rsi;
   my ($z) = zmm $zmm;
   Vpcompressd "$z\{k1}", $z;
-  Vpextrd esi, xmm($zmm), 0;                                                   # Extract dword from corresponding xmm
+  Vpextrd esi, xmm($zmm), 0;                                                    # Extract dword from corresponding xmm
   my $r = V d => rsi;
   PopR;
   $r;
@@ -6250,7 +6250,7 @@ sub Nasm::X86::Tree::indexXX($$$$$)                                             
   @_ == 5 or confess "Five parameters";
   my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
 
-  my $A = $K == 1 ? 0 : 1;                                                      # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
+  my $A = $K == 1 ? 0 : 1;                                                      # Choose a free zmm
 
   $key->setReg(rdi);
   Vpbroadcastd zmm($A), edi;                                                    # Load key to test
@@ -6289,30 +6289,26 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
 
     my $t = $$s{tree};                                                          # Address tree
 
-    PushR 4..8;
-
     my $point = $$p{point};                                                     # Point at which to insert
-    $$p{point}->setReg(8);                                                      # Load mask register showing point of insertion.
+    $$p{point}->setReg(rdi);                                                    # Load mask register showing point of insertion.
 
-    Kmovq k7, r8;                                                               # A sea of zeros with a one at the point of insertion
+    Kmovq k3, rdi;                                                              # A sea of zeros with a one at the point of insertion
 
-    $t->maskForFullKeyArea(6);                                                  # Mask for key area
+    $t->maskForFullKeyArea(2);                                                  # Mask for key area
 
-    Kandnq  k4, k7, k6;                                                         # Mask for key area with a hole at the insertion point
+    Kandnq  k1, k3, k2;                                                         # Mask for key area with a hole at the insertion point
 
-    Vpexpandd zmmM($K, 4), zmm($K);                                             # Expand to make room for the value to be inserted
-    Vpexpandd zmmM($D, 4), zmm($D);
+    Vpexpandd zmmM($K, 1), zmm($K);                                             # Expand to make room for the value to be inserted
+    Vpexpandd zmmM($D, 1), zmm($D);
 
-    $$p{key}  ->setReg(8); Vpbroadcastd zmmM($K, 7), r8d;                       # Insert value at expansion point
-    $$p{data} ->setReg(8); Vpbroadcastd zmmM($D, 7), r8d;
+    $$p{key}  ->setReg(rdi); Vpbroadcastd zmmM($K, 3), edi;                       # Insert value at expansion point
+    $$p{data} ->setReg(rdi); Vpbroadcastd zmmM($D, 3), edi;
 
     $t->incLengthInKeys($K);                                                    # Increment the length of this node to include the inserted value
 
-    $t->insertIntoTreeBits($K, 7, $$p{subTree});                                # Set the matching tree bit depending on whether we were supplied with a tree or a variable
+    $t->insertIntoTreeBits($K, 3, $$p{subTree});                                # Set the matching tree bit depending on whether we were supplied with a tree or a variable
 
     $t->incSizeInFirst($F);                                                     # Update number of elements in entire tree.
-
-    PopR;
    } name =>
      qq(Nasm::X86::Tree::insertKeyDataTreeIntoLeaf-$F-$K-$D-$$tree{length}),    # Different variants for different blocks of registers.
      structures => {tree=>$tree},
@@ -17939,15 +17935,15 @@ END
 #  2,181,550         187,664       2,181,550         187,664      0.361091          0.15  Improved parameter passing
 #  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
 #  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
-
+#  1,793,868         181,576       1,793,868         181,576      0.349532          0.15  k7 becomes k1 and so avoids the push
 latest:;
 if (1)
  {my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put(K(key => 0xffffff), K(key => 1));                                     # 528 clocks
-  $t->find(K key => 0xffffff);                                                  # 370 with inline find
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1844718;
+# $t->put(K(key => 0xffffff), K(key => 1));                                     # 510 clocks
+#  $t->find(K key => 0xffffff);                                                  # 370 with inline find
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1793868;
 2826
 END
  }
