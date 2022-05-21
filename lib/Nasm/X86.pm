@@ -6079,7 +6079,7 @@ sub Nasm::X86::Tree::indexNode($$$$)                                            
   my $A = $K == 1 ? 0 : 1;                                                      # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
 
   $offset->setReg(rdi);                                                         # The offset we are looking for
-  Vpbroadcastd zmm($A), di;                                                     # Load offset to test
+  Vpbroadcastd zmm($A), edi;                                                    # Load offset to test
   Vpcmpud k1, zmm($N, $A), $Vpcmp->eq;                                          # Check for nodes equal to offset
   $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
   Mov   rsi, 2;                                                                 # A one in position two because the number of nodes is always one more than the number of keys
@@ -6253,7 +6253,7 @@ sub Nasm::X86::Tree::indexXX($$$$$)                                             
   my $A = $K == 1 ? 0 : 1;                                                      # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
 
   $key->setReg(rdi);
-  Vpbroadcastd zmm($A), di;                                                     # Load key to test
+  Vpbroadcastd zmm($A), edi;                                                    # Load key to test
   Vpcmpud k1, zmm($K, $A), $cmp;                                                # Check keys from memory broadcast
   $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
   Mov   rsi, 1;                                                                 # The one
@@ -6262,14 +6262,14 @@ sub Nasm::X86::Tree::indexXX($$$$$)                                             
   Kmovq rdi, k1;                                                                # Matching keys
   And   rsi, rdi;                                                               # Matching keys in mask area
   Inc rsi if $inc;                                                              # Its faster to to do any adjustment here rather than using variable arithmetic later
-  V index => rsi;                                                       # Save result as a variable
+  V index => rsi;                                                               # Save result as a variable
  }
 
 sub Nasm::X86::Tree::indexEq($$$)                                               #P Return the  position of a key in a zmm equal to the specified key as a point in a variable.
  {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
   @_ == 3 or confess "Three parameters";
 
-  $tree->indexXX($key, $K, $Vpcmp->eq, 0);                                         # Check for equal keys from the broadcasted memory
+  $tree->indexXX($key, $K, $Vpcmp->eq, 0);                                      # Check for equal keys from the broadcasted memory
  }
 
 sub Nasm::X86::Tree::insertionPoint($$$)                                        #P Return the position at which a key should be inserted into a zmm as a point in a variable.
