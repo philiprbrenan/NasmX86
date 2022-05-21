@@ -5779,11 +5779,9 @@ sub Nasm::X86::Tree::incSizeInFirst($$)                                         
 sub Nasm::X86::Tree::incSize($)                                                 #P Increment the size of a tree
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  PushR 31;
-  $tree->firstFromMemory(31);
-  $tree->incSizeInFirst (31);
-  $tree->firstIntoMemory(31);
-  PopR;
+  $tree->firstFromMemory(1);
+  $tree->incSizeInFirst (1);
+  $tree->firstIntoMemory(1);
  }
 
 sub Nasm::X86::Tree::decSizeInFirst($$)                                         #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
