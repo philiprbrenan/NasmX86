@@ -3245,10 +3245,10 @@ sub Nasm::X86::Variable::getReg($$)                                             
   if ($variable->isRef)                                                         # Move to the location referred to by this variable
    {Comment "Get variable value from register $r";
     my $p = $r eq rdi ? rsi : rdi;
-#    PushR $p;
+    PushR $p;
     Mov $p, $variable->addressExpr;
     Mov "[$p]", $r;
-#    PopR $p;
+    PopR $p;
    }
   else                                                                          # Move to this variable
    {Mov $variable->addressExpr, $r;
@@ -17914,7 +17914,7 @@ if (1)
   $t->size->outRightInDecNL(K width => 4);
 # $t->put(K(key => 0xffffff), K(key => 1));                                     # 510 clocks
 #  $t->find(K key => 0xffffff);                                                  # 370 with inline find
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1793868;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1793856;
 2826
 END
  }
