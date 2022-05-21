@@ -3244,11 +3244,11 @@ sub Nasm::X86::Variable::getReg($$)                                             
   my $r = registerNameFromNumber $register;
   if ($variable->isRef)                                                         # Move to the location referred to by this variable
    {Comment "Get variable value from register $r";
-    my $p = $r eq r15 ? r14 : r15;
-    PushR $p;
+    my $p = $r eq rdi ? rsi : rdi;
+#    PushR $p;
     Mov $p, $variable->addressExpr;
     Mov "[$p]", $r;
-    PopR $p;
+#    PopR $p;
    }
   else                                                                          # Move to this variable
    {Mov $variable->addressExpr, $r;
@@ -17906,6 +17906,7 @@ END
 #  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
 #  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
 #  1,793,868         181,576       1,793,868         181,576      0.349532          0.15  k7 becomes k1 and so avoids the push
+#  1,793,856         181,528       1,793,856         181,528      0.345631          0.14  getReg
 latest:;
 if (1)
  {my $a = CreateArea;
