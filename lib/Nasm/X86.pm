@@ -6261,7 +6261,7 @@ sub Nasm::X86::Tree::indexXX($$$$$)                                             
   Dec   rsi;                                                                    # Reduce to fill block with ones
   Kmovq rdi, k1;                                                                # Matching keys
   And   rsi, rdi;                                                               # Matching keys in mask area
-  Inc rsi if $inc;                                                              # Its faster to to do any adjustment here rather than using variable arithmetic later
+  Inc   rsi if $inc;                                                            # Its faster to to do any adjustment here rather than using variable arithmetic later
   V index => rsi;                                                               # Save result as a variable
  }
 
@@ -6726,10 +6726,10 @@ sub Nasm::X86::Tree::find($$)                                                   
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+
     Block
      {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
-
-      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
       my $t = $$s{tree};                                                        # Tree to search
       $t->zero;                                                                 # Clear search fields
@@ -6747,7 +6747,7 @@ sub Nasm::X86::Tree::find($$)                                                   
 
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
-        my $eq = $t->indexEq($k, $K);                                           # The position of a key in a zmm equal to the specified key as a point in a variable.
+        my $eq  = $t->indexEq($k, $K);                                          # The position of a key in a zmm equal to the specified key as a point in a variable.
         If $eq  > 0,                                                            # Result mask is non zero so we must have found the key
         Then
          {my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
@@ -6774,7 +6774,7 @@ sub Nasm::X86::Tree::find($$)                                                   
      structures => {tree=>$tree},
      name       => qq(Nasm::X86::Tree::find-$$tree{length});
 
-  $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
+  $s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
  } # find
 
 sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree and set B<found>|B<key>|B<data>|B<subTree> to show the result
@@ -17938,14 +17938,16 @@ END
 #  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
 #  2,181,550         187,664       2,181,550         187,664      0.361091          0.15  Improved parameter passing
 #  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
+#  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
 
 latest:;
 if (1)
  {my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put(K(key => 0xffffff), K(key => 1));                                     # 640 clocks
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>2181550;
+# $t->put(K(key => 0xffffff), K(key => 1));                                     # 528 clocks
+  $t->find(K key => 0xffffff);                                                  # 370 with inline find
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1844718;
 2826
 END
  }
