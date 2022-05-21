@@ -3012,9 +3012,9 @@ sub Nasm::X86::Variable::equals($$$)                                            
 
 sub Nasm::X86::Variable::assign($$$)                                            # Assign to the left hand side the value of the right hand side.
  {my ($left, $op, $right) = @_;                                                 # Left variable, operator, right variable
-  $left->constant and confess "cannot assign to a constant";
+  $left->constant and confess "Cannot assign to a constant";
 
-  Comment "Variable assign";                #### We ought to be able to use free registers!!!!
+  Comment "Variable assign";
   Mov rdi, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov rdi, "[rdi]";
@@ -3067,30 +3067,6 @@ sub Nasm::X86::Variable::arithmetic($$$$)                                       
    }
   &$op(rsi, rbx);
   my $v = V(join(' ', '('.$left->name, $name, (ref($right) ? $right->name : $right).')'), rsi);
-  Comment "Arithmetic End";
-
-  return $v;
- }
-
-sub Nasm::X86::Variable::arithmetic22($$$$)                                       # Return a variable containing the result of an arithmetic operation on the left hand and right hand side variables.
- {my ($op, $name, $left, $right) = @_;                                          # Operator, operator name, Left variable,  right variable
-
-  my $l = $left ->addressExpr;
-  my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
-
-  Comment "Arithmetic Start";
-  PushR 14, 15;
-  Mov r15, $l;
-  if ($left->reference)                                                         # Dereference left if necessary
-   {Mov r15, "[r15]";
-   }
-  Mov r14, $r;
-  if (ref($right) and $right->reference)                                        # Dereference right if necessary
-   {Mov r14, "[r14]";
-   }
-  &$op(r15, r14);
-  my $v = V(join(' ', '('.$left->name, $name, (ref($right) ? $right->name : $right).')'), r15);
-  PopR;
   Comment "Arithmetic End";
 
   return $v;
@@ -3245,10 +3221,8 @@ sub Nasm::X86::Variable::setReg($$)                                             
      {confess "Cannot set a mask register to the address of a variable";
      }
     else
-     {PushR 15;
-      Mov r15, $variable->addressExpr;
-      Kmovq $r, r15;
-      PopR;
+     {Mov rdi, $variable->addressExpr;
+      Kmovq $r, rdi;
      }
    }
   else                                                                          # Set normal register
