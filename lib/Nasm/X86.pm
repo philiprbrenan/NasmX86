@@ -1605,9 +1605,11 @@ sub Nasm::X86::Subroutine::call($%)                                             
     $sub->uploadToNewStackFrame(my $structureVariables = [], $s, $t);
    }
 
+  my $name = $$sub{name};                                                       # The name of the sub
+
   if ($structures)                                                              # Upload the variables of each referenced structure to the new stack frame
    {push @text, <<END;                                                          # A comment we can reverse up to if we decide to use a zmm to transfer the parameters
-;AAAAAAAA $$sub{name}
+;AAAAAAAA $name
 END
     $sub->uploadStructureVariablesToNewStackFrame
      (my $structureVariables = [], $structures);
@@ -1624,7 +1626,7 @@ END
 
     my @st = map{[$_+0, $st{$_}]} sort keys %st;                                # Parameters in stack frame order
 
-    if (1 and !$nr || !$nd and @st >= 4 and 1 + $st[-1][0] - $st[0][0] == @st)  # The mapping is compact so we can do the whole thing without masking - and - the mapping is big enough to use zmm registers.  Further we are either doing everything by reference or everything directly - we do not have a mixture of references and directs require more instructions to handle - the goal here is, after all, to reduce the number of instructions required to construct a parameter list
+    if (1 and (!$nr && $nd or $nr && !$nd) and @st >= 4 and 1 + $st[-1][0] - $st[0][0] == @st)  # The mapping is compact so we can do the whole thing without masking - and - the mapping is big enough to use zmm registers.  Further we are either doing everything by reference or everything directly - we do not have a mixture of references and directs require more instructions to handle - the goal here is, after all, to reduce the number of instructions required to construct a parameter list
      {pop @text while @text and $text[-1] !~ m(\;AAAAAAAA);                     # Back up to the start of the structure parameters
       my $w = RegisterSize rax;                                                 # Size of one parameter
       my $W = RegisterSize zmm0;                                                # Space in parameter block
@@ -1632,7 +1634,6 @@ END
       my @o;                                                                    # The offsets to load into one zmm register at a time to zap the parameter list.
 
       Vpbroadcastq zmm0, rbp if $nd;                                            # Direct    parameters: Load the value of the stack base pointer into every cell to compute the address of each source parameter
-      Kxnorq k1, k1, k1      if $nr;                                            # Reference parameters: Set mask to all ones - we can safely load offsets of zero as they will simply load the value of rbp
 
       my $stackOffsetForParameterBlock = 1 + $st[0][0];                         # We start to load the parameters into the new stack (first) at this location
       for my $i(keys @st)                                                       # Each source to target mapping
@@ -1645,6 +1646,7 @@ END
            }
           else                                                                  # All direct parameters
            {Vmovdqu8 zmm0, qq([$o]);                                            # Load offsets from zap table
+            Kxnorq k1, k1, k1;                                                  # Reference parameters: Set mask to all ones - we can safely load offsets of zero as they will simply load the value of rbp. Mask register set to zero at all bits where it loaded successfully.
             Vpgatherqq zmmM(1, 1), "[rbp+zmm0]";                                # Load the contents of memory at these offsets from rbp
            }
           my $p = $w * $stackOffsetForParameterBlock + $W;                      # Offset at which we start the layout of the latest parameter block
@@ -2606,7 +2608,14 @@ sub Nasm::X86::Variable::dump($$$;$$)                                           
   PrintString  ($channel, $title1//$left->name.": ") unless defined($title1) && $title1 eq '';
   PrintRaxInHex($channel);
   PrintString  ($channel, $title2) if defined $title2;
-  PrintNL      ($channel) if $newLine;
+
+  if ($newLine == 2)                                                            # Print location in the source file in a format that Geany understands
+   {my @c = caller 1;
+    my (undef, $file, $line) = @c;
+    PrintString $channel, " called at $file line $line";
+   }
+
+  PrintNL($channel) if $newLine;
   PopR;
  }
 
@@ -2625,9 +2634,9 @@ sub Nasm::X86::Variable::errNL($;$$)                                            
   $left->dump($stderr, 1, $title1, $title2);
  }
 
-sub Nasm::X86::Variable::d($;$$)                                                # Dump the value of a variable on stderr and append a new line.
+sub Nasm::X86::Variable::d($;$$)                                                # Dump the value of a variable on stderr and append the source file calling line in a format that Geany understands
  {my ($left, $title1, $title2) = @_;                                            # Left variable, optional leading title, optional trailing title
-  $left->dump($stderr, 1, $title1, $title2);
+  $left->dump($stderr, 2, $title1, $title2);
  }
 
 sub Nasm::X86::Variable::outNL($;$$)                                            # Dump the value of a variable on stdout and append a new line.
@@ -5743,7 +5752,7 @@ sub DescribeTree(%)                                                             
     found        => V(found   => 0),                                            # Variable indicating whether the last find was successful or not
     index        => V(index   => 0),                                            # Index of key in last node found
     key          => V(key     => 0),                                            # Variable containing the current key
-    offset       => V(key     => 0),                                            # Variable containing the offset of the block containing the current key
+    offset       => V(offset  => 0),                                            # Variable containing the offset of the block containing the current key
     subTree      => V(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
    );
  }
@@ -6818,7 +6827,8 @@ sub Nasm::X86::Tree::find($$)                                                   
 
       PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
 
-      my $t = $$s{tree}->zero;                                                  # Tree to search
+      my $t = $$s{tree};                                                        # Tree to search
+      $t->zero;                                                                 # Clear search fields
       $t->key->copy(my $k = $$p{key});                                          # Copy in key so we know what was searched for
 
       $t->firstFromMemory      ($F);                                            # Load first block
@@ -10042,7 +10052,8 @@ if (onGitHub)
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
-if (!onGitHub or @ARGV) {                                                       # Do first block if we are on gitHub and the first block was requested else do the second block.
+#if (!onGitHub or @ARGV) {                                                      # Do first block if we are on gitHub and the first block was requested else do the second block.
+if (@ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block.
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -10058,7 +10069,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TPrintOutRaxInHexNL
+if (1) {                                                                        #TPrintOutRaxInHexNL #TVmovdqu64
   my $s = Rb(0..255);
 
   Vmovdqu64 xmm1, "[$s]";
@@ -10097,6 +10108,20 @@ if (1)
  zmm29: .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2 + .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2
  zmm30: .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1 + .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1
  zmm31: .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1 + .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1
+END
+ }
+
+#latest:
+if (1) {                                                                        #TVpgatherqq
+  Mov rax, 0xCC;
+  Kmovq k1, rax;
+  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("1234567"x8);
+  $s->setReg(rax);
+  Vpgatherqq zmmM(1, 1), "[rax+zmm0]";                                          # Target register must be different from source register
+  PrintOutRegisterInHex zmm1, k1;
+  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
+  zmm1: 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ....  .... .... .... .... + 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ....  .... .... .... ....
+    k1: .... .... .... ....
 END
  }
 
@@ -14755,7 +14780,7 @@ if (1) {                                                                        
     $t->printInOrder("A");
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END, avx512=>1,  trace=>2, mix=>0;
 A  32:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
 A  32:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
 A  32:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
@@ -17847,7 +17872,7 @@ b: .... .... .... .222
 END
  }
 
-#latest:
+latest:
 if (1) {
 
  my $h = genHash("AAAA",
@@ -17909,10 +17934,10 @@ e: .... .... .... ...5
 f: .... .... .... ...6
 g: .... .... .... ...7
 h: .... .... .... ...8
-i: .... .... .... ...1
-j: .... .... .... ...2
-k: .... .... .... ...3
-l: .... .... .... ...4
+i: .... .... .... ...9
+j: .... .... .... ...A
+k: .... .... .... ...B
+l: .... .... .... ...C
 END
  }
 
@@ -18020,25 +18045,29 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TVpgatherqq
-  Mov rax, 0xCC;
-  Kmovq k1, rax;
-  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("1234567"x8);
-  $s->setReg(rax);
-  Vpgatherqq zmmM(1, 1), "[rax+zmm0]";                                          # Target register must be different from source register
-  PrintOutRegisterInHex zmm1, k1;
-  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
-  zmm1: 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ....  .... .... .... .... + 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ....  .... .... .... ....
-    k1: .... .... .... ....
+if (0) {                                                                        # Delete failure
+  my $N = K(key => 10);
+  my $a = CreateArea;
+  my $t = $a->CreateTree(length => 3);
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $i->d;
+    $t->size->outNL;
+    $t->put($i, $i);
+   });
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $i->d;
+    $t->delete($i);
+    $t->size->outNL;
+   });
+
+  ok Assemble eq => <<END, avx512=>1,  trace=>2, mix=>0;
 END
  }
 
-#latest:
-if (1) {                                                                        #TVpgatherqq
-  Vpgatherqq zmmM(1, 1), "[rax+zmm1]";                                          # Target register must be different from source register
-  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
-END
- }
 
 #latest:
 if (0) {                                                                        #
