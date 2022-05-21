@@ -13955,6 +13955,15 @@ end
 END
  }
 
+#latest:;
+if (1)
+ {my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->put(K(key => 1), K(key => 1));
+  ok Assemble eq=><<END, avx512=>1, trace=>1, mix=> 1;
+END
+ }
+
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArea;
@@ -18031,15 +18040,6 @@ if (1)
   $t->size->outRightInDecNL(K width => 4);
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1;
 2826
-END
- }
-
-#latest:;
-if (1)
- {my $a = CreateArea;
-  my $t = $a->CreateTree;
-  $t->put(K(key => 1), K(key => 1));
-  ok Assemble eq=><<END, avx512=>1, trace=>1, mix=> 1;
 END
  }
 
