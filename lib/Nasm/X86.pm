@@ -6074,24 +6074,20 @@ sub Nasm::X86::Tree::prevNode($$$$)                                             
 sub Nasm::X86::Tree::indexNode($$$$)                                            #P Return, as a variable, the point mask obtained by testing the nodes in a block for specified offset. We have to supply the keys as well so that we can find the number of nodes. We need the number of nodes so that we only search the valid area not all possible node positions in the zmm.
  {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>
   @_ == 4 or confess "Four parameters";
+  my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
 
   my $A = $K == 1 ? 0 : 1;                                                      # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
-  PushR 14, 15;                                                                 # Registers
 
   $offset->setReg(14);                                                          # The offset we are looking for
-  Vpbroadcastd zmm($A), r14d;                                                   # Load offset to test
+  Vpbroadcastd zmm($A), di;                                                     # Load offset to test
   Vpcmpud k1, zmm($N, $A), $Vpcmp->eq;                                          # Check for nodes equal to offset
-  my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
   $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
-  Mov   r15, 2;                                                                 # A one in position two because the number of nodes is always one more than the number of keys
-  Shl   r15, cl;                                                                # Position the one at end of nodes block
-  Dec   r15;                                                                    # Reduce to fill block with ones
-  Kmovq r14, k1;                                                                # Matching nodes
-  And   r15, r14;                                                               # Matching nodes in mask area
-  my $r = V index => r15;                                                       # Save result as a variable
-  PopR;
-
-  $r                                                                            # Point of key if non zero, else no match
+  Mov   rsi, 2;                                                                 # A one in position two because the number of nodes is always one more than the number of keys
+  Shl   rsi, cl;                                                                # Position the one at end of nodes block
+  Dec   rsi;                                                                    # Reduce to fill block with ones
+  Kmovq rdi, k1;                                                                # Matching nodes
+  And   rsi, rdi;                                                               # Matching nodes in mask area
+  V index => rsi;                                                               # Save result as a variable
  }
 
 sub Nasm::X86::Tree::expand($$)                                                 #P Expand the node at the specified offset in the specified tree if it needs to be expanded and is not the root node (which cannot be expanded because it has no siblings to take substance from whereas as all other nodes do).  Set tree.found to the offset of the left sibling if the node at the specified offset was merged into it and freed else set tree.found to zero.
