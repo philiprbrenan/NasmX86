@@ -6078,7 +6078,7 @@ sub Nasm::X86::Tree::indexNode($$$$)                                            
 
   my $A = $K == 1 ? 0 : 1;                                                      # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
 
-  $offset->setReg(14);                                                          # The offset we are looking for
+  $offset->setReg(rdi);                                                         # The offset we are looking for
   Vpbroadcastd zmm($A), di;                                                     # Load offset to test
   Vpcmpud k1, zmm($N, $A), $Vpcmp->eq;                                          # Check for nodes equal to offset
   $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
@@ -6248,25 +6248,21 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
 sub Nasm::X86::Tree::indexXX($$$$$)                                             #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
  {my ($tree, $key, $K, $cmp, $inc) = @_;                                        # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>, whetehr to increment the result by one
   @_ == 5 or confess "Five parameters";
-
-  my $A = $K == 17 ? 18 : 17;                                                   # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
-  PushR rcx, r14, r15, k7, $A;                                                  # Registers
-
-  $key->setReg(14);
-  Vpbroadcastd zmm($A), r14d;                                                   # Load key to test
-  Vpcmpud k7, zmm($K, $A), $cmp;                                                # Check keys from memory broadcast
   my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
-  $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
-  Mov   r15, 1;                                                                 # The one
-  Shl   r15, cl;                                                                # Position the one at end of keys block
-  Dec   r15;                                                                    # Reduce to fill block with ones
-  Kmovq r14, k7;                                                                # Matching keys
-  And   r15, r14;                                                               # Matching keys in mask area
-  Inc r15 if $inc;                                                              # Its faster to to do any adjustment here rather than using variable arithmetic later
-  my $r = V index => r15;                                                       # Save result as a variable
-  PopR;
 
-  $r                                                                            # Point of key if non zero, else no match
+  my $A = $K == 1 ? 0 : 1;                                                      # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
+
+  $key->setReg(rdi);
+  Vpbroadcastd zmm($A), di;                                                     # Load key to test
+  Vpcmpud k1, zmm($K, $A), $cmp;                                                # Check keys from memory broadcast
+  $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
+  Mov   rsi, 1;                                                                 # The one
+  Shl   rsi, cl;                                                                # Position the one at end of keys block
+  Dec   rsi;                                                                    # Reduce to fill block with ones
+  Kmovq rdi, k1;                                                                # Matching keys
+  And   rsi, rdi;                                                               # Matching keys in mask area
+  Inc rsi if $inc;                                                              # Its faster to to do any adjustment here rather than using variable arithmetic later
+  V index => rsi;                                                       # Save result as a variable
  }
 
 sub Nasm::X86::Tree::indexEq($$$)                                               #P Return the  position of a key in a zmm equal to the specified key as a point in a variable.
