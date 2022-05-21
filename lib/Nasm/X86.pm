@@ -5798,21 +5798,18 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
 sub Nasm::X86::Tree::decSize($)                                                 #P Decrement the size of a tree
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  PushR 31;
-  $tree->firstFromMemory(31);
-  $tree->decSizeInFirst (31);
-  $tree->firstIntoMemory(31);
-  PopR;
+  $tree->firstFromMemory(1);
+  $tree->decSizeInFirst (1);
+  $tree->firstIntoMemory(1);
  }
 
 sub Nasm::X86::Tree::size($)                                                    # Return in a variable the number of elements currently in the tree.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  PushR my $F = 31;
+  my $F = 1;
   $tree->firstFromMemory($F);
   my $s = $tree->sizeFromFirst($F);
   $s->name = q(size of tree);
-  PopR;
   $s
  }
 
@@ -5825,19 +5822,13 @@ sub Nasm::X86::Tree::allocBlock($$$$)                                           
 
     my $t = $$s{tree};                                                          # Tree
     my $a = $t->area;                                                           # Area
-#    my $k = $a->allocZmmBlock;                                                  # Keys
-#    my $d = $a->allocZmmBlock;                                                  # Data
-#    my $n = $a->allocZmmBlock;                                                  # Children
 
     my ($k, $d, $n) = $a->allocZmmBlock3;                                       # Keys, data, children
 
-    PushR 8;
     $t->putLoop($d, $K);                                                        # Set the link from key to data
     $t->putLoop($n, $D);                                                        # Set the link from data to node
     $t->putLoop($t->first, $N);                                                 # Set the link from node to tree first block
-
     $$p{address}->copy($k);                                                     # Address of block
-    PopR;
    } structures => {tree => $tree},
      parameters => [qw(address)],
      name       =>
@@ -17902,7 +17893,6 @@ END
 #  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
 #  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
 #  1,793,868         181,576       1,793,868         181,576      0.349532          0.15  k7 becomes k1 and so avoids the push
-#  1,793,856         181,528       1,793,856         181,528      0.345631          0.14  getReg
 latest:;
 if (1)
  {my $a = CreateArea;
@@ -17910,7 +17900,7 @@ if (1)
   $t->size->outRightInDecNL(K width => 4);
 # $t->put(K(key => 0xffffff), K(key => 1));                                     # 510 clocks
 #  $t->find(K key => 0xffffff);                                                  # 370 with inline find
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1793856;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1793864;
 2826
 END
  }
