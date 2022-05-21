@@ -5271,10 +5271,8 @@ sub Nasm::X86::Area::clearZmmBlock($$)                                          
  {my ($area, $offset) = @_;                                                     # Area descriptor, offset of the block as a variable
   @_ == 2 or confess "Two parameters";
 
-  PushR 31;                                                                     # Clear a zmm block
-  ClearRegisters 31;
-  $area->putZmmBlock($offset, 31);
-  PopR;
+  ClearRegisters 1;
+  $area->putZmmBlock($offset, 1);
  }
 
 #D2 Yggdrasil                                                                   # The world tree from which we can address so many other things
