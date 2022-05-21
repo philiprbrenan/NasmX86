@@ -11811,6 +11811,158 @@ q at offset 12 in zmm0: .3.2 .1.. .... .3.2
 END
  }
 
+#latest:
+if (1) {                                                                        #TNasm::X86::Subroutine::call
+
+ my $h = genHash("AAAA",
+   a => V(a =>  1),
+   b => V(b =>  2),
+   c => V(c =>  3),
+   d => V(d =>  4),
+   e => V(e =>  5),
+   f => V(f =>  6),
+   g => V(g =>  7),
+   h => V(h =>  8),
+   i => V(i =>  9),
+   j => V(j => 10),
+   k => V(k => 11),
+   l => V(l => 12));
+
+ my $i = genHash("AAAA",
+   a => V(a => 0x011),
+   b => V(b => 0x022),
+   c => V(c => 0x033),
+   d => V(d => 0x044),
+   e => V(e => 0x055),
+   f => V(f => 0x066),
+   g => V(g => 0x077),
+   h => V(h => 0x088),
+   i => V(i => 0x099),
+   j => V(j => 0x111),
+   k => V(k => 0x222),
+   l => V(l => 0x333));
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    my $h = $$s{h};
+    my $a = $$p{a};
+    $$h{a}->outNL;
+    $$h{b}->outNL;
+    $$h{c}->outNL;
+    $$h{d}->outNL;
+    $$h{e}->outNL;
+    $$h{f}->outNL;
+    $$h{g}->outNL;
+    $$h{h}->outNL;
+    $$h{i}->outNL;
+    $$h{j}->outNL;
+    $$h{k}->outNL;
+    $$h{l}->outNL;
+    $$p{b}->outNL;
+   } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
+
+  $s->call(structures => {h => $i}, parameters=>{a=>V(key => 1), b=>V(key => 0x111)});
+  $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
+
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>9151, label => 'aa';
+a: .... .... .... ..11
+b: .... .... .... ..22
+c: .... .... .... ..33
+d: .... .... .... ..44
+e: .... .... .... ..55
+f: .... .... .... ..66
+g: .... .... .... ..77
+h: .... .... .... ..88
+i: .... .... .... ..99
+j: .... .... .... .111
+k: .... .... .... .222
+l: .... .... .... .333
+b: .... .... .... .111
+a: .... .... .... ...1
+b: .... .... .... ...2
+c: .... .... .... ...3
+d: .... .... .... ...4
+e: .... .... .... ...5
+f: .... .... .... ...6
+g: .... .... .... ...7
+h: .... .... .... ...8
+i: .... .... .... ...9
+j: .... .... .... ...A
+k: .... .... .... ...B
+l: .... .... .... ...C
+b: .... .... .... .222
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Subroutine::call
+
+ my $h = genHash("AAAA",
+   a => V(a =>  1),
+   b => V(b =>  2),
+   c => V(c =>  3),
+   d => V(d =>  4),
+   e => V(e =>  5),
+   f => V(f =>  6),
+   g => V(g =>  7),
+   h => V(h =>  8),
+   i => V(i =>  9),
+   j => V(j => 10),
+   k => V(k => 11),
+   l => V(l => 12));
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    my $h = $$s{h};
+    my $a = $$p{a};
+    $$h{a}->outNL;
+    $$h{b}->outNL;
+    $$h{c}->outNL;
+    $$h{d}->outNL;
+    $$h{e}->outNL;
+    $$h{f}->outNL;
+    $$h{g}->outNL;
+    $$h{h}->outNL;
+    $$h{i}->outNL;
+    $$h{j}->outNL;
+    $$h{k}->outNL;
+    $$h{l}->outNL;
+    If $a > 0,
+    Then
+     {$sub->call(structures => {h => $h}, parameters=>{a=>V(key => 0), b=>V(key => 0x111)});
+     };
+   } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
+
+  $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
+
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>17609, label => 'aaa';
+a: .... .... .... ...1
+b: .... .... .... ...2
+c: .... .... .... ...3
+d: .... .... .... ...4
+e: .... .... .... ...5
+f: .... .... .... ...6
+g: .... .... .... ...7
+h: .... .... .... ...8
+i: .... .... .... ...9
+j: .... .... .... ...A
+k: .... .... .... ...B
+l: .... .... .... ...C
+a: .... .... .... ...1
+b: .... .... .... ...2
+c: .... .... .... ...3
+d: .... .... .... ...4
+e: .... .... .... ...5
+f: .... .... .... ...6
+g: .... .... .... ...7
+h: .... .... .... ...8
+i: .... .... .... ...9
+j: .... .... .... ...A
+k: .... .... .... ...B
+l: .... .... .... ...C
+END
+ }
+
 #latest:;
 if (1) {                                                                        #TNasm::X86::Area::used #TNasm::X86::Area::clear #TNasm::X86::Area::size  #TNasm::X86::Area::free
   my $a = CreateArea;
@@ -15825,6 +15977,109 @@ END
  }
 
 #latest:
+if (1) {                                                                        #TNasm::X86::Tree::put #TNasm::X86::Tree::size
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key => 1), V(key => 1));  $t->size->outNL;
+  $t->put(K(key => 2), K(key => 2));  $t->size->outNL;
+  $t->put(V(key => 2), V(key => 2));  $t->size->outNL;
+
+  $t->put(K(key => 3), K(key => 3));  $t->size->outNL;
+  $t->put(V(key => 3), V(key => 3));  $t->size->outNL;
+
+  $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
+  $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
+
+  $t->put(K(key => 5), K(key => 5));  $t->size->outNL;
+  $t->put(V(key => 5), V(key => 5));  $t->size->outNL;
+
+  $t->put(K(key => 6), K(key => 5));  $t->size->outNL;
+  $t->put(V(key => 6), V(key => 5));  $t->size->outNL;
+
+  $t->put(K(key => 7), K(key => 7));  $t->size->outNL;
+  $t->put(V(key => 7), V(key => 7));  $t->size->outNL;
+
+  $t->put(K(key => 8), K(key => 8));  $t->size->outNL;
+  $t->put(V(key => 8), V(key => 8));  $t->size->outNL;
+
+  $t->put(K(key => 9), K(key => 9));  $t->size->outNL;
+  $t->put(V(key => 9), V(key => 9));  $t->size->outNL;
+
+  $t->put(K(key => 10), K(key => 10));  $t->size->outNL;
+  $t->put(V(key => 10), V(key => 10));  $t->size->outNL;
+
+  $t->put(K(key => 11), K(key => 11));  $t->size->outNL;
+  $t->put(V(key => 11), V(key => 11));  $t->size->outNL;
+
+  $t->put(K(key => 12), K(key => 12));  $t->size->outNL;
+  $t->put(V(key => 12), V(key => 12));  $t->size->outNL;
+
+  $t->put(K(key => 13), K(key => 13));  $t->size->outNL;
+  $t->put(V(key => 13), V(key => 13));  $t->size->outNL;
+
+  $t->put(K(key => 14), K(key => 14));  $t->size->outNL;
+  $t->put(V(key => 14), V(key => 14));  $t->size->outNL;
+
+  $t->put(K(key => 15), K(key => 15));  $t->size->outNL;
+  $t->put(V(key => 15), V(key => 15));  $t->size->outNL;
+
+ $t->put(K(key => 4), K(key => 4));
+
+ $t->dump8xx("AAA");
+
+  ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>0, mix => 1, clocks=>18177;
+size of tree: .... .... .... ...1
+size of tree: .... .... .... ...2
+size of tree: .... .... .... ...2
+size of tree: .... .... .... ...3
+size of tree: .... .... .... ...3
+size of tree: .... .... .... ...4
+size of tree: .... .... .... ...4
+size of tree: .... .... .... ...5
+size of tree: .... .... .... ...5
+size of tree: .... .... .... ...6
+size of tree: .... .... .... ...6
+size of tree: .... .... .... ...7
+size of tree: .... .... .... ...7
+size of tree: .... .... .... ...8
+size of tree: .... .... .... ...8
+size of tree: .... .... .... ...9
+size of tree: .... .... .... ...9
+size of tree: .... .... .... ...A
+size of tree: .... .... .... ...A
+size of tree: .... .... .... ...B
+size of tree: .... .... .... ...B
+size of tree: .... .... .... ...C
+size of tree: .... .... .... ...C
+size of tree: .... .... .... ...D
+size of tree: .... .... .... ...D
+size of tree: .... .... .... ...E
+size of tree: .... .... .... ...E
+size of tree: .... .... .... ...F
+size of tree: .... .... .... ...F
+AAA
+Tree: .... .... .... ..40
+At:      200                                                                                length:        1,  data:      240,  nodes:      280,  first:       40, root, parent
+  Index:        0
+  Keys :        7
+  Data :        7
+  Nodes:       80      140
+    At:       80                                                                            length:        6,  data:       C0,  nodes:      100,  first:       40,  up:      200, leaf
+      Index:        0        1        2        3        4        5
+      Keys :        1        2        3        4        5        6
+      Data :        1        2        3        4        5        5
+    end
+    At:      140                                                                            length:        8,  data:      180,  nodes:      1C0,  first:       40,  up:      200, leaf
+      Index:        0        1        2        3        4        5        6        7
+      Keys :        8        9        A        B        C        D        E        F
+      Data :        8        9        A        B        C        D        E        F
+    end
+end
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::by
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -17772,7 +18027,6 @@ END
 #latest:;
 if (1)
  {my $a = CreateArea;
-#$TraceMode = 1;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1;
@@ -17788,286 +18042,6 @@ if (1)
   ok Assemble eq=><<END, avx512=>1, trace=>1, mix=> 1;
 END
  }
-
-#latest:
-if (1) {
-
- my $h = genHash("AAAA",
-   a => V(a =>  1),
-   b => V(b =>  2),
-   c => V(c =>  3),
-   d => V(d =>  4),
-   e => V(e =>  5),
-   f => V(f =>  6),
-   g => V(g =>  7),
-   h => V(h =>  8),
-   i => V(i =>  9),
-   j => V(j => 10),
-   k => V(k => 11),
-   l => V(l => 12));
-
- my $i = genHash("AAAA",
-   a => V(a => 0x011),
-   b => V(b => 0x022),
-   c => V(c => 0x033),
-   d => V(d => 0x044),
-   e => V(e => 0x055),
-   f => V(f => 0x066),
-   g => V(g => 0x077),
-   h => V(h => 0x088),
-   i => V(i => 0x099),
-   j => V(j => 0x111),
-   k => V(k => 0x222),
-   l => V(l => 0x333));
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;
-    my $h = $$s{h};
-    my $a = $$p{a};
-    $$h{a}->outNL;
-    $$h{b}->outNL;
-    $$h{c}->outNL;
-    $$h{d}->outNL;
-    $$h{e}->outNL;
-    $$h{f}->outNL;
-    $$h{g}->outNL;
-    $$h{h}->outNL;
-    $$h{i}->outNL;
-    $$h{j}->outNL;
-    $$h{k}->outNL;
-    $$h{l}->outNL;
-    $$p{b}->outNL;
-   } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
-
-  $s->call(structures => {h => $i}, parameters=>{a=>V(key => 1), b=>V(key => 0x111)});
-  $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
-
-  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>9151, label => 'aa';
-a: .... .... .... ..11
-b: .... .... .... ..22
-c: .... .... .... ..33
-d: .... .... .... ..44
-e: .... .... .... ..55
-f: .... .... .... ..66
-g: .... .... .... ..77
-h: .... .... .... ..88
-i: .... .... .... ..99
-j: .... .... .... .111
-k: .... .... .... .222
-l: .... .... .... .333
-b: .... .... .... .111
-a: .... .... .... ...1
-b: .... .... .... ...2
-c: .... .... .... ...3
-d: .... .... .... ...4
-e: .... .... .... ...5
-f: .... .... .... ...6
-g: .... .... .... ...7
-h: .... .... .... ...8
-i: .... .... .... ...9
-j: .... .... .... ...A
-k: .... .... .... ...B
-l: .... .... .... ...C
-b: .... .... .... .222
-END
- }
-
-latest:
-if (1) {
-
- my $h = genHash("AAAA",
-   a => V(a =>  1),
-   b => V(b =>  2),
-   c => V(c =>  3),
-   d => V(d =>  4),
-   e => V(e =>  5),
-   f => V(f =>  6),
-   g => V(g =>  7),
-   h => V(h =>  8),
-   i => V(i =>  9),
-   j => V(j => 10),
-   k => V(k => 11),
-   l => V(l => 12));
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;
-    my $h = $$s{h};
-    my $a = $$p{a};
-    $$h{a}->outNL;
-    $$h{b}->outNL;
-    $$h{c}->outNL;
-    $$h{d}->outNL;
-    $$h{e}->outNL;
-    $$h{f}->outNL;
-    $$h{g}->outNL;
-    $$h{h}->outNL;
-    $$h{i}->outNL;
-    $$h{j}->outNL;
-    $$h{k}->outNL;
-    $$h{l}->outNL;
-    If $a > 0,
-    Then
-     {$sub->call(structures => {h => $h}, parameters=>{a=>V(key => 0), b=>V(key => 0x111)});
-     };
-   } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
-
-  $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
-
-  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>17609, label => 'aaa';
-a: .... .... .... ...1
-b: .... .... .... ...2
-c: .... .... .... ...3
-d: .... .... .... ...4
-e: .... .... .... ...5
-f: .... .... .... ...6
-g: .... .... .... ...7
-h: .... .... .... ...8
-i: .... .... .... ...9
-j: .... .... .... ...A
-k: .... .... .... ...B
-l: .... .... .... ...C
-a: .... .... .... ...1
-b: .... .... .... ...2
-c: .... .... .... ...3
-d: .... .... .... ...4
-e: .... .... .... ...5
-f: .... .... .... ...6
-g: .... .... .... ...7
-h: .... .... .... ...8
-i: .... .... .... ...9
-j: .... .... .... ...A
-k: .... .... .... ...B
-l: .... .... .... ...C
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-
-  $t->put(K(key => 1), V(key => 1));  $t->size->outNL;
-  $t->put(K(key => 2), K(key => 2));  $t->size->outNL;
-  $t->put(V(key => 2), V(key => 2));  $t->size->outNL;
-
-  $t->put(K(key => 3), K(key => 3));  $t->size->outNL;
-  $t->put(V(key => 3), V(key => 3));  $t->size->outNL;
-
-  $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
-  $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
-
-  $t->put(K(key => 5), K(key => 5));  $t->size->outNL;
-  $t->put(V(key => 5), V(key => 5));  $t->size->outNL;
-
-  $t->put(K(key => 6), K(key => 5));  $t->size->outNL;
-  $t->put(V(key => 6), V(key => 5));  $t->size->outNL;
-
-  $t->put(K(key => 7), K(key => 7));  $t->size->outNL;
-  $t->put(V(key => 7), V(key => 7));  $t->size->outNL;
-
-  $t->put(K(key => 8), K(key => 8));  $t->size->outNL;
-  $t->put(V(key => 8), V(key => 8));  $t->size->outNL;
-
-  $t->put(K(key => 9), K(key => 9));  $t->size->outNL;
-  $t->put(V(key => 9), V(key => 9));  $t->size->outNL;
-
-  $t->put(K(key => 10), K(key => 10));  $t->size->outNL;
-  $t->put(V(key => 10), V(key => 10));  $t->size->outNL;
-
-  $t->put(K(key => 11), K(key => 11));  $t->size->outNL;
-  $t->put(V(key => 11), V(key => 11));  $t->size->outNL;
-
-  $t->put(K(key => 12), K(key => 12));  $t->size->outNL;
-  $t->put(V(key => 12), V(key => 12));  $t->size->outNL;
-
-  $t->put(K(key => 13), K(key => 13));  $t->size->outNL;
-  $t->put(V(key => 13), V(key => 13));  $t->size->outNL;
-
-  $t->put(K(key => 14), K(key => 14));  $t->size->outNL;
-  $t->put(V(key => 14), V(key => 14));  $t->size->outNL;
-
-  $t->put(K(key => 15), K(key => 15));  $t->size->outNL;
-  $t->put(V(key => 15), V(key => 15));  $t->size->outNL;
-
- $t->put(K(key => 4), K(key => 4));
-
- $t->dump8xx("AAA");
-
-  ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>0, mix => 1, clocks=>18177;
-size of tree: .... .... .... ...1
-size of tree: .... .... .... ...2
-size of tree: .... .... .... ...2
-size of tree: .... .... .... ...3
-size of tree: .... .... .... ...3
-size of tree: .... .... .... ...4
-size of tree: .... .... .... ...4
-size of tree: .... .... .... ...5
-size of tree: .... .... .... ...5
-size of tree: .... .... .... ...6
-size of tree: .... .... .... ...6
-size of tree: .... .... .... ...7
-size of tree: .... .... .... ...7
-size of tree: .... .... .... ...8
-size of tree: .... .... .... ...8
-size of tree: .... .... .... ...9
-size of tree: .... .... .... ...9
-size of tree: .... .... .... ...A
-size of tree: .... .... .... ...A
-size of tree: .... .... .... ...B
-size of tree: .... .... .... ...B
-size of tree: .... .... .... ...C
-size of tree: .... .... .... ...C
-size of tree: .... .... .... ...D
-size of tree: .... .... .... ...D
-size of tree: .... .... .... ...E
-size of tree: .... .... .... ...E
-size of tree: .... .... .... ...F
-size of tree: .... .... .... ...F
-AAA
-Tree: .... .... .... ..40
-At:      200                                                                                length:        1,  data:      240,  nodes:      280,  first:       40, root, parent
-  Index:        0
-  Keys :        7
-  Data :        7
-  Nodes:       80      140
-    At:       80                                                                            length:        6,  data:       C0,  nodes:      100,  first:       40,  up:      200, leaf
-      Index:        0        1        2        3        4        5
-      Keys :        1        2        3        4        5        6
-      Data :        1        2        3        4        5        5
-    end
-    At:      140                                                                            length:        8,  data:      180,  nodes:      1C0,  first:       40,  up:      200, leaf
-      Index:        0        1        2        3        4        5        6        7
-      Keys :        8        9        A        B        C        D        E        F
-      Data :        8        9        A        B        C        D        E        F
-    end
-end
-END
- }
-
-#latest:
-if (0) {                                                                        # Delete failure
-  my $N = K(key => 10);
-  my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
-
-  $N->for(sub
-   {my ($i, $start, $next, $end) = @_;
-    $i->d;
-    $t->size->outNL;
-    $t->put($i, $i);
-   });
-
-  $N->for(sub
-   {my ($i, $start, $next, $end) = @_;
-    $i->d;
-    $t->delete($i);
-    $t->size->outNL;
-   });
-
-  ok Assemble eq => <<END, avx512=>1,  trace=>2, mix=>0;
-END
- }
-
 
 #latest:
 if (0) {                                                                        #
