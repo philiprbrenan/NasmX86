@@ -12,15 +12,9 @@
 # if (0) in tests from subroutine conversion
 # Document that V > 0 is required to create a boolean test
 # Make sure that we are using bts and bzhi as much as possible in mask situations
-# Update PrintOut to use V2 every where then rename
 # Replace calls to Tree::position with Tree::down
-# Make Pop return a tree when it is on a sub tree
-# PushR - optimize zmm pushes
 # Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, likewise the mmx registers mm0-7, zmm 0..15 and k0..3.
 # Temporize the registers in: GetNextUtf8CharAsUtf32
-# Use double zmm registers
-# Variable::at
-# leafNode can be improved because the field to extract is at a fixed location as it is in getLoop as well.
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -6884,7 +6878,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
         $Q->copy($n);                                                           # Corresponding node
        });
       PrintErrTraceBack "Stuck in find next";                                   # We seem to be looping endlessly
-     };                                                          # Find completed successfully
+     };                                                                         # Find completed successfully
     PopR;
    } parameters => [qw(key)],
      structures => {tree=>$tree},
@@ -11171,12 +11165,12 @@ END
  }
 
 #latest:
-if (0) {                                                                        #TPrintOutTraceBack
+if (1) {                                                                        #TPrintOutTraceBack
   my $d = V depth => 3;                                                         # Create a variable on the stack
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine descriptor
-
+    $$p{depth}->outNL;
     my $d = $$p{depth}->copy($$p{depth} - 1);                                   # Modify the variable referenced by the parameter
 
     If $d > 0,
@@ -11184,17 +11178,16 @@ if (0) {                                                                        
      {$sub->call(parameters => {depth => $d});                                  # Recurse
      };
 
-    #PrintOutTraceBack 'AAAA';
    } parameters =>[qw(depth)], name => 'ref';
 
-  $s->call(parameters=>{depth => V depth => 0});
+  $s->call(parameters=>{depth => $d});
 
+  $d->outNL;
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-
-Subroutine trace back, depth:  3
-0000 0000 0000 0001    ref
-0000 0000 0000 0001    ref
-0000 0000 0000 0001    ref
+depth: .... .... .... ...3
+depth: .... .... .... ...2
+depth: .... .... .... ...1
+depth: .... .... .... ....
 END
  }
 
@@ -17890,7 +17883,7 @@ END
 #  1,792,946         181,336       1,792,946         181,336      0.358092          0.15  tree::allocBlock
 #  1,787,294         181,264       1,787,294         181,264      0.343509          0.15  Inc length in keys
 #  1,752,298         181,216       1,752,298         181,216      0.486707          0.16  dFromPointInZ
-latest:;
+#latest:;
 if (1)
  {my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
