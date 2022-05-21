@@ -5098,59 +5098,6 @@ sub Nasm::X86::Area::updateSpace($$)                                            
    };
  } # updateSpace
 
-sub Nasm::X86::Area::updateSpace22($$)                                          #P Make sure that a variable addressed area has enough space to accommodate content of a variable size.
- {my ($area, $size) = @_;                                                       # Area descriptor, variable size needed
-  @_ == 2 or confess "Two parameters";
-
-  my $s = Subroutine
-   {my ($p, $s) = @_;                                                           # Parameters, structures
-#   PushR rax, 10, 12..15;
-    my $base     = rbx;                                                         # Base of area
-    my $size     = rcx;                                                         # Current size
-    my $used     = r11;                                                         # Currently used space
-    my $request  = rsi;                                                         # Requested space
-    my $newSize  = rdi;                                                         # New size needed
-    my $proposed = rdx;                                                         # Proposed size
-
-    my $area = $$s{area};                                                       # Area
-    $area->address->setReg($base);                                              # Address area
-    $$p{size}->setReg($request);                                                # Requested space
-
-    Mov $size, "[$base+$$area{sizeOffset}]";
-    Mov $used, "[$base+$$area{usedOffset}]";
-    Mov $newSize, $used;
-    Add $newSize, $request;
-
-    Cmp $newSize, $size;                                                        # New size needed
-    IfGt                                                                        # New size is bigger than current size
-    Then                                                                        # More space needed
-     {Mov $proposed, $area->N;                                                  # Minimum proposed area size
-      K(loop=>36)->for(sub                                                      # Maximum number of shifts
-       {my ($index, $start, $next, $end) = @_;
-        Shl $proposed, 1;                                                       # New proposed size
-        Cmp $proposed, $newSize;                                                # Big enough?
-        Jge $end;                                                               # Big enough!
-       });
-
-      PushR $base, $proposed;
-      my $address = AllocateMemory V size => $proposed;                         # Create new area
-      CopyMemory4K($area->address, $address, $area->size>>K(k4 => $area->B));   # Copy old area into new area 4K at a time
-      FreeMemory $area->address, $area->size;                                   # Free previous memory previously occupied area
-      $area->address->copy($address);                                           # Save new area address
-      $address->setReg($base);                                                  # Address area
-      Mov "[$base+$$area{sizeOffset}]", $proposed;                              # Save the new size in the area
-      PopR;
-     };
-
-#   PopR;
-   } parameters => [qw(size)],
-     structures => {area => $area},
-     name       => 'Nasm::X86::Area::updateSpace';
-
-  $s->call                                                                      # The gain from inline is not offset by the increased assembly cost
-   (parameters=>{size => $size}, structures=>{area => $area});
- } # updateSpace
-
 sub Nasm::X86::Area::makeReadOnly($)                                            # Make an area read only.
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
@@ -6128,18 +6075,18 @@ sub Nasm::X86::Tree::indexNode($$$$)                                            
  {my ($tree, $offset, $K, $N) = @_;                                             # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>
   @_ == 4 or confess "Four parameters";
 
-  my $A = $K == 17 ? 18 : 17;                                                   # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
-  PushR rcx, 14, 15, 7, $A;                                                     # Registers
+  my $A = $K == 1 ? 0 : 1;                                                      # The broadcast facility 1 to 16 does not seem to work reliably so we load an alternate zmm
+  PushR 14, 15;                                                                 # Registers
 
   $offset->setReg(14);                                                          # The offset we are looking for
   Vpbroadcastd zmm($A), r14d;                                                   # Load offset to test
-  Vpcmpud k7, zmm($N, $A), $Vpcmp->eq;                                          # Check for nodes equal to offset
+  Vpcmpud k1, zmm($N, $A), $Vpcmp->eq;                                          # Check for nodes equal to offset
   my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
   $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
   Mov   r15, 2;                                                                 # A one in position two because the number of nodes is always one more than the number of keys
   Shl   r15, cl;                                                                # Position the one at end of nodes block
   Dec   r15;                                                                    # Reduce to fill block with ones
-  Kmovq r14, k7;                                                                # Matching nodes
+  Kmovq r14, k1;                                                                # Matching nodes
   And   r15, r14;                                                               # Matching nodes in mask area
   my $r = V index => r15;                                                       # Save result as a variable
   PopR;
@@ -17998,6 +17945,7 @@ END
 #  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
 #  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
 #  2,181,550         187,664       2,181,550         187,664      0.361091          0.15  Improved parameter passing
+#  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
 
 latest:;
 if (1)
