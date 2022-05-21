@@ -3143,24 +3143,24 @@ sub Nasm::X86::Variable::mod($$)                                                
 
 sub Nasm::X86::Variable::shiftLeft($$)                                          # Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
-  PushR rcx, 15;
-  $left ->setReg(15);                                                           # Value to shift
+#  PushR rcx, 15;
+  $left ->setReg(rbx);                                                           # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
-  Shl r15, cl;                                                                  # Shift
-  my $r = V "shift left" => r15;                                                # Save result in a new variable
-  PopR;
+  Shl rbx, cl;                                                                  # Shift
+  my $r = V "shift left" => rbx;                                                # Save result in a new variable
+#  PopR;
   $r
  }
 
 sub Nasm::X86::Variable::shiftRight($$)                                         # Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
-  PushR rcx, 15;
-  $left ->setReg(15);                                                           # Value to shift
+# PushR rcx, 15;
+  $left ->setReg(rbx);                                                           # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
-  Shr r15, cl;                                                                  # Shift
-  my $r = V "shift right" => r15;                                               # Save result in a new variable
+  Shr rbx, cl;                                                                  # Shift
+  my $r = V "shift right" => rbx;                                               # Save result in a new variable
   PopR;
   $r
  }
@@ -18032,13 +18032,15 @@ END
 #  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
 #  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
 #  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
-#  2,024,522         793,288       2,024,522         793,288      1.159823          5.05  inline call to put
-#latest:;
+#  2,181,550         187,664       2,181,550         187,664      0.361091          0.15  Improved parameter passing
+
+latest:;
 if (1)
  {my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1;
+# $t->put(K(key => 0xffffff), K(key => 1));                                     # 640 clocks
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>2181550;
 2826
 END
  }
