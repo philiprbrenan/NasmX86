@@ -6633,17 +6633,22 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
       If $t->leafFromNodes($N) > 0,
       Then                                                                      # On a leaf
-       {my $i = $t->insertionPoint($k, $K);                                     # Find insertion point
+       {my $i = $t->insertionPoint($key, $K);                                   # Find insertion point
         $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $S);
         $t->putBlock                 ($Q, $K, $D, $N);
         $t->firstIntoMemory          ($F);                                      # First back into memory
         Jmp $success;
        };
 
-      my $in = $t->insertionPoint($k, $K);                                      # The position at which the key would be inserted if this were a leaf
+      my $in = $t->insertionPoint($key, $K);                                    # The position at which the key would be inserted if this were a leaf
       my $next = $in->dFromPointInZ($N);                                        # The node to the left of the insertion point - this works because the insertion point can be upto one more than the maximum number of keys
-
-      $Q->copy($next);                                                          # Get the offset of the next node - we are not on a leaf so there must be one
+      if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                      # Optimize by removing pointless load/unload/load
+       {pop @text;
+        $Q->getReg(rsi);
+       }
+      else
+       {$Q->copy($next);                                                        # Get the offset of the next node - we are not on a leaf so there must be one
+       }
       Jmp $descend;                                                             # Descend to the next level
      };
     PopR;
@@ -6724,7 +6729,7 @@ sub Nasm::X86::Tree::find($$)                                                   
          {Jmp $success;                                                         # Return
          };
 
-        my $i = $t->insertionPoint($k, $K);                                     # The insertion point if we were inserting
+        my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
         my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
         $Q->copy($n);                                                           # Corresponding node
        });
@@ -17905,15 +17910,17 @@ END
 #  1,752,298         181,216       1,752,298         181,216      0.486707          0.16  dFromPointInZ
 #  1,680,124         180,952       1,680,124         180,952      0.333127          0.15  Indexx uses mask array not calculation
 #  1,658,167         180,976       1,658,167         180,976      0.331838          0.17  Indexx uses preloaded keys
+#  1,640,669         180,952       1,640,669         180,952      0.333896          0.16  Elided three instructions in put loop
+#  1,605,947         180,880       1,605,947         180,880      0.334369          0.14  search key preloaded into zmm
 latest:;
 if (1)
  {my $a = CreateArea;
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496                 472        465 with preloaded keys
-#  $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1658167;
+# $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496                 472        465 with preloaded keys        447 search key preloaded
+#  $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once 327
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1605947;
 2826
 END
  }
