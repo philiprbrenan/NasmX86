@@ -6191,7 +6191,7 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
 #D2 Insert                                                                      # Insert a key into the tree.
 
 sub Nasm::X86::Tree::indexXX($$$$$)                                             #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
- {my ($tree, $key, $K, $cmp, $inc) = @_;                                        # Tree definition, key as a variable, zmm containing keys, comparison from B<Vpcmp>, whetehr to increment the result by one
+ {my ($tree, $key, $K, $cmp, $inc) = @_;                                        # Tree definition, key to search for as a variable or a zmm, zmm containing keys, comparison from B<Vpcmp>, whetehr to increment the result by one
   @_ == 5 or confess "Five parameters";
   my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
 
@@ -6205,10 +6205,14 @@ sub Nasm::X86::Tree::indexXX($$$$$)                                             
   Lea rsi, "[$masks+rdi*2]";                                                    # Load mask adddress
   Mov rsi, "[rsi]";                                                             # Load mask
 
-  my $A = $K == 1 ? 0 : 1;                                                      # Choose a free zmm
+  my $A = sub                                                                   # Zmm containing key to test
+   {return $key unless ref $key;                                                # Zmm already contains keys
+    my $A = $K == 1 ? 0 : 1;                                                    # Choose a free zmm to load the keys into
+    $key->setReg(rdi);                                                          # Set key
+    Vpbroadcastd zmm($A), edi;                                                  # Load key to test
+    $A                                                                          # Return zmm loaded with key to test
+   }->();
 
-  $key->setReg(rdi);
-  Vpbroadcastd zmm($A), edi;                                                    # Load key to test
   Vpcmpud k1, zmm($K, $A), $cmp;                                                # Check keys from memory broadcast
 #  $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
 #  Mov   rsi, 1;                                                                 # The one
@@ -6580,12 +6584,15 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
     Block
      {my ($success) = @_;                                                       # End label
-      PushR my ($F, $K, $D, $N) = reverse 28..31;
+      PushR my ($F, $K, $D, $N, $key) = reverse 27..31;                         # First, keys, data, nodes, search key
       my $t = $$s{tree};
       my $k = $$p{key};
       my $d = $$p{data};
       my $S = $$p{subTree};
       my $a = $t->area;
+
+      $k->setReg(rdi);
+      Vpbroadcastd zmm($key), edi;                                              # Load key to test once
 
       my $start = SetLabel;                                                     # Start the descent through the tree
 
@@ -6610,7 +6617,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
       $t->getBlock($Q, $K, $D, $N);                                             # Get the current block from memory
 
-      my $eq = $t->indexEq($k, $K);                                             # Check for an equal key
+      my $eq = $t->indexEq($key, $K);                                           # Check for an equal key
       If $eq > 0,                                                               # Equal key found
       Then                                                                      # Overwrite the existing key/data
        {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d, $S);
@@ -6677,7 +6684,7 @@ sub Nasm::X86::Tree::find($$)                                                   
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28, my $key = 27;
 
     Block
      {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
@@ -6693,12 +6700,15 @@ sub Nasm::X86::Tree::find($$)                                                   
        {Jmp $success;                                                           # Return
        };
 
+      $k->setReg(rdi);
+      Vpbroadcastd zmm($key), edi;                                              # Load key to test once
+
       K(loop=>99)->for(sub                                                      # Step down through tree
        {my ($index, $start, $next, $end) = @_;
 
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
-        my $eq  = $t->indexEq($k, $K);                                          # The position of a key in a zmm equal to the specified key as a point in a variable.
+        my $eq  = $t->indexEq($key, $K);                                        # The position of a key in a zmm equal to the specified key as a point in a variable.
         If $eq  > 0,                                                            # Result mask is non zero so we must have found the key
         Then
          {my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
@@ -17893,14 +17903,17 @@ END
 #  1,792,946         181,336       1,792,946         181,336      0.358092          0.15  tree::allocBlock
 #  1,787,294         181,264       1,787,294         181,264      0.343509          0.15  Inc length in keys
 #  1,752,298         181,216       1,752,298         181,216      0.486707          0.16  dFromPointInZ
+#  1,680,124         180,952       1,680,124         180,952      0.333127          0.15  Indexx uses mask array not calculation
+#  1,658,167         180,976       1,658,167         180,976      0.331838          0.17  Indexx uses preloaded keys
 latest:;
 if (1)
  {my $a = CreateArea;
+$TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496
-# $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1752298;
+# $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496                 472        465 with preloaded keys
+#  $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1658167;
 2826
 END
  }
