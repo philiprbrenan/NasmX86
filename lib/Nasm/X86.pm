@@ -8862,7 +8862,7 @@ sub getInstructionCount()                                                       
   confess;
  }
 
-sub Optimize(%)                                                                 #P Perform code optimizations.
+sub OptimizePopPush(%)                                                          #P Perform code optimizations.
  {my (%options) = @_;                                                           # Options
   my %o = map {$_=>1} $options{optimize}->@*;
   if (1 or $o{if})                                                              # Optimize if statements by looking for the unnecessary reload of the just stored result
@@ -8882,6 +8882,24 @@ sub Optimize(%)                                                                 
                }
              }
            }
+         }
+       }
+     }
+   }
+ }
+
+sub OptimizeReload(%)                                                           #P Reload: a = b; b = a;  remove second - as redundant
+ {my (%options) = @_;                                                           # Options
+  my %o = map {$_=>1} $options{optimize}->@*;
+  if (1 or $o{reload})                                                          # Optimize if statements by looking for the unnecessary reload of the just stored result
+   {for my $i(1..@text-1)                                                       # Each line
+     {my $a = $text[$i-1];
+      my $b = $text[$i];
+      if ($a =~ m(\Amov (\[.*?\]), ([^\[\]].*?)\Z))                             # a = b
+       {my $a1 = $1; my $a2 = $2;
+        if ($b eq qq(mov $a2, $a1\n))                                           # b = a
+         {$text[$i] = q(; Reload: ).$text[$i];
+say STDERR "FFFFF $i";
          }
        }
      }
@@ -8996,6 +9014,7 @@ sub Assemble(%)                                                                 
   Exit 0 unless $library or @text > 4 && $text[-4] =~ m(Exit code:);            # Exit with code 0 if an exit was not the last thing coded in a program but ignore for a library.
 
 # Optimize(%options);                                                           # Perform any optimizations requested
+  OptimizeReload(%options);
 
   if (1)                                                                        # Concatenate source code
    {my $r = join "\n", map {s/\s+\Z//sr}   @rodata;
@@ -17929,7 +17948,7 @@ $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 #  $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496                 472        465 with preloaded keys        447 search key preloaded
-   $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once 321 find remove load through variable
+  $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once 327 find remove load through variable
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1605947;
 2826
 END
