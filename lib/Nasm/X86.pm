@@ -51,6 +51,7 @@ our $stdout     = 1;                                                            
 our $stderr     = 2;                                                            # File descriptor for standard error
 
 our $TraceMode  = 0;                                                            # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.  This mode assumes that you will not be using the mm0 register (most people are not)and that you have any IDE like Geany that can interpret a Perl error line number and position on that line in this file.
+our $DebugMode  = 0;                                                            # 1: enables checks that take time and sometimes catch programming errors.
 
 my %Registers;                                                                  # The names of all the registers
 my %RegisterContaining;                                                         # The largest register containing a register
@@ -3177,7 +3178,7 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
    {Cmp r11, $right;
    }
 
-  &$sub(sub {Cmp rsp, rsp}, sub {Test rsp, rsp});
+  &$sub(sub {Cmp rsp, rsp}, sub {Test rsp, rsp});                               # Convenient but slow
 
   Comment "Boolean ZF Arithmetic end";
 #PopR;
@@ -5261,16 +5262,22 @@ sub Nasm::X86::Area::getZmmBlock($$$)                                           
   my $a = rdi;                                                                  # Work registers
   my $o = rsi;
 
+Comment "EEEEEAAAAAAA";
   $area->address->setReg($a);                                                   # Area address
+Comment "EEEEEBBBBBB";
   $block->setReg($o);                                                           # Offset of block in area
+Comment "EEEEECCCCC";
 
-  Cmp $o, $area->dataOffset;
-  IfLt                                                                          # We could have done this using variable arithmetic, but such arithmetic is expensive and so it is better to use register arithmetic if we can.
-  Then
-   {PrintErrTraceBack "Attempt to get block before start of area";
-   };
+  if ($DebugMode)
+   {Cmp $o, $area->dataOffset;
+    IfLt                                                                        # We could have done this using variable arithmetic, but such arithmetic is expensive and so it is better to use register arithmetic if we can.
+    Then
+     {PrintErrTraceBack "Attempt to get block before start of area";
+     };
+   }
 
   Vmovdqu64 "zmm$zmm", "[$a+$o]";                                               # Read from memory
+Comment "EEEEEDDDD";
  }
 
 sub Nasm::X86::Area::putZmmBlock($$$)                                           #P Write the numbered zmm to the block at the specified offset in the specified area.
@@ -5975,8 +5982,11 @@ sub Nasm::X86::Tree::getBlock($$$$$)                                            
  {my ($t, $offset, $K, $D, $N) = @_;                                            # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
   @_ == 5 or confess "Five parameters";
   my $a = $t->area;                                                             # Underlying area
+Comment "DDDDDAAAAAA";
   $a->getZmmBlock($offset, $K);                                                 # Get the keys block
+Comment "DDDDDBBBBB";
   my $data = $t->getLoop(  $K);                                                 # Get the offset of the corresponding data block
+Comment "DDDDDCCCCC";
   $a->getZmmBlock($data,   $D);                                                 # Get the data block
   my $node = $t->getLoop  ($D);                                                 # Get the offset of the corresponding node block
   $a->getZmmBlock($node,   $N);                                                 # Get the node block
@@ -6708,9 +6718,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
 sub Nasm::X86::Tree::zero($)                                                    #P Zero the return fields of a tree descriptor
  {my ($tree) = @_;                                                              # Tree descriptor, key field to search for
   @_ == 1 or confess "One parameter";
-Comment("AAAAAAAAAA");
   $tree->found  ->copy(0);                                                      # Key not found
-Comment("BBBBBBB");
   $tree->data   ->copy(0);                                                      # Data not yet found
   $tree->subTree->copy(0);                                                      # Not yet a sub tree
   $tree->offset ->copy(0);                                                      # Offset not known
@@ -6743,12 +6751,16 @@ sub Nasm::X86::Tree::find($$)                                                   
       $k->setReg(rdi);
       Vpbroadcastd zmm($key), edi;                                              # Load key to test once
 
+Comment "CAAAAAAAAAAAAA";
       K(loop=>99)->for(sub                                                      # Step down through tree
        {my ($index, $start, $next, $end) = @_;
 
+Comment "CCCCBBBBBBBBBBBB";
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
+Comment "CCCCCCCCCC";
 
         my $eq  = $t->indexEq($key, $K);                                        # The position of a key in a zmm equal to the specified key as a point in a variable.
+Comment "CCCCDDDDDDDDDDD";
         If $eq  > 0,                                                            # Result mask is non zero so we must have found the key
         Then
          {my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
@@ -6758,14 +6770,24 @@ sub Nasm::X86::Tree::find($$)                                                   
           $t->subTree->copy($t->getTreeBit($K, $eq));                           # Get corresponding tree bit
           Jmp $success;                                                         # Return
          };
+Comment "CCCCEEEEEEEEEEE";
 
+        my $leaf = $t->leafFromNodes($N);
+Comment "CCCCEEEEEEEEEEE222";
+        pop @text for 1..16;
+        Cmp rdi,
         If $t->leafFromNodes($N) > 0,
         Then                                                                    # Leaf so we cannot go further
+#        If $t->leafFromNodes($N) > 0,
+#        Then                                                                    # Leaf so we cannot go further
          {Jmp $success;                                                         # Return
          };
+Comment "CCCCFFFFFFFFFFFF";
 
         my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
+Comment "CCCCGGGGGGGGGGGF";
         my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
+Comment "CCCCHHHHHHHHHHHH";
         if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
          {pop @text;
           $Q->getReg(rsi);
@@ -6773,6 +6795,7 @@ sub Nasm::X86::Tree::find($$)                                                   
         else
          {$Q->copy($n);                                                         # Get the offset of the next node - we are not on a leaf so there must be one
          }
+Comment "CCCCIIIIIIIIIIIF";
        });
       PrintErrTraceBack "Stuck in find";                                        # We seem to be looping endlessly
      };                                                                         # Find completed successfully
@@ -17974,15 +17997,17 @@ END
 #  1,597,198         192,760       1,597,525         192,760      0.387688          0.17  Optimized reloads out
 #  1,584,214         180,144       1,584,214         180,144      0.359084          0.16  Better inc/dec
 #  1,580,599         180,088       1,580,599         180,088      0.339057          0.15  Copy constant
+#  1,500,463         171,696       1,500,749         171,696      0.458875          0.16  Remove checks
+
 latest:;
 if (1)
  {my $a = CreateArea;
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#  $t->put(K(key => 0xffffff), K(key => 1));                                     # 444
-#  $t->find(K key => 0xffffff);                                                  # 301
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1580599, trace=>0;
+# $t->put(K(key => 0xffffff), K(key => 1));                                     # 444
+  $t->find(K key => 0xffffff);                                                  # 301 286
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1500463, trace=>0;
 2826
 END
  }
