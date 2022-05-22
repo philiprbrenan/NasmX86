@@ -6195,15 +6195,25 @@ sub Nasm::X86::Tree::indexXX($$$$$)                                             
   @_ == 5 or confess "Five parameters";
   my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
 
+  if ($text[-1] =~ m(\Amov.*rdi\s*\Z))                                           # Confirm length is in previous instruction
+   {pop @text;
+   }
+  else
+   {confess "Previous instruction should be move from rdi";
+   }
+  my $masks = Rw(map {2**$_ -1} 0..15);                                         # Mask for each length
+  Lea rsi, "[$masks+rdi*2]";                                                    # Load mask adddress
+  Mov rsi, "[rsi]";                                                             # Load mask
+
   my $A = $K == 1 ? 0 : 1;                                                      # Choose a free zmm
 
   $key->setReg(rdi);
   Vpbroadcastd zmm($A), edi;                                                    # Load key to test
   Vpcmpud k1, zmm($K, $A), $cmp;                                                # Check keys from memory broadcast
-  $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
-  Mov   rsi, 1;                                                                 # The one
-  Shl   rsi, cl;                                                                # Position the one at end of keys block
-  Dec   rsi;                                                                    # Reduce to fill block with ones
+#  $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
+#  Mov   rsi, 1;                                                                 # The one
+#  Shl   rsi, cl;                                                                # Position the one at end of keys block
+#  Dec   rsi;                                                                    # Reduce to fill block with ones
   Kmovq rdi, k1;                                                                # Matching keys
   And   rsi, rdi;                                                               # Matching keys in mask area
   Inc   rsi if $inc;                                                            # Its faster to to do any adjustment here rather than using variable arithmetic later
@@ -17883,7 +17893,7 @@ END
 #  1,792,946         181,336       1,792,946         181,336      0.358092          0.15  tree::allocBlock
 #  1,787,294         181,264       1,787,294         181,264      0.343509          0.15  Inc length in keys
 #  1,752,298         181,216       1,752,298         181,216      0.486707          0.16  dFromPointInZ
-#latest:;
+latest:;
 if (1)
  {my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
