@@ -2924,22 +2924,29 @@ sub Nasm::X86::Variable::copy($$)                                               
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   @_ == 2 or confess "Two parameters";
 
-  my $l = $left ->addressExpr;
-  my $r = ref($right) ? $right->addressExpr : $right;                           # Variable address or register expression (which might in fact be a constant)
+  if (ref $right)                                                               # Right hand side is an expression
+   {my $l = $left ->addressExpr;
+    my $r = $right->addressExpr;                                                # Variable address
 
-  Mov rdi, $r;                                                                  # Load right hand side
+    Mov rdi, $r;                                                                # Load right hand side
 
-  if (ref($right) and $right->reference)                                        # Dereference a reference
-   {Mov rdi, "[rdi]";
+    if (ref($right) and $right->reference)                                      # Dereference a reference
+     {Mov rdi, "[rdi]";
+     }
+
+    if ($left ->reference)                                                      # Copy a reference
+     {Mov rsi, $l;
+      Mov "[rsi]", rdi;
+     }
+    else                                                                        # Copy a non reference
+     {Mov $l, rdi;
+     }
+   }
+  else                                                                          # Right hand side is a constant
+   {my $l = $left ->addressExpr;
+    Mov "qword $l", $right;
    }
 
-  if ($left ->reference)                                                        # Copy a reference
-   {Mov rsi, $l;
-    Mov "[rsi]", rdi;
-   }
-  else                                                                          # Copy a non reference
-   {Mov $l, rdi;
-   }
   $left                                                                         # Return the variable on the left now that it has had the right hand side copied into it.
  }
 
@@ -3203,12 +3210,14 @@ sub Nasm::X86::Variable::lt($$)                                                 
 
 sub Nasm::X86::Variable::isRef($)                                               # Check whether the specified  variable is a reference to another variable.
  {my ($variable) = @_;                                                          # Variable
+  @_ == 1 or confess "One parameter";
   my $n = $variable->name;                                                      # Variable name
   $variable->reference
  }
 
 sub Nasm::X86::Variable::setReg($$)                                             # Set the named registers from the content of the variable.
  {my ($variable, $register) = @_;                                               # Variable, register to load
+  @_ == 2 or confess "Two parameters";
 
   my $r = registerNameFromNumber $register;
   if (CheckMaskRegister($r))                                                    # Mask register is being set
@@ -3230,7 +3239,20 @@ sub Nasm::X86::Variable::setReg($$)                                             
      }
    }
 
-  $register                                                                     # name of register being set
+  $register                                                                     # Name of register being set
+ }
+
+sub Nasm::X86::Variable::compare($$)                                            # Compare the content of a variable with a numeric constant
+ {my ($variable, $compare) = @_;                                                # Variable, value to compare
+  @_ == 2 or confess "Two parameters";
+
+  if ($variable->isRef)
+   {Mov rsi, $variable->addressExpr;
+    Cmp "qword [rsi]", $compare;
+   }
+  else
+   {Cmp "qword ".$variable->addressExpr, $compare;
+   }
  }
 
 sub Nasm::X86::Variable::getReg($$)                                             # Load the variable from a register expression.
@@ -6680,7 +6702,9 @@ sub Nasm::X86::Tree::put($$$)                                                   
 sub Nasm::X86::Tree::zero($)                                                    #P Zero the return fields of a tree descriptor
  {my ($tree) = @_;                                                              # Tree descriptor, key field to search for
   @_ == 1 or confess "One parameter";
+Comment("AAAAAAAAAA");
   $tree->found  ->copy(0);                                                      # Key not found
+Comment("BBBBBBB");
   $tree->data   ->copy(0);                                                      # Data not yet found
   $tree->subTree->copy(0);                                                      # Not yet a sub tree
   $tree->offset ->copy(0);                                                      # Offset not known
@@ -6734,11 +6758,8 @@ sub Nasm::X86::Tree::find($$)                                                   
          {Jmp $success;                                                         # Return
          };
 
-Comment("CCCCCC");
         my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
-Comment("DDDDDD");
         my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
-Comment("EEEEE");
         if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
          {pop @text;
           $Q->getReg(rsi);
@@ -8895,7 +8916,7 @@ sub OptimizePopPush(%)                                                          
 sub OptimizeReload(%)                                                           #P Reload: a = b; b = a;  remove second - as redundant
  {my (%options) = @_;                                                           # Options
   my %o = map {$_=>1} $options{optimize}->@*;
-  if (1 or $o{reload})                                                          # Optimize if statements by looking for the unnecessary reload of the just stored result
+  if (1 or $o{reload})
    {for my $i(1..@text-1)                                                       # Each line
      {my $a = $text[$i-1];
       my $b = $text[$i];
@@ -17953,8 +17974,8 @@ $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 #  $t->put(K(key => 0xffffff), K(key => 1));                                     # 444
-#  $t->find(K key => 0xffffff);                                                  # 315
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1584214
+  $t->find(K key => 0xffffff);                                                  # 315
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1584214, trace=>0;
 2826
 END
  }
