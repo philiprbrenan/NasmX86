@@ -2942,9 +2942,15 @@ sub Nasm::X86::Variable::copy($$)                                               
      {Mov $l, rdi;
      }
    }
-  else                                                                          # Right hand side is a constant
-   {my $l = $left ->addressExpr;
-    Mov "qword $l", $right;
+  else
+   {my $l = $left->addressExpr;
+    if ($left->reference)                                                       # Copy a constant to a reference
+     {Mov rsi, $l;
+      Mov "qword [rsi]", $right;
+     }
+    else                                                                        # Copy a constant to a non reference
+     {Mov "qword $l", $right;
+     }
    }
 
   $left                                                                         # Return the variable on the left now that it has had the right hand side copied into it.
@@ -17967,6 +17973,7 @@ END
 #  1,605,947         180,880       1,605,947         180,880      0.334369          0.14  search key preloaded into zmm
 #  1,597,198         192,760       1,597,525         192,760      0.387688          0.17  Optimized reloads out
 #  1,584,214         180,144       1,584,214         180,144      0.359084          0.16  Better inc/dec
+#  1,580,599         180,088       1,580,599         180,088      0.339057          0.15  Copy constant
 latest:;
 if (1)
  {my $a = CreateArea;
@@ -17974,8 +17981,8 @@ $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 #  $t->put(K(key => 0xffffff), K(key => 1));                                     # 444
-  $t->find(K key => 0xffffff);                                                  # 315
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1584214, trace=>0;
+#  $t->find(K key => 0xffffff);                                                  # 301
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1580599, trace=>0;
 2826
 END
  }
