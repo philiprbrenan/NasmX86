@@ -3504,7 +3504,12 @@ sub Nasm::X86::Variable::qFromZ($$$)                                            
 sub Nasm::X86::Variable::dFromPointInZ($$)                                      # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
  {my ($point, $zmm) = @_;                                                       # Point, numbered zmm
   my $x = $zmm =~ m(\A(zmm)?0\Z) ? 1 : 0;                                       # The zmm we will extract into
-  $point->setReg(rsi);
+  if ($text[-1] =~ m(\Amov.*, rsi\Z))                                           # Remove pointless load through variable
+   {pop @text;
+   }
+  else
+   {$point->setReg(rsi);
+   }
   Kmovq k1, rsi;
   my ($z) = zmm $zmm;
   Vpcompressd "zmm$x\{k1}", $z;
@@ -6201,6 +6206,7 @@ sub Nasm::X86::Tree::indexXX($$$$$)                                             
   else
    {confess "Previous instruction should be move from rdi";
    }
+
   my $masks = Rw(map {2**$_ -1} 0..15);                                         # Mask for each length
   Lea rsi, "[$masks+rdi*2]";                                                    # Load mask adddress
   Mov rsi, "[rsi]";                                                             # Load mask
@@ -6729,9 +6735,18 @@ sub Nasm::X86::Tree::find($$)                                                   
          {Jmp $success;                                                         # Return
          };
 
+Comment("CCCCCC");
         my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
+Comment("DDDDDD");
         my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
-        $Q->copy($n);                                                           # Corresponding node
+Comment("EEEEE");
+        if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
+         {pop @text;
+          $Q->getReg(rsi);
+         }
+        else
+         {$Q->copy($n);                                                         # Get the offset of the next node - we are not on a leaf so there must be one
+         }
        });
       PrintErrTraceBack "Stuck in find";                                        # We seem to be looping endlessly
      };                                                                         # Find completed successfully
@@ -17918,8 +17933,8 @@ if (1)
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496                 472        465 with preloaded keys        447 search key preloaded
-#  $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once 327
+#  $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496                 472        465 with preloaded keys        447 search key preloaded
+   $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once 321 find remove load through variable
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1605947;
 2826
 END
