@@ -17945,15 +17945,16 @@ END
 #  1,640,669         180,952       1,640,669         180,952      0.333896          0.16  Elided three instructions in put loop
 #  1,605,947         180,880       1,605,947         180,880      0.334369          0.14  search key preloaded into zmm
 #  1,597,198         192,760       1,597,525         192,760      0.387688          0.17  Optimized reloads out
+#  1,584,214         180,144       1,584,214         180,144      0.359084          0.16  Better inc/dec
 latest:;
 if (1)
  {my $a = CreateArea;
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#  $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496                 472        465 with preloaded keys        447 search key preloaded
-#  $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once 327 find remove load through variable
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1597198;
+#  $t->put(K(key => 0xffffff), K(key => 1));                                     # 444
+#  $t->find(K key => 0xffffff);                                                  # 315
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1584214
 2826
 END
  }
