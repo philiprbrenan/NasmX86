@@ -3504,12 +3504,7 @@ sub Nasm::X86::Variable::qFromZ($$$)                                            
 sub Nasm::X86::Variable::dFromPointInZ($$)                                      # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
  {my ($point, $zmm) = @_;                                                       # Point, numbered zmm
   my $x = $zmm =~ m(\A(zmm)?0\Z) ? 1 : 0;                                       # The zmm we will extract into
-  if ($text[-1] =~ m(\Amov.*, rsi\Z))                                           # Remove pointless load through variable
-   {pop @text;
-   }
-  else
-   {$point->setReg(rsi);
-   }
+  $point->setReg(rsi);
   Kmovq k1, rsi;
   my ($z) = zmm $zmm;
   Vpcompressd "zmm$x\{k1}", $z;
