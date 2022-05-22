@@ -3263,32 +3263,36 @@ sub Nasm::X86::Variable::incDec($$)                                             
   $left->constant and confess "Cannot increment or decrement a constant";
   my $l = $left->addressExpr;
   if ($left->reference)
-   {PushR r14, r15;                                                             # Violates the r14/r15 rule if removed
-    Mov r15, $l;
-    Mov r14, "[r15]";
-    &$op(r14);
-    Mov "[r15]", r14;
-    PopR;
+   {Mov rsi, $l;
+    push @text, <<END;
+    $op qword [rsi]
+END
     return $left;
    }
   else
-   {PushR r15;
-    Mov r15, $l;
-    &$op(r15);
-    Mov $l, r15;
-    PopR;
+   {push @text, <<END;
+    $op qword $l
+END
     return $left;
    }
+# else
+#  {PushR r15;
+#   Mov r15, $l;
+#   &$op(r15);
+#   Mov $l, r15;
+#   PopR;
+#   return $left;
+#  }
  }
 
 sub Nasm::X86::Variable::inc($)                                                 # Increment a variable.
  {my ($left) = @_;                                                              # Variable
-  $left->incDec(\&Inc);
+  $left->incDec("inc");
  }
 
 sub Nasm::X86::Variable::dec($)                                                 # Decrement a variable.
  {my ($left) = @_;                                                              # Variable
-  $left->incDec(\&Dec);
+  $left->incDec("dec");
  }
 
 sub Nasm::X86::Variable::str($)                                                 # The name of the variable.
@@ -8898,8 +8902,7 @@ sub OptimizeReload(%)                                                           
       if ($a =~ m(\Amov (\[.*?\]), ([^\[\]].*?)\Z))                             # a = b
        {my $a1 = $1; my $a2 = $2;
         if ($b eq qq(mov $a2, $a1\n))                                           # b = a
-         {$text[$i] = q(; Reload: ).$text[$i];
-say STDERR "FFFFF $i";
+         {$text[$i] = q(; Reload removed: ).$text[$i];
          }
        }
      }
@@ -17941,6 +17944,7 @@ END
 #  1,658,167         180,976       1,658,167         180,976      0.331838          0.17  Indexx uses preloaded keys
 #  1,640,669         180,952       1,640,669         180,952      0.333896          0.16  Elided three instructions in put loop
 #  1,605,947         180,880       1,605,947         180,880      0.334369          0.14  search key preloaded into zmm
+#  1,597,198         192,760       1,597,525         192,760      0.387688          0.17  Optimized reloads out
 latest:;
 if (1)
  {my $a = CreateArea;
@@ -17948,8 +17952,8 @@ $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 #  $t->put(K(key => 0xffffff), K(key => 1));                                     # 508 clocks            496                 472        465 with preloaded keys        447 search key preloaded
-  $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once 327 find remove load through variable
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1605947;
+#  $t->find(K key => 0xffffff);                                                  # 370 with inline find, 358 with dFromPoint 337 Indexx 333 with find keys loaded once 327 find remove load through variable
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1597198;
 2826
 END
  }
