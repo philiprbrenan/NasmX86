@@ -980,11 +980,16 @@ sub If($$;$)                                                                    
  {my ($jump, $then, $else) = @_;                                                # Jump op code of variable, then - required , else - optional
   @_ >= 2 && @_ <= 3 or confess;
 
-  ref($jump) or $jump =~ m(\AJ(c|e|g|ge|gt|h|l|le|nc|ne|ns|nz|s|z)\Z)
+  ref($jump) or $jump =~ m(\AJ(c|e|g|ge|h|l|le|nc|ne|ns|nz|s|z)\Z)
              or confess "Invalid jump: $jump";
 
   if (ref($jump))                                                               # Variable expression,  if it is non zero perform the then block else the else block
-   { __SUB__->(q(Jnz), $then, $else);
+   {if (ref($jump) =~ m(scalar)i)                                               # Type of jump opposes the boolean operator
+     {__SUB__->($$jump, $then, $else);
+     }
+    else                                                                        # Anything other than a scalar reference indicates that the 'If' statement was handed something other than a Boolean expression
+     {confess "Not a boolean expression";
+     }
    }
   elsif (!$else)                                                                # No else
    {my $end = Label;
@@ -3161,7 +3166,10 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
 
   Comment "Boolean ZF Arithmetic Start";
 
-#PushR r11;
+  if ($op =~ m(\Ag)i)
+   {($left, $right) = ($right, $left);
+   }
+
   Mov r11, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
    {Mov r11, "[r11]";
@@ -3174,45 +3182,45 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
   elsif (ref($right))                                                           # Variable but not a reference on the right
    {Cmp r11, $right->addressExpr;
    }
-  else                                                                          # Constant on the right
+  elsif ($left->reference)                                                      # Left is a reference, right is a constant
    {Cmp r11, $right;
    }
-
-  &$sub(sub {Cmp rsp, rsp}, sub {Test rsp, rsp});                               # Convenient but slow
-
+  else                                                                          # Not a reference on the left and a constant on the right
+   {Cmp "qword ".$left->addressExpr, $right;
+   }
   Comment "Boolean ZF Arithmetic end";
-#PopR;
-  V(empty => undef);                                                            # Return an empty variable so that If regenerates the follow on code
+
+  \$op
  }
 
 sub Nasm::X86::Variable::eq($$)                                                 # Check whether the left hand variable is equal to the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
-  Nasm::X86::Variable::booleanZF(\&IfEq, q(eq), $left, $right);
+  Nasm::X86::Variable::booleanZF(\&IfEq, q(Jne),  $left, $right);
  }
 
 sub Nasm::X86::Variable::ne($$)                                                 # Check whether the left hand variable is not equal to the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
-  Nasm::X86::Variable::booleanZF(\&IfNe, q(ne), $left, $right);
+  Nasm::X86::Variable::booleanZF(\&IfNe, q(Je), $left, $right);
  }
 
 sub Nasm::X86::Variable::ge($$)                                                 # Check whether the left hand variable is greater than or equal to the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
-  Nasm::X86::Variable::booleanZF(\&IfGe, q(ge), $left, $right);
+  Nasm::X86::Variable::booleanZF(\&IfGe, q(Jl), $left, $right);
  }
 
 sub Nasm::X86::Variable::gt($$)                                                 # Check whether the left hand variable is greater than the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
-  Nasm::X86::Variable::booleanZF(\&IfGt, q(gt), $left, $right);
+  Nasm::X86::Variable::booleanZF(\&IfGt, q(Jle), $left, $right);
  }
 
 sub Nasm::X86::Variable::le($$)                                                 # Check whether the left hand variable is less than or equal to the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
-  Nasm::X86::Variable::booleanZF(\&IfLe, q(le), $left, $right);
+  Nasm::X86::Variable::booleanZF(\&IfLe, q(Jg), $left, $right);
  }
 
 sub Nasm::X86::Variable::lt($$)                                                 # Check whether the left hand variable is less than the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
-  Nasm::X86::Variable::booleanZF(\&IfLt, q(lt), $left, $right);
+  Nasm::X86::Variable::booleanZF(\&IfLt, q(Jge), $left, $right);
  }
 
 sub Nasm::X86::Variable::isRef($)                                               # Check whether the specified  variable is a reference to another variable.
@@ -6774,12 +6782,8 @@ Comment "CCCCEEEEEEEEEEE";
 
         my $leaf = $t->leafFromNodes($N);
 Comment "CCCCEEEEEEEEEEE222";
-        pop @text for 1..16;
-        Cmp rdi,
         If $t->leafFromNodes($N) > 0,
         Then                                                                    # Leaf so we cannot go further
-#        If $t->leafFromNodes($N) > 0,
-#        Then                                                                    # Leaf so we cannot go further
          {Jmp $success;                                                         # Return
          };
 Comment "CCCCFFFFFFFFFFFF";
@@ -6839,7 +6843,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
         my $n = dFromZ($N, 0);
         my $b = $t->getTreeBit($K, K key => 1);
 
-        If $t->leafFromNodes($N),                                               # Leaf node means we have arrived
+        If $t->leafFromNodes($N) > 0,                                           # Leaf node means we have arrived
         Then
          {$t->found  ->copy(1);
           $t->key    ->copy($k);
@@ -6883,7 +6887,7 @@ sub Nasm::X86::Tree::findLast($)                                                
          {my ($i, $start, $next, $end) = @_;
           my $l = $t->lengthFromKeys($K);
 
-          If $t->leafFromNodes($N),                                             # Leaf node means we have arrived
+          If $t->leafFromNodes($N) > 0,                                         # Leaf node means we have arrived
           Then
            {my $o  = ($l - 1) * $t->width;
             my $k = dFromZ($K, $o);
@@ -17450,7 +17454,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parseReason)                                                               # The reason code describing the failure
  } # Parse
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
@@ -17998,17 +18002,112 @@ END
 #  1,584,214         180,144       1,584,214         180,144      0.359084          0.16  Better inc/dec
 #  1,580,599         180,088       1,580,599         180,088      0.339057          0.15  Copy constant
 #  1,500,463         171,696       1,500,749         171,696      0.458875          0.16  Remove checks
-
-latest:;
+#  1,375,167         158,096       1,375,167         158,096      0.357263          0.16  Better boolean tests
+#latest:;
 if (1)
  {my $a = CreateArea;
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put(K(key => 0xffffff), K(key => 1));                                     # 444
-  $t->find(K key => 0xffffff);                                                  # 301 286
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1500463, trace=>0;
+#  $t->put(K(key => 0xffffff), K(key => 1));                                     # 381
+#  $t->find(K key => 0xffffff);                                                 # 279 but we can do a lot better by rewriting with assigned registers
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1375167, trace=>0;
 2826
+END
+ }
+
+#latest:;
+if (1)
+ {my $a = K(key => 11);
+  my $b = K(key => 22);
+
+  If $a > $b,
+  Then
+   {PrintOutStringNL "AAAA biggest";
+   },
+  Else
+   {PrintOutStringNL "BBBB biggest";
+   };
+
+  If $a < $b,
+  Then
+   {PrintOutStringNL "AAAA smallest";
+   },
+  Else
+   {PrintOutStringNL "BBBB smallest";
+   };
+
+  If $a != $b,
+  Then
+   {PrintOutStringNL "AAAA not equal to BBBB by not equal";
+   },
+  Else
+   {PrintOutStringNL "AAAA equals to BBBB by not equal";
+   };
+
+  If $a == $b,
+  Then
+   {PrintOutStringNL "AAAA equal to BBBB";
+   },
+  Else
+   {PrintOutStringNL "AAAA not equal to BBBB";
+   };
+
+  If $a == 11,
+  Then
+   {PrintOutStringNL "AAAA equal 11";
+   },
+  Else
+   {PrintOutStringNL "AAAA not equal 11";
+   };
+
+  If $a == 0,
+  Then
+   {PrintOutStringNL "AAAA equal zero";
+   },
+  Else
+   {PrintOutStringNL "AAAA not equal zero";
+   };
+
+  If $a > 0,
+  Then
+   {PrintOutStringNL "AAAA greater than zero by gt";
+   },
+  Else
+   {PrintOutStringNL "AAAA equal zero by gt";
+   };
+
+  my $c = K(key => 0);
+  If $c > 0,
+  Then
+   {PrintOutStringNL "CCCC greater than zero by gt";
+   },
+  Else
+   {PrintOutStringNL "CCCC equal zero by gt";
+   };
+
+  If $c == 0,
+  Then
+   {PrintOutStringNL "CCCC equal zero";
+   },
+  Else
+   {PrintOutStringNL "CCCC not equal zero";
+   };
+
+
+
+
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1;
+BBBB biggest
+AAAA smallest
+AAAA not equal to BBBB by not equal
+AAAA not equal to BBBB
+AAAA equal 11
+AAAA not equal zero
+AAAA greater than zero by gt
+CCCC equal zero by gt
+CCCC equal zero
 END
  }
 
