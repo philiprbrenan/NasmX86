@@ -51,7 +51,7 @@ our $stdout     = 1;                                                            
 our $stderr     = 2;                                                            # File descriptor for standard error
 
 our $TraceMode  = 0;                                                            # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.  This mode assumes that you will not be using the mm0 register (most people are not)and that you have any IDE like Geany that can interpret a Perl error line number and position on that line in this file.
-our $DebugMode  = 0;                                                            # 1: enables checks that take time and sometimes catch programming errors.
+our $DebugMode  = 1;                                                            # 1: enables checks that take time and sometimes catch programming errors.
 
 my %Registers;                                                                  # The names of all the registers
 my %RegisterContaining;                                                         # The largest register containing a register
@@ -985,7 +985,7 @@ sub If($$;$)                                                                    
 
   if (ref($jump))                                                               # Variable expression,  if it is non zero perform the then block else the else block
    {if (ref($jump) =~ m(scalar)i)                                               # Type of jump opposes the boolean operator
-     {__SUB__->($$jump, $then, $else);
+     { __SUB__->($$jump, $then, $else);
      }
     else                                                                        # Anything other than a scalar reference indicates that the 'If' statement was handed something other than a Boolean expression
      {confess "Not a boolean expression";
@@ -1023,28 +1023,89 @@ sub Else(&)                                                                     
   $block;
  }
 
-sub OR(@)                                                                       # Return a variable containing 1 if any of the conditions is true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
- {my (@c) = @_;                                                                 # Conditions enclosed in subs
-  my $r = &V(or => 0);
-  &Block(sub
-   {my ($end, $start) = @_;
-    for my $c(@c)
-     {If &$c, Then {$r->copy(1); Jmp $end}
-     }
-   });
-  $r
+#sub OR(@)                                                                       # Return a variable containing 1 if any of the conditions is true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
+# {my (@c) = @_;                                                                 # Conditions enclosed in subs
+#  my $r = &V(or => 0);
+#  &Block(sub
+#   {my ($end, $start) = @_;
+#    for my $c(@c)
+#     {If &$c, Then {$r->copy(1); Jmp $end}
+#     }
+#   });
+#  $r
+# }
+#
+#sub AND(@)                                                                      # Return a variable containing 1 if all of the conditions are true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
+# {my (@c) = @_;                                                                 # Conditions enclosed in subs
+#  my $r = &V(and => 1);
+#  &Block(sub
+#   {my ($end, $start) = @_;
+#    for my $c(@c)
+#     {If &$c, Then {}, Else {$r->copy(0); Jmp $end}
+#     }
+#   });
+#  $r
+# }
+
+sub opposingJump($)                                                             # Return the opposite of a jump
+ {my ($j) = @_;                                                                 # Jump
+  my %j = qw(Je Jne  Jl Jge  Jle Jg  Jne Je  Jge Jl  Jg Jl);                    # Branch possibilities
+  my $o = $j{$j};
+  confess "Invalid jump $j" unless $o;
+  $o
  }
 
-sub AND(@)                                                                      # Return a variable containing 1 if all of the conditions are true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
- {my (@c) = @_;                                                                 # Conditions enclosed in subs
-  my $r = &V(and => 1);
-  &Block(sub
-   {my ($end, $start) = @_;
-    for my $c(@c)
-     {If &$c, Then {}, Else {$r->copy(0); Jmp $end}
-     }
-   });
-  $r
+sub ifOr($$;$)                                                                  # Execute then or else block based on a multiplicity of OR conditions executed until one succeeds.
+ {my ($conditions, $Then, $Else) = @_;                                          # Array of conditions, then sub, else sub
+
+  my $test = Label;                                                             # Start of test block
+  my $then = Label;                                                             # Start of then block
+  my $else = Label;                                                             # Start of else block
+  my $end  = Label;                                                             # End of block
+
+  Jmp $test;                                                                      # Jump over then and else
+  SetLabel $then;                                                               # Then block
+  &$Then;
+  Jmp $end;
+  SetLabel $else;
+  &$Else if $Else;
+  Jmp $end;
+
+  SetLabel $test;                                                               # Start of tests
+
+  for my $c(@$conditions)
+   {my $j = opposingJump ${&$c};
+    push @text, qq($j $then\n);
+   }
+  Jmp $else if $Else;
+  SetLabel $end;
+ }
+
+sub ifAnd($$;$)                                                                 # Execute then or else block based on a multiplicity of AND conditions executed until one fails.
+ {my ($conditions, $Then, $Else) = @_;                                          # Array of conditions, then sub, else sub
+
+  my $test = Label;                                                             # Start of test block
+  my $then = Label;                                                             # Start of then block
+  my $else = Label;                                                             # Start of else block
+  my $end  = Label;                                                             # End of block
+
+  Jmp $test;                                                                    # Jump over then and else
+  SetLabel $then;                                                               # Then block
+  &$Then;
+  Jmp $end;
+  SetLabel $else;
+  &$Else if $Else;
+  Jmp $end;
+
+  SetLabel $test;                                                               # Start of tests
+
+  for my $c(@$conditions)
+   {my $j = ${&$c};
+    push @text, qq($j $else\n) if     $Else;
+    push @text, qq(Jmp $end\n) unless $Else;
+   }
+  Jmp $then;
+  SetLabel $end;
  }
 
 sub Ef(&$;$)                                                                    # Else if block for an If statement.
@@ -6759,16 +6820,11 @@ sub Nasm::X86::Tree::find($$)                                                   
       $k->setReg(rdi);
       Vpbroadcastd zmm($key), edi;                                              # Load key to test once
 
-Comment "CAAAAAAAAAAAAA";
       K(loop=>99)->for(sub                                                      # Step down through tree
        {my ($index, $start, $next, $end) = @_;
-
-Comment "CCCCBBBBBBBBBBBB";
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
-Comment "CCCCCCCCCC";
 
         my $eq  = $t->indexEq($key, $K);                                        # The position of a key in a zmm equal to the specified key as a point in a variable.
-Comment "CCCCDDDDDDDDDDD";
         If $eq  > 0,                                                            # Result mask is non zero so we must have found the key
         Then
          {my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
@@ -6778,28 +6834,22 @@ Comment "CCCCDDDDDDDDDDD";
           $t->subTree->copy($t->getTreeBit($K, $eq));                           # Get corresponding tree bit
           Jmp $success;                                                         # Return
          };
-Comment "CCCCEEEEEEEEEEE";
 
         my $leaf = $t->leafFromNodes($N);
-Comment "CCCCEEEEEEEEEEE222";
         If $t->leafFromNodes($N) > 0,
         Then                                                                    # Leaf so we cannot go further
          {Jmp $success;                                                         # Return
          };
-Comment "CCCCFFFFFFFFFFFF";
 
         my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
-Comment "CCCCGGGGGGGGGGGF";
         my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
-Comment "CCCCHHHHHHHHHHHH";
-        if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
-         {pop @text;
-          $Q->getReg(rsi);
-         }
-        else
+#        if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
+#         {pop @text;
+#          $Q->getReg(rsi);
+#         }
+#        else
          {$Q->copy($n);                                                         # Get the offset of the next node - we are not on a leaf so there must be one
          }
-Comment "CCCCIIIIIIIIIIIF";
        });
       PrintErrTraceBack "Stuck in find";                                        # We seem to be looping endlessly
      };                                                                         # Find completed successfully
@@ -7070,7 +7120,7 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
 
   $t->find($key);                                                               # Find the key
 
-  If AND(sub{$t->found > 0}, sub{$t->subTree > 0}),                             # Make the found data the new  tree
+  ifAnd [sub{$t->found > 0}, sub{$t->subTree > 0}],                             # Make the found data the new  tree
   Then
    {$s->first->copy($t->data);                                                  # Copy the data variable to the first variable without checking whether it is valid
     $s->found->copy(1);
@@ -10009,7 +10059,7 @@ if (onGitHub)
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
 #if (!onGitHub or @ARGV) {                                                      # Do first block if we are on gitHub and the first block was requested else do the second block.
-if (@ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block.
+if (0 or @ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block.
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -14896,7 +14946,7 @@ if (1) {                                                                        
     $t->printInOrder("A");
    });
 
-  ok Assemble eq => <<END, avx512=>1,  trace=>2, mix=>0;
+  ok Assemble eq => <<END, avx512=>1,  trace=>0, mix=>0;
 A  32:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
 A  32:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
 A  32:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
@@ -17028,38 +17078,92 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TOR #TAND
-  my $a = K(key => 1);
+if (1) {
+  my $a = K key => 1;
+  my $b = K key => 1;
 
-  OR (sub{$a==$a})             ->outNL;
-  OR (sub{$a!=$a})             ->outNL;
-  OR (sub{$a!=$a}, sub{$a==$a})->outNL;
-  OR (sub{$a!=$a}, sub{$a!=$a})->outNL;
-
-  AND(sub{$a==$a})             ->outNL;
-  AND(sub{$a!=$a})             ->outNL;
-  AND(sub{$a==$a}, sub{$a==$a})->outNL;
-  AND(sub{$a==$a}, sub{$a!=$a})->outNL;
-
-  If OR(sub{$a==$a}, sub{$a!=$a}) > 0,
+  ifOr [sub{$a==$a}, sub{$a==$a}],
   Then
-   {PrintOutStringNL "AAAA";
+   {PrintOutStringNL "AAAA11";
+   },
+  Else
+   {PrintOutStringNL "AAAA22";
    };
 
-  If OR(sub{$a!=$a}, sub{$a!=$a}) > 0,
+  ifOr [sub{$a==$a}, sub{$a!=$a}],
   Then
-   {PrintOutStringNL "BBBB";
+   {PrintOutStringNL "BBBB11";
+   },
+   Else
+   {PrintOutStringNL "BBBB22";
    };
-  ok Assemble eq => <<END, avx512=>1;
-or: .... .... .... ...1
-or: .... .... .... ....
-or: .... .... .... ...1
-or: .... .... .... ....
-and: .... .... .... ...1
-and: .... .... .... ....
-and: .... .... .... ...1
-and: .... .... .... ....
-AAAA
+
+  ifOr [sub{$a!=$a}, sub{$a==$a}],
+  Then
+   {PrintOutStringNL "CCCC11";
+   },
+   Else
+   {PrintOutStringNL "CCCC22";
+   };
+
+  ifOr [sub{$a!=$b}, sub{$a!=$b}],
+  Then
+   {PrintOutStringNL "DDDD11";
+   },
+   Else
+   {PrintOutStringNL "DDDD22";
+   };
+
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
+AAAA11
+BBBB11
+CCCC11
+DDDD22
+END
+ }
+
+#latest:                                                                        #TAND
+if (1) {
+  my $a = K key => 1;
+  my $b = K key => 1;
+
+  ifAnd [sub{$a==$a}, sub{$a==$a}],
+  Then
+   {PrintOutStringNL "AAAA11";
+   },
+  Else
+   {PrintOutStringNL "AAAA22";
+   };
+
+  ifAnd [sub{$a==$a}, sub{$a!=$a}],
+  Then
+   {PrintOutStringNL "BBBB11";
+   },
+   Else
+   {PrintOutStringNL "BBBB22";
+   };
+
+  ifAnd [sub{$a!=$a}, sub{$a==$a}],
+  Then
+   {PrintOutStringNL "CCCC11";
+   },
+   Else
+   {PrintOutStringNL "CCCC22";
+   };
+
+  ifAnd [sub{$a!=$b}, sub{$a!=$b}],
+  Then
+   {PrintOutStringNL "DDDD11";
+   },
+   Else
+   {PrintOutStringNL "DDDD22";
+   };
+
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
+AAAA11
+BBBB22
+CCCC22
+DDDD22
 END
  }
 
@@ -17191,9 +17295,9 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
   my $a = sub                                                                   # Dyad2 = right to left associative
    {#PrintErrStringNL "Type: a";
     my $q = &$prev2;                                                            # Second previous item
-    If OR
-     (sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::d},               # Dyad2 preceeded by dyad3 or dyad4
-      sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::e}),
+    ifOr
+     [sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::d},               # Dyad2 preceeded by dyad3 or dyad4
+      sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::e}],
     Then
      {&$triple;                                                                 # Reduce
      };
@@ -17244,9 +17348,9 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
   my $d = sub                                                                   # Dyad3
    {my $q = &$prev2;                                                            # Second previous item
-    If OR
-     (sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::d},               # Dyad3 preceeded by dyad3 or dyad4
-      sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::e}),
+    ifOr
+     [sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::d},               # Dyad3 preceeded by dyad3 or dyad4
+      sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::e}],
     Then
      {&$triple;                                                                 # Reduce
      };
@@ -17298,10 +17402,10 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     Block
      {my ($end, $start) = @_;
       my $p = &$prev;                                                           # Previous item
-      If OR                                                                     # Separator preceded by open or start - do nothing
-       (sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::b},
+      ifOr                                                                      # Separator preceded by open or start - do nothing
+       [sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::b},
         sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::s},
-        sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::S}),
+        sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::S}],
       Then                                                                      # Eliminate useless statement separator
        {Jmp $end;
        };
@@ -17311,9 +17415,9 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
        {&$triple;                                                               # Reduce
         Jmp $end;                                                               # No need to push as we already have a statement separator on top of the stack
        };
-      If OR
-       (sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::b},             # Statement separator preceded by singleton
-        sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::S}),
+      ifOr
+       [sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::b},             # Statement separator preceded by singleton
+        sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::S}],
       Then
        {&$push;                                                                 # Push statement separator after singleton
         Jmp $end;
@@ -17454,7 +17558,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     $parseReason)                                                               # The reason code describing the failure
  } # Parse
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
@@ -18095,9 +18199,6 @@ if (1)
    };
 
 
-
-
-
   ok Assemble eq => <<END, avx512=>1, mix=>1;
 BBBB biggest
 AAAA smallest
@@ -18108,6 +18209,27 @@ AAAA not equal zero
 AAAA greater than zero by gt
 CCCC equal zero by gt
 CCCC equal zero
+END
+ }
+
+latest:;
+if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
+  my $a = CreateArea;
+  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("01234567");
+
+  my $q = $a->CreateQuarks;
+  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)});
+  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)->outNL});
+
+  ok Assemble debug => 0, mix => 0, eq => <<END, avx512=>1, trace=>0;
+size of tree: .... .... .... ....
+size of tree: .... .... .... ...1
+size of tree: .... .... .... ...2
+size of tree: .... .... .... ...3
+size of tree: .... .... .... ...4
+size of tree: .... .... .... ...5
+size of tree: .... .... .... ...6
+size of tree: .... .... .... ...7
 END
  }
 
