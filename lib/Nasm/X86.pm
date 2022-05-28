@@ -877,9 +877,9 @@ sub qFromX($$)                                                                  
   getBwdqFromMm('q', "xmm$xmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
  }
 
-sub bFromZ($$)                                                                  # Get the byte from the numbered zmm register and return it in a variable.
- {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
-  getBwdqFromMm('b', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+sub bFromZ($$%)                                                                 # Get the byte from the numbered zmm register and return it in a variable.
+ {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
+  getBwdqFromMm('b', "zmm$zmm", $offset, %options)                              # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub wFromZ($$)                                                                  # Get the word from the numbered zmm register and return it in a variable.
@@ -6002,11 +6002,11 @@ sub Nasm::X86::Tree::upIntoData($$$)                                            
   $value->dIntoZ($zmm, $tree->up);
  }
 
-sub Nasm::X86::Tree::lengthFromKeys($$)                                         #P Get the length of the keys block in the numbered zmm and return it as a variable.
- {my ($t, $zmm) = @_;                                                           # Tree descriptor, zmm number
-  @_ == 2 or confess "Two parameters";
+sub Nasm::X86::Tree::lengthFromKeys($$%)                                        #P Get the length of the keys block in the numbered zmm and return it as a variable.
+ {my ($t, $zmm, %options) = @_;                                                 # Tree descriptor, zmm number, options
+  @_ >= 2 or confess "Two or more parameters";
 
-  bFromZ($zmm, $t->lengthOffset);                                               # The length field as a variable
+  bFromZ($zmm, $t->lengthOffset, %options);                                     # The length field as a variable
  }
 
 sub Nasm::X86::Tree::lengthIntoKeys($$$)                                        #P Get the length of the block in the numbered zmm from the specified variable.
@@ -6063,13 +6063,18 @@ sub Nasm::X86::Tree::decLengthInKeys($$)                                        
    }
  }
 
-sub Nasm::X86::Tree::leafFromNodes($$)                                          #P Return a variable containing true if we are on a leaf.  We determine whether we are on a leaf by checking the offset of the first sub node.  If it is zero we are on a leaf otherwise not.
- {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing node block
-  @_ == 2 or confess "Two parameters";
-  my $n = dFromZ $zmm, 0;                                                       # Get first node
-  my $l = V leaf => 0;                                                          # Return a variable which is non zero if  this is a leaf
-  If $n == 0, Then {$l->copy(1)};                                               # Leaf if the node is zero
-  $l
+sub Nasm::X86::Tree::leafFromNodes($$%)                                         #P Return a variable containing true if we are on a leaf.  We determine whether we are on a leaf by checking the offset of the first sub node.  If it is zero we are on a leaf otherwise not.
+ {my ($tree, $zmm, %options) = @_;                                              # Tree descriptor, number of zmm containing node block, options
+  @_ >= 2 or confess "Two or more parameters";
+  if ($options{set})                                                            # Register version
+   {dFromZ $zmm, 0, %options;
+   }
+  else                                                                          # Variable version
+   {my $n = dFromZ $zmm, 0;                                                     # Get first node
+    my $l = V leaf => 0;                                                        # Return a variable which is non zero if  this is a leaf
+    If $n == 0, Then {$l->copy(1)};                                             # Leaf if the node is zero
+    return $l                                                                   # Variable containing result
+   }
  }
 
 sub Nasm::X86::Tree::getLoop($$)                                                #P Return the value of the loop field as a variable.
@@ -6373,20 +6378,16 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
 
 #D2 Insert                                                                      # Insert a key into the tree.
 
-sub Nasm::X86::Tree::indexXX($$$$$)                                             #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
- {my ($tree, $key, $K, $cmp, $inc) = @_;                                        # Tree definition, key to search for as a variable or a zmm, zmm containing keys, comparison from B<Vpcmp>, whetehr to increment the result by one
-  @_ == 5 or confess "Five parameters";
-  my $l = $tree->lengthFromKeys($K);                                            # Current length of the keys block
+sub Nasm::X86::Tree::indexXX($$$$$%)                                            #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
+ {my ($tree, $key, $K, $cmp, $inc, %options) = @_;                              # Tree definition, key to search for as a variable or a zmm, zmm containing keys, comparison from B<Vpcmp>, whetehr to increment the result by one, options
+  @_ >= 5 or confess "Five or more parameters";
 
-  if ($text[-1] =~ m(\Amov.*rdi\s*\Z))                                           # Confirm length is in previous instruction
-   {pop @text;
-   }
-  else
-   {confess "Previous instruction should be move from rdi";
-   }
+  my $r = $options{set} // rsi;                                                 # Target register supplied or implied
+  confess "Cannot use rdi as a target:" if $r eq rdi;
 
+  $tree->lengthFromKeys($K, set=>rdi);                                          # Current length of the keys block
   my $masks = Rw(map {2**$_ -1} 0..15);                                         # Mask for each length
-  Mov rsi, "[$masks+rdi*2]";                                                    # Load mask adddress
+  Mov $r, "[$masks+rdi*2]";                                                     # Load mask address
 
   my $A = sub                                                                   # Zmm containing key to test
    {return $key unless ref $key;                                                # Zmm already contains keys
@@ -6397,21 +6398,17 @@ sub Nasm::X86::Tree::indexXX($$$$$)                                             
    }->();
 
   Vpcmpud k1, zmm($K, $A), $cmp;                                                # Check keys from memory broadcast
-#  $l->setReg(rcx);                                                              # Create a mask of ones that matches the width of a key node in the current tree.
-#  Mov   rsi, 1;                                                                 # The one
-#  Shl   rsi, cl;                                                                # Position the one at end of keys block
-#  Dec   rsi;                                                                    # Reduce to fill block with ones
   Kmovq rdi, k1;                                                                # Matching keys
-  And   rsi, rdi;                                                               # Matching keys in mask area
-  Inc   rsi if $inc;                                                            # Its faster to to do any adjustment here rather than using variable arithmetic later
-  V index => rsi;                                                               # Save result as a variable
+  And   $r, rdi;                                                                # Matching keys in mask area
+  Add   $r, 1 if $inc;                                                          # Add sets flags whereas Inc would not
+  V index => rsi unless $options{set};                                          # Save result as a variable unless a target register has been supplied
  }
 
-sub Nasm::X86::Tree::indexEq($$$)                                               #P Return the  position of a key in a zmm equal to the specified key as a point in a variable.
- {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
-  @_ == 3 or confess "Three parameters";
+sub Nasm::X86::Tree::indexEq($$$%)                                              #P Return the  position of a key in a zmm equal to the specified key as a point in a variable.
+ {my ($tree, $key, $K, %options) = @_;                                          # Tree definition, key as a variable, zmm containing keys, options
+  @_ >= 3 or confess "Three parameters";
 
-  $tree->indexXX($key, $K, $Vpcmp->eq, 0);                                      # Check for equal keys from the broadcasted memory
+  $tree->indexXX($key, $K, $Vpcmp->eq, 0, %options);                            # Check for equal keys from the broadcasted memory
  }
 
 sub Nasm::X86::Tree::insertionPoint($$$)                                        #P Return the position at which a key should be inserted into a zmm as a point in a variable.
@@ -6897,23 +6894,22 @@ Comment("FFFF start");
        {my (undef, $start) = @_;
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
-Comment "FFFFF1111";
-        my $eq  = $t->indexEq($key, $K);                                        # The position of a key in a zmm equal to the specified key as a point in a variable.
-Comment "FFFFF22222";
-        If $eq  > 0,                                                            # Result mask is non zero so we must have found the key
+        $t->indexEq($key, $K, set=>rsi);                                        # The position of a key in a zmm equal to the specified key as a point in a variable.
+        IfNz                                                                    # Result mask is non zero so we must have found the key
         Then
-         {my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
-          $t->found ->copy($eq);                                                # Key found at this point
+         {my $eq = V eq => rsi;
+          my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
           $t->data  ->copy($d);                                                 # Data associated with the key
           $t->offset->copy($Q);                                                 # Offset of the containing block
           $t->subTree->copy($t->getTreeBit($K, $eq));                           # Get corresponding tree bit
           Jmp $success;                                                         # Return
          };
 
-        If $t->leafFromNodes($N) > 0,
-        Then                                                                    # Leaf so we cannot go further
-         {Jmp $success;                                                         # Return
-         };
+Comment "FFFFF111";
+        $t->leafFromNodes($N, set=>rsi),                                        # Check whether this is a leaf by looking at the first sub node - if it is zero this must be a leaf as no node van have a zero offset in an area
+        Cmp rsi, 0;                                                             # Leaf if non zero
+        Jnz $success;                                                           # Return
+Comment "FFFFF22222";
 
         my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
         my $n = $i->dFromPointInZ($N);                                          # Get the corresponding offset to the next sub tree
@@ -18191,8 +18187,8 @@ END
 #  1,580,599         180,088       1,580,599         180,088      0.339057          0.15  Copy constant
 #  1,500,463         171,696       1,500,749         171,696      0.458875          0.16  Remove checks
 #  1,375,167         158,096       1,375,167         158,096      0.357263          0.16  Better boolean tests
-#  1,341,795         115,616       1,341,795         115,616      0.309691          0.16  Debig mode around all PrintErr
-#latest:;
+#  1,341,795         115,616       1,341,795         115,616      0.309691          0.16  Debug mode around all PrintErr
+#  1,317,737         128,024       1,317,926         128,024      0.353775          0.20  IndexXX eliminate lea
 if (0)
  {my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18208,8 +18204,8 @@ $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 #  $t->put(K(key => 0xffffff), K(key => 1));                                    # 373
-  $t->find(K key => 0xffffff);                                                  # 196
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1341795, trace=>0;
+   $t->find(K key => 0xffffff);                                                 # 177
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1317737, trace=>0;
 2826
 END
  }
