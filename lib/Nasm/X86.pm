@@ -6378,6 +6378,7 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
 
 #D2 Insert                                                                      # Insert a key into the tree.
 
+# IIII
 sub Nasm::X86::Tree::indexXX($$$$$%)                                            #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
  {my ($tree, $key, $K, $cmp, $inc, %options) = @_;                              # Tree definition, key to search for as a variable or a zmm, zmm containing keys, comparison from B<Vpcmp>, whetehr to increment the result by one, options
   @_ >= 5 or confess "Five or more parameters";
@@ -6411,11 +6412,11 @@ sub Nasm::X86::Tree::indexEq($$$%)                                              
   $tree->indexXX($key, $K, $Vpcmp->eq, 0, %options);                            # Check for equal keys from the broadcasted memory
  }
 
-sub Nasm::X86::Tree::insertionPoint($$$)                                        #P Return the position at which a key should be inserted into a zmm as a point in a variable.
- {my ($tree, $key, $K) = @_;                                                    # Tree definition, key as a variable, zmm containing keys
+sub Nasm::X86::Tree::insertionPoint($$$%)                                       #P Return the position at which a key should be inserted into a zmm as a point in a variable.
+ {my ($tree, $key, $K, %options) = @_;                                          # Tree definition, key as a variable, zmm containing keys, options
   @_ == 3 or confess "Three parameters";
 
-  $tree->indexXX($key, $K, $Vpcmp->le, 1);                                      # Check for less than or equal keys
+  $tree->indexXX($key, $K, $Vpcmp->le, 1, %options);                            # Check for less than or equal keys
  }
 
 sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
@@ -6862,12 +6863,12 @@ sub Nasm::X86::Tree::zero($)                                                    
   $tree                                                                         # Chaining
  }
 
+#FFFF
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and tests whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
 
-Comment("FFFF start");
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28, my $key = 27,
@@ -6906,12 +6907,11 @@ Comment("FFFF start");
           Jmp $success;                                                         # Return
          };
 
-Comment "FFFFF111";
         $t->leafFromNodes($N, set=>rsi),                                        # Check whether this is a leaf by looking at the first sub node - if it is zero this must be a leaf as no node van have a zero offset in an area
         Cmp rsi, 0;                                                             # Leaf if zero
         Jz $success;                                                            # Return
-Comment "FFFFF22222";
 
+Comment "FFFFF111";
         my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
         my $n = $i->dFromPointInZ($N);                                          # Get the corresponding offset to the next sub tree
         if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
@@ -6921,6 +6921,7 @@ Comment "FFFFF22222";
         else
          {confess "Set Q";                                                      # Get the offset of the next node - we are not on a leaf so there must be one
          }
+Comment "FFFFF22222";
         Sub $loop, 1;
         Jnz $start;                                                             # Keep going but not for ever
        } $loop, 99;                                                             # loop a limited numbr of times
@@ -18232,14 +18233,6 @@ END
 #  1,375,167         158,096       1,375,167         158,096      0.357263          0.16  Better boolean tests
 #  1,341,795         115,616       1,341,795         115,616      0.309691          0.16  Debug mode around all PrintErr
 #  1,317,737         128,024       1,317,926         128,024      0.353775          0.20  IndexXX eliminate lea
-if (0)
- {my $a = CreateArea;
-  my $t = $a->CreateTree;
-  $t->find(K key => 0xffffff);
-  ok Assemble eq=><<END, avx512=>1, mix=>$TraceMode ? 2 : 1, clocks=>144, trace=>0;
-AAAA
-END
- }
 
 latest:;
 if (1)
@@ -18248,7 +18241,7 @@ $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 #  $t->put(K(key => 0xffffff), K(key => 1));                                    # 373
-#  $t->find(K key => 0xffffff);                                                 # 155
+   $t->find(K key => 0xffffff);                                                 # 155
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1317737, trace=>0;
 2826
 END
