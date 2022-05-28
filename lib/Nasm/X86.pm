@@ -3639,15 +3639,23 @@ sub Nasm::X86::Variable::qFromZ($$$)                                            
   $variable->copy(getBwdqFromMm 'q', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
-sub Nasm::X86::Variable::dFromPointInZ($$)                                      # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
- {my ($point, $zmm) = @_;                                                       # Point, numbered zmm
+sub dFromPointInZ($$%)                                                          # Get the double word from the numbered zmm register at a point specified by the variable or register and return it in a variable.
+ {my ($point, $zmm, %options) = @_;                                             # Point, numbered zmm, options
+
+  my $s = $options{set} // rsi;                                                 # register to set else a variable will be returned
   my $x = $zmm =~ m(\A(zmm)?0\Z) ? 1 : 0;                                       # The zmm we will extract into
-  $point->setReg(rsi);
-  Kmovq k1, rsi;
+  if (ref($point) =~ m(Variable))  {$point->setReg(k1)}                         # Point is in a variable
+  else                             {Kmovq k1, $point}                           # Point is in a register
   my ($z) = zmm $zmm;
   Vpcompressd "zmm$x\{k1}", $z;
-  Vpextrd esi, xmm($x), 0;                                                      # Extract dword from corresponding xmm
-  V d => rsi;
+  Vpextrd dWordRegister($s), xmm($x), 0;                                        # Extract dword from corresponding xmm
+  V d => $s unless $options{set};                                               # Create a variable unless a register to set was provided
+ }
+
+sub Nasm::X86::Variable::dFromPointInZ($$%)                                     # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
+ {my ($point, $zmm, %options) = @_;                                             # Point, numbered zmm, options
+  @_ >= 2 or confess "Two or more parameters";
+  dFromPointInZ($point, $zmm, %options);                                        # Register to set else a variable will be returned
  }
 
 sub Nasm::X86::Variable::dFromPointInZ22($$)                                    # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
@@ -6387,8 +6395,8 @@ sub Nasm::X86::Tree::indexXX($$$$$%)                                            
   confess "Cannot use rdi as a target:" if $r eq rdi;
 
   $tree->lengthFromKeys($K, set=>rdi);                                          # Current length of the keys block
-  my $masks = Rw(map {2**$_ -1} 0..15);                                         # Mask for each length
-  Mov $r, "[$masks+rdi*2]";                                                     # Load mask address
+  my $masks = Rq(map {2**$_ -1} 0..15);                                         # Mask for each length
+  Mov $r, "[$masks+rdi*8]";                                                     # Load mask address
 
   my $A = sub                                                                   # Zmm containing key to test
    {return $key unless ref $key;                                                # Zmm already contains keys
@@ -6414,7 +6422,7 @@ sub Nasm::X86::Tree::indexEq($$$%)                                              
 
 sub Nasm::X86::Tree::insertionPoint($$$%)                                       #P Return the position at which a key should be inserted into a zmm as a point in a variable.
  {my ($tree, $key, $K, %options) = @_;                                          # Tree definition, key as a variable, zmm containing keys, options
-  @_ == 3 or confess "Three parameters";
+  @_ >= 3 or confess "Three or more parameters";
 
   $tree->indexXX($key, $K, $Vpcmp->le, 1, %options);                            # Check for less than or equal keys
  }
@@ -6912,15 +6920,8 @@ sub Nasm::X86::Tree::find($$)                                                   
         Jz $success;                                                            # Return
 
 Comment "FFFFF111";
-        my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
-        my $n = $i->dFromPointInZ($N);                                          # Get the corresponding offset to the next sub tree
-        if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
-         {pop @text;
-          Mov $Q, rsi;
-         }
-        else
-         {confess "Set Q";                                                      # Get the offset of the next node - we are not on a leaf so there must be one
-         }
+        $t->insertionPoint($key, $K, set => rsi);                               # The insertion point if we were inserting
+        dFromPointInZ(rsi, $N, set=>$Q);                                        # Get the corresponding offset to the next sub tree
 Comment "FFFFF22222";
         Sub $loop, 1;
         Jnz $start;                                                             # Keep going but not for ever
@@ -18233,7 +18234,7 @@ END
 #  1,375,167         158,096       1,375,167         158,096      0.357263          0.16  Better boolean tests
 #  1,341,795         115,616       1,341,795         115,616      0.309691          0.16  Debug mode around all PrintErr
 #  1,317,737         128,024       1,317,926         128,024      0.353775          0.20  IndexXX eliminate lea
-
+#  1,326,635         127,648       1,326,635         127,648      0.316558          0.17  Changes to indexxx and related have pushed put up but improved find
 latest:;
 if (1)
  {my $a = CreateArea;
@@ -18241,8 +18242,9 @@ $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 #  $t->put(K(key => 0xffffff), K(key => 1));                                    # 373
-   $t->find(K key => 0xffffff);                                                 # 155
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1317737, trace=>0;
+   $t->find(K key => 0xffffff);                                                 # 149
+# ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1317737, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1326486, trace=>0;
 2826
 END
  }
