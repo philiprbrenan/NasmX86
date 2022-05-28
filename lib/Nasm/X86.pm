@@ -51,7 +51,7 @@ our $stdout     = 1;                                                            
 our $stderr     = 2;                                                            # File descriptor for standard error
 
 our $TraceMode  = 0;                                                            # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.  This mode assumes that you will not be using the mm0 register (most people are not)and that you have any IDE like Geany that can interpret a Perl error line number and position on that line in this file.
-our $DebugMode  = 1;                                                            # 1: enables checks that take time and sometimes catch programming errors.
+our $DebugMode  = 0;                                                            # 1: enables checks that take time and sometimes catch programming errors.
 
 my %Registers;                                                                  # The names of all the registers
 my %RegisterContaining;                                                         # The largest register containing a register
@@ -745,7 +745,7 @@ sub checkZmmRegister($)                                                         
 
 sub bRegFromZmm($$$)                                                            # Load the specified register from the byte at the specified offset located in the numbered zmm.
  {my ($register, $zmm, $offset) = @_;                                           # Register to load, numbered zmm register to load from, constant offset in bytes
-  @_ == 3 or confess "Three parameters";
+
   my $z = registerNameFromNumber $zmm;
   $offset >= 0 && $offset <= RegisterSize zmm0 or
     confess "Offset $offset Out of range";
@@ -760,7 +760,7 @@ sub bRegFromZmm($$$)                                                            
 
 sub bRegIntoZmm($$$)                                                            # Put the byte content of the specified register into the byte in the numbered zmm at the specified offset in the zmm.
  {my ($register,  $zmm, $offset) = @_;                                          # Register to load, numbered zmm register to load from, constant offset in bytes
-  @_ == 3 or confess "Three parameters";
+
   $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
 
   PushR $zmm;                                                                   # Push source register
@@ -773,7 +773,7 @@ sub bRegIntoZmm($$$)                                                            
 
 sub wRegFromZmm($$$)                                                            # Load the specified register from the word at the specified offset located in the numbered zmm.
  {my ($register, $zmm, $offset) = @_;                                           # Register to load, numbered zmm register to load from, constant offset in bytes
-  @_ == 3 or confess "Three parameters";
+
   my $z = registerNameFromNumber $zmm;
   $offset >= 0 && $offset <= RegisterSize zmm0 or
     confess "Offset $offset Out of range";
@@ -788,7 +788,7 @@ sub wRegFromZmm($$$)                                                            
 
 sub wRegIntoZmm($$$)                                                            # Put the specified register into the word in the numbered zmm at the specified offset in the zmm.
  {my ($register,  $zmm, $offset) = @_;                                          # Register to load, numbered zmm register to load from, constant offset in bytes
-  @_ == 3 or confess "Three parameters";
+
   $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
 
   PushR $zmm;                                                                   # Push source register
@@ -801,7 +801,7 @@ sub wRegIntoZmm($$$)                                                            
 
 sub LoadRegFromMm($$$)                                                          # Load the specified register from the numbered zmm at the quad offset specified as a constant number.
  {my ($mm, $offset, $reg) = @_;                                                 # Mm register, offset in quads, general purpose register to load
-  @_ == 3 or confess "Three parameters";
+
   my $w = RegisterSize rax;                                                     # Size of rax
   my $W = RegisterSize $mm;                                                     # Size of mm register
   Vmovdqu64 "[rsp-$W]", $mm;                                                    # Write below the stack
@@ -810,7 +810,7 @@ sub LoadRegFromMm($$$)                                                          
 
 sub SaveRegIntoMm($$$)                                                          # Save the specified register into the numbered zmm at the quad offset specified as a constant number.
  {my ($mm, $offset, $reg) = @_;                                                 # Mm register, offset in quads, general purpose register to load
-  @_ == 3 or confess "Three parameters";
+
   my $w = RegisterSize rax;                                                     # Size of rax
   my $W = RegisterSize $mm;                                                     # Size of mm register
   Vmovdqu64 "[rsp-$W]", $mm;                                                    # Write below the stack
@@ -818,13 +818,27 @@ sub SaveRegIntoMm($$$)                                                          
   Vmovdqu64 $mm, "[rsp-$W]";                                                    # Reload from the stack
  }
 
-sub getBwdqFromMm($$$)                                                          # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
- {my ($size, $mm, $offset) = @_;                                                # Size of get, mm register, offset in bytes either as a constant or as a variable
-  @_ == 3 or confess "Three parameters";
+sub extractRegisterNumberFromMM($)                                              # Extract the register number from an *mm register
+ {my ($mm) = @_;                                                                # Mmm register
+      $mm =~ m(\A([zyx]mm)?(\d{1,2})\Z) ? $2 : confess "Not an mm register";
+ }
+
+sub getBwdqFromMm($$$%)                                                         # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
+ {my ($size, $mm, $offset, %options) = @_;                                      # Size of get, mm register, offset in bytes either as a constant or as a variable, options
+
+  if (!ref($offset) and $offset == 0 and $options{set})                         # Use Pextr in this special circumstance
+   {my $n = extractRegisterNumberFromMM $mm;                                    # Register number
+    push @text, <<END;
+Pextr$size $options{set}, xmm$n, 0
+END
+   }
+
+  my $r = $options{set} // rdi;                                                 # Choose a work register
 
   my $o;                                                                        # The offset into the mm register
   if (ref($offset))                                                             # The offset is being passed in a variable
    {$offset->setReg($o = rsi);
+    confess "Cannot use rsi"  if $r eq rsi;                                     # Rsi is the offset to apply if a variable offset is supplied so we cannot use rsi inthese circumstances as the target register
    }
   else                                                                          # The offset is being passed as a register expression
    {$o = $offset;
@@ -839,7 +853,7 @@ sub getBwdqFromMm($$$)                                                          
   Mov dWordRegister(rdi), "[rsp+$o-$w]" if $size =~ m(d);                       # Load double word register from offset
   Mov rdi,                "[rsp+$o-$w]" if $size =~ m(q);                       # Load register from offset
 
-  V("$size at offset $offset in $mm", rdi);                                     # Create variable
+  V("$size at offset $offset in $mm", rdi) unless $options{set};                # Create variable unless a target register has been supplied
  }
 
 sub bFromX($$)                                                                  # Get the byte from the numbered xmm register and return it in a variable.
@@ -872,9 +886,9 @@ sub wFromZ($$)                                                                  
   getBwdqFromMm('w', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
-sub dFromZ($$)                                                                  # Get the double word from the numbered zmm register and return it in a variable.
- {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
-  getBwdqFromMm('d', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+sub dFromZ($$%)                                                                 # Get the double word from the numbered zmm register and return it in a variable.
+ {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
+  getBwdqFromMm('d', "zmm$zmm", $offset, %options)                              # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub qFromZ($$)                                                                  # Get the quad word from the numbered zmm register and return it in a variable.
@@ -4120,23 +4134,24 @@ sub AllocateMemory($)                                                           
     Mov r8,  -1;                                                                # File descriptor for file backing memory if any
     Mov r9,  0;                                                                 # Offset into file
     Syscall;
-    Cmp rax, -1;                                                                # Check return code
-    IfEq
-    Then
-     {PrintErrTraceBack "Cannot allocate memory, return code -1";
-     };
-    Cmp eax, 0xffffffea;                                                        # Check return code
-    IfEq
-    Then
-     {PrintErrTraceBack "Cannot allocate memory, return code 0xffffffea";
-     };
-    Cmp rax, -12;                                                               # Check return code
-    IfEq
-    Then
-     {PrintErrTraceBack "Cannot allocate memory, return code -12";
-     };
-     $$p{address}->getReg(rax);                                                 # Amount of memory
-
+    if ($DebugMode)
+     {Cmp rax, -1;                                                              # Check return code
+      IfEq
+      Then
+       {PrintErrTraceBack "Cannot allocate memory, return code -1";
+       };
+      Cmp eax, 0xffffffea;                                                      # Check return code
+      IfEq
+      Then
+       {PrintErrTraceBack "Cannot allocate memory, return code 0xffffffea";
+       };
+      Cmp rax, -12;                                                             # Check return code
+      IfEq
+      Then
+       {PrintErrTraceBack "Cannot allocate memory, return code -12";
+       };
+     }
+    $$p{address}->getReg(rax);                                                  # Amount of memory
     RestoreFirstSeven;
    } parameters=>[qw(address size)], name => 'AllocateMemory';
 
@@ -5332,13 +5347,10 @@ sub Nasm::X86::Area::getZmmBlock($$$)                                           
   @_ == 3 or confess "Three parameters";
 
   my $a = rdi;                                                                  # Work registers
-  my $o = rsi;
+  my $o = ref($block) =~ m(Variable) ? rsi : $block;                            # Offset of block in area via register or variable
 
-Comment "EEEEEAAAAAAA";
   $area->address->setReg($a);                                                   # Area address
-Comment "EEEEEBBBBBB";
-  $block->setReg($o);                                                           # Offset of block in area
-Comment "EEEEECCCCC";
+  $block        ->setReg($o) if ref($block) =~ m(Variable);                     # Offset of block in area via variable
 
   if ($DebugMode)
    {Cmp $o, $area->dataOffset;
@@ -5349,7 +5361,6 @@ Comment "EEEEECCCCC";
    }
 
   Vmovdqu64 "zmm$zmm", "[$a+$o]";                                               # Read from memory
-Comment "EEEEEDDDD";
  }
 
 sub Nasm::X86::Area::putZmmBlock($$$)                                           #P Write the numbered zmm to the block at the specified offset in the specified area.
@@ -5362,12 +5373,13 @@ sub Nasm::X86::Area::putZmmBlock($$$)                                           
   $area->address->setReg($a);                                                   # Area address
   $block->setReg($o);                                                           # Offset of block in area
 
-  Cmp $o, $area->dataOffset;
-  IfLt                                                                          # We could have done this using variable arithmetic, but such arithmetic is expensive and so it is better to use register arithmetic if we can.
-  Then
-   {PrintErrTraceBack "Attempt to put block before start of area";
-   };
-
+  if ($DebugMode)
+   {Cmp $o, $area->dataOffset;
+    IfLt                                                                        # We could have done this using variable arithmetic, but such arithmetic is expensive and so it is better to use register arithmetic if we can.
+    Then
+     {PrintErrTraceBack "Attempt to put block before start of area";
+     };
+   }
   Vmovdqu64 "[$a+$o]", "zmm$zmm";                                               # Read from memory
  }
 
@@ -5848,10 +5860,11 @@ sub Nasm::X86::Tree::rootIntoFirst($$$)                                         
   $value->dIntoZ($zmm, $tree->rootOffset);
  }
 
-sub Nasm::X86::Tree::rootFromFirst($$)                                          #P Return a variable containing the offset of the root block of a tree from the first block when held in a zmm register.
- {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
-  @_ == 2 or confess "Two parameters";
-  dFromZ $zmm, $tree->rootOffset;
+sub Nasm::X86::Tree::rootFromFirst($$%)                                         #P Return a variable containing the offset of the root block of a tree from the first block when held in a zmm register.
+ {my ($tree, $zmm, %options) = @_;                                              # Tree descriptor, number of zmm containing first block, options
+  @_ >= 2 or confess "Two or more parameters";
+
+  dFromZ $zmm, $tree->rootOffset, %options;
  }
 
 sub Nasm::X86::Tree::root($$$)                                                  #P Check whether the specified offset refers to the root of a tree when the first block is held in a zmm register. The result is returned by setting the zero flag to one if the offset is the root, else to zero.
@@ -5892,10 +5905,14 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   my $s = dFromZ $zmm, $tree->sizeOffset;
-  If $s == 0,
-  Then
-   {PrintErrTraceBack "Cannot decrement zero length tree";
-   };
+
+  if ($DebugMode)
+   {If $s == 0,
+    Then
+     {PrintErrTraceBack "Cannot decrement zero length tree";
+     };
+   }
+
   $tree->sizeIntoFirst($zmm, $s-1);
  }
 
@@ -5986,14 +6003,21 @@ sub Nasm::X86::Tree::incLengthInKeys($$)                                        
   my $l = $t->lengthOffset;                                                     # Offset of length bits
   bRegFromZmm rbx, $K, $l;                                                      # Length
   Cmp bl, $t->length;
-  IfLt
-  Then
+
+  if ($DebugMode)                                                               # With checking
+   {IfLt
+    Then
+     {Inc rbx;
+      bRegIntoZmm rbx, $K, $l;
+     },
+    Else
+     {PrintErrTraceBack "Cannot increment length of block beyond ".$t->length;
+     };
+   }
+  else                                                                          # Without checking
    {Inc rbx;
     bRegIntoZmm rbx, $K, $l;
-   },
-  Else
-   {PrintErrTraceBack "Cannot increment length of block beyond ".$t->length;
-   };
+   }
  }
 
 sub Nasm::X86::Tree::decLengthInKeys($$)                                        #P Decrement the number of keys in a keys block or complain if such is not possible
@@ -6002,15 +6026,22 @@ sub Nasm::X86::Tree::decLengthInKeys($$)                                        
   my $l = $t->lengthOffset;                                                     # Offset of length bits
   ClearRegisters r15;
   bRegFromZmm rbx, $K, $l;                                                      # Length
-  Cmp bl, 0;
-  IfGt
-  Then
+
+  if ($DebugMode)                                                               # With checking
+   {Cmp bl, 0;
+    IfGt
+    Then
+     {Dec rbx;
+      bRegIntoZmm rbx, $K, $l;
+     },
+    Else
+     {PrintErrTraceBack "Cannot decrement length of block below 0";
+     };
+   }
+  else                                                                          # Without checking
    {Dec rbx;
     bRegIntoZmm rbx, $K, $l;
-   },
-  Else
-   {PrintErrTraceBack "Cannot decrement length of block below 0";
-   };
+   }
  }
 
 sub Nasm::X86::Tree::leafFromNodes($$)                                          #P Return a variable containing true if we are on a leaf.  We determine whether we are on a leaf by checking the offset of the first sub node.  If it is zero we are on a leaf otherwise not.
@@ -6021,7 +6052,7 @@ sub Nasm::X86::Tree::leafFromNodes($$)                                          
   If $n == 0, Then {$l->copy(1)};                                               # Leaf if the node is zero
   $l
  }
-# Optimize as getLoop always accesses teh ame field
+
 sub Nasm::X86::Tree::getLoop($$)                                                #P Return the value of the loop field as a variable.
  {my ($t, $zmm) = @_;                                                           # Tree descriptor, numbered zmm
   @_ == 2 or confess "Two parameters";
@@ -6051,14 +6082,30 @@ sub Nasm::X86::Tree::maskForFullNodesArea                                       
  }
 
 sub Nasm::X86::Tree::getBlock($$$$$)                                            #P Get the keys, data and child nodes for a tree node from the specified offset in the area for the tree.
- {my ($t, $offset, $K, $D, $N) = @_;                                            # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
+ {my ($tree, $offset, $K, $D, $N) = @_;                                         # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
   @_ == 5 or confess "Five parameters";
-  my $a = $t->area;                                                             # Underlying area
-  $a->getZmmBlock($offset, $K);                                                 # Get the keys block
-  my $data = $t->getLoop(  $K);                                                 # Get the offset of the corresponding data block
-  $a->getZmmBlock($data,   $D);                                                 # Get the data block
-  my $node = $t->getLoop  ($D);                                                 # Get the offset of the corresponding node block
-  $a->getZmmBlock($node,   $N);                                                 # Get the node block
+  my $a = $tree->area;                                                          # Underlying area
+
+  if (ref($offset) =~ m(Variable))                                              # Using variables
+   {$a->getZmmBlock($offset,  $K);                                              # Get the keys block
+    my $data = $tree->getLoop($K);                                              # Get the offset of the corresponding data block
+    $a->getZmmBlock($data,    $D);                                              # Get the data block
+    my $node = $tree->getLoop($D);                                              # Get the offset of the corresponding node block
+    $a->getZmmBlock($node,    $N);                                              # Get the node block
+   }
+  else                                                                          # Using registers
+   {my $A = rsi; my $O = rdi;
+    $a->address->setReg($A);
+
+    Vmovdqu64 zmm($K), "[$A+$offset]";                                          # Read keys from memory
+    Mov edi, "[$A+$offset+$$tree{loop}]";                                       # Loop offset
+
+    Vmovdqu64 zmm($D), "[$A+rdi]";                                              # Read data from memory
+    $a->getZmmBlock($offset,  $K);                                              # Get the keys block
+
+    Mov edi, "[$A+$offset+$$tree{loop}]";                                        # Loop nodes offset
+    Vmovdqu64 zmm($N), "[$A+rdi]";                                              # Read from memory
+   }
  }
 
 sub Nasm::X86::Tree::putBlock($$$$$)                                            #P Put a tree block held in three zmm registers back into the area holding the tree at the specified offset.
@@ -6099,15 +6146,20 @@ sub Nasm::X86::Tree::relativeNode($$$$$)                                        
   Vpcmpud k7, zmm($N, $K), $Vpcmp->eq;                                          # Check for nodes equal to offset
   Kmovq r15, k7;
   Tzcnt r15, r15;                                                               # Index of offset
+
   if ($relative < 0)
-   {Cmp r15, 0;
-    IfEq Then{PrintErrTraceBack "Cannot get offset before first offset"};
-    Sub r15, 1;
+   {if ($DebugMode)                                                             # With checking
+     {Cmp r15, 0;
+      IfEq Then{PrintErrTraceBack "Cannot get offset before first offset"};
+     }
+    Sub r15, 1;                                                                 # Set flags
    }
   if ($relative > 0)
-   {Cmp r15, $tree->length;
-    IfGt Then{PrintErrTraceBack "Cannot get offset beyond last offset"};
-    Add r15, 1;
+   {if ($DebugMode)                                                             # With checking
+     {Cmp r15, $tree->length;
+      IfGt Then{PrintErrTraceBack "Cannot get offset beyond last offset"};
+     }
+    Add r15, 1;                                                                 # Set flags
    }
   my $r = dFromZ $N, V(offset => r15) * $tree->width;                           # Select offset
   PopR;
@@ -6183,10 +6235,12 @@ sub Nasm::X86::Tree::expand($$)                                                 
         my $R = V right => 0;                                                   # The node on the right
         my $plp = $t->indexNode($L, $PK, $PN);                                  # Position of the left node in the parent
 
-        If $plp == 0,                                                           # Zero implies that the left child is not registered in its parent
-        Then
-         {PrintErrTraceBack "Cannot find left node in parent";
-         };
+        if ($DebugMode)                                                         # With checking
+         {If $plp == 0,                                                         # Zero implies that the left child is not registered in its parent
+          Then
+           {PrintErrTraceBack "Cannot find left node in parent";
+           };
+         }
 
         If $L == $ln,                                                           # If necessary step one to the let and record the fact that we did is that we can restart the search at the top
         Then                                                                    # Last child and needs merging
@@ -6799,9 +6853,11 @@ sub Nasm::X86::Tree::find($$)                                                   
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
 
+Comment("FFFF start");
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28, my $key = 27;
+    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28, my $key = 27,
+          my $Q = r15;
 
     Block
      {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
@@ -6811,11 +6867,15 @@ sub Nasm::X86::Tree::find($$)                                                   
       $t->key->copy(my $k = $$p{key});                                          # Copy in key so we know what was searched for
 
       $t->firstFromMemory      ($F);                                            # Load first block
-      my $Q = $t->rootFromFirst($F);                                            # Start the search from the root
-      If $Q == 0,
-      Then                                                                      # Empty tree so we have not found the key
-       {Jmp $success;                                                           # Return
-       };
+
+     # my $Q = $t->rootFromFirst($F);                                           # Start the search from the root
+Comment("FFFFAAAA");
+      $t->rootFromFirst($F, set => $Q);                                         # Start the search from the root
+Comment("FFFFBBBB");
+
+      Cmp $Q, 0;
+      Je $success;                                                              # Empty tree so we have not found the key
+
       $k->setReg(rdi);
       Vpbroadcastd zmm($key), edi;                                              # Load key to test once
 
@@ -6842,15 +6902,15 @@ sub Nasm::X86::Tree::find($$)                                                   
 
         my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
         my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
-#        if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
-#         {pop @text;
-#          $Q->getReg(rsi);
-#         }
-#        else
-         {$Q->copy($n);                                                         # Get the offset of the next node - we are not on a leaf so there must be one
+        if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
+         {pop @text;
+          Mov $Q, rsi;
+         }
+        else
+         {confess "Set Q";                                                      # Get the offset of the next node - we are not on a leaf so there must be one
          }
        });
-      PrintErrTraceBack "Stuck in find";                                        # We seem to be looping endlessly
+      PrintErrTraceBack "Stuck in find" if $DebugMode;                          # We seem to be looping endlessly
      };                                                                         # Find completed successfully
     PopR;
    } parameters => [qw(key)],
@@ -6858,6 +6918,7 @@ sub Nasm::X86::Tree::find($$)                                                   
      name       => qq(Nasm::X86::Tree::find-$$tree{length});
 
   $s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
+Comment("FFFF end");
  } # find
 
 sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree and set B<found>|B<key>|B<data>|B<subTree> to show the result
@@ -6903,7 +6964,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
 
         $t->getBlock($n, $K, $D, $N);
        });
-      PrintErrTraceBack "Stuck looking for first";
+      PrintErrTraceBack "Stuck looking for first" if $DebugMode;
      };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
@@ -6954,7 +7015,7 @@ sub Nasm::X86::Tree::findLast($)                                                
           my $n = dFromZ($N, $O);                                               # Step down to the next level
           $t->getBlock($n, $K, $D, $N);
          });
-        PrintErrTraceBack "Stuck looking for last";
+        PrintErrTraceBack "Stuck looking for last" if $DebugMode;
        };
      };                                                                         # Find completed successfully
     PopR;
@@ -7019,7 +7080,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
          };
         $Q->copy($n);                                                           # Corresponding node
        });
-      PrintErrTraceBack "Stuck in find next";                                   # We seem to be looping endlessly
+      PrintErrTraceBack "Stuck in find next" if $DebugMode;                     # We seem to be looping endlessly
      };                                                                         # Find completed successfully
     PopR;
    } parameters => [qw(key)],
@@ -7089,7 +7150,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
          };
         $Q->copy($n);                                                           # Corresponding node
        });
-      PrintErrTraceBack "Stuck in find prev";                                   # We seem to be looping endlessly
+      PrintErrTraceBack "Stuck in find prev" if $DebugMode;                     # We seem to be looping endlessly
      };                                                                         # Find completed successfully
     PopR;
    } parameters => [qw(key)],
@@ -7394,10 +7455,12 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree to search
-    If $t->leafFromNodes($N) == 0,                                              # If the zero Flag is zero then this is not a leaf
-    Then                                                                        # We can only perform this operation on a leaf
-     {PrintErrTraceBack "Cannot extract from a non leaf node";
-     };
+    if ($DebugMode)                                                           # With checking
+     {If $t->leafFromNodes($N) == 0,                                              # If the zero Flag is zero then this is not a leaf
+      Then                                                                        # We can only perform this operation on a leaf
+       {PrintErrTraceBack "Cannot extract from a non leaf node";
+       };
+     }
 
     PushR 7, 15;
 
@@ -7447,11 +7510,12 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
 
     my $t = $$s{tree};                                                          # Tree to search
     $t->leafFromNodes($N);                                                      # Check for a leaf
-    IfNe                                                                        # If the zero Flag is zero then this is not a leaf
-    Then                                                                        # We can only perform this operation on a leaf
-     {PrintErrTraceBack "Cannot extract first from a non leaf node";
-     };
-
+    if ($DebugMode)                                                             # Checking
+     {IfNe                                                                      # If the zero Flag is zero then this is not a leaf
+      Then                                                                      # We can only perform this operation on a leaf
+       {PrintErrTraceBack "Cannot extract first from a non leaf node";
+       };
+     }
     $t->key ->copy(dFromZ($K, 0));                                              # Save corresponding key  into tree data field
     $t->data->copy(dFromZ($D, 0));                                              # Save corresponding data into tree data field
 
@@ -7494,16 +7558,22 @@ sub Nasm::X86::Tree::mergeOrSteal($$)                                           
     PushR 22..31;
 
     my $l = $$parameters{offset}->clone("left");                                # Offset of left node that might need merging
-    If $l == 0,
-    Then
-     {PrintErrTraceBack "Zero offset in mergeOrSteal";
-     };
+
+    if ($DebugMode)                                                             # Checking
+     {If $l == 0,
+      Then
+       {PrintErrTraceBack "Zero offset in mergeOrSteal";
+       };
+     }
     $t->getBlock($l, $LK, $LD, $LN);                                            # Get the keys/data/nodes
     my $p = $t->upFromData($LD);                                                # Parent offset
-    If $p == 0,
-    Then
-     {PrintErrTraceBack "Cannot mergeOrSteal the root";
-     };
+
+    if ($DebugMode)                                                             # Checking
+     {If $p == 0,
+      Then
+       {PrintErrTraceBack "Cannot mergeOrSteal the root";
+       };
+     }
 
     my $ll = $t->lengthFromKeys($LK);                                           # Length of left
     If $ll == $t->lengthMin,                                                    # Need to merge or steal
@@ -8039,8 +8109,8 @@ sub Nasm::X86::Tree::delete($$)                                                 
            };
          });
        });
-      PrintErrTraceBack "Stuck looking for leaf";
-     };                                                          # Find completed successfully
+      PrintErrTraceBack "Stuck looking for leaf" if $DebugMode;
+     };                                                                         # Find completed successfully
     PopR;
    } parameters =>[qw(key)],
      structures =>{tree=>$tree},
@@ -17537,7 +17607,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
         for my $l(qw(a A b B d e F p q s S v))
          {eval qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
          }
-        PrintErrTraceBack "Unexpected lexical type";                            # Something unexpected came along
+        PrintErrTraceBack "Unexpected lexical type" if $DebugMode;              # Something unexpected came along
        };
      };                                                                         # Else not required - we are continuing in the same lexical item
 
@@ -17916,46 +17986,6 @@ size of tree: .... .... .... ..64
 END
  }
 
-#     Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
-#  2,623,415         177,952       2,623,415         177,952      0.429488          0.16
-#  2,611,013         177,952       2,611,013         177,952      0.398965          0.16  Improved allocZmmBlock
-#  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
-#  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
-#  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
-#  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
-#  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
-#  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
-#  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
-#  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
-#  2,181,550         187,664       2,181,550         187,664      0.361091          0.15  Improved parameter passing
-#  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
-#  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
-#  1,793,868         181,576       1,793,868         181,576      0.349532          0.15  k7 becomes k1 and so avoids the push
-#  1,792,946         181,336       1,792,946         181,336      0.358092          0.15  tree::allocBlock
-#  1,787,294         181,264       1,787,294         181,264      0.343509          0.15  Inc length in keys
-#  1,752,298         181,216       1,752,298         181,216      0.486707          0.16  dFromPointInZ
-#  1,680,124         180,952       1,680,124         180,952      0.333127          0.15  Indexx uses mask array not calculation
-#  1,658,167         180,976       1,658,167         180,976      0.331838          0.17  Indexx uses preloaded keys
-#  1,640,669         180,952       1,640,669         180,952      0.333896          0.16  Elided three instructions in put loop
-#  1,605,947         180,880       1,605,947         180,880      0.334369          0.14  search key preloaded into zmm
-#  1,597,198         192,760       1,597,525         192,760      0.387688          0.17  Optimized reloads out
-#  1,584,214         180,144       1,584,214         180,144      0.359084          0.16  Better inc/dec
-#  1,580,599         180,088       1,580,599         180,088      0.339057          0.15  Copy constant
-#  1,500,463         171,696       1,500,749         171,696      0.458875          0.16  Remove checks
-#  1,375,167         158,096       1,375,167         158,096      0.357263          0.16  Better boolean tests
-#latest:;
-if (1)
- {my $a = CreateArea;
-$TraceMode = 0;
-  my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
-  $t->size->outRightInDecNL(K width => 4);
-#  $t->put(K(key => 0xffffff), K(key => 1));                                     # 381
-#  $t->find(K key => 0xffffff);                                                 # 279 but we can do a lot better by rewriting with assigned registers
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1375167, trace=>0;
-2826
-END
- }
-
 #latest:;
 if (1)
  {my $a = K(key => 11);
@@ -18114,6 +18144,56 @@ first: .... .... .... .440
 first: .... .... .... .540
 first: .... .... .... .440
 first: .... .... .... .540
+END
+ }
+
+#     Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
+#  2,623,415         177,952       2,623,415         177,952      0.429488          0.16
+#  2,611,013         177,952       2,611,013         177,952      0.398965          0.16  Improved allocZmmBlock
+#  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
+#  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
+#  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
+#  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
+#  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
+#  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
+#  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
+#  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
+#  2,181,550         187,664       2,181,550         187,664      0.361091          0.15  Improved parameter passing
+#  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
+#  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
+#  1,793,868         181,576       1,793,868         181,576      0.349532          0.15  k7 becomes k1 and so avoids the push
+#  1,792,946         181,336       1,792,946         181,336      0.358092          0.15  tree::allocBlock
+#  1,787,294         181,264       1,787,294         181,264      0.343509          0.15  Inc length in keys
+#  1,752,298         181,216       1,752,298         181,216      0.486707          0.16  dFromPointInZ
+#  1,680,124         180,952       1,680,124         180,952      0.333127          0.15  Index uses mask array not calculation
+#  1,658,167         180,976       1,658,167         180,976      0.331838          0.17  Index uses preloaded keys
+#  1,640,669         180,952       1,640,669         180,952      0.333896          0.16  Elided three instructions in put loop
+#  1,605,947         180,880       1,605,947         180,880      0.334369          0.14  search key preloaded into zmm
+#  1,597,198         192,760       1,597,525         192,760      0.387688          0.17  Optimized reloads out
+#  1,584,214         180,144       1,584,214         180,144      0.359084          0.16  Better inc/dec
+#  1,580,599         180,088       1,580,599         180,088      0.339057          0.15  Copy constant
+#  1,500,463         171,696       1,500,749         171,696      0.458875          0.16  Remove checks
+#  1,375,167         158,096       1,375,167         158,096      0.357263          0.16  Better boolean tests
+#  1,341,795         115,616       1,341,795         115,616      0.309691          0.16  Debig mode around all PrintErr
+latest:;
+if (1)
+ {my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->find(K key => 0xffffff);
+  ok Assemble eq=><<END, avx512=>1, mix=>$TraceMode ? 2 : 1, clocks=>144, trace=>0;
+AAAA
+END
+ }
+latest:;
+if (1)
+ {my $a = CreateArea;
+$TraceMode = 0;
+  my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
+  $t->size->outRightInDecNL(K width => 4);
+#  $t->put(K(key => 0xffffff), K(key => 1));                                     # 373
+#  $t->find(K key => 0xffffff);                                                  # 270 but we can do a lot better by rewriting with assigned registers
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1341795, trace=>0;
+2826
 END
  }
 
