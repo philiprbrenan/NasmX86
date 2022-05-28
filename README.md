@@ -1,10 +1,10 @@
-# Generate and run [X86-64](https://en.wikipedia.org/wiki/X86-64) [Advanced Vector Extensions](https://en.wikipedia.org/wiki/AVX-512) [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) [programs](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/) 
+# Please [help](https://en.wikipedia.org/wiki/Online_help) with this project by getting involved!
 
+# Generate and run [X86-64](https://en.wikipedia.org/wiki/X86-64) [Advanced Vector Extensions](https://en.wikipedia.org/wiki/AVX-512) [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) [programs](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/) 
 ![Test](https://github.com/philiprbrenan/Nasmx86/workflows/Test/badge.svg)
 
 This [module](https://en.wikipedia.org/wiki/Modular_programming) generates and runs [Intel](https://en.wikipedia.org/wiki/Intel) [X86-64](https://en.wikipedia.org/wiki/X86-64) [Advanced Vector Extensions](https://en.wikipedia.org/wiki/AVX-512) [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) [programs](https://en.wikipedia.org/wiki/Computer_program) using [Perl](http://www.perl.org/) as a powerful macro [preprocessor](https://en.wikipedia.org/wiki/Preprocessor) for [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm). It contains useful methods to debug [programs](https://en.wikipedia.org/wiki/Computer_program) during development making this system an ideal development environment
-for any-one who wants to learn how to [program](https://en.wikipedia.org/wiki/Computer_program) quickly with [Intel](https://en.wikipedia.org/wiki/Intel) [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) [code](https://en.wikipedia.org/wiki/Computer_program). 
-
+for any-one who wants to learn how to [program](https://en.wikipedia.org/wiki/Computer_program) quickly with [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) [code](https://en.wikipedia.org/wiki/Computer_program). 
 Full documentation is available at
 [Nasm::X86](https://metacpan.org/pod/Nasm::X86).
 
