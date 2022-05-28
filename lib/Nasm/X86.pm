@@ -8338,6 +8338,56 @@ sub Nasm::X86::Tree::reverse($)                                                 
   $t                                                                            # Chain from the target string
  }
 
+sub Nasm::X86::Area::treeFromString($$$)                                        # Create a tree from a string of bytes held at a variable address with a variable length and return the resulting tree.  The first element of the tree is the specified length, in bytes, of the string.
+ {my ($area, $address, $size) = @_;                                             # Area description, address of string, length of string in bytes
+  @_ == 3 or confess "Three parameters";
+
+  my $t = $area->CreateTree(length => 3);                                       # Create a tree to be used to store the string
+
+  $t->push($size);                                                              # Push the length of the string
+
+  If $size > 0,
+  Then                                                                          # Push string of non zero length
+   {PushR 13, 14, 15;
+
+    my $two = K two => 2;
+   ($size >> $two)->for(sub                                                     # Push each full dword of the input string into the tree
+     {my ($i, $start, $next, $end) = @_;
+      $i->setReg(15);                                                           # Index of chunk to push
+      $address->setReg(14);                                                     # Start of string
+      Mov r15, "[r14+4*r15]";                                                   # 4 means dword
+      $t->push(V chunk => r15)                                                  # Load chunk and push into string tree
+     });
+
+    ClearRegisters r13;
+    $address->setReg(14);                                                       # Start of string
+    $size   ->setReg(15);                                                       # Length of string in bytes
+
+    my $remainder = $size  - ($size >> $two << $two);                           # Any remainder
+    If $remainder == 3,
+    Then                                                                        # Last three bytes
+     {Mov r13w, "[r14+r15-2]";                                                  # Last two bytes
+      Shl r13, 8;                                                               # Make room for remaining word
+      Mov r13b, "[r14+r15-3]";                                                  # Third last byte
+     },
+    Ef {$remainder == 2}
+    Then                                                                        # Last two bytes
+     {Mov r13w, "[r14+r15-2]";                                                  # Last two bytes
+     },
+    Ef {$remainder == 1}
+    Then                                                                        # Last byte
+     {Mov r13w, "[r14+r15-1]";                                                  # Last byte
+     };
+
+    If $remainder > 0,
+    Then                                                                        # Save last few bytes
+     {$t->push(V last => r13)                                                   # Last few bytes
+     };
+    PopR;
+   };
+  $t                                                                            # Description of tree loaded from string
+ }
+
 #D3 Trees as sets                                                               # Trees of trees as sets
 
 sub Nasm::X86::Tree::union($)                                                   # Given a tree of trees consider each sub tree as a set and form the union of all these sets as a new tree
@@ -8853,6 +8903,52 @@ sub Nasm::X86::Tree::dec($)                                                     
 
   $tree->pop                                                                    # Perform the pop
  }
+
+#D1 Quarks                                                                      # Translate between a unique string and a unique number.
+
+#sub Nasm::X86::Quarks::StringToNumber {0}                                       # The field in the quarks tree that contains the offset of the tree that maps strings to numbers
+#sub Nasm::X86::Quarks::NumberToString {1}                                       # The field in the quarks tree that contains the offset of the tree that maps numbers to strings
+#
+#sub Nasm::X86::Area::CreateQuarks($%)                                           # Create a set if quarks in an area.
+# {my ($area, %options) = @_;                                                    # Area description, quark options
+#  @_ % 2 == 1 or confess "Odd number of parameters required";
+#
+#  my $q = $area->CreateTree(length => 3);                                       # A tree descriptor for a set of  quarks == tree in the specified area
+#  my $s = $area->CreateTree(length => 3);                                       # Strings to numbers
+#  my $n = $area->CreateTree(length => 3);                                       # Numbers to strings
+#  $q->put(K(key => Nasm::X86::Quarks::StringToNumber), $s);                     # Strings to numbers
+#  $q->put(K(key => Nasm::X86::Quarks::NumberToString), $n);                     # Numbers to strings
+#  bless {%$q}, q(Nasm::X86::Quarks)                                             # A tree descriptor for a set of  quarks == tree in the specified area
+# }
+#
+#sub Nasm::X86::Quarks::dump($$)                                                 # Dump quarks
+# {my ($quarks, $title) = @_;                                                    # Area description, quark options
+#  @_ == 2 or confess "Two parameters";
+#  (bless {%$quarks}, q(Nasm::X86::Tree))->dump($title);
+# }
+#
+#sub Nasm::X86::Quarks::put($$$)                                                 # Add a string of specified length to the set of quarks and return its number as as a variable.
+# {my ($quarks, $address, $size) = @_;                                           # Area description, quark options
+#  @_ == 3 or confess "Three parameters";
+#  my $t = bless {%$quarks}, "Nasm::X86::Tree";                                  # Quarks == Tree
+#  my $s = $t->findSubTree(K key => Nasm::X86::Quarks::StringToNumber);          # Strings to numbers
+#  my $n = $t->findSubTree(K key => Nasm::X86::Quarks::NumberToString);          # Numbers to strings
+#  my $q = $n->size;
+#
+#  my $i = $t->area->treeFromString($address, $size);                            # Create an input tree string - expensive - we should look up the quark directly from the input string but this way is easier to code.
+#  my $I = $s->getString($i);                                                    # Look up the input string
+#  If $I->found == 0,                                                            # We can add it as it does not exist
+#  Then
+#   {$i->push($q);
+#    $s->putString($i);
+#    $n->push($i);
+#   },
+#  Else                                                                          # It already exists so returns its number
+#   {$q->copy($I->data);
+#    $i->free;                                                                   # We do not need the tree string as it is already present int the string tree.
+#   };
+#  $q
+# }
 
 #D1 Assemble                                                                    # Assemble generated code
 
@@ -17630,102 +17726,6 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    };
  }
 
-#D1 Quarks                                                                      # Translate between a unique string and a unique number.
-
-sub Nasm::X86::Quarks::StringToNumber {0}                                       # The field in the quarks tree that contains the offset of the tree that maps strings to numbers
-sub Nasm::X86::Quarks::NumberToString {1}                                       # The field in the quarks tree that contains the offset of the tree that maps numbers to strings
-
-sub Nasm::X86::Area::CreateQuarks($%)                                           # Create a set if quarks in an area.
- {my ($area, %options) = @_;                                                    # Area description, quark options
-  @_ % 2 == 1 or confess "Odd number of parameters required";
-
-  my $q = $area->CreateTree(length => 3);                                       # A tree descriptor for a set of  quarks == tree in the specified area
-  my $s = $area->CreateTree(length => 3);                                       # Strings to numbers
-  my $n = $area->CreateTree(length => 3);                                       # Numbers to strings
-  $q->put(K(key => Nasm::X86::Quarks::StringToNumber), $s);                     # Strings to numbers
-  $q->put(K(key => Nasm::X86::Quarks::NumberToString), $n);                     # Numbers to strings
-  bless {%$q}, q(Nasm::X86::Quarks)                                             # A tree descriptor for a set of  quarks == tree in the specified area
- }
-
-sub Nasm::X86::Quarks::dump($$)                                                 # Dump quarks
- {my ($quarks, $title) = @_;                                                    # Area description, quark options
-  @_ == 2 or confess "Two parameters";
-  (bless {%$quarks}, q(Nasm::X86::Tree))->dump($title);
- }
-
-sub Nasm::X86::Quarks::put($$$)                                                 # Add a string of specified length to the set of quarks and return its number as as a variable.
- {my ($quarks, $address, $size) = @_;                                           # Area description, quark options
-  @_ == 3 or confess "Three parameters";
-  my $t = bless {%$quarks}, "Nasm::X86::Tree";                                  # Quarks == Tree
-  my $s = $t->findSubTree(K key => Nasm::X86::Quarks::StringToNumber);          # Strings to numbers
-  my $n = $t->findSubTree(K key => Nasm::X86::Quarks::NumberToString);          # Numbers to strings
-  my $q = $n->size;
-
-  my $i = $t->area->treeFromString($address, $size);                            # Create an input tree string - expensive - we should look up the quark directly from the input string but this way is easier to code.
-  my $I = $s->getString($i);                                                    # Look up the input string
-  If $I->found == 0,                                                            # We can add it as it does not exist
-  Then
-   {$i->push($q);
-    $s->putString($i);
-    $n->push($i);
-   },
-  Else                                                                          # It already exists so returns its number
-   {$q->copy($I->data);
-    $i->free;                                                                   # We do not need the tree string as it is already present int the string tree.
-   };
-  $q
- }
-
-sub Nasm::X86::Area::treeFromString($$$)                                        # Create a tree from a string of bytes held at a variable address with a variable length and return the resulting tree.  The first element of the tree is the specified length, in bytes, of the string.
- {my ($area, $address, $size) = @_;                                             # Area description, address of string, length of string in bytes
-  @_ == 3 or confess "Three parameters";
-
-  my $t = $area->CreateTree(length => 3);                                       # Create a tree to be used to store the string
-
-  $t->push($size);                                                              # Push the length of the string
-
-  If $size > 0,
-  Then                                                                          # Push string of non zero length
-   {PushR 13, 14, 15;
-
-    my $two = K two => 2;
-   ($size >> $two)->for(sub                                                     # Push each full dword of the input string into the tree
-     {my ($i, $start, $next, $end) = @_;
-      $i->setReg(15);                                                           # Index of chunk to push
-      $address->setReg(14);                                                     # Start of string
-      Mov r15, "[r14+4*r15]";                                                   # 4 means dword
-      $t->push(V chunk => r15)                                                  # Load chunk and push into string tree
-     });
-
-    ClearRegisters r13;
-    $address->setReg(14);                                                       # Start of string
-    $size   ->setReg(15);                                                       # Length of string in bytes
-
-    my $remainder = $size  - ($size >> $two << $two);                           # Any remainder
-    If $remainder == 3,
-    Then                                                                        # Last three bytes
-     {Mov r13w, "[r14+r15-2]";                                                  # Last two bytes
-      Shl r13, 8;                                                               # Make room for remaining word
-      Mov r13b, "[r14+r15-3]";                                                  # Third last byte
-     },
-    Ef {$remainder == 2}
-    Then                                                                        # Last two bytes
-     {Mov r13w, "[r14+r15-2]";                                                  # Last two bytes
-     },
-    Ef {$remainder == 1}
-    Then                                                                        # Last byte
-     {Mov r13w, "[r14+r15-1]";                                                  # Last byte
-     };
-
-    If $remainder > 0,
-    Then                                                                        # Save last few bytes
-     {$t->push(V last => r13)                                                   # Last few bytes
-     };
-    PopR;
-   };
-  $t                                                                            # Description of tree loaded from string
- }
-
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
   my $a = CreateArea;
@@ -18075,13 +18075,13 @@ END
  }
 
 #latest:
-if (1) {                                                                        #
-  my $a =     CreateArea;
-  my $q = $a->CreateQuarks;
-
-  ok Assemble eq => <<END, avx512=>1;
-END
- }
+#if (1) {                                                                        #
+#  my $a =     CreateArea;
+#  my $q = $a->CreateQuarks;
+#
+#  ok Assemble eq => <<END, avx512=>1;
+#END
+# }
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::putString
