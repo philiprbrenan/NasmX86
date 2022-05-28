@@ -832,6 +832,7 @@ sub getBwdqFromMm($$$%)                                                         
     push @text, <<END;
 vpextr$size $d, xmm$n, 0
 END
+    return;
    }
 
   my $r = $options{set} // rdi;                                                 # Choose a work register
@@ -6915,14 +6916,14 @@ sub Nasm::X86::Tree::find($$)                                                   
           Jmp $success;                                                         # Return
          };
 
+Comment "FFFFF111";
         $t->leafFromNodes($N, set=>rsi),                                        # Check whether this is a leaf by looking at the first sub node - if it is zero this must be a leaf as no node van have a zero offset in an area
         Cmp rsi, 0;                                                             # Leaf if zero
         Jz $success;                                                            # Return
+Comment "FFFFF22222";
 
-Comment "FFFFF111";
         $t->insertionPoint($key, $K, set => rsi);                               # The insertion point if we were inserting
         dFromPointInZ(rsi, $N, set=>$Q);                                        # Get the corresponding offset to the next sub tree
-Comment "FFFFF22222";
         Sub $loop, 1;
         Jnz $start;                                                             # Keep going but not for ever
        } $loop, 99;                                                             # loop a limited numbr of times
@@ -18241,8 +18242,8 @@ if (1)
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#  $t->put(K(key => 0xffffff), K(key => 1));                                    # 373
-   $t->find(K key => 0xffffff);                                                 # 149
+#   $t->put(K(key => 0xffffff), K(key => 1));                                   # 368
+#  $t->find(K key => 0xffffff);                                                 # 139
 # ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1317737, trace=>0;
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1326486, trace=>0;
 2826
