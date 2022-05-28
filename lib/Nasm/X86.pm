@@ -6899,6 +6899,7 @@ Comment("FFFF start");
         Then
          {my $eq = V eq => rsi;
           my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
+          $t->found ->copy($eq);                                                # Show found
           $t->data  ->copy($d);                                                 # Data associated with the key
           $t->offset->copy($Q);                                                 # Offset of the containing block
           $t->subTree->copy($t->getTreeBit($K, $eq));                           # Get corresponding tree bit
@@ -6907,8 +6908,8 @@ Comment("FFFF start");
 
 Comment "FFFFF111";
         $t->leafFromNodes($N, set=>rsi),                                        # Check whether this is a leaf by looking at the first sub node - if it is zero this must be a leaf as no node van have a zero offset in an area
-        Cmp rsi, 0;                                                             # Leaf if non zero
-        Jnz $success;                                                           # Return
+        Cmp rsi, 0;                                                             # Leaf if zero
+        Jz $success;                                                            # Return
 Comment "FFFFF22222";
 
         my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
@@ -13717,6 +13718,48 @@ END
  }
 
 #latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->put (K(key => 2), K(data => 0x22));
+  $t->find(K key => 2);
+  $t->found->outNL;
+  $t->data ->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+found: .... .... .... ...1
+data: .... .... .... ..22
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put (K(key=>2), K(data=>0x22));
+  $t->put (K(key=>1), K(data=>0x11));
+  $t->find(K key => 1);
+  $t->found->outNL;
+  $t->data ->outNL;
+  $t->find(K key => 2);
+  $t->found->outNL;
+  $t->data ->outNL;
+  $t->find(K key => 3);
+  $t->found->outNL;
+  $t->data ->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+found: .... .... .... ...1
+data: .... .... .... ..11
+found: .... .... .... ...2
+data: .... .... .... ..22
+found: .... .... .... ....
+data: .... .... .... ....
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::allocBlock #TNasm::X86::Tree::putBlock #TNasm::X86::Tree::getBlock #TNasm::X86::Tree::root
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -14174,6 +14217,25 @@ END
  }
 
 #latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree(length => 3);
+
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->dump("2222");
+
+  ok Assemble eq => <<END, avx512=>1;
+2222
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    1    2
+  Data :   17   34
+end
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArea;
   my $t = $a->CreateTree(length => 3);
@@ -14194,25 +14256,6 @@ At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   4
   Index:    0    1    2    3    4    5    6    7
   Keys :    1    2    3    4    5    6    7    8
   Data :   17   34   51   68   85  102  119  136
-end
-END
- }
-
-#latest:
-if (1) {
-  my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
-
-  $t->put(K(key=>2), K(data=>0x22));
-  $t->put(K(key=>1), K(data=>0x11));
-  $t->dump("2222");
-
-  ok Assemble eq => <<END, avx512=>1;
-2222
-At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
-  Index:    0    1
-  Keys :    1    2
-  Data :   17   34
 end
 END
  }
@@ -14281,7 +14324,7 @@ if (1) {                                                                        
     $t->find($q);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDecNL(K width => 8);
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+   ok Assemble eq => <<END, avx512=>1;
 AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512
    0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0
@@ -18197,6 +18240,7 @@ if (0)
 AAAA
 END
  }
+
 latest:;
 if (1)
  {my $a = CreateArea;
@@ -18204,11 +18248,12 @@ $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 #  $t->put(K(key => 0xffffff), K(key => 1));                                    # 373
-   $t->find(K key => 0xffffff);                                                 # 177
+#  $t->find(K key => 0xffffff);                                                 # 155
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1317737, trace=>0;
 2826
 END
  }
+
 
 done_testing;
 
