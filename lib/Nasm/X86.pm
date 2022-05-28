@@ -17771,15 +17771,21 @@ At:      1C0                                                                    
        Keys : 34333231
        Data :      28*
         Tree:      280
-          At:      380                                                                      length:        1,  data:      3C0,  nodes:      400,  first:      280, root, leaf
+          At:      3C0                                                                      length:        1,  data:      400,  nodes:      440,  first:      280, root, leaf,  trees:             1
             Index:        0
             Keys :   373635
-            Data :       99
+            Data :      38*
+             Tree:      380
+               At:      480                                                                 length:        1,  data:      4C0,  nodes:      500,  first:      380, root, leaf
+                 Index:        0
+                 Keys :        0
+                 Data :       99
+               end
           end
      end
 end
 found: .... .... .... ...1
-data: .... .... .... ..99
+data: .... .... .... .380
 END
  }
 
