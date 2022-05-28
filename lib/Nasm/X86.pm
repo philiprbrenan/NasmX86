@@ -826,10 +826,11 @@ sub extractRegisterNumberFromMM($)                                              
 sub getBwdqFromMm($$$%)                                                         # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
  {my ($size, $mm, $offset, %options) = @_;                                      # Size of get, mm register, offset in bytes either as a constant or as a variable, options
 
-  if (!ref($offset) and $offset == 0 and $options{set})                         # Use Pextr in this special circumstance
+  if (!ref($offset) and $offset == 0 and my $s = $options{set})                 # Use Pextr in this special circumstance
    {my $n = extractRegisterNumberFromMM $mm;                                    # Register number
+    my $d = dWordRegister $s;                                                   # Target a dword register
     push @text, <<END;
-Pextr$size $options{set}, xmm$n, 0
+vpextr$size $d, xmm$n, 0
 END
    }
 
@@ -1265,7 +1266,7 @@ sub For(&$$;$)                                                                  
 
 sub ForIn(&$$$$)                                                                # For - iterate the full block as long as register plus increment is less than than limit incrementing by increment each time then increment the last block for the last non full block.
  {my ($full, $last, $register, $limitRegister, $increment) = @_;                # Block for full block, block for last block , register, register containing upper limit of loop, increment on each iteration
-  @_ == 5 or confess;
+
   my $start = Label;
   my $end   = Label;
 
@@ -1289,10 +1290,23 @@ sub ForIn(&$$$$)                                                                
    }
  }
 
+sub uptoNTimes(&$$)                                                             # Execute a block of code up to a constant number of times controlled by the named register
+ {my ($code, $register, $limit) = @_;                                           # Block of code, register controlling loop, constant limit
+  confess "Limit must be a positive inter constant"                             # Check for a specific limit
+    unless $limit =~ m(\A\d+\Z) and $limit > 0;
+
+  Mov $register, $limit;                                                        # Set the limit
+  SetLabel(my $start = Label);                                                  # Start of block
+  my $end  = Label;                                                             # End of block
+  &$code($end, $start);                                                         # Code with labels supplied
+  Sub $register, 1;                                                             # Set flags
+  Jnz $start;                                                                   # Continue if count still greater than zero
+  SetLabel $end;                                                                # End of block
+ }
+
 sub ForEver(&)                                                                  # Iterate for ever.
  {my ($block) = @_;                                                             # Block to iterate
-  @_ == 1 or confess "One parameter";
-  &Comment("ForEver");
+
   my $start = Label;                                                            # Start label
   my $end   = Label;                                                            # End label
 
@@ -2152,6 +2166,11 @@ sub PrintRegisterInHex($@)                                                      
   for my $r(map{registerNameFromNumber $_} @r)                                  # Each register to print
    {PrintString($channel,  sprintf("%6s: ", $r));                               # Register name
     PrintOneRegisterInHex $channel, $r;
+    if ($channel == $stderr)                                                    # Print location in the source file in a format that Geany understands
+     {my @c = caller 1;
+      my (undef, $file, $line) = @c;
+      PrintString $channel, " called at $file line $line";
+     }
     PrintNL($channel);
    }
  }
@@ -6101,9 +6120,8 @@ sub Nasm::X86::Tree::getBlock($$$$$)                                            
     Mov edi, "[$A+$offset+$$tree{loop}]";                                       # Loop offset
 
     Vmovdqu64 zmm($D), "[$A+rdi]";                                              # Read data from memory
-    $a->getZmmBlock($offset,  $K);                                              # Get the keys block
+    Mov edi, "[$A+rdi+$$tree{loop}]";                                           # Loop nodes offset
 
-    Mov edi, "[$A+$offset+$$tree{loop}]";                                        # Loop nodes offset
     Vmovdqu64 zmm($N), "[$A+rdi]";                                              # Read from memory
    }
  }
@@ -6857,7 +6875,7 @@ Comment("FFFF start");
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28, my $key = 27,
-          my $Q = r15;
+          my $Q = r15, my $loop = r14;
 
     Block
      {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
@@ -6869,18 +6887,15 @@ Comment("FFFF start");
       $t->firstFromMemory      ($F);                                            # Load first block
 
      # my $Q = $t->rootFromFirst($F);                                           # Start the search from the root
-Comment("FFFFAAAA");
       $t->rootFromFirst($F, set => $Q);                                         # Start the search from the root
-Comment("FFFFBBBB");
 
       Cmp $Q, 0;
       Je $success;                                                              # Empty tree so we have not found the key
-
       $k->setReg(rdi);
       Vpbroadcastd zmm($key), edi;                                              # Load key to test once
 
-      K(loop=>99)->for(sub                                                      # Step down through tree
-       {my ($index, $start, $next, $end) = @_;
+      uptoNTimes                                                                # Step down through tree
+       {my (undef, $start) = @_;
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
         my $eq  = $t->indexEq($key, $K);                                        # The position of a key in a zmm equal to the specified key as a point in a variable.
@@ -6894,14 +6909,13 @@ Comment("FFFFBBBB");
           Jmp $success;                                                         # Return
          };
 
-        my $leaf = $t->leafFromNodes($N);
         If $t->leafFromNodes($N) > 0,
         Then                                                                    # Leaf so we cannot go further
          {Jmp $success;                                                         # Return
          };
 
         my $i = $t->insertionPoint($key, $K);                                   # The insertion point if we were inserting
-        my $n = $i->dFromPointInZ($N);                                          # Get the corresponding data
+        my $n = $i->dFromPointInZ($N);                                          # Get the corresponding offset to the next sub tree
         if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                    # Optimize by removing pointless load/unload/load
          {pop @text;
           Mov $Q, rsi;
@@ -6909,8 +6923,10 @@ Comment("FFFFBBBB");
         else
          {confess "Set Q";                                                      # Get the offset of the next node - we are not on a leaf so there must be one
          }
-       });
-      PrintErrTraceBack "Stuck in find" if $DebugMode;                          # We seem to be looping endlessly
+        Sub $loop, 1;
+        Jnz $start;                                                             # Keep going but not for ever
+       } $loop, 99;                                                             # loop a limited numbr of times
+      PrintErrTraceBack "Stuck in find";                                        # We seem to be looping endlessly
      };                                                                         # Find completed successfully
     PopR;
    } parameters => [qw(key)],
@@ -6964,7 +6980,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
 
         $t->getBlock($n, $K, $D, $N);
        });
-      PrintErrTraceBack "Stuck looking for first" if $DebugMode;
+      PrintErrTraceBack "Stuck looking for first";
      };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
@@ -7015,7 +7031,7 @@ sub Nasm::X86::Tree::findLast($)                                                
           my $n = dFromZ($N, $O);                                               # Step down to the next level
           $t->getBlock($n, $K, $D, $N);
          });
-        PrintErrTraceBack "Stuck looking for last" if $DebugMode;
+        PrintErrTraceBack "Stuck looking for last";
        };
      };                                                                         # Find completed successfully
     PopR;
@@ -7080,7 +7096,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
          };
         $Q->copy($n);                                                           # Corresponding node
        });
-      PrintErrTraceBack "Stuck in find next" if $DebugMode;                     # We seem to be looping endlessly
+      PrintErrTraceBack "Stuck in find next";                                   # We seem to be looping endlessly
      };                                                                         # Find completed successfully
     PopR;
    } parameters => [qw(key)],
@@ -7150,7 +7166,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
          };
         $Q->copy($n);                                                           # Corresponding node
        });
-      PrintErrTraceBack "Stuck in find prev" if $DebugMode;                     # We seem to be looping endlessly
+      PrintErrTraceBack "Stuck in find prev";                                   # We seem to be looping endlessly
      };                                                                         # Find completed successfully
     PopR;
    } parameters => [qw(key)],
@@ -18175,8 +18191,8 @@ END
 #  1,500,463         171,696       1,500,749         171,696      0.458875          0.16  Remove checks
 #  1,375,167         158,096       1,375,167         158,096      0.357263          0.16  Better boolean tests
 #  1,341,795         115,616       1,341,795         115,616      0.309691          0.16  Debig mode around all PrintErr
-latest:;
-if (1)
+#latest:;
+if (0)
  {my $a = CreateArea;
   my $t = $a->CreateTree;
   $t->find(K key => 0xffffff);
@@ -18190,8 +18206,8 @@ if (1)
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#  $t->put(K(key => 0xffffff), K(key => 1));                                     # 373
-#  $t->find(K key => 0xffffff);                                                  # 270 but we can do a lot better by rewriting with assigned registers
+#  $t->put(K(key => 0xffffff), K(key => 1));                                    # 373
+  $t->find(K key => 0xffffff);                                                  # 196
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1341795, trace=>0;
 2826
 END
