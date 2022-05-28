@@ -1858,6 +1858,9 @@ sub PrintErrString(@)                                                           
 sub PrintErrStringNL(@)                                                         # Print a constant string to stderr followed by a new line.
  {my (@string) = @_;                                                            # String
   PrintErrString(@string);
+  my @c = caller 0;
+  my (undef, $file, $line) = @c;
+  PrintErrString " called at $file line $line";
   PrintErrNL;
  }
 
@@ -2706,7 +2709,7 @@ sub Nasm::X86::Variable::outNL($;$$)                                            
   $left->dump($stdout, 1, $title1, $title2);
  }
 
-sub Nasm::X86::Variable::debug($)                                               # Dump the value of a variable on stdout with an indication of where the dump came from.
+sub Nasm::X86::Variable::debug22($)                                             # Dump the value of a variable on stderr with an indication of where the dump came from.
  {my ($left) = @_;                                                              # Left variable
   PushR rax, rdi;
   Mov rax, $left->label;                                                        # Address in memory
@@ -6051,11 +6054,8 @@ sub Nasm::X86::Tree::getBlock($$$$$)                                            
  {my ($t, $offset, $K, $D, $N) = @_;                                            # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
   @_ == 5 or confess "Five parameters";
   my $a = $t->area;                                                             # Underlying area
-Comment "DDDDDAAAAAA";
   $a->getZmmBlock($offset, $K);                                                 # Get the keys block
-Comment "DDDDDBBBBB";
   my $data = $t->getLoop(  $K);                                                 # Get the offset of the corresponding data block
-Comment "DDDDDCCCCC";
   $a->getZmmBlock($data,   $D);                                                 # Get the data block
   my $node = $t->getLoop  ($D);                                                 # Get the offset of the corresponding node block
   $a->getZmmBlock($node,   $N);                                                 # Get the node block
@@ -6816,7 +6816,6 @@ sub Nasm::X86::Tree::find($$)                                                   
       Then                                                                      # Empty tree so we have not found the key
        {Jmp $success;                                                           # Return
        };
-
       $k->setReg(rdi);
       Vpbroadcastd zmm($key), edi;                                              # Load key to test once
 
@@ -8407,26 +8406,28 @@ sub Nasm::X86::Tree::intersection($)                                            
 
 #D3 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.  The inverse operation is much easier as we just have to look up a string by number in a tree.
 
-sub Nasm::X86::Tree::putString($$)                                              # The last element of the string is the value, the preceding elements are the keys so such a string must have at least two elements. We create a string tree to index strings to values
+sub Nasm::X86::Tree::putString($$)                                              # The last element of the string is the value, the preceding elements are the keys so such a tree acting as a string must have at least one element.
  {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
   @_ == 2 or confess "Two parameters";
+  confess "Second parameter must be a tree"
+    unless ref($string) and ref($string) =~ m(Tree);
+
+  my $S = $tree->copyDescription;                                             # Create a new descriptor for the string tree
 
   my $size = $string->size;                                                     # Tree size
-  If $size > 1,                                                                 # Tree must be two or more
+  If $size > 0,                                                                 # String tree must have at least one element
   Then
-   {my $size1 = $size - 1;
-    my $S = $tree->copyDescription;                                             # Create a new descriptor for the string tree
-    my $s = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
+   {my $s = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
     my $z = V count => 0;                                                       # Count of elements so that we can find the last element to be inserted
     my $l = V last  => 0;                                                       # Last key
 
     $string->by(sub                                                             # Insert latest tree
      {my ($t) = @_;
       $z++;
-      If $z < $size1,                                                           # First elements are keys
+      If $z < $size,                                                            # First elements are keys
       Then
        {If $s == 1,
-        Then
+        Then                                                                    # String matches an existing string so far
          {$S->find($t->data);
           If $S->found == 0,
           Then                                                                  # Position on new element
@@ -8439,21 +8440,18 @@ sub Nasm::X86::Tree::putString($$)                                              
            {$S->first->copy($S->data);                                          # Position on found element
            };
          },
-        Else
+        Else                                                                    # String no longer matches an existing string - we are creating a new path
          {my $T = $t->area->CreateTree;
           $S->put($t->data, $T);
           $S->first->copy($T->first);
          };
        },
-      Ef {$z == $size1}                                                         # Last key
-      Then
-       {$l->copy($t->data);
-       },
-      Else
+      Else                                                                      # Put last element of string as data elent of last key
        {$S->put($l, $t->data);
        };
      });
    };
+  $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
  }
 
 sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string and return its data in B<found> and B<data>.
@@ -10058,7 +10056,6 @@ if (onGitHub)
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
-#if (!onGitHub or @ARGV) {                                                      # Do first block if we are on gitHub and the first block was requested else do the second block.
 if (0 or @ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block.
 
 #latest:
@@ -12578,111 +12575,8 @@ This should happen!
 END
  }
 
-#latest:;
-if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
-  my $a = CreateArea;
-  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("01234567");
-
-  my $q = $a->CreateQuarks;
-  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)});
-  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)->outNL});
-
-  ok Assemble debug => 0, mix => 0, eq => <<END, avx512=>1, trace=>0;
-size of tree: .... .... .... ....
-size of tree: .... .... .... ...1
-size of tree: .... .... .... ...2
-size of tree: .... .... .... ...3
-size of tree: .... .... .... ...4
-size of tree: .... .... .... ...5
-size of tree: .... .... .... ...6
-size of tree: .... .... .... ...7
-END
- }
-
 #latest:
-if (0) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put #TNasm::X86::Quarks::putSub #TNasm::X86::Quarks::dump #TNasm::X86::Quarks::subFromQuarkViaQuarks #TNasm::X86::Quarks::subFromQuarkNumber #TNasm::X86::Quarks::subFromShortString #TNasm::X86::Quarks::callSubFromShortString
-  my $s = Subroutine33
-   {my ($p, $s) = @_;
-    PrintOutString "SSSS";
-    $$p{p}->setReg(15);
-    PrintOutRegisterInHex r15;
-   } [qw(p)], name => 'ssss';
-
-  my $t = Subroutine33
-   {my ($p, $s) = @_;
-    PrintOutString "TTTT";
-    $$p{p}->setReg(15);
-    PrintOutRegisterInHex r15;
-   } [], name => 'tttt', with => $s;
-
-  my $A = CreateArea;
-
-  my $Q  = $A->CreateQuarks;
-           $Q->put('aaaa');
-           $Q->put('bbbb');
-  my $Qs = $Q->put('ssss');
-  my $Qt = $Q->put('tttt');
-
-  my $q  = $A->CreateQuarks;
-  my $qs = $q->putSub('ssss', $s);
-  my $qt = $q->putSub('tttt', $t);
-
-  PrintOutStringNL "Quarks";   $Q->dump;
-  PrintOutStringNL "Subs";     $q->dump;
-
-  $q->subFromQuarkViaQuarks($Q, $Qs)->outNL;
-  $q->subFromQuarkViaQuarks($Q, $Qt)->outNL;
-  $q->subFromQuarkNumber($qs)->outNL;
-  $q->subFromQuarkNumber($qt)->outNL;
-
-  my $cs = $q->subFromQuarkNumber($qs);
-  $s->via($cs, p => 1);
-  my $ct = $q->subFromQuarkNumber($qt);
-  $s->via($ct, p => 2);
-
-  $q->callSubFromQuarkNumber   (    $s, $qs, p => 0x11);
-  $q->callSubFromQuarkNumber   (    $s, $qt, p => 0x22);
-  $q->callSubFromQuarkViaQuarks($Q, $s, $Qs, p => 0x111);
-  $q->callSubFromQuarkViaQuarks($Q, $s, $Qt, p => 0x222);
-
-  if (1)
-   {my $s = CreateShortString(0);
-       $s->loadConstantString("ssss");
-    $q->subFromShortString($s)->outNL;
-   }
-
-  if (1)
-   {my $s = CreateShortString(0);
-       $s->loadConstantString("ssss");
-    $q->callSubFromShortString($t, $s, p => 3);
-   }
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
-Quarks
-Quark : 0000 0000 0000 0000 => 0000 0000 0000 00D8 == 0000 00D8 0000 00D8   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0061 6161 6104
-Quark : 0000 0000 0000 0001 => 0000 0000 0000 0198 == 0000 0198 0000 0198   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0062 6262 6204
-Quark : 0000 0000 0000 0002 => 0000 0000 0000 01D8 == 0000 01D8 0000 01D8   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0073 7373 7304
-Quark : 0000 0000 0000 0003 => 0000 0000 0000 0218 == 0000 0218 0000 0218   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0074 7474 7404
-Subs
-Quark : 0000 0000 0000 0000 => 0000 0000 0000 0318 == 0000 0318 0000 0318   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0073 7373 7300   0000 0000 4010 090C
-Quark : 0000 0000 0000 0001 => 0000 0000 0000 03D8 == 0000 03D8 0000 03D8   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0074 7474 7400   0000 0000 4013 870C
-sub: 0000 0000 0040 1009
-sub: 0000 0000 0040 1387
-sub: 0000 0000 0040 1009
-sub: 0000 0000 0040 1387
-SSSS   r15: 0000 0000 0000 0001
-TTTT   r15: 0000 0000 0000 0002
-SSSS   r15: 0000 0000 0000 0011
-TTTT   r15: 0000 0000 0000 0022
-SSSS   r15: 0000 0000 0000 0111
-TTTT   r15: 0000 0000 0000 0222
-sub: 0000 0000 0040 1009
-SSSS   r15: 0000 0000 0000 0003
-END
- }
-
-#latest:
-if (11) {                                                                       #TNasm::X86::Variable::clone
+if (1) {                                                                        #TNasm::X86::Variable::clone
   my $a = V('a', 1);
   my $b = $a->clone('a');
 
@@ -16553,7 +16447,10 @@ if (1) {                                                                        
   $q->push(K char => ord $_) for split //, 'abe3';
   $p +=    K(char => ord $_) for split //, 'abf4';
 
-  $t->putString($_) for $s, $r, $q, $p;
+  $t->putString($s);
+  $t->putString($r);
+  $t->putString($q);
+  $t->putString($p);
   $t->dump8xx('t = abcd');
 
   $t->find(K key => 0x61);
@@ -16567,7 +16464,7 @@ if (1) {                                                                        
   $s->pop;
   my $F = $t->getString($s); $F->found->outNL("found:  "); $F->data->outNL("data:   ");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
 t = abcd
 Tree: .... .... .... .140
 At:      4C0                                                                                length:        1,  data:      500,  nodes:      540,  first:      140, root, leaf,  trees:             1
@@ -16580,10 +16477,34 @@ At:      4C0                                                                    
        Keys :       62
        Data :      58*
         Tree:      580
-          At:      680                                                                      length:        4,  data:      6C0,  nodes:      700,  first:      580, root, leaf
+          At:      6C0                                                                      length:        4,  data:      700,  nodes:      740,  first:      580, root, leaf,  trees:          1111
             Index:        0        1        2        3
             Keys :       63       64       65       66
-            Data :       31       32       33       34
+            Data :      68*      84*      94*      A4*
+             Tree:      680
+               At:      780                                                                 length:        1,  data:      7C0,  nodes:      800,  first:      680, root, leaf
+                 Index:        0
+                 Keys :        0
+                 Data :       31
+               end
+             Tree:      840
+               At:      880                                                                 length:        1,  data:      8C0,  nodes:      900,  first:      840, root, leaf
+                 Index:        0
+                 Keys :        0
+                 Data :       32
+               end
+             Tree:      940
+               At:      980                                                                 length:        1,  data:      9C0,  nodes:      A00,  first:      940, root, leaf
+                 Index:        0
+                 Keys :        0
+                 Data :       33
+               end
+             Tree:      A40
+               At:      A80                                                                 length:        1,  data:      AC0,  nodes:      B00,  first:      A40, root, leaf
+                 Index:        0
+                 Keys :        0
+                 Data :       34
+               end
           end
      end
 end
@@ -16594,7 +16515,7 @@ subTree .... .... .... ...1
 offset  .... .... .... .4C0
 found:  .... .... .... ...1
 found:  .... .... .... ...1
-data:   .... .... .... ..31
+data:   .... .... .... .680
 found:  .... .... .... ...1
 data:   .... .... .... .580
 END
@@ -17188,7 +17109,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
   my $brackets    = $area->CreateTree(length => 3);                             # Bracket stack
   my $parse       = $area->CreateTree(length => 3);                             # Parse tree stack
-  my $symbols     = $area->CreateQuarks;                                        # Quarks assigning every lexical item string a unique number
+# my $symbols     = $area->CreateQuarks;                                        # Quarks assigning every lexical item string a unique number
 
   my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
   my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
@@ -17239,8 +17160,8 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
     my $l = $position - $startPos;                                              # Length of previous item
     $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $l);                        # Record length of previous item in its describing tree
-    my $s = $symbols->put($a8+$startPos, $l);                                   # The symbol number for the last lexical item
-    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
+#    my $s = $symbols->put($a8+$startPos, $l);                                   # The symbol number for the last lexical item
+#    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
    };
 
   my $new = sub                                                                 # Create a new lexical item
@@ -17468,7 +17389,6 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
       $brackets->push($t);                                                      # Save bracket description on bracket stack
       $change->copy(1);                                                         # Changing because we are on a bracket
-#     &$b;                                                                      # Push the open bracket
      },
     Ef {$alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::B)}
     Then                                                                        # Closing bracket
@@ -17484,7 +17404,6 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
           Jmp $end;
          };
         $change->copy(1);                                                       # Changing because we are on a bracket
-#       &$B;                                                                    # Push the open bracket
        },
       Else
        {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::TrailingClose);
@@ -17566,12 +17485,13 @@ if (1) {                                                                        
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
+#$TraceMode = 1;
   my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
 
   $_->outNL for @a;
   $parse->dumpParseTree($a8);
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>0;
 parseChar: .... .... ...1 D5D8
 parseFail: .... .... .... ....
 pos: .... .... .... ..2B
@@ -17803,17 +17723,7 @@ sub Nasm::X86::Area::treeFromString($$$)                                        
      };
     PopR;
    };
-
   $t                                                                            # Description of tree loaded from string
- }
-
-#latest:
-if (0) {                                                                        #
-  my $a =     CreateArea;
-  my $q = $a->CreateQuarks;
-
-  ok Assemble eq => <<END, avx512=>1;
-END
  }
 
 #latest:
@@ -17870,86 +17780,6 @@ At:      1C0                                                                    
 end
 found: .... .... .... ...1
 data: .... .... .... ..99
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
-  my $a = CreateArea;
-  my $q = $a->CreateQuarks;
-
-  my sub put($)                                                                 # Quark from string
-   {my ($string) = @_;                                                          # String to load
-    my ($a, $l) = addressAndLengthOfConstantStringAsVariables($string);
-    $q->put($a, $l)
-   }
-
-  my $n1 = put("1");
-  my $n2 = put("12");
-  my $n3 = put("123");
-
-  my $N1 = put("1");
-  my $N2 = put("12");
-  my $N3 = put("123");
-
-  $_->outRightInDecNL(K width => 1) for $n1, $N1, $n2, $N2, $n3, $N3;
-
-  $q->dump("AA");
-
-#  1         105,382         357,640         105,382         357,640      1.069422          0.38  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 31764
-  ok Assemble eq => <<END, avx512=>1, trace=>1;
-0
-0
-1
-1
-2
-2
-AA
-At:  100                    length:    2,  data:  140,  nodes:  180,  first:   40, root, leaf,  trees:            11
-  Index:    0    1
-  Keys :    0    1
-  Data :  30*  48*
-     At:  300               length:    3,  data:  340,  nodes:  380,  first:   80, root, leaf,  trees:           111
-       Index:    0    1    2
-       Keys :    1    2    3
-       Data :  3C*  68*  88*
-          At:  3C0          length:    1,  data:  400,  nodes:  440,  first:  2C0, root, leaf
-            Index:    0
-            Keys :   31
-            Data :    0
-          end
-          At:  680          length:    1,  data:  6C0,  nodes:  700,  first:  640, root, leaf
-            Index:    0
-            Keys : 3231
-            Data :    1
-          end
-          At:  880          length:    1,  data:  8C0,  nodes:  900,  first:  840, root, leaf
-            Index:    0
-            Keys : 3231
-            Data :    2
-          end
-     end
-     At:  480               length:    3,  data:  4C0,  nodes:  500,  first:   C0, root, leaf,  trees:           111
-       Index:    0    1    2
-       Keys :    0    1    2
-       Data :  20*  58*  78*
-          At:  200          length:    3,  data:  240,  nodes:  280,  first:  1C0, root, leaf
-            Index:    0    1    2
-            Keys :    0    1    2
-            Data :    1   49    0
-          end
-          At:  580          length:    3,  data:  5C0,  nodes:  600,  first:  540, root, leaf
-            Index:    0    1    2
-            Keys :    0    1    2
-            Data :    2 12849    1
-          end
-          At:  780          length:    3,  data:  7C0,  nodes:  800,  first:  740, root, leaf
-            Index:    0    1    2
-            Keys :    0    1    2
-            Data :    3 3355185    2
-          end
-     end
-end
 END
  }
 
@@ -18212,30 +18042,72 @@ CCCC equal zero
 END
  }
 
-latest:;
-if (1) {                                                                        #TNasm::X86::CreateQuarks #TNasm::X86::Quarks::put
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::put #TNasm::X86::Tree::find
   my $a = CreateArea;
-  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("01234567");
+  my $t = $a->CreateTree;
 
-  my $q = $a->CreateQuarks;
-  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)});
-  $l->for(sub {my ($i) = @_; $q->put($s, $l-$l+$i)->outNL});
+  my $N = K(key => 999);
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $t->put($index, $index);
+   });
 
-  ok Assemble debug => 0, mix => 0, eq => <<END, avx512=>1, trace=>0;
-size of tree: .... .... .... ....
-size of tree: .... .... .... ...1
-size of tree: .... .... .... ...2
-size of tree: .... .... .... ...3
-size of tree: .... .... .... ...4
-size of tree: .... .... .... ...5
-size of tree: .... .... .... ...6
-size of tree: .... .... .... ...7
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $t->find($index);
+   });
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>763430;
 END
  }
 
 #latest:
 if (0) {                                                                        #
   ok Assemble eq => <<END, avx512=>1;
+END
+ }
+
+#latest:
+if (1) {                                                                        #
+  my $a =     CreateArea;
+  my $q = $a->CreateQuarks;
+
+  ok Assemble eq => <<END, avx512=>1;
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::putString
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  $t->push(K key => 1);
+  $t->push(K key => 2);
+  $t->push(K key => 3);
+  $T->putString($t)->outNL;
+
+  K(key => 2)->for(sub
+   {$t->pop;
+    $t->pop;
+    $t->push(K key => 3);
+    $t->push(K key => 4);
+    $T->putString($t)->outNL;
+
+    $t->pop;
+    $t->pop;
+    $t->push(K key => 4);
+    $t->push(K key => 5);
+    $T->putString($t)->outNL;
+   });
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+first: .... .... .... .280
+first: .... .... .... .440
+first: .... .... .... .540
+first: .... .... .... .440
+first: .... .... .... .540
 END
  }
 
