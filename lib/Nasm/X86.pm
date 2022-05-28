@@ -6386,8 +6386,7 @@ sub Nasm::X86::Tree::indexXX($$$$$)                                             
    }
 
   my $masks = Rw(map {2**$_ -1} 0..15);                                         # Mask for each length
-  Lea rsi, "[$masks+rdi*2]";                                                    # Load mask adddress
-  Mov rsi, "[rsi]";                                                             # Load mask
+  Mov rsi, "[$masks+rdi*2]";                                                    # Load mask adddress
 
   my $A = sub                                                                   # Zmm containing key to test
    {return $key unless ref $key;                                                # Zmm already contains keys
@@ -6898,7 +6897,9 @@ Comment("FFFF start");
        {my (undef, $start) = @_;
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
+Comment "FFFFF1111";
         my $eq  = $t->indexEq($key, $K);                                        # The position of a key in a zmm equal to the specified key as a point in a variable.
+Comment "FFFFF22222";
         If $eq  > 0,                                                            # Result mask is non zero so we must have found the key
         Then
          {my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
