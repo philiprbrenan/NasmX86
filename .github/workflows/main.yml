@@ -1,4 +1,4 @@
-# Test NasmX86 2022-05-29 at 04:21:46
+# Test NasmX86 2022-05-29 at 04:23:11
 
 name: Test
 
@@ -54,7 +54,7 @@ jobs:
 
     - name: Test1
       run: |
-        perl -Ilib lib/Nasm/X86.pm -- 1
+        perl -Ilib lib/Nasm/X86.pm 1
   test:
     runs-on: ubuntu-latest
 
@@ -103,4 +103,4 @@ jobs:
 
     - name: Test1
       run: |
-        perl -Ilib lib/Nasm/X86.pm -- 
+        perl -Ilib lib/Nasm/X86.pm 
