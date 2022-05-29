@@ -8560,7 +8560,7 @@ sub Nasm::X86::Tree::putString($$)                                              
   confess "Second parameter must be a tree"
     unless ref($string) and ref($string) =~ m(Tree);
 
-  my $S = $tree->copyDescription;                                             # Create a new descriptor for the string tree
+  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
 
   my $size = $string->size;                                                     # Tree size
   If $size > 0,                                                                 # String tree must have at least one element
@@ -17357,7 +17357,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
   my $brackets    = $area->CreateTree;                                          # Bracket stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
-# my $symbols     = $area->CreateQuarks;                                        # Quarks assigning every lexical item string a unique number
+  my $symbols     = $area->CreateTree;                                          # String tree of symbols encountered during the parse
 
   my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
   my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
@@ -17408,8 +17408,9 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
 
     my $l = $position - $startPos;                                              # Length of previous item
     $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $l);                        # Record length of previous item in its describing tree
-#    my $s = $symbols->put($a8+$startPos, $l);                                   # The symbol number for the last lexical item
-#    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
+    my $m = $area->treeFromString($a8+$startPos, $l);                           # Create a tree string from the symbol in the parsing area as an easy way of loading the tree of strings - it would be better to have a version that loaded a string tree directly from memory
+    my $s = $symbols->putString($m);                                            # The symbol number for the last lexical item
+    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
    };
 
   my $new = sub                                                                 # Create a new lexical item
