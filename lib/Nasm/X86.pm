@@ -5461,7 +5461,7 @@ sub Nasm::X86::Area::establishYggdrasil($)                                      
    {$t->first->copy(rdi);
    },
   Else                                                                          # Yggdrasil has not been created
-   {my $T = $area->CreateTree();
+   {my $T = $area->CreateTree;
     $T->first->setReg(rdi);
     $t->first->copy(rdi);
     Mov "[rax+$$area{treeOffset}]", rdi;                                        # Save offset of Yggdrasil
@@ -8440,7 +8440,7 @@ sub Nasm::X86::Area::treeFromString($$$)                                        
  {my ($area, $address, $size) = @_;                                             # Area description, address of string, length of string in bytes
   @_ == 3 or confess "Three parameters";
 
-  my $t = $area->CreateTree(length => 3);                                       # Create a tree to be used to store the string
+  my $t = $area->CreateTree;                                                    # Create a tree to be used to store the string
 
   $t->push($size);                                                              # Push the length of the string
 
@@ -9011,9 +9011,9 @@ sub Nasm::X86::Tree::dec($)                                                     
 # {my ($area, %options) = @_;                                                    # Area description, quark options
 #  @_ % 2 == 1 or confess "Odd number of parameters required";
 #
-#  my $q = $area->CreateTree(length => 3);                                       # A tree descriptor for a set of  quarks == tree in the specified area
-#  my $s = $area->CreateTree(length => 3);                                       # Strings to numbers
-#  my $n = $area->CreateTree(length => 3);                                       # Numbers to strings
+#  my $q = $area->CreateTree;                                                    # A tree descriptor for a set of  quarks == tree in the specified area
+#  my $s = $area->CreateTree;                                                    # Strings to numbers
+#  my $n = $area->CreateTree;                                                    # Numbers to strings
 #  $q->put(K(key => Nasm::X86::Quarks::StringToNumber), $s);                     # Strings to numbers
 #  $q->put(K(key => Nasm::X86::Quarks::NumberToString), $n);                     # Numbers to strings
 #  bless {%$q}, q(Nasm::X86::Quarks)                                             # A tree descriptor for a set of  quarks == tree in the specified area
@@ -14006,7 +14006,7 @@ END
 #latest:
 if (1) {
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $a->dump("0000", K depth => 6);
   $t->dump("0000");
@@ -14114,7 +14114,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $t->put(K(key=>1), K(data=>0x11));
   $t->put(K(key=>2), K(data=>0x22));
@@ -14149,7 +14149,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $t->put(K(key=>1), K(data=>0x11));
   $t->put(K(key=>2), K(data=>0x22));
@@ -14178,7 +14178,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $t->put(K(key=>1), K(data=>0x11));
   $t->put(K(key=>2), K(data=>0x22));
@@ -14211,7 +14211,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $t->put(K(key=>1), K(data=>0x11));
   $t->put(K(key=>2), K(data=>0x22));
@@ -14245,7 +14245,7 @@ END
 #latest:
 if (1) {
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $t->put(K(key=>2), K(data=>0x22));
   $t->put(K(key=>1), K(data=>0x11));
@@ -14264,7 +14264,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $t->put(K(key=>1), K(data=>0x11));
   $t->put(K(key=>2), K(data=>0x22));
@@ -14289,7 +14289,7 @@ END
 #latest:
 if (1) {
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $t->put(K(key=>8), K(data=>0x88));
   $t->put(K(key=>7), K(data=>0x77));
@@ -14314,7 +14314,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::put #TNasm::X86::Tree::find
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K count => 128;
 
   $N->for(sub
@@ -14487,7 +14487,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::printInOrder
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K count => 128;
 
   $N->for(sub
@@ -14511,7 +14511,7 @@ END
 #latest:
 if (1) {
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K count => 128;
 
   $N->for(sub
@@ -14544,7 +14544,7 @@ END
 if (0) {                   ## Failing but on unused sub
   my $N = 13;
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => $N);
+  my $t = $a->CreateTree;
 
   my ($K, $D) = (31, 30);
 
@@ -14716,9 +14716,8 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::firstNode #TNasm::X86::Tree::lastNode
-  my $L = 13;
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => $L);
+  my $t = $a->CreateTree;
 
   my ($K, $D, $N) = (31, 30, 29);
 
@@ -14743,9 +14742,8 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::firstNode #TNasm::X86::Tree::lastNode
-  my $L = 13;
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => $L);
+  my $t = $a->CreateTree;
 
   my ($K, $D, $N) = (31, 30, 29);
 
@@ -14771,7 +14769,7 @@ END
 #latest:
 if (0) {                                                                        #TNasm::X86::Tree::expand
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   my ($PK, $PD, $PN) = (31, 30, 29);
   my ($LK, $LD, $LN) = (28, 27, 26);
@@ -14870,7 +14868,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex $K, $D;
 
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 13);
+  my $t = $a->CreateTree;
 
   K(loop => 14)->for(sub
    {my ($index, $start, $next, $end) = @_;
@@ -14943,7 +14941,7 @@ if (1) {                                                                        
   K(K => Rd(map {0} 1..16))->loadZmm($N);
 
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 13);
+  my $t = $a->CreateTree;
 
   my $p = K(one => 1) << K three => 3;
   Mov r15, 0xAAAA;
@@ -15015,7 +15013,7 @@ if (1) {                                                                        
   K(K => Rd(map {0} 1..16))->loadZmm($N);
 
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 13);
+  my $t = $a->CreateTree;
 
   my $p = K(one => 1) << K three => 3;
   Mov r15, 0xAAAA;
@@ -15044,7 +15042,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::nextNode #TNasm::X86::Tree::prevNode
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 13);
+  my $t = $a->CreateTree;
 
   K(loop => 66)->for(sub
    {my ($index, $start, $next, $end) = @_;
@@ -15064,7 +15062,7 @@ END
 if (1) {                                                                        #TNasm::X86::Tree::findFirst
   my $N = K(key => 32);
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $N->for(sub
    {my ($i, $start, $next, $end) = @_;
@@ -15129,7 +15127,7 @@ END
 if (1) {                                                                        #TNasm::X86::Tree::findLast
   my $N = K(key => 32);
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $N->for(sub
    {my ($i, $start, $next, $end) = @_;
@@ -15187,7 +15185,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
   my $i4 = V  k => 4; $t->put($i4, $i4);
@@ -15217,7 +15215,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $i20 = V  k => 20; $t->put($i20, $i20);
   my $i30 = V  k => 30; $t->put($i30, $i30);
   my $i40 = V  k => 40; $t->put($i40, $i40);
@@ -15258,7 +15256,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $i1 = V  k =>  0; $t->put($i1, $i1);
   my $i2 = V  k => 11; $t->put($i2, $i2);
   my $i3 = V  k => 13; $t->put($i3, $i3);
@@ -15306,7 +15304,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
@@ -15350,7 +15348,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
@@ -15380,7 +15378,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
@@ -15410,7 +15408,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
@@ -15440,7 +15438,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i3 = V  k => 3; $t->put($i3, $i3);
@@ -15489,7 +15487,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
   $t->put(   K(k=>3), K(d=>33));
@@ -15517,7 +15515,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
   $t->put(   K(k=>3), K(d=>33));
@@ -15564,7 +15562,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   $t->put(   K(k=>1), K(d=>11));
   $t->put(   K(k=>2), K(d=>22));
   $t->put(   K(k=>3), K(d=>33));
@@ -15611,7 +15609,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
@@ -15697,7 +15695,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 20;
   $N->for(sub                                                                   # Load tree
    {my ($i) = @_;
@@ -15754,7 +15752,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 16;
   $N->for(sub
    {my ($i) = @_;
@@ -15802,7 +15800,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K max => 8;
 
   $N->for(sub                                                                   # Load tree
@@ -15869,7 +15867,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K max => 100;
 
   $N->for(sub                                                                   # Load tree
@@ -15925,7 +15923,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 16;
   $N->for(sub
    {my ($i) = @_;
@@ -15967,7 +15965,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 36;
   $N->for(sub
    {my ($i) = @_;
@@ -16057,7 +16055,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::findNext
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 8;
   $N->for(sub
    {my ($i) = @_;
@@ -16096,7 +16094,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::findPrev
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 8;
   $N->for(sub
    {my ($i) = @_;
@@ -16238,7 +16236,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::by
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 16;
   $N->for(sub
    {my ($i) = @_;
@@ -16273,7 +16271,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::yb
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 16;
   $N->for(sub
    {my ($i) = @_;
@@ -16308,7 +16306,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 16;
   $N->for(sub
    {my ($i) = @_;
@@ -16359,7 +16357,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::clear #TNasm::X86::Tree::free #TNasm::X86::Area::freeChainSpace  #TNasm::X86::Area::clear
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $N = K loop => 16;
 
   $N->for(sub {my ($i) = @_; $t->push($i+1)});
@@ -16573,7 +16571,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
 
   $t->push(K alpha => 0x03b1);
   $t->push(K beta  => 0x03b2);
@@ -16606,7 +16604,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::appendAscii #TNasm::X86::Tree::outAsUtf8NL
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   my $b = Rb(0x41..0x51);
   $t->appendAscii(K(address=> $b), K(size => 1));
   $t->outAsUtf8NL;
@@ -16621,7 +16619,7 @@ if (1) {                                                                        
   my $a = CreateArea;
   my $T;
   for my $i(1..8)
-   {my $t = $a->CreateTree(length => 3);
+   {my $t = $a->CreateTree;
     $t->appendAscii(K(address=> $b), K(size => 1));
     $t->push($T) if $T;
     $T = $t;
@@ -16684,11 +16682,11 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
-  my $p = $a->CreateTree(length => 3, usage=>q(stack));
-  my $q = $a->CreateTree(length => 3);
-  my $r = $a->CreateTree(length => 3);
-  my $s = $a->CreateTree(length => 3);
-  my $t = $a->CreateTree(length => 3);
+  my $p = $a->CreateTree(usage=>q(stack));
+  my $q = $a->CreateTree;
+  my $r = $a->CreateTree;
+  my $s = $a->CreateTree;
+  my $t = $a->CreateTree;
 
   $s->push(K char => ord $_) for split //, 'abc1';
   $r->push(K char => ord $_) for split //, 'abd2';
@@ -16772,8 +16770,8 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::popSubTree
   my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
-  my $T = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
 
   $T->push(K key => 1);
   $t->push($T);
@@ -16810,9 +16808,9 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::union #TNasm::X86::Tree::intersection
   my $a = CreateArea;
-  my $r = $a->CreateTree(length => 3);
-  my $s = $a->CreateTree(length => 3);
-  my $t = $a->CreateTree(length => 3);
+  my $r = $a->CreateTree;
+  my $s = $a->CreateTree;
+  my $t = $a->CreateTree;
 
   $r->put(K(key => 1), K(data => 1));
   $r->put(K(key => 2), K(data => 2));
@@ -17118,7 +17116,7 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
 
 sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           # Create and load the table of lexical transitions.
  {my ($area) = @_;                                                              # Area in which to create the table
-  my $t = $area->CreateTree(length => 3);
+  my $t = $area->CreateTree;
   my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
   my $A = Nasm::X86::Unisyn::Lex::Number::A;                                    # Ascii
   my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
@@ -17146,10 +17144,10 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
     $v => [$a,         $B, $d, $e, $F,     $q, $s    ],
   );
 
-  my $T   = $area->CreateTree(length => 3);                                     # Tree of trees
+  my $T   = $area->CreateTree;                                                  # Tree of trees
   for my $x(sort keys %x)                                                       # Each source lexical item
    {my @y = $x{$x}->@*;
-    my $t = $area->CreateTree(length => 3);                                     # A tree containing each target lexical item for the source item
+    my $t = $area->CreateTree;                                                  # A tree containing each target lexical item for the source item
     $t->put(K(next => $_), K key => 1) for @y;                                  # Load target set
     $T->put(K(key => $x), $t);                                                  # Save target set
    }
@@ -17159,8 +17157,8 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
 
 sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        # Create and load the table of open to close bracket mappings
  {my ($area) = @_;                                                              # Area in which to create the table
-  my $o = $area->CreateTree(length => 3);                                       # Open to close
-  my $c = $area->CreateTree(length => 3);                                       # Close to open
+  my $o = $area->CreateTree;                                                    # Open to close
+  my $c = $area->CreateTree;                                                    # Close to open
   my @b = Nasm::X86::Unisyn::Lex::Letter::b;                                    # Open
   my @B = Nasm::X86::Unisyn::Lex::Letter::B;                                    # Close
 
@@ -17200,7 +17198,7 @@ END
 
 sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
  {my ($a) = @_;                                                                 # Area in which to create the table
-  my $t = $a->CreateTree(length => 5);
+  my $t = $a->CreateTree;
   my @l = qw(A a b B d e p q s v);
   for my $l(@l)
    {my $n = K lex   => eval "Nasm::X86::Unisyn::Lex::Number::$l";
@@ -17357,8 +17355,8 @@ sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       
 sub Nasm::X86::Unisyn::Parse($$$)                                               # Parse a string of utf8 characters
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
-  my $brackets    = $area->CreateTree(length => 3);                             # Bracket stack
-  my $parse       = $area->CreateTree(length => 3);                             # Parse tree stack
+  my $brackets    = $area->CreateTree;                                          # Bracket stack
+  my $parse       = $area->CreateTree;                                          # Parse tree stack
 # my $symbols     = $area->CreateQuarks;                                        # Quarks assigning every lexical item string a unique number
 
   my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
@@ -17415,7 +17413,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
    };
 
   my $new = sub                                                                 # Create a new lexical item
-   {my $l = $area->CreateTree(length => 3);                                     # Tree to hold lexical item description
+   {my $l = $area->CreateTree;                                                  # Tree to hold lexical item description
     $l->put(K(t => Nasm::X86::Unisyn::Lex::length),   K(one => 1));             # Length so far of lexical item - not really necessary but it does aid debugging
     $l->put(K(t => Nasm::X86::Unisyn::Lex::type),     $last);                   # Last lexical item recognized
     $l->put(K(t => Nasm::X86::Unisyn::Lex::position), $position);               # Position of lexical item
@@ -17633,7 +17631,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     If $alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::b),        # Match brackets
     Then                                                                        # Opening bracket
      {$openClose->find($char);                                                  # Locate corresponding closer
-      my $t = $area->CreateTree(length => 3);                                   # Tree recording the details of the opening bracket
+      my $t = $area->CreateTree;                                                # Tree recording the details of the opening bracket
       $t->push($position);                                                      # Position in source
       $t->push($char);                                                          # The opening bracket
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
@@ -17892,7 +17890,7 @@ if (1) {                                                                        
      $t->push(my $v = K key => 0x99);
      $t->dump8xx("BB");
 
-  my $T = $a->CreateTree(length => 3);
+  my $T = $a->CreateTree;
      $T->putString($t);
      $T->dump8xx("CC");
 
@@ -18064,7 +18062,7 @@ END
 #latest:
 if (1)
  {my $a = CreateArea;
-  my $t = $a->CreateTree(length => 3);
+  my $t = $a->CreateTree;
   K(key => 100)->for(sub{my ($i) = @_; $t->put($i, $i)});
   $t->size->outNL;
   ok Assemble eq =><<END, avx512=>1, mix=>1;
