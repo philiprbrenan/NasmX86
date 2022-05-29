@@ -516,8 +516,7 @@ sub PushRR(@)                                                                   
      {Vmovdqu64 "[rsp+$i*$w]", $z[$i];
      }
    }
-
-  (@p, reverse @z)                                                                      # Actual push sequence
+  my @R = (@p, reverse @z);                                                     # Actual push sequence - for some strange reason we have to put it in a variable first
  }
 
 my @PushR;                                                                      # Track pushes
@@ -719,7 +718,7 @@ sub ymm(@)                                                                      
 
 sub zmm(@)                                                                      # Add zmm to the front of a list of register expressions.
  {my (@r) = @_;                                                                 # Register numbers
-  map {"zmm$_"} @_;
+  map {m/\Azmm/ ? $_ : "zmm$_"} @_;
  }
 
 sub zmmM($$)                                                                    # Add zmm to the front of a register number and a mask after it
@@ -778,12 +777,18 @@ sub wRegFromZmm($$$)                                                            
   $offset >= 0 && $offset <= RegisterSize zmm0 or
     confess "Offset $offset Out of range";
 
-  PushRR $z;                                                                    # Push source register
-
+if ($z eq k2)
+ {Comment("GGGGGG11");
+  cluck;
+ }
+  my $W = RegisterSize $z;                                                      # Register size
+  Vmovdqu64 "[rsp+$W]", $z;
+if ($z eq k2)
+ {Comment("GGGGGG22");
+ }
   my $w = wordRegister $register;                                               # Corresponding word register
 
-  Mov $w, "[rsp+$offset]";                                                      # Load word register from offset
-  Add rsp, RegisterSize $z;                                                     # Pop source register
+  Mov $w, "[rsp-$W+$offset]";                                                   # Load word register from offset
  }
 
 sub wRegIntoZmm($$$)                                                            # Put the specified register into the word in the numbered zmm at the specified offset in the zmm.
@@ -826,9 +831,10 @@ sub extractRegisterNumberFromMM($)                                              
 sub getBwdqFromMm($$$%)                                                         # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
  {my ($size, $mm, $offset, %options) = @_;                                      # Size of get, mm register, offset in bytes either as a constant or as a variable, options
 
+  my $n = extractRegisterNumberFromMM $mm;                                      # Register number or fail if not an mm register
+
   if (!ref($offset) and $offset == 0 and my $s = $options{set})                 # Use Pextr in this special circumstance
-   {my $n = extractRegisterNumberFromMM $mm;                                    # Register number
-    my $d = dWordRegister $s;                                                   # Target a dword register
+   {my $d = dWordRegister $s;                                                   # Target a dword register
     push @text, <<END;
 vpextr$size $d, xmm$n, 0
 END
@@ -880,22 +886,26 @@ sub qFromX($$)                                                                  
 
 sub bFromZ($$%)                                                                 # Get the byte from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
-  getBwdqFromMm('b', "zmm$zmm", $offset, %options)                              # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  my $z = registerNameFromNumber $zmm;
+  getBwdqFromMm('b', $z, $offset, %options)                                     # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub wFromZ($$)                                                                  # Get the word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
-  getBwdqFromMm('w', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  my $z = registerNameFromNumber $zmm;
+  getBwdqFromMm('w', $z, $offset)                                               # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub dFromZ($$%)                                                                 # Get the double word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
-  getBwdqFromMm('d', "zmm$zmm", $offset, %options)                              # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  my $z = registerNameFromNumber $zmm;
+  getBwdqFromMm('d', $z, $offset, %options)                                     # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub qFromZ($$)                                                                  # Get the quad word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
-  getBwdqFromMm('q', "zmm$zmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  my $z = registerNameFromNumber $zmm;
+  getBwdqFromMm('q', $z, $offset)                                               # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 #D2 Mask                                                                        # Operations on mask registers
@@ -2529,7 +2539,7 @@ sub PrintRaxRightInDec($$)                                                      
  }
 
 sub PrintErrRaxRightInDec($)                                                    # Print rax in decimal right justified in a field of the specified width on stderr.
- {my ($width) = @_;                                                             # Width
+ {my ($width) = @_;                                                             # Width                  ::copy
   PrintRaxRightInDec($width, $stderr);
  }
 
@@ -3028,7 +3038,7 @@ sub Nasm::X86::Variable::copy($$)                                               
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   @_ == 2 or confess "Two parameters";
 
-  if (ref $right)                                                               # Right hand side is an expression
+  if (ref $right)                                                               # Right hand side is a variable expression
    {my $l = $left ->addressExpr;
     my $r = $right->addressExpr;                                                # Variable address
 
@@ -3046,11 +3056,17 @@ sub Nasm::X86::Variable::copy($$)                                               
      {Mov $l, rdi;
      }
    }
-  else
+  else                                                                          # Right hand size is a register expression
    {my $l = $left->addressExpr;
     if ($left->reference)                                                       # Copy a constant to a reference
-     {Mov rsi, $l;
-      Mov "qword [rsi]", $right;
+     {if (defined($Registers{$right}))                                          # The right hand side is a register so we can move it directly
+       {Mov $l, $right;
+       }
+      else                                                                      # The right hand side is a register expression so we need a transfer register
+       {my $r = $right =~ m(rsi) ? rdi : rsi;                                   # Choose a transfer register
+        Mov $r, $l;                                                             # Load reference
+        Mov "qword [$r]", $right;                                               # Copy to referenced variable
+       }
      }
     else                                                                        # Copy a constant to a non reference
      {Mov "qword $l", $right;
@@ -5955,7 +5971,7 @@ sub Nasm::X86::Tree::decSize($)                                                 
 sub Nasm::X86::Tree::size($)                                                    # Return in a variable the number of elements currently in the tree.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  my $F = 1;
+  my $F = zmm1;
   $tree->firstFromMemory($F);
   my $s = $tree->sizeFromFirst($F);
   $s->name = q(size of tree);
@@ -6872,7 +6888,6 @@ sub Nasm::X86::Tree::zero($)                                                    
   $tree                                                                         # Chaining
  }
 
-#FFFF
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and tests whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for
   @_ == 2 or confess "Two parameters";
@@ -6880,62 +6895,79 @@ sub Nasm::X86::Tree::find($$)                                                   
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28, my $key = 27,
-          my $Q = r15, my $loop = r14;
+    my $F = zmm1, my $K = zmm2, my $D = zmm3, my $N = zmm4, my $key = zmm5;     # We are boldy assuming that these registers are not being used independently
+    PushR my $Q = r15, my $loop = r14, my $eqr = r13;
 
+Comment("FFFF find start");
     Block
      {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
       my $t = $$s{tree};                                                        # Tree to search
+Comment("FFFF2222");
       $t->zero;                                                                 # Clear search fields
+Comment("FFFF3333");
       $t->key->copy(my $k = $$p{key});                                          # Copy in key so we know what was searched for
+Comment("FFFF4444");
 
       $t->firstFromMemory      ($F);                                            # Load first block
+Comment("FFFF5555");
 
-     # my $Q = $t->rootFromFirst($F);                                           # Start the search from the root
       $t->rootFromFirst($F, set => $Q);                                         # Start the search from the root
+Comment("FFFF6666");
 
       Cmp $Q, 0;
       Je $success;                                                              # Empty tree so we have not found the key
       $k->setReg(rdi);
+Comment("FFFF7777");
       Vpbroadcastd zmm($key), edi;                                              # Load key to test once
 
       uptoNTimes                                                                # Step down through tree
        {my (undef, $start) = @_;
+Comment("FFFF8888");
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
+Comment("FFFF9999");
 
-        $t->indexEq($key, $K, set=>rsi);                                        # The position of a key in a zmm equal to the specified key as a point in a variable.
+        $t->indexEq($key, $K, set=>$eqr);                                       # The position of a key in a zmm equal to the specified key as a point in a variable.
         IfNz                                                                    # Result mask is non zero so we must have found the key
         Then
-         {my $eq = V eq => rsi;
-          my $d = $eq->dFromPointInZ($D);                                       # Get the corresponding data
-          $t->found ->copy($eq);                                                # Show found
-          $t->data  ->copy($d);                                                 # Data associated with the key
+         {dFromPointInZ $eqr, $D, set=>rsi;                                     # Get the corresponding data
+Comment("FFFFAAAA");
+          $t->data  ->copy(rsi);                                                # Data associated with the key
+Comment("FFFFBBBB");
+          $t->found ->copy($eqr);                                               # Show found
+Comment("FFFFCCCC");
           $t->offset->copy($Q);                                                 # Offset of the containing block
-          $t->subTree->copy($t->getTreeBit($K, $eq));                           # Get corresponding tree bit
+Comment("FFFFDDDD");
+          $t->getTreeBit($K, $eqr, set => rdx);                                 # Get corresponding tree bit
+Comment("FFFFEEEE");
+          $t->subTree->copy(rdx);                                               # Save corresponding tree bit
+Comment("FFFFGGGG");
           Jmp $success;                                                         # Return
          };
+Comment("FFFFHHHH");
 
-Comment "FFFFF111";
         $t->leafFromNodes($N, set=>rsi),                                        # Check whether this is a leaf by looking at the first sub node - if it is zero this must be a leaf as no node van have a zero offset in an area
+Comment("FFFFJJJJ");
         Cmp rsi, 0;                                                             # Leaf if zero
         Jz $success;                                                            # Return
-Comment "FFFFF22222";
 
         $t->insertionPoint($key, $K, set => rsi);                               # The insertion point if we were inserting
-        dFromPointInZ(rsi, $N, set=>$Q);                                        # Get the corresponding offset to the next sub tree
+Comment("FFFFKKKK");
+        dFromPointInZ     (rsi,  $N, set =>  $Q);                               # Get the corresponding offset to the next sub tree
+Comment("FFFFLLLL");
         Sub $loop, 1;
         Jnz $start;                                                             # Keep going but not for ever
        } $loop, 99;                                                             # loop a limited numbr of times
       PrintErrTraceBack "Stuck in find";                                        # We seem to be looping endlessly
      };                                                                         # Find completed successfully
+Comment("FFFF find end");
+
     PopR;
    } parameters => [qw(key)],
      structures => {tree=>$tree},
      name       => qq(Nasm::X86::Tree::find-$$tree{length});
 
   $s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
-Comment("FFFF end");
  } # find
 
 sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree and set B<found>|B<key>|B<data>|B<subTree> to show the result
@@ -7319,17 +7351,25 @@ sub Nasm::X86::Tree::isTree($$$)                                                
   Test $point, "[rsp-$w+$o]";                                                   # Test the tree bit under point
  } # isTree
 
-sub Nasm::X86::Tree::getTreeBit($$$)                                            #P Get the tree bit from the numbered zmm at the specified point and return it in a variable as a one or a zero.
- {my ($t, $zmm, $point) = @_;                                                   # Tree descriptor, register showing point to test, numbered zmm register holding the keys for a node in the tree
-  @_ == 3 or confess "Three parameters";
+sub Nasm::X86::Tree::getTreeBit($$$%)                                           #P Get the tree bit from the numbered zmm at the specified point and return it in a variable as a one or a zero.
+ {my ($t, $zmm, $point, %options) = @_;                                         # Tree descriptor, register showing point to test, numbered zmm register holding the keys for a node in the tree, options
+  @_ >= 3 or confess "Three or more parameters";
 
-  $t->getTreeBits($zmm, rdi);                                                   # Tree bits
-  $point->setReg(rsi);
-  And rdi, rsi;                                                                 # Write beyond stack
-  my $r = V treeBit => 0;
-  Cmp di, 0;
-  IfNe Then {$r->copy(1)};
-  $r
+  if (ref($point))                                                              # Point is a variable so we will do everything in variables
+   {$t->getTreeBits($zmm, rdi);                                                 # Tree bits
+    $point->setReg(rsi);
+    And rdi, rsi;                                                               # Write beyond stack
+    my $r = V treeBit => 0;
+    Cmp di, 0;
+    IfNe Then {$r->copy(1)};
+    return $r
+   }
+  else                                                                          # Point is a register so we will do everything in registers
+   {my $s = $options{set} // rdi;                                               # The register we are going to be set to something other than zero if the tree bit is set
+    confess "Target cannot be rsi" if $s eq rsi;
+    $t->getTreeBits($zmm, $s);                                                  # Tree bits
+    And $s, $point;                                                             # Jnz jumps if the tree bit has been set
+   }
  }
 
 sub Nasm::X86::Tree::setOrClearTreeBit($$$$)                                    #P Set or clear the tree bit selected by the specified point in the numbered zmm register holding the keys of a node to indicate that the data element indicated by the specified register is an offset to a sub tree in the containing area.
@@ -7395,6 +7435,7 @@ sub Nasm::X86::Tree::setOrClearTreeBitToMatchContent($$$$)                      
 sub Nasm::X86::Tree::getTreeBits($$$)                                           #P Load the tree bits from the numbered zmm into the specified register.
  {my ($t, $zmm, $register) = @_;                                                # Tree descriptor, numbered zmm, target register
   @_ == 3 or confess "Three parameters";
+
   wRegFromZmm $register, $zmm, $t->treeBits;
   And $register, $t->treeBitsMask;
  }
@@ -18236,16 +18277,17 @@ END
 #  1,341,795         115,616       1,341,795         115,616      0.309691          0.16  Debug mode around all PrintErr
 #  1,317,737         128,024       1,317,926         128,024      0.353775          0.20  IndexXX eliminate lea
 #  1,326,635         127,648       1,326,635         127,648      0.316558          0.17  Changes to indexxx and related have pushed put up but improved find
+#  1,326,486         115,616       1,326,486         115,616      0.310844          0.15
+#  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
 latest:;
 if (1)
  {my $a = CreateArea;
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#   $t->put(K(key => 0xffffff), K(key => 1));                                   # 368
-#  $t->find(K key => 0xffffff);                                                 # 139
-# ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1317737, trace=>0;
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1326486, trace=>0;
+# $t->put(K(key => 0xffffff), K(key => 1));                                   # 366
+# $t->find(K key => 0xffffff);                                                  # 129
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1318100, trace=>0;
 2826
 END
  }
