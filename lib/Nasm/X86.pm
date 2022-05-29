@@ -5772,7 +5772,7 @@ sub DescribeTree(%)                                                             
 
     usage        => $usage,                                                     # How this tree is being used so that we can map operators into subroutine calls
 
-    compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
+#   compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
     data         => V(data    => 0),                                            # Variable containing the current data
 #   debug        => V(debug   => 0),                                            # Write debug trace if true
     first        => V(first   => 0),                                            # Variable addressing offset to first block of the tree which is the header block
