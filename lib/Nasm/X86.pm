@@ -4095,22 +4095,17 @@ sub PrintOutMemory_InHexNL                                                      
   PrintNL($stdout);
  }
 
-sub PrintMemory($)                                                              # Print the memory addressed by rax for a length of rdi on the specified channel.
+sub PrintMemory($)                                                              # Print the memory addressed by rax for a length of rdi on the specified channel wher chennel can be a constant number or a register expression using a bound register.
  {my ($channel) = @_;                                                           # Channel
   @_ == 1 or confess "One parameter";
 
-  my $s = Subroutine
-   {Comment "Print memory on channel: $channel";
-    SaveFirstFour;
-    Mov rsi, rax;
-    Mov rdx, rdi;
-    Mov rax, 1;
-    Mov rdi, $channel;
-    Syscall;
-    RestoreFirstFour;
-   } name => "PrintOutMemoryOnChannel$channel";
-
-  $s->call;
+  SaveFirstFour;
+  Mov rsi, rax;
+  Mov rdx, rdi;
+  Mov rax, 1;                                                                   # Request
+  Mov rdi, $channel;                                                            # Channel can be a constant or a register experssion
+  Syscall;
+  RestoreFirstFour;
  }
 
 sub PrintMemoryNL                                                               # Print the memory addressed by rax for a length of rdi on the specified channel followed by a new line.
@@ -4330,18 +4325,17 @@ sub OpenRead()                                                                  
   $s->call;
  }
 
-sub OpenWrite()                                                                 # Create the file named by the terminated string addressed by rax for write.
+sub OpenWrite()                                                                 # Create the file named by the terminated string addressed by rax for write.  The file handle will be returned in rax.
  {@_ == 0 or confess "Zero parameters";
 
   my $s = Subroutine
-   {my %s = getSystemConstantsFromIncludeFile                                   # Constants for creating a file
-      "fcntl.h", qw(O_CREAT O_WRONLY);
-    my $write = $s{O_WRONLY} | $s{O_CREAT};
+   {my %s = getSystemConstantsFromIncludeFile "fcntl.h", qw(O_CREAT O_WRONLY);  # Constants for creating a file
+    my $w = $s{O_WRONLY} | $s{O_CREAT};
 
     SaveFirstFour;
     Mov rdi, rax;
     Mov rax, 2;
-    Mov rsi, $write;
+    Mov rsi, $w;
     Mov rdx, 0x1c0;                                                             # Permissions: u=rwx  1o=x 4o=r 8g=x 10g=w 20g=r 40u=x 80u=r 100u=r 200=T 400g=S 800u=S #0,2,1000, nothing
     Syscall;
 
@@ -18273,16 +18267,31 @@ END
 #  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 
-latest:;
+#latest:;
 if (1)
  {my $a = CreateArea;
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 #   $t->put(K(key => 0xffffff), K(key => 1));                                   # 364
-#   $t->find(K key => 0xffffff);                                                # 129
+#   $t->find(K key => 0xffffff);                                                # 370 -> 129
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1312445, trace=>0;
 2826
+END
+ }
+
+latest:;
+if (1)                                                                          #TOpenWrite;
+ {my $s = "zzzCreated.data";
+  my $f = Rs $s;
+  Mov rax, $f;
+  OpenWrite;
+  Mov r15, rax;
+  Mov rax, $f;
+  Mov rdi, length $s;
+  PrintMemory r15;
+  CloseFile;
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
 END
  }
 
