@@ -5712,6 +5712,8 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an area.
 
+# Can be significantly improved for small trees by checking for low keys and storing them as a structure in the first block.
+
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
  {my (%options) = @_;                                                           # Tree description options
 
@@ -10240,8 +10242,9 @@ my $start = time;                                                               
 
 my %block = map {$_=>1} (@ARGV ? @ARGV : 4..4);                                 # Blocks of tests to execute
 
+eval {goto latest};                                                             # Latest test if visible
 
-if ($block{1}) {eval {goto latest};                                             # First block of tests
+goto block2 unless $block{1};                                                   # First block of tests
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -13347,8 +13350,7 @@ struct: 34
 END
  }
 
-} if ($block{2}) {eval {goto latest};                                           # Second block of tests
-
+block2: goto block3 unless $block{2};                                           # Second block of tests
 
 #latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
@@ -16613,7 +16615,7 @@ A
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::push
   my $b = Rb(0x41..0x51);
   my $a = CreateArea;
@@ -16677,7 +16679,6 @@ At:      780                                                                    
      end
 end
 END
-exit;
  }
 
 #latest:
@@ -17039,7 +17040,7 @@ point: .... .... .... ...2
 END
  }
 
-} if ($block{3}) {eval {goto latest};                                           # Third block of tests
+block3: goto block4 unless $block{3};                                           # Third block of tests
 
 sub Nasm::X86::Unisyn::Lex::Number::S {0}                                       # Start symbol
 sub Nasm::X86::Unisyn::Lex::Number::F {1}                                       # End symbol
@@ -17879,7 +17880,7 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    };
  }
 
-} if ($block{4}) {eval {goto latest};                                           # Fourth block of tests
+block4:                                                                         # Fourth block of tests
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
@@ -18264,6 +18265,7 @@ END
 #  1,326,635         127,648       1,326,635         127,648      0.316558          0.17  Changes to indexxx and related have pushed put up but improved find
 #  1,326,486         115,616       1,326,486         115,616      0.310844          0.15
 #  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
+#  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 
 latest:;
 if (1)
@@ -18271,9 +18273,9 @@ if (1)
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#  $t->put(K(key => 0xffffff), K(key => 1));                                   # 366
-#  $t->find(K key => 0xffffff);                                                  # 129
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1318100, trace=>0;
+#   $t->put(K(key => 0xffffff), K(key => 1));                                   # 364
+#   $t->find(K key => 0xffffff);                                                # 129
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1312445, trace=>0;
 2826
 END
  }
@@ -18294,7 +18296,6 @@ size of tree: .... .... .... ....
 END
  }
 
-}
 
 done_testing;
 
