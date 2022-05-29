@@ -10250,7 +10250,7 @@ if (1) {                                                                        
   PrintOutStringNL "Hello\nWorld";
   PrintErrStringNL "Hello World";
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble debug => 0, eq => <<END, avx512=>0, label=>'t1';
 Hello World
 Hello
 World
@@ -13396,7 +13396,7 @@ if (1) {                                                                        
     PrintOutRegisterInHex zmm reverse 23..25;
    }
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END, avx512=>1, , label=>'t2';
 Test 0
 Parent
  zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  6666 6666 1999 9999
@@ -17184,7 +17184,7 @@ if (1) {                                                                        
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::PermissibleTransitions $a;
   $t->size->outNL;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END, avx512=>1, label=>'t3';
 size of tree: .... .... .... ...B
 END
  }
@@ -17905,7 +17905,7 @@ if (1) {                                                                        
   my $S = $T->getString($t);
      $S->found->outNL;
      $S->data ->outNL;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END, avx512=>1, label=>'t4';
 AA
 Tree: .... .... .... ..40
 At:       80                                                                                length:        3,  data:       C0,  nodes:      100,  first:       40, root, leaf
