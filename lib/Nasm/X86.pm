@@ -592,7 +592,7 @@ sub InsertZeroIntoRegisterAtPoint($$)                                           
 
   ref($point) and confess "Point must be a register";
 
-  my $mask = rdi, my $low = rsi, my $high = rbx;                                   # Choose three work registers and push them
+  my $mask = rdi, my $low = rsi, my $high = rbx;                                # Choose three work registers and push them
   if (&CheckMaskRegister($point))                                               # Mask register showing point
    {Kmovq $mask, $point;
    }
@@ -1041,8 +1041,8 @@ sub Else(&)                                                                     
   $block;
  }
 
-#sub OR(@)                                                                       # Return a variable containing 1 if any of the conditions is true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
-# {my (@c) = @_;                                                                 # Conditions enclosed in subs
+#sub OR(@)                                                                      # Return a variable containing 1 if any of the conditions is true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
+# {my (@c) = @_;                                                                # Conditions enclosed in subs
 #  my $r = &V(or => 0);
 #  &Block(sub
 #   {my ($end, $start) = @_;
@@ -1053,8 +1053,8 @@ sub Else(&)                                                                     
 #  $r
 # }
 #
-#sub AND(@)                                                                      # Return a variable containing 1 if all of the conditions are true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
-# {my (@c) = @_;                                                                 # Conditions enclosed in subs
+#sub AND(@)                                                                     # Return a variable containing 1 if all of the conditions are true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
+# {my (@c) = @_;                                                                # Conditions enclosed in subs
 #  my $r = &V(and => 1);
 #  &Block(sub
 #   {my ($end, $start) = @_;
@@ -1081,7 +1081,7 @@ sub ifOr($$;$)                                                                  
   my $else = Label;                                                             # Start of else block
   my $end  = Label;                                                             # End of block
 
-  Jmp $test;                                                                      # Jump over then and else
+  Jmp $test;                                                                    # Jump over then and else
   SetLabel $then;                                                               # Then block
   &$Then;
   Jmp $end;
@@ -2646,7 +2646,7 @@ sub Variable($;$%)                                                              
      {if ($Registers{$expr} and $expr =~ m(\Ar))                                # Expression is ready to go
        {Mov "[$label]", $expr;
        }
-      elsif ($expr =~ m(\A\d+\Z))                                                # Transfer constant expression
+      elsif ($expr =~ m(\A\d+\Z))                                               # Transfer constant expression
        {Mov "qword[$label]", $expr;
        }
       else                                                                      # Transfer expression
@@ -3231,7 +3231,7 @@ sub Nasm::X86::Variable::mod($$)                                                
 sub Nasm::X86::Variable::shiftLeft($$)                                          # Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
 #  PushR rcx, 15;
-  $left ->setReg(rbx);                                                           # Value to shift
+  $left ->setReg(rbx);                                                          # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
   Shl rbx, cl;                                                                  # Shift
@@ -3243,7 +3243,7 @@ sub Nasm::X86::Variable::shiftLeft($$)                                          
 sub Nasm::X86::Variable::shiftRight($$)                                         # Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
 # PushR rcx, 15;
-  $left ->setReg(rbx);                                                           # Value to shift
+  $left ->setReg(rbx);                                                          # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
   Shr rbx, cl;                                                                  # Shift
@@ -3683,7 +3683,7 @@ sub Nasm::X86::Variable::dIntoPointInZ($$$)                                     
   Vpbroadcastd zmmM($zmm, 1), edi;                                              # Insert dword at desired location
  }
 
-sub Nasm::X86::Variable::dIntoPointInZ22($$$)                                     # Put the variable double word content into the numbered zmm register at a point specified by the variable.
+sub Nasm::X86::Variable::dIntoPointInZ22($$$)                                   # Put the variable double word content into the numbered zmm register at a point specified by the variable.
  {my ($point, $zmm, $content) = @_;                                             # Point, numbered zmm, content to be inserted as a variable
   PushR 7, 14, 15;
   $content->setReg(14);
@@ -5204,8 +5204,8 @@ sub Nasm::X86::Area::updateSpace($$)                                            
 
   $area->address->setReg($base);                                                # Address area
   $size->setReg($newSize);                                                      # Space requested
-  Add $newSize, $areaUsed;                                                          # Space needed in area
-  Cmp $newSize, $areaSize;                                                          # Compare size needed with current size
+  Add $newSize, $areaUsed;                                                      # Space needed in area
+  Cmp $newSize, $areaSize;                                                      # Compare size needed with current size
   IfGt                                                                          # New size is bigger than current size
   Then                                                                          # More space needed
    {$s->call(parameters=>{size => $size}, structures=>{area => $area});         # Allocate more space for area
@@ -5725,9 +5725,9 @@ sub DescribeTree(%)                                                             
 
   my $keyAreaWidth = $b - $o * 2 ;                                              # Key / data area width  in bytes
   my $kwdw   = $keyAreaWidth / $o;                                              # Number of keys in a maximal block
-  my $length = 13; #$options{length} // $keyAreaWidth / $o;                          # Length of block to split
+  my $length = 13; #$options{length} // $keyAreaWidth / $o;                     # Length of block to split
 
-  confess "Length: $length is even not odd" unless $length % 2;                  # Ideally length is odd
+  confess "Length: $length is even not odd" unless $length % 2;                 # Ideally length is odd
   confess "Length must be greater than 2, not: $length" unless $length > 2;     # Check minimum length
   confess "Length must be less than or equal to $kwdw, not $length"             # Check maximum length
     unless $length <= $kwdw;
@@ -6455,7 +6455,7 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
     Vpexpandd zmmM($K, 1), zmm($K);                                             # Expand to make room for the value to be inserted
     Vpexpandd zmmM($D, 1), zmm($D);
 
-    $$p{key}  ->setReg(rdi); Vpbroadcastd zmmM($K, 3), edi;                       # Insert value at expansion point
+    $$p{key}  ->setReg(rdi); Vpbroadcastd zmmM($K, 3), edi;                     # Insert value at expansion point
     $$p{data} ->setReg(rdi); Vpbroadcastd zmmM($D, 3), edi;
 
     $t->incLengthInKeys($K);                                                    # Increment the length of this node to include the inserted value
@@ -7483,9 +7483,9 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $t = $$s{tree};                                                          # Tree to search
-    if ($DebugMode)                                                           # With checking
-     {If $t->leafFromNodes($N) == 0,                                              # If the zero Flag is zero then this is not a leaf
-      Then                                                                        # We can only perform this operation on a leaf
+    if ($DebugMode)                                                             # With checking
+     {If $t->leafFromNodes($N) == 0,                                            # If the zero Flag is zero then this is not a leaf
+      Then                                                                      # We can only perform this operation on a leaf
        {PrintErrTraceBack "Cannot extract from a non leaf node";
        };
      }
@@ -9004,46 +9004,46 @@ sub Nasm::X86::Tree::dec($)                                                     
 
 #D1 Quarks                                                                      # Translate between a unique string and a unique number.
 
-#sub Nasm::X86::Quarks::StringToNumber {0}                                       # The field in the quarks tree that contains the offset of the tree that maps strings to numbers
-#sub Nasm::X86::Quarks::NumberToString {1}                                       # The field in the quarks tree that contains the offset of the tree that maps numbers to strings
+#sub Nasm::X86::Quarks::StringToNumber {0}                                      # The field in the quarks tree that contains the offset of the tree that maps strings to numbers
+#sub Nasm::X86::Quarks::NumberToString {1}                                      # The field in the quarks tree that contains the offset of the tree that maps numbers to strings
 #
-#sub Nasm::X86::Area::CreateQuarks($%)                                           # Create a set if quarks in an area.
-# {my ($area, %options) = @_;                                                    # Area description, quark options
+#sub Nasm::X86::Area::CreateQuarks($%)                                          # Create a set if quarks in an area.
+# {my ($area, %options) = @_;                                                   # Area description, quark options
 #  @_ % 2 == 1 or confess "Odd number of parameters required";
 #
-#  my $q = $area->CreateTree;                                                    # A tree descriptor for a set of  quarks == tree in the specified area
-#  my $s = $area->CreateTree;                                                    # Strings to numbers
-#  my $n = $area->CreateTree;                                                    # Numbers to strings
-#  $q->put(K(key => Nasm::X86::Quarks::StringToNumber), $s);                     # Strings to numbers
-#  $q->put(K(key => Nasm::X86::Quarks::NumberToString), $n);                     # Numbers to strings
-#  bless {%$q}, q(Nasm::X86::Quarks)                                             # A tree descriptor for a set of  quarks == tree in the specified area
+#  my $q = $area->CreateTree;                                                   # A tree descriptor for a set of  quarks == tree in the specified area
+#  my $s = $area->CreateTree;                                                   # Strings to numbers
+#  my $n = $area->CreateTree;                                                   # Numbers to strings
+#  $q->put(K(key => Nasm::X86::Quarks::StringToNumber), $s);                    # Strings to numbers
+#  $q->put(K(key => Nasm::X86::Quarks::NumberToString), $n);                    # Numbers to strings
+#  bless {%$q}, q(Nasm::X86::Quarks)                                            # A tree descriptor for a set of  quarks == tree in the specified area
 # }
 #
-#sub Nasm::X86::Quarks::dump($$)                                                 # Dump quarks
-# {my ($quarks, $title) = @_;                                                    # Area description, quark options
+#sub Nasm::X86::Quarks::dump($$)                                                # Dump quarks
+# {my ($quarks, $title) = @_;                                                   # Area description, quark options
 #  @_ == 2 or confess "Two parameters";
 #  (bless {%$quarks}, q(Nasm::X86::Tree))->dump($title);
 # }
 #
-#sub Nasm::X86::Quarks::put($$$)                                                 # Add a string of specified length to the set of quarks and return its number as as a variable.
-# {my ($quarks, $address, $size) = @_;                                           # Area description, quark options
+#sub Nasm::X86::Quarks::put($$$)                                                # Add a string of specified length to the set of quarks and return its number as as a variable.
+# {my ($quarks, $address, $size) = @_;                                          # Area description, quark options
 #  @_ == 3 or confess "Three parameters";
-#  my $t = bless {%$quarks}, "Nasm::X86::Tree";                                  # Quarks == Tree
-#  my $s = $t->findSubTree(K key => Nasm::X86::Quarks::StringToNumber);          # Strings to numbers
-#  my $n = $t->findSubTree(K key => Nasm::X86::Quarks::NumberToString);          # Numbers to strings
+#  my $t = bless {%$quarks}, "Nasm::X86::Tree";                                 # Quarks == Tree
+#  my $s = $t->findSubTree(K key => Nasm::X86::Quarks::StringToNumber);         # Strings to numbers
+#  my $n = $t->findSubTree(K key => Nasm::X86::Quarks::NumberToString);         # Numbers to strings
 #  my $q = $n->size;
 #
-#  my $i = $t->area->treeFromString($address, $size);                            # Create an input tree string - expensive - we should look up the quark directly from the input string but this way is easier to code.
-#  my $I = $s->getString($i);                                                    # Look up the input string
-#  If $I->found == 0,                                                            # We can add it as it does not exist
+#  my $i = $t->area->treeFromString($address, $size);                           # Create an input tree string - expensive - we should look up the quark directly from the input string but this way is easier to code.
+#  my $I = $s->getString($i);                                                   # Look up the input string
+#  If $I->found == 0,                                                           # We can add it as it does not exist
 #  Then
 #   {$i->push($q);
 #    $s->putString($i);
 #    $n->push($i);
 #   },
-#  Else                                                                          # It already exists so returns its number
+#  Else                                                                         # It already exists so returns its number
 #   {$q->copy($I->data);
-#    $i->free;                                                                   # We do not need the tree string as it is already present int the string tree.
+#    $i->free;                                                                  # We do not need the tree string as it is already present int the string tree.
 #   };
 #  $q
 # }
@@ -18190,7 +18190,7 @@ END
  }
 
 #latest:
-#if (1) {                                                                        #
+#if (1) {                                                                       #
 #  my $a =     CreateArea;
 #  my $q = $a->CreateQuarks;
 #
