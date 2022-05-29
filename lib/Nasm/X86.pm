@@ -5777,7 +5777,7 @@ sub DescribeTree(%)                                                             
 #   debug        => V(debug   => 0),                                            # Write debug trace if true
     first        => V(first   => 0),                                            # Variable addressing offset to first block of the tree which is the header block
     found        => V(found   => 0),                                            # Variable indicating whether the last find was successful or not
-    index        => V(index   => 0),                                            # Index of key in last node found
+#   index        => V(index   => 0),                                            # Index of key in last node found
     key          => V(key     => 0),                                            # Variable containing the current key
     offset       => V(offset  => 0),                                            # Variable containing the offset of the block containing the current key
     subTree      => V(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
