@@ -10280,6 +10280,8 @@ if (onGitHub)
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
+say STDERR "Arguments ", dump(\@ARGV);
+
 if (@ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block.
   say STDERR "Executing first block of tests";
 
