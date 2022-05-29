@@ -10237,18 +10237,12 @@ else
  }
 
 my $start = time;                                                               # Tests
-if (onGitHub)
- {if (@ARGV)
-   {say STDERR "First block";
-   }
-  else
-   {say STDERR "Second block";
-   }
- }
 
-eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
+my %block = map {$_=>1} (@ARGV ? @ARGV : 1..4);                                 # Blocks of tests to execute
 
-if (@ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block.
+
+if ($block{1}) {                                                                # First block of tests
+eval {goto latest};                                                             # Go to latest test in this block
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -12088,7 +12082,7 @@ b: .... .... .... .222
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Subroutine::call
 
  my $h = genHash("AAAA",
@@ -13354,9 +13348,10 @@ struct: 34
 END
  }
 
-done_testing;
-exit;
-} # JUMP
+}
+if ($block{2}) {                                                                # Second block of tests
+eval {goto latest};                                                             # Go to latest test in this block
+
 
 #latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
@@ -17046,6 +17041,10 @@ point: .... .... .... ...2
 END
  }
 
+}
+if ($block{3}) {                                                                # Third block of tests
+eval {goto latest};                                                             # Go to latest test in this block
+
 sub Nasm::X86::Unisyn::Lex::Number::S {0}                                       # Start symbol
 sub Nasm::X86::Unisyn::Lex::Number::F {1}                                       # End symbol
 sub Nasm::X86::Unisyn::Lex::Number::A {2}                                       # ASCII characters extended with circled characters to act as escape sequences.
@@ -17884,6 +17883,10 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    };
  }
 
+}
+if ($block{4}) {                                                                # Fourth block of tests
+eval {goto latest};                                                             # Go to latest test in this block
+
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
   my $a = CreateArea;
@@ -18297,9 +18300,11 @@ size of tree: .... .... .... ....
 END
  }
 
+}
+
 done_testing;
 
-unlink $_ for qw(sde-footprint.txt sde-log.txt);
+#unlink $_ for qw(sde-footprint.txt sde-log.txt);
 
 say STDERR sprintf("# Time: %.2fs, bytes: %s, execs: %s",
   time - $start,
