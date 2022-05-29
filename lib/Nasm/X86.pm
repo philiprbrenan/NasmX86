@@ -10591,6 +10591,23 @@ if (1) {                                                                        
 END
  }
 
+#latest:;
+if (1)                                                                          #TOpenWrite #TPrintMemory #TCloseFile
+ {my $s = "zzzCreated.data";
+  my $f = Rs $s;
+  Mov rax, $f;
+  OpenWrite;
+  Mov r15, rax;
+  Mov rax, $f;
+  Mov rdi, length $s;
+  PrintMemory r15;
+  CloseFile;
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+END
+  ok -e $s;
+  unlink $s;
+ }
+
 #latest:
 if (1) {                                                                        #TAllocateMemory #TFreeMemory
   my $N = K size => 2048;
@@ -18267,7 +18284,7 @@ END
 #  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 
-#latest:;
+latest:;
 if (1)
  {my $a = CreateArea;
 $TraceMode = 0;
@@ -18275,13 +18292,14 @@ $TraceMode = 0;
   $t->size->outRightInDecNL(K width => 4);
 #   $t->put(K(key => 0xffffff), K(key => 1));                                   # 364
 #   $t->find(K key => 0xffffff);                                                # 370 -> 129
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1312445, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1312445, trace=>1;
 2826
 END
  }
 
-latest:;
-if (1)                                                                          #TOpenWrite;
+
+#latest:;
+if (1)                                                                          #TOpenWrite #TPrintMemory #TCloseFile
  {my $s = "zzzCreated.data";
   my $f = Rs $s;
   Mov rax, $f;
@@ -18294,6 +18312,7 @@ if (1)                                                                          
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
 END
  }
+
 
 done_testing;
 
