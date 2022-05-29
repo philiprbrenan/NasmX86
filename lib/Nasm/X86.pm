@@ -10244,7 +10244,7 @@ my %block = map {$_=>1} (@ARGV ? @ARGV : 4..4);                                 
 
 eval {goto latest};                                                             # Latest test if visible
 
-goto block2 unless $block{1};                                                   # First block of tests
+goto block2 unless $block{1};                                                   # First block of tests - general purpose
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -13350,7 +13350,7 @@ struct: 34
 END
  }
 
-block2: goto block3 unless $block{2};                                           # Second block of tests
+block2: goto block3 unless $block{2};                                           # Second block of tests - trees
 
 #latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
@@ -13782,6 +13782,20 @@ found: .... .... .... ...2
 data: .... .... .... ..22
 found: .... .... .... ....
 data: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put   (K(key => 1), K(key => 0x11));
+  $t->delete(K key => 1);
+  $t->size->outNL;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
+size of tree: .... .... .... ....
 END
  }
 
@@ -18279,23 +18293,6 @@ $TraceMode = 0;
 2826
 END
  }
-
-# INS 0x000000000042e0ee             BASE     mov rax, qword ptr [rbp-0x40]            | rax = 0x1
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::putString
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-
-  $t->put(K(key => 1), K(key => 0x11));
-  $t->delete(K key => 1);
-  $t->size->outNL;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
-size of tree: .... .... .... ....
-END
- }
-
 
 done_testing;
 
