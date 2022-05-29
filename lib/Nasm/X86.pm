@@ -10280,7 +10280,7 @@ if (onGitHub)
 
 eval {goto latest} if !caller(0) and !onGitHub;                                 # Go to latest test if specified
 
-if (0 or @ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block.
+if (@ARGV) {                                                                    # Do first block if we are on gitHub and the first block was requested else do the second block.
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
