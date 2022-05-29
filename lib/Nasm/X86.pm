@@ -5859,10 +5859,10 @@ sub Nasm::X86::Tree::copyDescription($)                                         
   my $t = $tree->describeTree;
 
   $t->data   ->copy($tree->data );                                              # Variable containing the last data found
-  $t->debug  ->copy($tree->debug);                                              # Write debug trace if true
+# $t->debug  ->copy($tree->debug);                                              # Write debug trace if true
   $t->first  ->copy($tree->first);                                              # Variable addressing offset to first block of keys.
   $t->found  ->copy($tree->found);                                              # Variable indicating whether the last find was successful or not
-  $t->index  ->copy($tree->index);                                              # Index of key in last node found
+# $t->index  ->copy($tree->index);                                              # Index of key in last node found
   $t->subTree->copy($tree->subTree);                                            # Variable indicating whether the last find found a sub tree
   $t                                                                            # Return new descriptor
  }
@@ -16613,7 +16613,7 @@ A
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::push
   my $b = Rb(0x41..0x51);
   my $a = CreateArea;
@@ -16677,6 +16677,7 @@ At:      780                                                                    
      end
 end
 END
+exit;
  }
 
 #latest:
@@ -18288,7 +18289,7 @@ if (1) {                                                                        
   $t->delete(K key => 1);
   $t->size->outNL;
 
-  ok Assemble eq => <<END, avx512=>1, trace=>2, mix=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
 size of tree: .... .... .... ....
 END
  }
