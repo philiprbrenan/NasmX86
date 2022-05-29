@@ -12023,10 +12023,10 @@ if (1) {                                                                        
      $c->dIntoZ(0, 10);
      $c->qIntoZ(0, 16);
   PrintOutRegisterInHex zmm0;
-  bFromZ(0, 12)->outNL;
-  wFromZ(0, 12)->outNL;
-  dFromZ(0, 12)->outNL;
-  qFromZ(0, 12)->outNL;
+  bFromZ(zmm0, 12)->outNL;
+  wFromZ(zmm0, 12)->outNL;
+  dFromZ(zmm0, 12)->outNL;
+  qFromZ(zmm0, 12)->outNL;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
   zmm0: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .7.6 .5.4 .3.2 .1.. - .... .3.2 .1.. ....  .1.. .... .... ....
