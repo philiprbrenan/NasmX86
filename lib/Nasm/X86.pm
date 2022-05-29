@@ -17411,6 +17411,7 @@ sub Nasm::X86::Unisyn::Parse($$$)                                               
     my $m = $area->treeFromString($a8+$startPos, $l);                           # Create a tree string from the symbol in the parsing area as an easy way of loading the tree of strings - it would be better to have a version that loaded a string tree directly from memory
     my $s = $symbols->putString($m);                                            # The symbol number for the last lexical item
     $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
+    $m->free;                                                                   # Free the tree acting as a string now that its content has been incorporated into the tree of strings - a source of inefficiency
    };
 
   my $new = sub                                                                 # Create a new lexical item
