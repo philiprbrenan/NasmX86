@@ -5774,7 +5774,7 @@ sub DescribeTree(%)                                                             
 
     compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
     data         => V(data    => 0),                                            # Variable containing the current data
-    debug        => V(debug   => 0),                                            # Write debug trace if true
+#   debug        => V(debug   => 0),                                            # Write debug trace if true
     first        => V(first   => 0),                                            # Variable addressing offset to first block of the tree which is the header block
     found        => V(found   => 0),                                            # Variable indicating whether the last find was successful or not
     index        => V(index   => 0),                                            # Index of key in last node found
@@ -10238,11 +10238,10 @@ else
 
 my $start = time;                                                               # Tests
 
-my %block = map {$_=>1} (@ARGV ? @ARGV : 1..4);                                 # Blocks of tests to execute
+my %block = map {$_=>1} (@ARGV ? @ARGV : 4..4);                                 # Blocks of tests to execute
 
 
-if ($block{1}) {                                                                # First block of tests
-eval {goto latest};                                                             # Go to latest test in this block
+if ($block{1}) {eval {goto latest};                                             # First block of tests
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -13348,9 +13347,7 @@ struct: 34
 END
  }
 
-}
-if ($block{2}) {                                                                # Second block of tests
-eval {goto latest};                                                             # Go to latest test in this block
+} if ($block{2}) {eval {goto latest};                                           # Second block of tests
 
 
 #latest:
@@ -17041,9 +17038,7 @@ point: .... .... .... ...2
 END
  }
 
-}
-if ($block{3}) {                                                                # Third block of tests
-eval {goto latest};                                                             # Go to latest test in this block
+} if ($block{3}) {eval {goto latest};                                           # Third block of tests
 
 sub Nasm::X86::Unisyn::Lex::Number::S {0}                                       # Start symbol
 sub Nasm::X86::Unisyn::Lex::Number::F {1}                                       # End symbol
@@ -17883,9 +17878,7 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    };
  }
 
-}
-if ($block{4}) {                                                                # Fourth block of tests
-eval {goto latest};                                                             # Go to latest test in this block
+} if ($block{4}) {eval {goto latest};                                           # Fourth block of tests
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
@@ -18271,7 +18264,7 @@ END
 #  1,326,486         115,616       1,326,486         115,616      0.310844          0.15
 #  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
 
-#latest:;
+latest:;
 if (1)
  {my $a = CreateArea;
 $TraceMode = 0;
