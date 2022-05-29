@@ -4471,7 +4471,7 @@ sub ReadInteger()                                                               
  }
 
 sub ReadFile($)                                                                 # Read a file into memory.
- {my ($File) = @_;                                                              # Variable addressing a zero terminated string naming the file
+ {my ($File) = @_;                                                              # Variable addressing a zero terminated string naming the file to be read in by mapping it
   @_ == 1 or confess "One parameter required";
 
   my $s = Subroutine
@@ -5657,14 +5657,6 @@ sub Nasm::X86::Area::printOut($$$)                                              
   PopR;
  }
 
-#sub Nasm::X86::Area::outPartNL($)                                              # Print part of the specified area on sysout followed by a new line.
-# {my ($area) = @_;                                                             # Area descriptor
-#  @_ == 1 or confess "One parameter";
-#
-#  $area->outPart;
-#  PrintOutNL;
-# }
-#
 sub Nasm::X86::Area::dump($$;$)                                                 # Dump details of an area.
  {my ($area, $title, $depth) = @_;                                              # Area descriptor, title string, optional variable number of 64 byte blocks to dump
   @_ == 2 or @_ == 3 or confess "Two or three parameters";
