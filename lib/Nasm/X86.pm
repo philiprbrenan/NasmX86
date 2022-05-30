@@ -18396,7 +18396,7 @@ END
     $t->data->outNL;
    }
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, trace=>1;
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
 data: .... .... .... ...8
 END
   unlink $f;
@@ -18434,7 +18434,8 @@ if (1) {                                                                        
    rax: .... .... .... 9999
 END
   ok -e $f;
-  is_deeply fileSize($f), 77;
+  is_deeply fileSize($f),  77 unless onGitHub;
+  is_deeply fileSize($f), 173 if     onGitHub;
 
 
   my $B = ReadArea $f;
@@ -18442,7 +18443,7 @@ END
   $t->call(parameters=>{a => K key => 0x8888}, override => $C);
   PrintOutRegisterInHex rax;
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, trace=>1;
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
    rax: .... .... .... 8888
 END
   unlink $f;
