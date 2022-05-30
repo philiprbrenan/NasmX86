@@ -5423,7 +5423,7 @@ sub Nasm::X86::Area::clearZmmBlock($$)                                          
 
 #D2 Yggdrasil                                                                   # The world tree from which we can address so many other things
 
-sub Nasm::X86::Area::checkYggdrasilCreated($)                                   #P Return a tree descriptor to the Yggdrasil world tree for an area.  If Yggdrasil has not been created the B<found> variable will be zero else one.
+sub Nasm::X86::Area::checkYggdrasilCreated($)                                 #P Return a tree descriptor to the Yggdrasil world tree for an area.  If Yggdrasil has not been created the B<found> variable will be zero else one.
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
@@ -5446,7 +5446,7 @@ sub Nasm::X86::Area::checkYggdrasilCreated($)                                   
   $t
  }
 
-sub Nasm::X86::Area::establishYggdrasil($)                                      #P Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
+sub Nasm::X86::Area::yggdrasil($)                                               #P Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
@@ -10221,7 +10221,7 @@ use Time::HiRes qw(time);
 use Test::Most;
 
 my %block = map {$_=>1} (@ARGV ? @ARGV : 1..4);                                 # Blocks of tests to execute
-say STDERR "Tests: ", dump(\%block);
+#say STDERR "Tests: ", dump(\%block);
 
 bail_on_fail unless onGitHub;
 
@@ -11308,12 +11308,12 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TNasm::X86::Area::checkYggdrasilCreated #TNasm::X86::Area::establishYggdrasil
+if (1) {                                                                        #TNasm::X86::Area::checkYggdrasilCreated #TNasm::X86::Area::yggdrasil
 $TraceMode = 1;
   my $A = CreateArea;
   my $t = $A->checkYggdrasilCreated;
      $t->found->outNL;
-  my $y = $A->establishYggdrasil;
+  my $y = $A->yggdrasil;
   my $T = $A->checkYggdrasilCreated;
      $T->found->outNL;
   ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>1;
@@ -18318,16 +18318,17 @@ END
 #  1,326,486         115,616       1,326,486         115,616      0.310844          0.15
 #  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
+#  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
 
-#latest:;
+latest:;
 if (1) {
   my $a = CreateArea;
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#   $t->put(K(key => 0xffffff), K(key => 1));                                   # 364
-#   $t->find(K key => 0xffffff);                                                # 370 -> 129
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1312445, trace=>1;
+# $t->put(K(key => 0xffffff), K(key => 1));                                    # 364    347
+# $t->find(K key => 0xffffff);                                                # 370 -> 129
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259647, trace=>1;
 2826
 END
 }
@@ -18336,12 +18337,12 @@ END
 
 sub Nasm::X86::Unisyn::Yggdrasil::alphabets {K alphabets => 0x0}                # Location in the area of the alphabets tree
 
-if (1) {                                                                        #TNasm::X86::Area::establishYggdrasil
+if (1) {                                                                        #TNasm::X86::Area::yggdrasil
   my $f = q(zzzArea.data);
 
   if (1)                                                                        # Create alphabets and write to a file
    {my $a = CreateArea;
-    my $y = $a->establishYggdrasil;
+    my $y = $a->yggdrasil;
     my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
     $y->put(Nasm::X86::Unisyn::Yggdrasil::alphabets, $t);
     $t->find(K key => 0x27e2);
@@ -18353,7 +18354,7 @@ if (1) {                                                                        
 
   if (2)                                                                        # Load alphabets from a file
    {my $a = Nasm::X86::Area::ReadArea $f;
-    my $y = $a->establishYggdrasil;
+    my $y = $a->yggdrasil;
     my $t = $y->findSubTree(Nasm::X86::Unisyn::Yggdrasil::alphabets);
     $t->find(K key => 0x27e2);
     $t->data->outNL;
@@ -18374,7 +18375,7 @@ END
     SetLabel $areaFinish;
 
     my $a = DescribeArea address => V area=>$areaStart;
-    my $y = $a->establishYggdrasil;
+    my $y = $a->yggdrasil;
     my $t = $y->findSubTree(Nasm::X86::Unisyn::Yggdrasil::alphabets);
     $t->find(K key => 0x27e2);
     $t->data->outNL;
@@ -18410,3 +18411,4 @@ END
   say STDERR $s;
   exit(1) if $testsThatFailed;                                                  # Show failure on gitHub
  }
+# podDocumentation
