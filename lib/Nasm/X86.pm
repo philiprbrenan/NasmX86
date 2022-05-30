@@ -17066,7 +17066,7 @@ point: .... .... .... ...2
 END
  }
 
-block3: goto block4 unless $block{3};                                           # Third block of tests
+block3: goto block4 unless $block{3};                                           # Third block of tests - parsing
 
 sub Nasm::X86::Unisyn::Lex::Number::S {0}                                       # Start symbol
 sub Nasm::X86::Unisyn::Lex::Number::F {1}                                       # End symbol
@@ -17908,7 +17908,7 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    };
  }
 
-block4: goto blockX unless $block{4};                                           # Fourth block of tests
+block4: goto blockX unless $block{4};                                           # Fourth block of tests - latest development
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
