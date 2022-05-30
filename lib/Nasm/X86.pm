@@ -9452,10 +9452,13 @@ END
   my $err  = $run ? "2>$o2" : '';
 
   my $exec = sub                                                                # Execution string
-   {my $m = $mix ? '-mix' : '';                                                 # Mix output option
-    my $o = qq($sde $m -ptr-check);                                             # Emulator options
-       $o = qq($sde $m -ptr-check -debugtrace -footprint) if $trace;            # Emulator options - tracing
-    my $e = $execFile;
+   {my $o = qq($sde);                                                           # Emulator
+    if (!onGitHub)                                                              # Avoid tracing on github as their extensive output make the logs difficult to read
+      {$o = qq($o -ptr-check -debugtrace -footprint) if $trace;                 # Emulator options - tracing
+       $o = qq($o -mix)                              if $mix;                   # Emulator options - mix histogram output
+      }
+
+    my $e = $execFile;                                                          # Executable file name - this is the thing we are going to run by itself or on the emulator
 
     my $E = $options{emulator};                                                 # Emulator required
     if ($E or $avx512 && !hasAvx512 or $trace)                                  # Command to execute program via the  emulator
@@ -18354,10 +18357,7 @@ if (1) {
   $t->size->outRightInDecNL(K width => 4);
 # $t->put(K(key => 0xffffff), K(key => 1));                                     # 364    347
 # $t->find(K key => 0xffffff);                                                  # 370 -> 129
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259647, trace=>1 unless onGitHub;
-2826
-END
-  ok Assemble eq=><<END, avx512=>1 if onGitHub;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259647, trace=>1;
 2826
 END
 }
