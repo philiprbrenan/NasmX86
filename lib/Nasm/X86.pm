@@ -5572,6 +5572,29 @@ sub Nasm::X86::Area::clear($)                                                   
    } parameters=>[qw(address)], name => 'Nasm::X86::Area::clear';
 
   $s->call(parameters=>{address => $area->address});
+
+sub Nasm::X86::Area::ReadArea($)                                                # Read an area stored in a file into memory and return an area descriptor for the area so created.
+ {my ($file) = @_;                                                              # Name of file to read
+  my ($address, $size) = ReadFile $file;                                        # Read the file into memory
+  DescribeArea address => $address;                                             # Describe it as an area
+ }
+
+sub Nasm::X86::Area::read($@)                                                   # Read a file specified by a variable addressed zero terminated string and append its content to the specified area.
+ {my ($area, $file) = @_;                                                       # Area descriptor, variable addressing file name
+  @_ == 2 or confess "Two parameters";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    Comment "Read an area";
+    my ($address, $size) = ReadFile $$p{file};
+    my $area = $$s{area};
+    $area->appendMemory($address, $size);                                       # Move data into area
+    FreeMemory($size, $address);                                                # Free memory allocated by read
+   } structures => {area=>$area},
+     parameters => [qw(file)],
+     name       => 'Nasm::X86::Area::read';
+
+  $s->call(structures => {area => $area}, parameters => {file => $file});
  }
 
 sub Nasm::X86::Area::write($$)                                                  # Write the content of the specified area to a file specified by a zero terminated string.
@@ -5598,24 +5621,6 @@ sub Nasm::X86::Area::write($$)                                                  
    } parameters=>[qw(file address)], name => 'Nasm::X86::Area::write';
 
   $s->call(parameters=>{address => $area->address, file => $file});
- }
-
-sub Nasm::X86::Area::read($@)                                                   # Read a file specified by a variable addressed zero terminated string and place the contents of the file into the named area.
- {my ($area, $file) = @_;                                                       # Area descriptor, variable addressing file name
-  @_ == 2 or confess "Two parameters";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Comment "Read an area";
-    my ($address, $size) = ReadFile $$p{file};
-    my $area = $$s{area};
-    $area->appendMemory($address, $size);                                       # Move data into area
-    FreeMemory($size, $address);                                                # Free memory allocated by read
-   } structures => {area=>$area},
-     parameters => [qw(file)],
-     name       => 'Nasm::X86::Area::read';
-
-  $s->call(structures => {area => $area}, parameters => {file => $file});
  }
 
 sub Nasm::X86::Area::out($)                                                     # Print the specified area on sysout.
@@ -18347,12 +18352,6 @@ END
 
 #latest:;
 
-sub Nasm::X86::Area::ReadArea($)                                                # Read an area stored in a file
- {my ($file) = @_;                                                              # Name of file to read
-  my ($address, $size) = ReadFile $file;
-  DescribeArea address => $address;
- }
-
 sub Nasm::X86::Unisyn::Yggdrasil::alphabets {K alphabets => 0x0}                # Location in the area of the alphabets tree
 
 if (1) {                                                                        #TNasm::X86::Area::establishYggdrasil
@@ -18422,5 +18421,5 @@ END
   numberWithCommas($instructionsExecuted));
   owf(q(zzzStatus.txt), $s);
   say STDERR $s;
-# exit(1) if $testsThatFailed;                                                  # Show failure on gitHub
+  exit(1) if $testsThatFailed;                                                  # Show failure on gitHub
  }
