@@ -18347,7 +18347,7 @@ END
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 #  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
 
-latest:;
+#latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
@@ -18434,7 +18434,7 @@ if (1) {                                                                        
    rax: .... .... .... 9999
 END
   ok -e $f;
-  ok fileSize($f) == 77;
+  is_deeply fileSize($f), 77;
 
 
   my $B = ReadArea $f;
