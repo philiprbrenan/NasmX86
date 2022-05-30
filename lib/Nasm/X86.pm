@@ -18347,7 +18347,7 @@ END
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 #  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
 
-#latest:;
+latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
@@ -18438,7 +18438,7 @@ END
 
 
   my $B = ReadArea $f;
-  my $C = $B->address + 0x40;
+  my $C = $B->address + 0x40;                                                   # The address of the routine
   $t->call(parameters=>{a => K key => 0x8888}, override => $C);
   PrintOutRegisterInHex rax;
 
