@@ -1,4 +1,4 @@
-# Test NasmX86 2022-05-30 at 06:31:36
+# Test NasmX86 2022-05-30 at 06:36:44
 
 name: Test
 
@@ -56,6 +56,10 @@ jobs:
       run: |
         perl -Ilib lib/Nasm/X86.pm 1
 
+    - name: Result1
+      run: |
+        cat zzzStatus.txt
+
   test2:
     runs-on: ubuntu-latest
 
@@ -105,6 +109,10 @@ jobs:
     - name: Test2
       run: |
         perl -Ilib lib/Nasm/X86.pm 2
+
+    - name: Result2
+      run: |
+        cat zzzStatus.txt
 
   test3:
     runs-on: ubuntu-latest
@@ -156,6 +164,10 @@ jobs:
       run: |
         perl -Ilib lib/Nasm/X86.pm 3
 
+    - name: Result3
+      run: |
+        cat zzzStatus.txt
+
   test4:
     runs-on: ubuntu-latest
 
@@ -205,3 +217,7 @@ jobs:
     - name: Test4
       run: |
         perl -Ilib lib/Nasm/X86.pm 4
+
+    - name: Result4
+      run: |
+        cat zzzStatus.txt
