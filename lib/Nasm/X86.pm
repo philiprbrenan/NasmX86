@@ -17908,7 +17908,7 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    };
  }
 
-block4:                                                                         # Fourth block of tests
+block4: goto blockX unless $block{4};                                           # Fourth block of tests
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
@@ -18429,6 +18429,8 @@ g: .... .... .... ...1
 g: .... .... .... ....
 END
  }
+
+blockX:
 
 done_testing;
 
