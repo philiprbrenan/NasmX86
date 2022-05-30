@@ -18425,12 +18425,15 @@ done_testing;
 
 #unlink $_ for qw(sde-footprint.txt sde-log.txt);
 
-say STDERR sprintf(<<END,                                                       # Summary of reports
+if (1)
+ {my $s = sprintf(<<END,                                                         # Summary
 # Time: %.2fs,  assemblies:%3d,  passes:%3d,  fails:%3d,  bytes: %s,  execs: %s
 END
   time - $start,
   $assembliesPerformed, $testsThatPassed, $testsThatFailed,
   numberWithCommas(totalBytesAssembled),
   numberWithCommas($instructionsExecuted));
-
-exit(1) if $testsThatFailed;                                                    # Show failure on gitHub
+  owf(q(zzzStatus.txt), $s);
+  say STDERR $s;
+  exit(1) if $testsThatFailed;                                                    # Show failure on gitHub
+ }
