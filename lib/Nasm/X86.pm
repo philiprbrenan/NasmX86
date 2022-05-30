@@ -5572,6 +5572,7 @@ sub Nasm::X86::Area::clear($)                                                   
    } parameters=>[qw(address)], name => 'Nasm::X86::Area::clear';
 
   $s->call(parameters=>{address => $area->address});
+ }
 
 sub Nasm::X86::Area::ReadArea($)                                                # Read an area stored in a file into memory and return an area descriptor for the area so created.
  {my ($file) = @_;                                                              # Name of file to read
@@ -11036,6 +11037,29 @@ if (1) {                                                                        
 aa
 END
  }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  $T->dump("AA");
+  $T->put(K(key=>0), $t);
+  $T->dump("BB");
+
+  ok Assemble eq => <<END, avx512=>1;
+AA
+- empty
+BB
+At:   C0                    length:    1,  data:  100,  nodes:  140,  first:   80, root, leaf,  trees:             1
+  Index:    0
+  Keys :    0
+  Data :   0*
+- empty
+end
+END
+}
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Area::print
@@ -18325,30 +18349,6 @@ $TraceMode = 0;
 2826
 END
 }
-
-#latest:
-if (1) {
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-  my $T = $a->CreateTree;
-
-  $T->dump("AA");
-  $T->put(K(key=>0), $t);
-  $T->dump("BB");
-
-  ok Assemble eq => <<END, avx512=>1;
-AA
-- empty
-BB
-At:   C0                    length:    1,  data:  100,  nodes:  140,  first:   80, root, leaf,  trees:             1
-  Index:    0
-  Keys :    0
-  Data :   0*
-- empty
-end
-END
-}
-
 
 #latest:;
 
