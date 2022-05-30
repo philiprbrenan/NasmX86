@@ -1766,8 +1766,9 @@ END
      }
    }
   elsif (my $o = $options{override})                                            # A variable containing the address of the subroutine to call
-   {$o->setReg(rdi);
-    Call rdi;
+   {#$o->setReg(rdi);
+    #Call rdi;
+    Call $o->addressExpr;
    }
   else                                                                          # Call via label
    {if ($new)                                                                   # Call new generation created for tracing
@@ -5076,6 +5077,8 @@ END
 
 our $AreaFreeChain = 0;                                                         # The key of the Yggdrasil tree entry in the area recording the start of the free chain
 
+#D2 Constructors                                                                # Construct an area either in memory or by reading it from a file or by incorporating it into an assembly.
+
 sub DescribeArea(%)                                                             # Describe a relocatable area.
  {my (%options) = @_;                                                           # Optional variable addressing the start of the area
   my $B = 12;                                                                   # Log2 of size of initial allocation for the area
@@ -5129,11 +5132,30 @@ sub CreateArea(%)                                                               
   $area
  }
 
+sub ReadArea($)                                                                 # Read an area stored in a file into memory and return an area descriptor for the area so created.
+ {my ($file) = @_;                                                              # Name of file to read
+  my ($address, $size) = ReadFile $file;                                        # Read the file into memory
+  DescribeArea address => $address;                                             # Describe it as an area
+ }
+
+sub AssembleArea($%)                                                            # Load an area into the current assembly and return a descriptor for it.
+ {my ($file, %options) = @_;                                                    # File containing an are written out with write, options
+  my  $areaFinish = Label;
+  Jmp $areaFinish;                                                              # Jump over area
+  my  $areaStart = SetLabel;
+  Incbin qq("$file");                                                           # Include area as a binary file
+  SetLabel $areaFinish;
+
+  DescribeArea address => V area=>$areaStart;                                   # Describe area
+ }
+
 sub Nasm::X86::Area::free($)                                                    # Free an area
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
   FreeMemory($area->address, $area->size)
  }
+
+#D2 Memory                                                                      # Manage memory controlled by an area.
 
 sub Nasm::X86::Area::used($)                                                    # Return the currently used size of an area as a variable.
  {my ($area) = @_;                                                              # Area descriptor
@@ -5498,13 +5520,18 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
     $newUsed->setReg(rdi);
     Mov $used, rdi;
 
+    $$p{offset}->copy($oldUsed);                                                # Return offset of content in area
+
     RestoreFirstFour;
    } structures => {area => $area},
-     parameters => [qw(address size)],
+     parameters => [qw(address size offset)],
      name       => 'Nasm::X86::Area::m';
 
+  my $offset = V offset => 0;                                                   # Offset within the area at which the content was appended
   $s->call(structures => {area => $area},
-           parameters => {address => $address, size => $size});
+           parameters => {address => $address, size => $size,
+                          offset  => $offset});
+  $offset
  }
 
 sub Nasm::X86::Area::q($$)                                                      # Append a constant string to the area.
@@ -5573,12 +5600,6 @@ sub Nasm::X86::Area::clear($)                                                   
    } parameters=>[qw(address)], name => 'Nasm::X86::Area::clear';
 
   $s->call(parameters=>{address => $area->address});
- }
-
-sub Nasm::X86::Area::ReadArea($)                                                # Read an area stored in a file into memory and return an area descriptor for the area so created.
- {my ($file) = @_;                                                              # Name of file to read
-  my ($address, $size) = ReadFile $file;                                        # Read the file into memory
-  DescribeArea address => $address;                                             # Describe it as an area
  }
 
 sub Nasm::X86::Area::read($@)                                                   # Read a file specified by a variable addressed zero terminated string and append its content to the specified area.
@@ -18338,7 +18359,7 @@ if (1) {
 END
 }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Area::yggdrasil
   my $f = q(zzzArea.data);
 
@@ -18353,7 +18374,7 @@ if (1) {                                                                        
    }
 
   if (2)                                                                        # Load alphabets from a file
-   {my $a = Nasm::X86::Area::ReadArea $f;
+   {my $a = ReadArea $f;
     my $y = $a->yggdrasil;
     my $t = $y->findSubTree(Nasm::X86::Ygddrasil::Unisyn::Alphabets);
     $t->find(K key => 0x27e2);
@@ -18368,13 +18389,7 @@ END
   ok fileSize($f) == 88512;
 
   if (3)                                                                        # Incorporate alphabets in an an assembly
-   {my  $areaFinish = Label;
-    Jmp $areaFinish;
-    my  $areaStart  = SetLabel;
-    Incbin qq("$f");
-    SetLabel $areaFinish;
-
-    my $a = DescribeArea address => V area=>$areaStart;
+   {my $a = AssembleArea $f;
     my $y = $a->yggdrasil;
     my $t = $y->findSubTree(Nasm::X86::Ygddrasil::Unisyn::Alphabets);
     $t->find(K key => 0x27e2);
@@ -18383,6 +18398,52 @@ END
 
   ok Assemble eq=><<END, avx512=>1, mix=> 1, trace=>1;
 data: .... .... .... ...8
+END
+  unlink $f;
+ }
+
+latest:;
+if (1) {                                                                        # Load a subroutine into an area and call it.
+  unlink my $f = q(zzzArea.data);
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    $$p{a}->setReg(rax);
+    #$$p{a}->outNL;
+   } name => "s", parameters=>[qw(a)];
+
+  my $t = Subroutine {} name => "t", parameters=>[qw(a)];
+
+  $s->call(parameters=>{a => K key => 1});
+  PrintOutRegisterInHex rax;
+
+  my $a = CreateArea;
+  my $address = K address => $s->start;
+  my $size    = K size => "$$s{end}-$$s{start}";
+  my $off     = $a->appendMemory($address, $size);
+
+  $a->write(V file => Rs $f);
+  $a->free;
+
+  my $A = ReadArea $f;
+  $t->call(parameters=>{a => K key => 0x9999}, override => $A->address + $off);
+  PrintOutRegisterInHex rax;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... ...1
+   rax: .... .... .... 9999
+END
+  ok -e $f;
+  ok fileSize($f) == 77;
+
+
+  my $B = ReadArea $f;
+  my $C = $B->address + 0x40;
+  $t->call(parameters=>{a => K key => 0x8888}, override => $C);
+  PrintOutRegisterInHex rax;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, trace=>1;
+   rax: .... .... .... 8888
 END
   unlink $f;
  }
