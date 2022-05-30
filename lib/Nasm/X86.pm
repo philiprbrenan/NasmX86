@@ -11501,6 +11501,19 @@ g: .... .... .... ...1
 END
  }
 
+#latest:;
+if (1) {                                                                         #TIf #TThen #TElse
+  my $a = K(key => 1);
+  If $a > 0,
+  Then {Mov rax, 1},
+  Else {Mov rax, 2};
+  PrintOutRegisterInHex rax;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... ...1
+END
+ }
+
 #latest:
 if (1) {                                                                        #TSubroutine
   my $g = V g => 3;
@@ -18308,7 +18321,7 @@ $TraceMode = 0;
 END
 }
 
-latest:
+#latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18392,43 +18405,6 @@ END
   unlink $f;
  }
 
-
-#latest:;
-
-if (1) {
-  my $a = K(key => 1);
-  If $a > 0,
-  Then {Mov rax, 1},
-  Else {Mov rax, 2};
-  PrintOutRegisterInHex rax;
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
-   rax: .... .... .... ...1
-END
- }
-
-latest:
-if (1) {                                                                        #TSubroutine
-  my $g = V g => 3;
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;
-    my $g = $$p{g};
-    $g->copy($g - 1);
-    $g->outNL;
-    If $g > 0,
-    Then
-     {$sub->call(parameters=>{g => $g});
-     };
-   } parameters=>[qw(g)], name => 'ref';
-
-  $s->call(parameters=>{g => $g});
-
-  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1, keep=>0;
-g: .... .... .... ...2
-g: .... .... .... ...1
-g: .... .... .... ....
-END
- }
 
 blockX:
 
