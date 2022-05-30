@@ -18354,7 +18354,10 @@ if (1) {
   $t->size->outRightInDecNL(K width => 4);
 # $t->put(K(key => 0xffffff), K(key => 1));                                     # 364    347
 # $t->find(K key => 0xffffff);                                                  # 370 -> 129
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259647, trace=>1;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259647, trace=>1 unless onGitHub;
+2826
+END
+  ok Assemble eq=><<END, avx512=>1 if onGitHub;
 2826
 END
 }
