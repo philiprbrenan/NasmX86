@@ -9457,12 +9457,9 @@ END
   my $exec = sub                                                                # Execution string
    {my $o = qq($sde);                                                           # Emulator
        $o = qq($o -ptr-check)  if $ptr;                                         # Emulator options - tracing
-
-    if (!onGitHub)                                                              # Avoid tracing on github as their extensive output make the logs difficult to read
-      {$o = qq($o -footprint)  if $foot;                                        # Emulator options - foot print
+       $o = qq($o -footprint)  if $foot;                                        # Emulator options - foot print
        $o = qq($o -debugtrace) if $trace;                                       # Emulator options - tracing
        $o = qq($o -mix)        if $mix;                                         # Emulator options - mix histogram output
-      }
 
     my $e = $execFile;                                                          # Executable file name - this is the thing we are going to run by itself or on the emulator
 
@@ -9475,7 +9472,7 @@ END
 
   my $eStart = time;
 
-lll $exec;
+#lll $exec;
   qx($exec) if $run;                                                            # Run unless suppressed by user or library
 
   my $er     = $?;                                                              # Execution result
@@ -18067,7 +18064,6 @@ if (1) {                                                                        
   PrintOutRegisterInHex rax;
   eval {Assemble avx512=>1, trace=>1, mix=>0};
   ok readFile($traceBack) =~ m(TraceBack start:)s;
-exit;
  }
 
 #latest:
