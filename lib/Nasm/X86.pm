@@ -17263,9 +17263,15 @@ CO  38: 2309230B232A2769276B276D276F27712773277527E727E927EB27ED27EF298429862988
 END
  }
 
+sub Nasm::X86::Ygddrasil::Unisyn::Alphabets {K key => 0}                        # Unisyn alphabets
+
 sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
  {my ($a) = @_;                                                                 # Area in which to create the table
+  my $y = $a->yggdrasil;
   my $t = $a->CreateTree;
+
+  $y->put(Nasm::X86::Ygddrasil::Unisyn::Alphabets, $t);                         # Make the alphabets locate-able
+
   my @l = qw(A a b B d e p q s v);
   for my $l(@l)
    {my $n = K lex   => eval "Nasm::X86::Unisyn::Lex::Number::$l";
@@ -18333,7 +18339,7 @@ $TraceMode = 0;
 END
 }
 
-#latest:;
+latest:;
 
 sub Nasm::X86::Unisyn::Yggdrasil::alphabets {K alphabets => 0x0}                # Location in the area of the alphabets tree
 
