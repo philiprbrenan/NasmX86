@@ -16,6 +16,7 @@
 # Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, likewise the mmx registers mm0-7, zmm 0..15 and k0..3.
 # Make a tree read only - collapse all nodes possible, remove all leaf node arrays
 # Make trees faster by using an array for small keys
+# Jump forwarding
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -3268,28 +3269,27 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
   my $r = ref($right) ? $right->addressExpr : $right;                           # Right can be either a variable reference or a constant
 
-  Comment "Boolean ZF Arithmetic Start";
+  Comment "Boolean ZF Start";
 
   if ($op =~ m(\Ag)i)
    {($left, $right) = ($right, $left);
    }
 
-  if ($left->reference)                                                         # Dereference left if necessary
-   {Mov r11, $left ->addressExpr;
-    Mov r11, "[r11]";
-   }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
    {Mov r11, $left ->addressExpr;
+    Mov r11, "[r11]" if $left->reference;
     Mov rdi, $right ->addressExpr;
     Mov rdi, "[rdi]";
     Cmp r11, rdi;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
    {Mov r11, $left ->addressExpr;
+    Mov r11, "[r11]" if $left->reference;
     Cmp r11, $right->addressExpr;
    }
   elsif ($left->reference)                                                      # Left is a reference, right is a constant
    {Mov r11, $left ->addressExpr;
+    Mov r11, "[r11]";
     Cmp r11, $right;
    }
   else                                                                          # Not a reference on the left and a constant on the right
@@ -9284,7 +9284,7 @@ sub Assemble(%)                                                                 
   my $list       = $options{list};                                              # Create and retain a listing file so we can see where a trace error occurs
   my $debug      = $options{debug}//0;                                          # Debug: 0 - print stderr and compare stdout to eq if present, 1 - print stdout and stderr and compare sdterr to eq if present
   my $trace      = $options{trace}//0;                                          # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
-  my $keep       = $options{keep};                                              # Keep the executable
+  my $keep       = $options{keep};                                              # Keep the executable rather than running it
   my $mix        = $options{mix};                                               # Create mix output and fix with line number locations in source
   my $clocks     = $options{clocks};                                            # Expected number of clocks if known
   my $label      = $options{label};                                             # Label for this test if provided
@@ -11502,10 +11502,10 @@ if (1) {                                                                        
     my $g = $$p{g};
     $g->copy($g - 1);
     $g->outNL;
-    If ($g > 0,
+    If $g > 0,
     Then
      {$sub->call(parameters=>{g => $g});
-     });
+     };
    } parameters=>[qw(g)], name => 'ref';
 
   $s->call(parameters=>{g => $g});
@@ -18375,6 +18375,44 @@ END
 data: .... .... .... ...8
 END
   unlink $f;
+ }
+
+
+#latest:;
+
+if (1) {
+  my $a = K(key => 1);
+  If $a > 0,
+  Then {Mov rax, 1},
+  Else {Mov rax, 2};
+  PrintOutRegisterInHex rax;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... ...1
+END
+ }
+
+#latest:
+if (1) {                                                                        #TSubroutine
+  my $g = V g => 3;
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    my $g = $$p{g};
+    $g->copy($g - 1);
+    $g->outNL;
+    If $g > 0,
+    Then
+     {$sub->call(parameters=>{g => $g});
+     };
+   } parameters=>[qw(g)], name => 'ref';
+
+  $s->call(parameters=>{g => $g});
+
+  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1, keep=>0;
+g: .... .... .... ...2
+g: .... .... .... ...1
+g: .... .... .... ....
+END
  }
 
 done_testing;
