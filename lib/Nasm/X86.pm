@@ -9307,15 +9307,16 @@ our $testsThatFailed       = 0;                                                 
 
 sub Assemble(%)                                                                 # Assemble the generated code.
  {my (%options) = @_;                                                           # Options
-  my $aStart = time;
+  my $clocks     = $options{clocks};                                            # Expected number of clocks if known
+  my $debug      = $options{debug}//0;                                          # Debug: 0 - print stderr and compare stdout to eq if present, 1 - print stdout and stderr and compare sdterr to eq if present
+  my $foot       = $options{foot};                                              # Foot print required
+  my $keep       = $options{keep};                                              # Keep the executable rather than running it
+  my $label      = $options{label};                                             # Label for this test if provided
   my $library    = $options{library};                                           # Create  the named library if supplied from the supplied assembler code
   my $list       = $options{list};                                              # Create and retain a listing file so we can see where a trace error occurs
-  my $debug      = $options{debug}//0;                                          # Debug: 0 - print stderr and compare stdout to eq if present, 1 - print stdout and stderr and compare sdterr to eq if present
-  my $trace      = $options{trace}//0;                                          # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
-  my $keep       = $options{keep};                                              # Keep the executable rather than running it
   my $mix        = $options{mix};                                               # Create mix output and fix with line number locations in source
-  my $clocks     = $options{clocks};                                            # Expected number of clocks if known
-  my $label      = $options{label};                                             # Label for this test if provided
+  my $ptr        = $options{ptr};                                               # Pointer check required
+  my $trace      = $options{trace}//0;                                          # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
 
   my $sourceFile = q(z.asm);                                                    # Source file
   my $execFile   = $keep // q(z);                                               # Executable file
@@ -9430,6 +9431,8 @@ END
   unlink $sdePtrCheck, $sdeMixOut, $sdeTraceOut, $traceBack;
   my $perlTime = 0; $perlTime = time - $lastAsmFinishTime if $lastAsmFinishTime;# Time we spent in Perl preparing for the assembly
 
+  my $aStart = time;
+
   if (1)                                                                        # Assemble
    {my $I = @link ? $interpreter : '';                                          # Interpreter only required if calling C
     my $L = join " ",  map {qq(-l$_)} @link;                                    # List of libraries to link supplied via Link directive.
@@ -9453,15 +9456,17 @@ END
 
   my $exec = sub                                                                # Execution string
    {my $o = qq($sde);                                                           # Emulator
+       $o = qq($o -ptr-check)  if $ptr;                                         # Emulator options - tracing
+
     if (!onGitHub)                                                              # Avoid tracing on github as their extensive output make the logs difficult to read
-      {$o = qq($o -ptr-check -debugtrace -footprint) if $trace;                 # Emulator options - tracing
-       $o = qq($o -mix)                              if $mix;                   # Emulator options - mix histogram output
+      {$o = qq($o -footprint)  if $foot;                                        # Emulator options - foot print
+       $o = qq($o -debugtrace) if $trace;                                       # Emulator options - tracing
+       $o = qq($o -mix)        if $mix;                                         # Emulator options - mix histogram output
       }
 
     my $e = $execFile;                                                          # Executable file name - this is the thing we are going to run by itself or on the emulator
 
-    my $E = $options{emulator};                                                 # Emulator required
-    if ($E or $avx512 && !hasAvx512 or $trace)                                  # Command to execute program via the  emulator
+    if ($avx512 && !hasAvx512 or $trace or $mix or $ptr or $foot)               # Command to execute program via the  emulator
      {return qq($o -- ./$e $err $out)
      }
 
@@ -11292,14 +11297,14 @@ phil
 END
  }
 
-#latest:;
+latest:;
 if (!hasAvx512) {                                                               # Make an area readonly - but we need the emulator to test this
   my $s = CreateArea;                                                           # Create an area
   $s->q("Hello");                                                               # Write code to area
   $s->makeReadOnly;                                                             # Make area read only
   $s->q(" World");                                                              # Try to write to area
 
-  ok Assemble(debug=>2, emulator=>1) =~ m(SDE ERROR: DEREFERENCING BAD MEMORY POINTER.*mov byte ptr .rax.rdx.1., r8b);
+  ok Assemble(debug=>2, ptr=>1) =~ m(SDE ERROR: DEREFERENCING BAD MEMORY POINTER.*mov byte ptr .rax.rdx.1., r8b);
  }
 
 #latest:;
