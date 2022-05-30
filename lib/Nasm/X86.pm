@@ -16460,7 +16460,7 @@ Area     Size:     4096    Used:      128
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Area::allocZmmBlock #TNasm::X86::Area::freeZmmBlock #TNasm::X86::Area::getZmmBlock #TNasm::X86::Area::putZmmBlock  #TNasm::X86::Area::dump
   my $a = CreateArea;
 
@@ -18307,8 +18307,7 @@ $TraceMode = 0;
 END
 }
 
-
-#latest:
+latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
