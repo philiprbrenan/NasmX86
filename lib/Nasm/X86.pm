@@ -9551,7 +9551,7 @@ END
            }
          }
        }
-      confess "Test failed";# unless $onGitHub;                                 # Test failed unless we are debugging test failures
+      confess "Test failed" unless onGitHub;                                    # Test failed unless we are debugging test failures
      }
     return 1;                                                                   # Test passed
    }
@@ -10211,6 +10211,8 @@ test unless caller;
 use Time::HiRes qw(time);
 use Test::Most;
 
+my %block = map {$_=>1} (@ARGV ? @ARGV : 1..4);                                 # Blocks of tests to execute
+
 bail_on_fail unless onGitHub;
 
 my $localTest = ((caller(1))[0]//'Nasm::X86') eq "Nasm::X86";                   # Local testing mode
@@ -10229,8 +10231,6 @@ else
  }
 
 my $start = time;                                                               # Tests
-
-my %block = map {$_=>1} (@ARGV ? @ARGV : 4..4);                                 # Blocks of tests to execute
 
 eval {goto latest} unless onGitHub;                                             # Latest test if visible and testing locally
 
@@ -10382,7 +10382,7 @@ r15: .... .... .... ..15
  r9: .... .... .... ...9
 rax: .... .... .... ...1
 rbx: .... .... .... ...2
-rcx: .... .... ..40 18E1
+rcx: .... .... ..40 1922
 rdi: .... .... .... ...4
 rdx: .... .... .... ...5
 rsi: .... .... .... ...6
@@ -11217,7 +11217,7 @@ END
  }
 
 #latest:;
-if ($homeTest) {                                                                # Execute the content of an area #TexecuteFileViaBash #TArea::write #TArea::out #TunlinkFile #TArea::ql
+if (0 and $homeTest) {                                                                # Execute the content of an area #TexecuteFileViaBash #TArea::write #TArea::out #TunlinkFile #TArea::ql
   my $s = CreateArea;                                                           # Create a string
   $s->ql(<<END);                                                                # Write code to execute
 #!/usr/bin/bash
@@ -18317,7 +18317,7 @@ END
 }
 
 
-latest:;
+#latest:;
 
 sub Nasm::X86::Area::ReadArea($)                                                # Read an area stored in a file
  {my ($file) = @_;                                                              # Name of file to read
