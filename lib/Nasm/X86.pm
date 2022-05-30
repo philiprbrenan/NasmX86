@@ -9276,6 +9276,8 @@ sub onGitHub                                                                    
 our $assembliesPerformed  = 0;                                                  # Number of assemblies performed
 our $instructionsExecuted = 0;                                                  # Total number of instructions executed
 our $totalBytesAssembled  = 0;                                                  # Total size of the output programs
+our $testsThatPassed       = 0;                                                  # Number of runs that passed their test
+our $testsThatFailed       = 0;                                                  # Number of runs that failed to pass their tests
 
 sub Assemble(%)                                                                 # Assemble the generated code.
  {my (%options) = @_;                                                           # Options
@@ -9551,7 +9553,11 @@ END
            }
          }
        }
+      $testsThatFailed++;
       confess "Test failed" unless onGitHub;                                    # Test failed unless we are debugging test failures
+     }
+    else                                                                        # Runs that passed
+     {$testsThatPassed++;
      }
     return 1;                                                                   # Test passed
    }
@@ -18392,7 +18398,7 @@ if (1) {
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TSubroutine
   my $g = V g => 3;
   my $s = Subroutine
@@ -18419,6 +18425,12 @@ done_testing;
 
 #unlink $_ for qw(sde-footprint.txt sde-log.txt);
 
-say STDERR sprintf("# Time: %.2fs, bytes: %s, execs: %s",
+say STDERR sprintf(<<END,                                                       # Summary of reports
+# Time: %.2fs,  assemblies:%3d,  passes:%3d,  fails:%3d,  bytes: %s,  execs: %s
+END
   time - $start,
-  map {numberWithCommas $_} totalBytesAssembled, $instructionsExecuted);
+  $assembliesPerformed, $testsThatPassed, $testsThatFailed,
+  numberWithCommas(totalBytesAssembled),
+  numberWithCommas($instructionsExecuted));
+
+exit(1) if $testsThatFailed;                                                    # Show failure on gitHub
