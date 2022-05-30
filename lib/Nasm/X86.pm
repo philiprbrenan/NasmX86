@@ -5,9 +5,8 @@
 # Philip R Brenan at appaapps dot com, Appa Apps Ltd Inc., 2021
 #-------------------------------------------------------------------------------
 # podDocumentation (\A.{80})\s+(#.*\Z) \1\2
-# rdi and rsi are free so they cannot be relied on across calls
-# tree::print - speed up decision as to whether we are on a tree or not
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
+# tree::print - speed up decision as to whether we are on a tree or not
 # Make hash accept parameters at: #THash
 # if (0) in tests from subroutine conversion
 # Document that V > 0 is required to create a boolean test
@@ -5555,7 +5554,7 @@ sub Nasm::X86::Area::append($@)                                                 
   RestoreFirstFour;
  }
 
-sub Nasm::X86::Area::clear($)                                                   # Clear an area
+sub Nasm::X86::Area::clear($)                                                   # Clear an area but keep it at the same size.
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
@@ -5708,8 +5707,6 @@ sub Nasm::X86::Area::dump($$;$)                                                 
  }
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an area.
-
-# Can be significantly improved for small trees by checking for low keys and storing them as a structure in the first block.
 
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
  {my (%options) = @_;                                                           # Tree description options
@@ -18255,21 +18252,6 @@ END
  }
 
 #latest:
-if (0) {                                                                        #
-  ok Assemble eq => <<END, avx512=>1;
-END
- }
-
-#latest:
-#if (1) {                                                                       #
-#  my $a =     CreateArea;
-#  my $q = $a->CreateQuarks;
-#
-#  ok Assemble eq => <<END, avx512=>1;
-#END
-# }
-
-#latest:
 if (1) {                                                                        #TNasm::X86::Tree::putString
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18404,6 +18386,11 @@ END
   unlink $f;
  }
 
+#latest:
+if (0) {                                                                        #
+  ok Assemble eq => <<END, avx512=>1;
+END
+ }
 
 blockX:
 
