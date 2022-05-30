@@ -5138,7 +5138,7 @@ sub ReadArea($)                                                                 
   DescribeArea address => $address;                                             # Describe it as an area
  }
 
-sub AssembleArea($%)                                                            # Load an area into the current assembly and return a descriptor for it.
+sub loadAreaIntoAssembly($%)                                                    # Load an area into the current assembly and return a descriptor for it.
  {my ($file, %options) = @_;                                                    # File containing an are written out with write, options
   my  $areaFinish = Label;
   Jmp $areaFinish;                                                              # Jump over area
@@ -9571,7 +9571,7 @@ END
       say STDERR "Want: ", dump($e);
       say STDERR "Got : ", dump($g);
 
-      if (onGitHub)                                                             # Dump output files that might show why the failure occurred
+      if (0 and onGitHub)                                                       # Dump output files that might show why the failure occurred
        {for my $f($sdeMixOut, $sdePtrCheck, $sdeMixOut, $sdeTraceOut,
                   $o1, $o2, $traceBack)
          {if (-e $f)                                                            # Dump the file if it exists
@@ -18386,10 +18386,10 @@ data: .... .... .... ...8
 data: .... .... .... ...8
 END
   ok -e $f;
-  ok fileSize($f) == 88512;
+  is_deeply fileSize($f), 88512;
 
   if (3)                                                                        # Incorporate alphabets in an an assembly
-   {my $a = AssembleArea $f;
+   {my $a = loadAreaIntoAssembly $f;
     my $y = $a->yggdrasil;
     my $t = $y->findSubTree(Nasm::X86::Ygddrasil::Unisyn::Alphabets);
     $t->find(K key => 0x27e2);
