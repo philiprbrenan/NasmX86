@@ -10232,7 +10232,7 @@ my $start = time;                                                               
 
 my %block = map {$_=>1} (@ARGV ? @ARGV : 4..4);                                 # Blocks of tests to execute
 
-eval {goto latest};                                                             # Latest test if visible
+eval {goto latest} unless onGitHub;                                             # Latest test if visible and testing locally
 
 goto block2 unless $block{1};                                                   # First block of tests - general purpose
 
@@ -18330,7 +18330,7 @@ sub Nasm::X86::Unisyn::Yggdrasil::alphabets {K alphabets => 0x0}                
 if (1) {                                                                        #TNasm::X86::Area::establishYggdrasil
   my $f = q(zzzArea.data);
 
-  if (1)
+  if (1)                                                                        # Create alphabets and write to a file
    {my $a = CreateArea;
     my $y = $a->establishYggdrasil;
     my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
@@ -18342,7 +18342,7 @@ if (1) {                                                                        
     $a->free;
    }
 
-  if (2)
+  if (2)                                                                        # Load alphabets from a file
    {my $a = Nasm::X86::Area::ReadArea $f;
     my $y = $a->establishYggdrasil;
     my $t = $y->findSubTree(Nasm::X86::Unisyn::Yggdrasil::alphabets);
@@ -18357,7 +18357,7 @@ END
   ok -e $f;
   ok fileSize($f) == 88512;
 
-  if (3)
+  if (3)                                                                        # Incorporate alphabets in an an assembly
    {my  $areaFinish = Label;
     Jmp $areaFinish;
     my  $areaStart  = SetLabel;
