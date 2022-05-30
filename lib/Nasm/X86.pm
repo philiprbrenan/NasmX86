@@ -14,7 +14,8 @@
 # Make sure that we are using bts and bzhi as much as possible in mask situations
 # Replace calls to Tree::position with Tree::down
 # Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, likewise the mmx registers mm0-7, zmm 0..15 and k0..3.
-# Temporize the registers in: GetNextUtf8CharAsUtf32
+# Make a tree read only - collapse all nodes possible, remove all leaf node arrays
+# Make trees faster by using an array for small keys
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -96,6 +97,8 @@ jna jnae jnb jnbe jnc jne jng jnge jnl jnle jno jnp jns jnz jo jp jpe jpo jrcxz
 js jz loop neg not seta setae setb setbe setc sete setg setge setl setle setna setnae
 setnb setnbe setnc setne setng setnge setnl setno setnp setns setnz seto setp
 setpe setpo sets setz pop push
+include
+incbin
 END
 
   my @i2 =  split /\s+/, <<END;                                                 # Double operand instructions
@@ -1120,7 +1123,7 @@ sub ifAnd($$;$)                                                                 
   for my $c(@$conditions)
    {my $j = ${&$c};
     push @text, qq($j $else\n) if     $Else;
-    push @text, qq(Jmp $end\n) unless $Else;
+    push @text, qq($j $end\n)  unless $Else;
    }
   Jmp $then;
   SetLabel $end;
@@ -3271,25 +3274,28 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
    {($left, $right) = ($right, $left);
    }
 
-  Mov r11, $left ->addressExpr;
   if ($left->reference)                                                         # Dereference left if necessary
-   {Mov r11, "[r11]";
+   {Mov r11, $left ->addressExpr;
+    Mov r11, "[r11]";
    }
   if (ref($right) and $right->reference)                                        # Dereference on right if necessary
-   {Mov rdi, $right ->addressExpr;
+   {Mov r11, $left ->addressExpr;
+    Mov rdi, $right ->addressExpr;
     Mov rdi, "[rdi]";
     Cmp r11, rdi;
    }
   elsif (ref($right))                                                           # Variable but not a reference on the right
-   {Cmp r11, $right->addressExpr;
+   {Mov r11, $left ->addressExpr;
+    Cmp r11, $right->addressExpr;
    }
   elsif ($left->reference)                                                      # Left is a reference, right is a constant
-   {Cmp r11, $right;
+   {Mov r11, $left ->addressExpr;
+    Cmp r11, $right;
    }
   else                                                                          # Not a reference on the left and a constant on the right
    {Cmp "qword ".$left->addressExpr, $right;
    }
-  Comment "Boolean ZF Arithmetic end";
+  Comment "Boolean ZF Arithmetic end $op";
 
   \$op
  }
@@ -5089,7 +5095,7 @@ sub DescribeArea(%)                                                             
     N          => $N,                                                           # Initial allocation
     sizeOffset => $size,                                                        # Size field offset
     usedOffset => $used,                                                        # Used field offset
-    freeOffset => $tree,                                                        # Free chain offset
+    freeOffset => $free,                                                        # Free chain offset
     treeOffset => $tree,                                                        # Yggdrasil - a tree of global variables in this area
     dataOffset => $data,                                                        # The start of the data
     address    => ($options{address} // V address => 0),                        # Variable that addresses the memory containing the area
@@ -5368,7 +5374,7 @@ sub Nasm::X86::Area::freeChainSpace($)                                          
  }
 
 sub Nasm::X86::Area::getZmmBlock($$$)                                           #P Get the block with the specified offset in the specified string and return it in the numbered zmm.
- {my ($area, $block, $zmm) = @_;                                                # Area descriptor, offset of the block as a variable, number of zmm register to contain block
+ {my ($area, $block, $zmm) = @_;                                                # Area descriptor, offset of the block as a variable or register, number of zmm register to contain block
   @_ == 3 or confess "Three parameters";
 
   my $a = rdi;                                                                  # Work registers
@@ -5446,19 +5452,21 @@ sub Nasm::X86::Area::establishYggdrasil($)                                      
   @_ == 1 or confess "One parameter";
 
   my $t = $area->DescribeTree;                                                  # Tree descriptor for Yggdrasil
-  PushR rax, rdi;
+  PushR rax, r15;
   $area->address->setReg(rax);                                                  #P Address underlying area
-  Mov rdi, "[rax+$$area{treeOffset}]";                                          # Address Yggdrasil
-  Cmp rdi, 0;                                                                   # Does Yggdrasil even exist?
+  Mov r15, "[rax+$$area{treeOffset}]";                                          # Address Yggdrasil
+
+  Cmp r15, 0;                                                                   # Does Yggdrasil even exist?
   IfNe
   Then                                                                          # Yggdrasil has already been created so we can address it
-   {$t->first->copy(rdi);
+   {$t->first->getReg(r15);
    },
   Else                                                                          # Yggdrasil has not been created
    {my $T = $area->CreateTree;
-    $T->first->setReg(rdi);
-    $t->first->copy(rdi);
-    Mov "[rax+$$area{treeOffset}]", rdi;                                        # Save offset of Yggdrasil
+    $t->first->copy($T->first);
+    $T->first->setReg(r15);
+    $area->address->setReg(rax);                                                #P Address underlying area - it might have moved
+    Mov "[rax+$$area{treeOffset}]", r15;                                        # Save offset of Yggdrasil
    };
   PopR;
   $t
@@ -5573,21 +5581,18 @@ sub Nasm::X86::Area::write($$)                                                  
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
     SaveFirstFour;
-
     $$p{file}->setReg(rax);
     OpenWrite;                                                                  # Open file
     my $file = V(fd => rax);                                                    # File descriptor
 
-    $$p{address}->setReg(rax);                                                  # Write file
-    Lea rsi, "[rax+$$area{dataOffset}]";
-    Mov rdx, "[rax+$$area{usedOffset}]";
-    Sub rdx, $area->dataOffset;
+    $$p{address}->setReg(rsi);                                                  # Write from start of area
+    Mov rdx, "[rsi+$$area{usedOffset}]";                                        # Length of the area to write
 
     Mov rax, 1;                                                                 # Write content to file
-    $file->setReg(rdi);
+    $file->setReg(rdi);                                                         # File number
     Syscall;
 
-    $file->setReg(rax);
+    $file->setReg(rax);                                                         # Close the file
     CloseFile;
     RestoreFirstFour;
    } parameters=>[qw(file address)], name => 'Nasm::X86::Area::write';
@@ -5789,7 +5794,7 @@ sub Nasm::X86::Area::CreateTree($%)                                             
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     my $tree = $$s{tree};                                                       # Tree
-    $tree->first->copy($tree->area->allocZmmBlock);                             # Allocate header
+    $tree->first->copy(my $o = $tree->area->allocZmmBlock);                     # Allocate header
 
    } structures=>{area => $area, tree => $tree},
      name => qq(Nasm::X86::Area::CreateTree-$$tree{length});
@@ -6771,7 +6776,6 @@ sub Nasm::X86::Tree::put($$$)                                                   
       my $d = $$p{data};
       my $S = $$p{subTree};
       my $a = $t->area;
-
       $k->setReg(rdi);
       Vpbroadcastd zmm($key), edi;                                              # Load key to test once
 
@@ -7182,7 +7186,6 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
 
   my $s = $t->describeTree;                                                     # The sub tree we are attempting to load
      $s->found->copy(0);                                                        # Assume we will not find the sub tree
-
   $t->find($key);                                                               # Find the key
 
   ifAnd [sub{$t->found > 0}, sub{$t->subTree > 0}],                             # Make the found data the new  tree
@@ -7190,6 +7193,7 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
    {$s->first->copy($t->data);                                                  # Copy the data variable to the first variable without checking whether it is valid
     $s->found->copy(1);
    };
+
   $s
  }
 
@@ -18284,9 +18288,9 @@ END
 #  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 
-latest:;
-if (1)
- {my $a = CreateArea;
+#latest:;
+if (1) {
+  my $a = CreateArea;
 $TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
@@ -18295,24 +18299,83 @@ $TraceMode = 0;
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1312445, trace=>1;
 2826
 END
- }
+}
 
 
-#latest:;
-if (1)                                                                          #TOpenWrite #TPrintMemory #TCloseFile
- {my $s = "zzzCreated.data";
-  my $f = Rs $s;
-  Mov rax, $f;
-  OpenWrite;
-  Mov r15, rax;
-  Mov rax, $f;
-  Mov rdi, length $s;
-  PrintMemory r15;
-  CloseFile;
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  $T->dump("AA");
+  $T->put(K(key=>0), $t);
+  $T->dump("BB");
+
+  ok Assemble eq => <<END, avx512=>1;
 END
+}
+
+
+latest:;
+
+sub Nasm::X86::Area::ReadArea($)                                                # Read an area stored in a file
+ {my ($file) = @_;                                                              # Name of file to read
+  my ($address, $size) = ReadFile $file;
+  DescribeArea address => $address;
  }
 
+sub Nasm::X86::Unisyn::Yggdrasil::alphabets {K alphabets => 0x0}                # Location in the area of the alphabets tree
+
+if (1) {                                                                        #TNasm::X86::Area::establishYggdrasil
+  my $f = q(zzzArea.data);
+
+  if (1)
+   {my $a = CreateArea;
+    my $y = $a->establishYggdrasil;
+    my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
+    $y->put(Nasm::X86::Unisyn::Yggdrasil::alphabets, $t);
+    $t->find(K key => 0x27e2);
+    $t->data->outNL;
+
+    $a->write(V file => Rs $f);
+    $a->free;
+   }
+
+  if (2)
+   {my $a = Nasm::X86::Area::ReadArea $f;
+    my $y = $a->establishYggdrasil;
+    my $t = $y->findSubTree(Nasm::X86::Unisyn::Yggdrasil::alphabets);
+    $t->find(K key => 0x27e2);
+    $t->data->outNL;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+data: .... .... .... ...8
+data: .... .... .... ...8
+END
+  ok -e $f;
+  ok fileSize($f) == 88512;
+
+  if (3)
+   {my  $areaFinish = Label;
+    Jmp $areaFinish;
+    my  $areaStart  = SetLabel;
+    Incbin qq("$f");
+    SetLabel $areaFinish;
+
+    my $a = DescribeArea address => V area=>$areaStart;
+    my $y = $a->establishYggdrasil;
+    my $t = $y->findSubTree(Nasm::X86::Unisyn::Yggdrasil::alphabets);
+    $t->find(K key => 0x27e2);
+    $t->data->outNL;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, trace=>1;
+data: .... .... .... ...8
+END
+  unlink $f;
+ }
 
 done_testing;
 
