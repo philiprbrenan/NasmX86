@@ -5423,7 +5423,34 @@ sub Nasm::X86::Area::clearZmmBlock($$)                                          
 
 #D2 Yggdrasil                                                                   # The world tree from which we can address so many other things
 
-sub Nasm::X86::Area::checkYggdrasilCreated($)                                 #P Return a tree descriptor to the Yggdrasil world tree for an area.  If Yggdrasil has not been created the B<found> variable will be zero else one.
+sub Nasm::X86::Ygddrasil::Unisyn::Alphabets {K key => 0}                        # Unisyn alphabets
+
+sub Nasm::X86::Area::yggdrasil($)                                               # Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
+ {my ($area) = @_;                                                              # Area descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $t = $area->DescribeTree;                                                  # Tree descriptor for Yggdrasil
+  PushR rax, r15;
+  $area->address->setReg(rax);                                                  # Address underlying area
+  Mov r15, "[rax+$$area{treeOffset}]";                                          # Address Yggdrasil
+
+  Cmp r15, 0;                                                                   # Does Yggdrasil even exist?
+  IfNe
+  Then                                                                          # Yggdrasil has already been created so we can address it
+   {$t->first->getReg(r15);
+   },
+  Else                                                                          # Yggdrasil has not been created
+   {my $T = $area->CreateTree;
+    $t->first->copy($T->first);
+    $T->first->setReg(r15);
+    $area->address->setReg(rax);                                                # Address underlying area - it might have moved
+    Mov "[rax+$$area{treeOffset}]", r15;                                        # Save offset of Yggdrasil
+   };
+  PopR;
+  $t
+ }
+
+sub Nasm::X86::Area::checkYggdrasilCreated($)                                   #P Return a tree descriptor to the Yggdrasil world tree for an area.  If Yggdrasil has not been created the B<found> variable will be zero else one.
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
@@ -5443,31 +5470,6 @@ sub Nasm::X86::Area::checkYggdrasilCreated($)                                 #P
    };
   Cmp rax, 0;                                                                   # Restate whether Yggdrasil exists so that we can test its status quickly in the following code.
   PopR rax;
-  $t
- }
-
-sub Nasm::X86::Area::yggdrasil($)                                               #P Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
- {my ($area) = @_;                                                              # Area descriptor
-  @_ == 1 or confess "One parameter";
-
-  my $t = $area->DescribeTree;                                                  # Tree descriptor for Yggdrasil
-  PushR rax, r15;
-  $area->address->setReg(rax);                                                  #P Address underlying area
-  Mov r15, "[rax+$$area{treeOffset}]";                                          # Address Yggdrasil
-
-  Cmp r15, 0;                                                                   # Does Yggdrasil even exist?
-  IfNe
-  Then                                                                          # Yggdrasil has already been created so we can address it
-   {$t->first->getReg(r15);
-   },
-  Else                                                                          # Yggdrasil has not been created
-   {my $T = $area->CreateTree;
-    $t->first->copy($T->first);
-    $T->first->setReg(r15);
-    $area->address->setReg(rax);                                                #P Address underlying area - it might have moved
-    Mov "[rax+$$area{treeOffset}]", r15;                                        # Save offset of Yggdrasil
-   };
-  PopR;
   $t
  }
 
@@ -17263,8 +17265,6 @@ CO  38: 2309230B232A2769276B276D276F27712773277527E727E927EB27ED27EF298429862988
 END
  }
 
-sub Nasm::X86::Ygddrasil::Unisyn::Alphabets {K key => 0}                        # Unisyn alphabets
-
 sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
  {my ($a) = @_;                                                                 # Area in which to create the table
   my $y = $a->yggdrasil;
@@ -18326,31 +18326,25 @@ END
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 #  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
 
-latest:;
+#latest:;
 if (1) {
   my $a = CreateArea;
-$TraceMode = 0;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put(K(key => 0xffffff), K(key => 1));                                    # 364    347
-# $t->find(K key => 0xffffff);                                                # 370 -> 129
+# $t->put(K(key => 0xffffff), K(key => 1));                                     # 364    347
+# $t->find(K key => 0xffffff);                                                  # 370 -> 129
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259647, trace=>1;
 2826
 END
 }
 
 latest:;
-
-sub Nasm::X86::Unisyn::Yggdrasil::alphabets {K alphabets => 0x0}                # Location in the area of the alphabets tree
-
 if (1) {                                                                        #TNasm::X86::Area::yggdrasil
   my $f = q(zzzArea.data);
 
   if (1)                                                                        # Create alphabets and write to a file
    {my $a = CreateArea;
-    my $y = $a->yggdrasil;
     my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
-    $y->put(Nasm::X86::Unisyn::Yggdrasil::alphabets, $t);
     $t->find(K key => 0x27e2);
     $t->data->outNL;
 
@@ -18361,7 +18355,7 @@ if (1) {                                                                        
   if (2)                                                                        # Load alphabets from a file
    {my $a = Nasm::X86::Area::ReadArea $f;
     my $y = $a->yggdrasil;
-    my $t = $y->findSubTree(Nasm::X86::Unisyn::Yggdrasil::alphabets);
+    my $t = $y->findSubTree(Nasm::X86::Ygddrasil::Unisyn::Alphabets);
     $t->find(K key => 0x27e2);
     $t->data->outNL;
    }
@@ -18382,7 +18376,7 @@ END
 
     my $a = DescribeArea address => V area=>$areaStart;
     my $y = $a->yggdrasil;
-    my $t = $y->findSubTree(Nasm::X86::Unisyn::Yggdrasil::alphabets);
+    my $t = $y->findSubTree(Nasm::X86::Ygddrasil::Unisyn::Alphabets);
     $t->find(K key => 0x27e2);
     $t->data->outNL;
    }
