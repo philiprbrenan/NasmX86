@@ -10218,6 +10218,7 @@ use Time::HiRes qw(time);
 use Test::Most;
 
 my %block = map {$_=>1} (@ARGV ? @ARGV : 1..4);                                 # Blocks of tests to execute
+say STDERR "Tests: ", dump(\%block);
 
 bail_on_fail unless onGitHub;
 
