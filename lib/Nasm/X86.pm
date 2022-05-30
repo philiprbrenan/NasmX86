@@ -9456,10 +9456,11 @@ END
 
   my $exec = sub                                                                # Execution string
    {my $o = qq($sde);                                                           # Emulator
-       $o = qq($o -ptr-check)  if $ptr;                                         # Emulator options - tracing
-       $o = qq($o -footprint)  if $foot;                                        # Emulator options - foot print
-       $o = qq($o -debugtrace) if $trace;                                       # Emulator options - tracing
-       $o = qq($o -mix)        if $mix;                                         # Emulator options - mix histogram output
+       $o = qq($o -ptr-check)      if $ptr;                                     # Emulator options - tracing
+       $o = qq($o -footprint)      if $foot;                                    # Emulator options - foot print
+       $o = qq($o -debugtrace)     if $trace;                                   # Emulator options - tracing
+       $o = qq($o -mix)            if $mix;                                     # Emulator options - mix histogram output
+       $o = qq($o -omix /dev/null) if $mix and onGitHub;                        # Dump mix output on Github
 
     my $e = $execFile;                                                          # Executable file name - this is the thing we are going to run by itself or on the emulator
 
