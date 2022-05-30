@@ -9475,8 +9475,9 @@ END
 
   my $eStart = time;
 
+lll $exec;
   qx($exec) if $run;                                                            # Run unless suppressed by user or library
-#say STDERR $exec;exit;
+
   my $er     = $?;                                                              # Execution result
   my $eTime  = time - $eStart;
 
@@ -11297,7 +11298,7 @@ phil
 END
  }
 
-latest:;
+#latest:;
 if (!hasAvx512) {                                                               # Make an area readonly - but we need the emulator to test this
   my $s = CreateArea;                                                           # Create an area
   $s->q("Hello");                                                               # Write code to area
@@ -18047,7 +18048,7 @@ data: .... .... .... .380
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TTraceMode
   $TraceMode = 1;
   Mov rax, Rq(0x22);
@@ -18066,6 +18067,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex rax;
   eval {Assemble avx512=>1, trace=>1, mix=>0};
   ok readFile($traceBack) =~ m(TraceBack start:)s;
+exit;
  }
 
 #latest:
