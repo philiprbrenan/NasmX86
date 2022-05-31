@@ -8579,6 +8579,42 @@ sub Nasm::X86::Tree::putString($$)                                              
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
 
   my $size = $string->size;                                                     # Tree size
+  my $s    = V state => 1;                                                      # 1 - string found so far, 0 - inserting new string
+
+  $string->by(sub                                                               # Insert latest tree
+   {my ($t) = @_;
+    If $s == 1,
+    Then                                                                        # String matches an existing string so far
+     {$S->find($t->data);
+      If $S->found == 0,
+      Then                                                                      # Position on new element
+       {$s->copy(0);
+        my $T = $t->area->CreateTree;
+        $S->put($t->data, $T);
+        $S->first->copy($T->first);
+       },
+      Else
+       {$S->first->copy($S->data);                                              # Position on found element
+       };
+     },
+    Else                                                                        # String no longer matches an existing string - we are creating a new path
+     {my $T = $t->area->CreateTree;
+      $S->put($t->data, $T);
+      $S->first->copy($T->first);
+     };
+   });
+  $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
+ }
+
+sub Nasm::X86::Tree::putString22($$)                                            # The last element of the string is the value, the preceding elements are the keys so such a tree acting as a string must have at least one element.
+ {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
+  @_ == 2 or confess "Two parameters";
+  confess "Second parameter must be a tree"
+    unless ref($string) and ref($string) =~ m(Tree);
+
+  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
+
+  my $size = $string->size;                                                     # Tree size
   If $size > 0,                                                                 # String tree must have at least one element
   Then
    {my $s = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
@@ -18450,14 +18486,20 @@ if (1) {                                                                        
   my $d  = K data => 0x333;
 
   $t->put2($k1, $k2, $d);
+
   $t->data->copy(0);
   $t->get2($k1, $k2);
   $t->found->outNL;
   $t->data ->outNL;
 
+  $t->data->copy(0);
+  $t->get2($k2, $k1);
+  $t->found->outNL;
+
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
 found: .... .... .... ...1
 data: .... .... .... .333
+found: .... .... .... ....
 END
  }
 
@@ -18480,6 +18522,9 @@ if (1) {                                                                        
   my $address = K address => $s->start;
   my $size    = K size => "$$s{end}-$$s{start}";
   my $off     = $a->appendMemory($address, $size);                              # Copy a subroutine into an area
+
+#  my $y = $a->yggdrasil;
+#  $y->put(Nasm::X86::Yggdrasil::UniqueStrings);
 
   $a->write(V file => Rs $f);                                                   # Save the area
   $a->free;
