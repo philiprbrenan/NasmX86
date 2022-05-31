@@ -18472,23 +18472,12 @@ if (1) {
 # $t->put(K(key => 0xffffff), K(key => 1));                                     # 364    347
 # $t->find(K key => 0xffffff);                                                  # 370 -> 129
 
-  push my @l,                                                                   # All the letters
-    Nasm::X86::Unisyn::Lex::Letter::A,
-    Nasm::X86::Unisyn::Lex::Letter::d,
-    Nasm::X86::Unisyn::Lex::Letter::p,
-    Nasm::X86::Unisyn::Lex::Letter::a,
-    Nasm::X86::Unisyn::Lex::Letter::v,
-    Nasm::X86::Unisyn::Lex::Letter::q,
-    Nasm::X86::Unisyn::Lex::Letter::s,
-    Nasm::X86::Unisyn::Lex::Letter::e,
-    Nasm::X86::Unisyn::Lex::Letter::b,
-    Nasm::X86::Unisyn::Lex::Letter::B;
-  my $l = @l;
+  my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
   my %l = map {$_=>1} @l;                                                       # All the unique letters
-
+  my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259647, trace=>1;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259700, trace=>1;
 $l
 END
 }
@@ -18721,10 +18710,12 @@ done_testing;
 
 if (1)                                                                          # Summary
  {my $s = sprintf(<<END,
-# Time: %.2fs,  assemblies:%3d,  passes:%3d,  fails:%3d,  bytes: %s,  execs: %s
+# fails:%3d,     passes:%3d,    assemblies:%3d,    time: %.2fs,    bytes: %s,    execs: %s
 END
+  $testsThatFailed,
+  $testsThatPassed,
+  $assembliesPerformed,
   time - $start,
-  $assembliesPerformed, $testsThatPassed, $testsThatFailed,
   numberWithCommas(totalBytesAssembled),
   numberWithCommas($instructionsExecuted));
   owf(q(zzzStatus.txt), $s);
