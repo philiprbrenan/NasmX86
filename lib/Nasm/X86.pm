@@ -16,6 +16,7 @@
 # Make a tree read only - collapse all nodes possible, remove all leaf node arrays
 # Make trees faster by using an array for small keys
 # Jump forwarding
+# All options checking immediately after parameters
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -1479,7 +1480,10 @@ sub copyStructureMinusVariables($)                                              
 
 sub Subroutine(&%)                                                              # Create a subroutine that can be called in assembler code.
  {my ($block, %options) = @_;                                                   # Block of code as a sub, options
-  @_ >= 1 or confess "Subroutine requires at least a block";
+  my $name       = $options{name};                                              # Subroutine name
+  my $parameters = $options{parameters};                                        # Parameters block
+  my $structures = $options{structures};                                        # Structures provided as parameters
+  my $export     = $options{export};                                            # File to export this subroutine to and all its contained subroutines
 
   if (1)                                                                        # Validate options
    {my %o = %options;
@@ -1489,13 +1493,11 @@ sub Subroutine(&%)                                                              
      }
    }
 
-  my $name = $options{name};                                                    # Subroutine name
   $name or confess "Name required for subroutine, use name=>";
   if ($name and my $s = $subroutines{$name})                                    # Return the label of a pre-existing copy of the code possibly after running the subroutine. Make sure that the subroutine name is different for different subs as otherwise the unexpected results occur.
    {return $s unless $TraceMode and $options{trace};                            # If we are tracing and this subroutine is marked as traceable we always generate a new version of it so that we can trace each specific instance to get the exact context in which this subroutine was called rather than the context in which the original copy was called.
    }
 
-  my $parameters = $options{parameters};                                        # Optional parameters block
   if (1)                                                                        # Check for duplicate parameters
    {my %c;
     $c{$_}++ && confess "Duplicate parameter $_" for @$parameters;
@@ -1505,7 +1507,7 @@ sub Subroutine(&%)                                                              
   my %parameters = map {$_ => R($_)} @$parameters;                              # Create a reference for each parameter.
 
   my %structureCopies;                                                          # Copies of the structures being passed that can be use inside the subroutine to access their variables in the stack frame of the subroutine
-  if (my $structures = $options{structures})                                    # Structure provided in the parameter list
+  if ($structures)                                                              # Structure provided in the parameter list
    {for my $name(sort keys %$structures)                                        # Each structure passed
      {$structureCopies{$name} = copyStructureMinusVariables($$structures{$name})# A new copy of the structure with its variables left in place
      }
@@ -1515,23 +1517,22 @@ sub Subroutine(&%)                                                              
   my $start = SetLabel;                                                         # Start label
 
   my $s = $subroutines{$name} = genHash(__PACKAGE__."::Subroutine",             # Subroutine definition
-    start              => $start,                                               # Start label for this subroutine which includes the enter instruction used to create a new stack frame
+    block              => $block,                                               # Block used to generate this subroutine
     end                => $end,                                                 # End label for this subroutine
+    export             => $export,                                              # File this subroutine was exported to if any
     name               => $name,                                                # Name of the subroutine from which the entry label is located
-    variables          => {%parameters},                                        # Map parameters to references at known positions in the sub
-    structureCopies    => \%structureCopies,                                    # Copies of the structures passed to this subroutine with their variables replaced with references
-    structureVariables => {},                                                   # Map structure variables to references at known positions in the sub
+    nameString         => Rs($name),                                            # Name of the sub as a string constant in read only storage
     offset             => undef,                                                # The offset of this routine in its library if it is in a library
     options            => \%options,                                            # Options used by the author of the subroutine
     parameters         => $parameters,                                          # Parameters definitions supplied by the author of the subroutine which get mapped in to parameter variables.
+    start              => $start,                                               # Start label for this subroutine which includes the enter instruction used to create a new stack frame
+    structureCopies    => \%structureCopies,                                    # Copies of the structures passed to this subroutine with their variables replaced with references
+    structureVariables => {},                                                   # Map structure variables to references at known positions in the sub
+    variables          => {%parameters},                                        # Map parameters to references at known positions in the sub
     vars               => $VariableStack[-1],                                   # Number of variables in subroutine
-    nameString         => Rs($name),                                            # Name of the sub as a string constant in read only storage
-    block              => $block,                                               # Block used to generate this subroutine
    );
 
-  if (my $structures = $options{structures})                                    # Map structures before we generate code so that we can put the parameters first in the new stack frame
-   {$s->mapStructureVariables(\%structureCopies);
-   }
+  $s->mapStructureVariables(\%structureCopies) if $structures;                  # Map structures before we generate code so that we can put the parameters first in the new stack frame
 
   my $E = @text;                                                                # Code entry that will contain the Enter instruction
   Enter 0, 0;                                                                   # The Enter instruction is 4 bytes long
@@ -18463,15 +18464,32 @@ END
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 #  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
 
-#latest:;
+latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
 # $t->put(K(key => 0xffffff), K(key => 1));                                     # 364    347
 # $t->find(K key => 0xffffff);                                                  # 370 -> 129
+
+  push my @l,                                                                   # All the letters
+    Nasm::X86::Unisyn::Lex::Letter::A,
+    Nasm::X86::Unisyn::Lex::Letter::d,
+    Nasm::X86::Unisyn::Lex::Letter::p,
+    Nasm::X86::Unisyn::Lex::Letter::a,
+    Nasm::X86::Unisyn::Lex::Letter::v,
+    Nasm::X86::Unisyn::Lex::Letter::q,
+    Nasm::X86::Unisyn::Lex::Letter::s,
+    Nasm::X86::Unisyn::Lex::Letter::e,
+    Nasm::X86::Unisyn::Lex::Letter::b,
+    Nasm::X86::Unisyn::Lex::Letter::B;
+  my $l = @l;
+  my %l = map {$_=>1} @l;                                                       # All the unique letters
+
+  $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
+
   ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259647, trace=>1;
-2826
+$l
 END
 }
 
@@ -18579,7 +18597,7 @@ sub Nasm::X86::Tree::getKeyString($$$$)                                         
   $t                                                                            # Found field indicates whether the data field is valid
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #Nasm::X86::Tree::put2 #Nasm::X86::Tree::get2
   my $a = CreateArea;
   my $t = $a->CreateTree;
