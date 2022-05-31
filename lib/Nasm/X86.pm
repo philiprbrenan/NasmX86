@@ -1484,10 +1484,11 @@ sub Subroutine(&%)                                                              
   my $parameters = $options{parameters};                                        # Parameters block
   my $structures = $options{structures};                                        # Structures provided as parameters
   my $export     = $options{export};                                            # File to export this subroutine to and all its contained subroutines
+  my $trace      = $options{trace};                                             # If we are tracing and this subroutine is marked as traceable we always generate a new version of it so that we can trace each specific instance to get the exact context in which this subroutine was called rather than the context in which the original copy was called.
 
   if (1)                                                                        # Validate options
    {my %o = %options;
-    delete $o{$_} for qw(parameters structures name call trace);
+    delete $o{$_} for qw(parameters structures name trace export);
     if (my @i = sort keys %o)
      {confess "Invalid parameters: ".join(', ',@i);
      }
@@ -1495,7 +1496,7 @@ sub Subroutine(&%)                                                              
 
   $name or confess "Name required for subroutine, use name=>";
   if ($name and my $s = $subroutines{$name})                                    # Return the label of a pre-existing copy of the code possibly after running the subroutine. Make sure that the subroutine name is different for different subs as otherwise the unexpected results occur.
-   {return $s unless $TraceMode and $options{trace};                            # If we are tracing and this subroutine is marked as traceable we always generate a new version of it so that we can trace each specific instance to get the exact context in which this subroutine was called rather than the context in which the original copy was called.
+   {return $s unless $TraceMode and $trace;                                     # If we are tracing and this subroutine is marked as traceable we always generate a new version of it so that we can trace each specific instance to get the exact context in which this subroutine was called rather than the context in which the original copy was called.
    }
 
   if (1)                                                                        # Check for duplicate parameters
@@ -18464,7 +18465,7 @@ END
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 #  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
 
-latest:;
+#latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
@@ -18621,7 +18622,7 @@ if (1) {                                                                        
    {my ($p, $s, $sub) = @_;
     $$p{a}->setReg(rax);
     #$$p{a}->outNL;
-   } name => "s", parameters=>[qw(a)];
+   } name => $sub, parameters=>[qw(a)], export=>$f;
 
   my $t = Subroutine {} name => "t", parameters=>[qw(a)];
 
