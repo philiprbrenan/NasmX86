@@ -18403,28 +18403,28 @@ if (1) {                                                                        
     my ($a, $l) = addressAndLengthOfConstantStringAsVariables("abcd");
     $t->putStringFromMemory($a, $l)->outNL;
     $A->makeReadOnly;
-    $t->getStringFromMemory($a, $l)->outNL;
+    $t->getStringFromMemory($a, $l)->data->outNL;
    });
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
 first: .... .... .... .380
+data: .... .... .... .380
 first: .... .... .... .380
+data: .... .... .... .380
 first: .... .... .... .380
+data: .... .... .... .380
 first: .... .... .... .380
+data: .... .... .... .380
 first: .... .... .... .380
+data: .... .... .... .380
 first: .... .... .... .380
+data: .... .... .... .380
 first: .... .... .... .380
+data: .... .... .... .380
 first: .... .... .... .380
+data: .... .... .... .380
 first: .... .... .... .380
-first: .... .... .... .380
-first: .... .... .... .380
-first: .... .... .... .380
-first: .... .... .... .380
-first: .... .... .... .380
-first: .... .... .... .380
-first: .... .... .... .380
-first: .... .... .... .380
-first: .... .... .... .380
+data: .... .... .... .380
 END
  }
 
@@ -18579,7 +18579,7 @@ sub Nasm::X86::Tree::getKeyString($$$$)                                         
   $t                                                                            # Found field indicates whether the data field is valid
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #Nasm::X86::Tree::put2 #Nasm::X86::Tree::get2
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18600,7 +18600,7 @@ if (1) {                                                                        
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
 found: .... .... .... ...1
-data: .... .... .... .333
+data: .... .... .... ..80
 found: .... .... .... ....
 END
  }
