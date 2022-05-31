@@ -8697,13 +8697,12 @@ sub Nasm::X86::Tree::getStringFromMemory($$$)                                   
     Mov $c."b", "[$a+$i]";                                                      # Get the next byte
     And $c, 0xff;                                                               # Clear to a byte
     my $char = V char => $c;                                                    # Next character of the string
-
     $S->find($char);
-    If $S->found == 0, Then {Jmp $end};                                          # Not found
+    If $S->found == 0, Then {Jmp $end};                                         # Not found
     $S->first->copy($S->data);                                                  # Position on found element
    });
   PopR;
-  $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
+  $S                                                                            # Tree descriptor found and data fields indicate the value and validity of the result
  }
 
 #D2 Print                                                                       # Print a tree
@@ -18544,12 +18543,8 @@ sub Nasm::X86::Tree::get2($$$)                                                  
   If $t->found > 0,
   Then                                                                          # First key found in first tree
    {$t->find($key2);
-    If $t->found > 0,
-    Then                                                                        # Second key found in second tree
-     {$tree->found->copy(1);
-      $tree->data->copy($t->data);
-     };
    };
+
   $t
  }
 
@@ -18575,7 +18570,11 @@ sub Nasm::X86::Tree::getKeyString($$$$)                                         
   my $t = $tree->findSubTree($key);                                             # Find the key
   If $t->found == 1,
   Then
-   {$t->getStringFromMemory($address, $size);
+   {my $T = $t->getStringFromMemory($address, $size);
+    If $T->found == 1,
+    Then
+     {$t->data->copy($T->data);
+     }
    };
   $t                                                                            # Found field indicates whether the data field is valid
  }
@@ -18641,8 +18640,8 @@ if (1) {                                                                        
 
     my $y = $a->yggdrasil;
     my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
-    my $n = $y->putKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n);      # Get the offset of the subroutine under the unique string number
+    my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $t->call(parameters=>{a => K key => 0x9999}, override => $a->address + $o->data); # Call position independent code
     PrintOutRegisterInHex rax;
@@ -18661,8 +18660,8 @@ END
 
     my $y = $a->yggdrasil;
     my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
-    my $n = $y->putKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n);      # Record the offset of the subroutine under the unique string number
+    my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $t->call(parameters=>{a => K key => 0x8888}, override => $a->address + $o->data); # Call position independent code
     PrintOutRegisterInHex rax;
@@ -18677,8 +18676,8 @@ END
 
     my $y = $a->yggdrasil;
     my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
-    my $n = $y->putKeyString(Nasm::X86::Ygddrasil::UniqueStrings,  $N, $L);     # Make the string into a unique number
-    my $o = $y->get2(     Nasm::X86::Ygddrasil::SubroutineOffsets, $n);         # Record the offset of the subroutine under the unique string number
+    my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $t->call(parameters=>{a => K key => 0x7777}, override => $a->address + $o->data); # Call position independent code
     PrintOutRegisterInHex rax;
