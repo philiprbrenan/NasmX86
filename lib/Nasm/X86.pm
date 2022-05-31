@@ -8568,9 +8568,9 @@ sub Nasm::X86::Tree::intersection($)                                            
   $i                                                                            # Intersection
  }
 
-#D3 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.  The inverse operation is much easier as we just have to look up a string by number in a tree.
+#D3 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.
 
-sub Nasm::X86::Tree::putString($$)                                              # The last element of the string is the value, the preceding elements are the keys so such a tree acting as a string must have at least one element.
+sub Nasm::X86::Tree::putString($$)                                              # Enter a string tree into a tree of strings and return the offset of the last inserted tree as the unique number of this string.
  {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
   @_ == 2 or confess "Two parameters";
   confess "Second parameter must be a tree"
@@ -18357,11 +18357,11 @@ if (1) {                                                                        
    });
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
-first: .... .... .... .280
-first: .... .... .... .440
-first: .... .... .... .540
-first: .... .... .... .440
-first: .... .... .... .540
+first: .... .... .... .380
+first: .... .... .... .4C0
+first: .... .... .... .6..
+first: .... .... .... .4C0
+first: .... .... .... .6..
 END
  }
 
