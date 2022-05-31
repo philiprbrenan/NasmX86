@@ -5075,8 +5075,6 @@ END
 
 #D1 Areas                                                                       # An area is single extensible block of memory which contains other data structures such as strings, arrays, trees within it.
 
-our $AreaFreeChain = 0;                                                         # The key of the Yggdrasil tree entry in the area recording the start of the free chain
-
 #D2 Constructors                                                                # Construct an area either in memory or by reading it from a file or by incorporating it into an assembly.
 
 sub DescribeArea(%)                                                             # Describe a relocatable area.
@@ -5445,7 +5443,9 @@ sub Nasm::X86::Area::clearZmmBlock($$)                                          
 
 #D2 Yggdrasil                                                                   # The world tree from which we can address so many other things
 
-sub Nasm::X86::Ygddrasil::Unisyn::Alphabets {K key => 0}                        # Unisyn alphabets
+sub Nasm::X86::Ygddrasil::Unisyn::UniqueStrings     {K key => 0}                # A tree of strings that assigns unique numbers to strings
+sub Nasm::X86::Ygddrasil::Unisyn::SubroutineOffsets {K key => 1}                # Translates a string number into the offset of a subroutine in an area
+sub Nasm::X86::Ygddrasil::Unisyn::Alphabets         {K key => 2}                # Unisyn alphabets
 
 sub Nasm::X86::Area::yggdrasil($)                                               # Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
  {my ($area) = @_;                                                              # Area descriptor
@@ -18407,6 +18407,58 @@ END
 data: .... .... .... ...8
 END
   unlink $f;
+ }
+
+sub Nasm::X86::Tree::put2($$$$)                                                 # Especially useful for Yggdrasil: puts a key into a tree if it is not already and puts a sub tree under it into which the following key, data pair is place. In this regard it is very like putString() but without the overhead of building an intermediate tree and restricted to just two entries.
+ {my ($tree, $key1, $key2, $data) = @_;                                         # Tree, first key, second key, data
+  @_ == 4 or confess "Four parameters";
+
+  my $t1 = $tree->findSubTree($key1);                                           # First key1
+  If $t1->found == 0,
+  Then
+   {$t1 = $tree->area->CreateTree;
+    $tree->put($key1, $t1);
+   };
+
+  $t1->put($key2, $data);
+ }
+
+sub Nasm::X86::Tree::get2($$$)                                                  # Especially useful for Yggdrasil: gets the data associated with the pair of keys used to place it with put2().  The data is returned in the tree found and data fields using the normal tree search paradigm.
+ {my ($tree, $key1, $key2) = @_;                                                # Tree, first key, second key
+  @_ == 3 or confess "Three parameters";
+
+  $tree->found->copy(0);                                                        # Assume we will not find the data using the two keys
+
+  my $t = $tree->findSubTree($key1);                                            # Find first key
+  If $t->found > 0,
+  Then                                                                          # First key found in first tree
+   {$t->find($key2);
+    If $t->found > 0,
+    Then                                                                        # Second key found in second tree
+     { $tree->found->copy(1);
+      $tree->data->copy($t->data);
+     };
+   };
+ }
+
+latest:;
+if (1) {                                                                        #Nasm::X86::Tree::put2 #Nasm::X86::Tree::get2
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $k1 = K key1 => 0x1;
+  my $k2 = K key2 => 0x22;
+  my $d  = K data => 0x333;
+
+  $t->put2($k1, $k2, $d);
+  $t->data->copy(0);
+  $t->get2($k1, $k2);
+  $t->found->outNL;
+  $t->data ->outNL;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+found: .... .... .... ...1
+data: .... .... .... .333
+END
  }
 
 latest:;
