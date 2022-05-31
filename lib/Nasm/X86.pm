@@ -5138,7 +5138,7 @@ sub ReadArea($)                                                                 
   DescribeArea address => $address;                                             # Describe it as an area
  }
 
-sub loadAreaIntoAssembly($%)                                                    # Load an area into the current assembly and return a descriptor for it.
+sub loadAreaIntoThing($%)                                                       # Load an area into the current assembly and return a descriptor for it.
  {my ($file, %options) = @_;                                                    # File containing an are written out with write, options
   my  $areaFinish = Label;
   Jmp $areaFinish;                                                              # Jump over area
@@ -18046,7 +18046,7 @@ data: .... .... .... .380
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TTraceMode
   $TraceMode = 1;
   Mov rax, Rq(0x22);
@@ -18396,7 +18396,7 @@ END
   is_deeply fileSize($f), 88512;
 
   if (3)                                                                        # Incorporate alphabets in an an assembly
-   {my $a = loadAreaIntoAssembly $f;
+   {my $a = loadAreaIntoThing $f;
     my $y = $a->yggdrasil;
     my $t = $y->findSubTree(Nasm::X86::Ygddrasil::Unisyn::Alphabets);
     $t->find(K key => 0x27e2);
@@ -18427,13 +18427,13 @@ if (1) {                                                                        
   my $a = CreateArea;
   my $address = K address => $s->start;
   my $size    = K size => "$$s{end}-$$s{start}";
-  my $off     = $a->appendMemory($address, $size);
+  my $off     = $a->appendMemory($address, $size);                              # Copy a subroutine into an area
 
-  $a->write(V file => Rs $f);
+  $a->write(V file => Rs $f);                                                   # Save the area
   $a->free;
 
-  my $A = ReadArea $f;
-  $t->call(parameters=>{a => K key => 0x9999}, override => $A->address + $off);
+  my $A = ReadArea $f;                                                          # Reload the area elsewhere
+  $t->call(parameters=>{a => K key => 0x9999}, override => $A->address + $off); # Call position independent code
   PrintOutRegisterInHex rax;
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
@@ -18444,14 +18444,22 @@ END
   is_deeply fileSize($f),  77 unless onGitHub;
   is_deeply fileSize($f), 173 if     onGitHub;
 
-
-  my $B = ReadArea $f;
+  my $B = ReadArea $f;                                                          # Read the area in another run
   my $C = $B->address + 0x40;                                                   # The address of the routine
-  $t->call(parameters=>{a => K key => 0x8888}, override => $C);
+  $t->call(parameters=>{a => K key => 0x8888}, override => $C);                 # Call it via a matching subroutine
   PrintOutRegisterInHex rax;
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
    rax: .... .... .... 8888
+END
+
+  my $D = loadAreaIntoThing $f;                                                 # Load the area into a thing
+  my $E = $D->address + 0x40;                                                   # The address of the routine
+  $t->call(parameters=>{a => K key => 0x7777}, override => $E);                 # Call it via a matching subroutine
+  PrintOutRegisterInHex rax;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... 7777
 END
   unlink $f;
  }
