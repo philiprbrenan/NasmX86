@@ -16826,10 +16826,10 @@ if (1) {                                                                        
   $q->push(K char => ord $_) for split //, 'abe3';
   $p +=    K(char => ord $_) for split //, 'abf4';
 
-  $t->putString($s);
-  $t->putString($r);
-  $t->putString($q);
-  $t->putString($p);
+  $t->putString($s);   $t->putString($s);   $t->putString($s);                  # Removing or duplicating these columsn should have no effect
+  $t->putString($r);   $t->putString($r);   $t->putString($r);
+  $t->putString($q);   $t->putString($q);   $t->putString($q);
+  $t->putString($p);   $t->putString($p);   $t->putString($p);
   $t->dump8xx('t = abcd');
 
   $t->find(K key => 0x61);
@@ -16859,30 +16859,38 @@ At:      4C0                                                                    
           At:      6C0                                                                      length:        4,  data:      700,  nodes:      740,  first:      580, root, leaf,  trees:          1111
             Index:        0        1        2        3
             Keys :       63       64       65       66
-            Data :      68*      84*      94*      A4*
+            Data :      68*      88*      9C*      B0*
              Tree:      680
-               At:      780                                                                 length:        1,  data:      7C0,  nodes:      800,  first:      680, root, leaf
+               At:      7C0                                                                 length:        1,  data:      800,  nodes:      840,  first:      680, root, leaf,  trees:             1
                  Index:        0
-                 Keys :        0
-                 Data :       31
+                 Keys :       31
+                 Data :      78*
+                  Tree:      780
+- empty
                end
-             Tree:      840
-               At:      880                                                                 length:        1,  data:      8C0,  nodes:      900,  first:      840, root, leaf
+             Tree:      880
+               At:      900                                                                 length:        1,  data:      940,  nodes:      980,  first:      880, root, leaf,  trees:             1
                  Index:        0
-                 Keys :        0
-                 Data :       32
+                 Keys :       32
+                 Data :      8C*
+                  Tree:      8C0
+- empty
                end
-             Tree:      940
-               At:      980                                                                 length:        1,  data:      9C0,  nodes:      A00,  first:      940, root, leaf
+             Tree:      9C0
+               At:      A40                                                                 length:        1,  data:      A80,  nodes:      AC0,  first:      9C0, root, leaf,  trees:             1
                  Index:        0
-                 Keys :        0
-                 Data :       33
+                 Keys :       33
+                 Data :      A0*
+                  Tree:      A00
+- empty
                end
-             Tree:      A40
-               At:      A80                                                                 length:        1,  data:      AC0,  nodes:      B00,  first:      A40, root, leaf
+             Tree:      B00
+               At:      B80                                                                 length:        1,  data:      BC0,  nodes:      C00,  first:      B00, root, leaf,  trees:             1
                  Index:        0
-                 Keys :        0
-                 Data :       34
+                 Keys :       34
+                 Data :      B4*
+                  Tree:      B40
+- empty
                end
           end
      end
@@ -18069,10 +18077,12 @@ At:      1C0                                                                    
             Keys :   373635
             Data :      38*
              Tree:      380
-               At:      480                                                                 length:        1,  data:      4C0,  nodes:      500,  first:      380, root, leaf
+               At:      4C0                                                                 length:        1,  data:      500,  nodes:      540,  first:      380, root, leaf,  trees:             1
                  Index:        0
-                 Keys :        0
-                 Data :       99
+                 Keys :       99
+                 Data :      48*
+                  Tree:      480
+- empty
                end
           end
      end
