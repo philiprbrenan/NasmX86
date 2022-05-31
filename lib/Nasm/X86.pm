@@ -8576,10 +8576,8 @@ sub Nasm::X86::Tree::putString($$)                                              
   confess "Second parameter must be a tree"
     unless ref($string) and ref($string) =~ m(Tree);
 
+  my $s = V state => 1;                                                      # 1 - string found so far, 0 - inserting new string
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
-
-  my $size = $string->size;                                                     # Tree size
-  my $s    = V state => 1;                                                      # 1 - string found so far, 0 - inserting new string
 
   $string->by(sub                                                               # Insert latest tree
    {my ($t) = @_;
@@ -8606,51 +8604,46 @@ sub Nasm::X86::Tree::putString($$)                                              
   $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
  }
 
-sub Nasm::X86::Tree::putString22($$)                                            # The last element of the string is the value, the preceding elements are the keys so such a tree acting as a string must have at least one element.
- {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
-  @_ == 2 or confess "Two parameters";
-  confess "Second parameter must be a tree"
-    unless ref($string) and ref($string) =~ m(Tree);
+sub Nasm::X86::Tree::putStringFromMemory($$$)                                   # Enter a string in memory into a tree of strings and return the offset of the last inserted tree as the unique number of this string.
+ {my ($tree, $address, $size) = @_;                                             # Tree descriptor representing string tree, variable address in memory of string, variable size of string
+  @_ == 3 or confess "Three parameters";
 
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
+  my $s = V state => 1;                                                         # 1 - string found so far, 0 - inserting new string
 
-  my $size = $string->size;                                                     # Tree size
-  If $size > 0,                                                                 # String tree must have at least one element
-  Then
-   {my $s = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
-    my $z = V count => 0;                                                       # Count of elements so that we can find the last element to be inserted
-    my $l = V last  => 0;                                                       # Last key
-
-    $string->by(sub                                                             # Insert latest tree
-     {my ($t) = @_;
-      $z++;
-      If $z < $size,                                                            # First elements are keys
-      Then
-       {If $s == 1,
-        Then                                                                    # String matches an existing string so far
-         {$S->find($t->data);
-          If $S->found == 0,
-          Then                                                                  # Position on new element
-           {$s->copy(0);
-            my $T = $t->area->CreateTree;
-            $S->put($t->data, $T);
-            $S->first->copy($T->first);
-           },
-          Else
-           {$S->first->copy($S->data);                                          # Position on found element
-           };
-         },
-        Else                                                                    # String no longer matches an existing string - we are creating a new path
-         {my $T = $t->area->CreateTree;
-          $S->put($t->data, $T);
-          $S->first->copy($T->first);
-         };
+  Push r14, r15;
+  Mov r15, 0;
+  $address->setReg(r14);
+  $size->for(sub                                                                # Insert latest tree
+   {my ($index) = @_;
+    $index->setReg(r14);
+    Mov r14b, "[r14]";
+    And r14, 0xff;
+    my $char = V char => r14;
+    If $s == 1,
+    Then                                                                        # String matches an existing string so far
+     {$S->find($char);
+      If $S->found == 0,
+      Then                                                                      # Position on new element
+       {$s->copy(0);
+        my $T = $tree->area->CreateTree;
+        $S->put($char, $T);
+        $S->first->copy($T->first);
        },
-      Else                                                                      # Put last element of string as data elent of last key
-       {$S->put($l, $t->data);
+      Else
+       {$S->first->copy($S->data);                                              # Position on found element
        };
-     });
-   };
+     },
+    Else                                                                        # String no longer matches an existing string - we are creating a new path
+     {my $T = $tree->area->CreateTree;
+      $S->put($tree->data, $T);
+      $S->first->copy($T->first);
+     };
+
+    Inc r15;
+   });
+
+  PopR;
   $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
  }
 
@@ -18455,18 +18448,19 @@ END
   unlink $f;
  }
 
-sub Nasm::X86::Tree::put2($$$$)                                                 # Especially useful for Yggdrasil: puts a key into a tree if it is not already and puts a sub tree under it into which the following key, data pair is place. In this regard it is very like putString() but without the overhead of building an intermediate tree and restricted to just two entries.
+sub Nasm::X86::Tree::put2($$$$)                                                 # Especially useful for Yggdrasil: puts a key into a tree if it is not already there and puts a sub tree under it into which the following key, data pair is place. In this regard it is very like putString() but without the overhead of building an intermediate tree and restricted to just two entries.
  {my ($tree, $key1, $key2, $data) = @_;                                         # Tree, first key, second key, data
   @_ == 4 or confess "Four parameters";
 
-  my $t1 = $tree->findSubTree($key1);                                           # First key1
-  If $t1->found == 0,
+  my $t = $tree->findSubTree($key1);                                            # First key1
+  If $t->found == 0,
   Then
-   {$t1 = $tree->area->CreateTree;
-    $tree->put($key1, $t1);
+   {my $T = $tree->area->CreateTree;
+    $t->first->copy($T->first);
+    $tree->put($key1, $t);
    };
 
-  $t1->put($key2, $data);
+  $t->put($key2, $data);
  }
 
 sub Nasm::X86::Tree::get2($$$)                                                  # Especially useful for Yggdrasil: gets the data associated with the pair of keys used to place it with put2().  The data is returned in the tree found and data fields using the normal tree search paradigm.
@@ -18481,13 +18475,28 @@ sub Nasm::X86::Tree::get2($$$)                                                  
    {$t->find($key2);
     If $t->found > 0,
     Then                                                                        # Second key found in second tree
-     { $tree->found->copy(1);
+     {$tree->found->copy(1);
       $tree->data->copy($t->data);
      };
    };
  }
 
-latest:;
+sub Nasm::X86::Tree::keyString($$$$)                                            # Especially useful for Yggdrasil: puts a key into a tree if it is not already there then puts a string into the sub string tree and return the unique number for the string.
+ {my ($tree, $key, $address, $size) = @_;                                       # Tree, key, variable address of string in memory, variable size of string
+  @_ == 4 or confess "Four parameters";
+
+  my $t = $tree->findSubTree($key);                                             # Find the key
+  If $t->found == 0,
+  Then
+   {my $T = $tree->area->CreateTree;
+    $t->first->copy($T->first);
+    $tree->put($key, $t);
+   };
+
+  $t->putStringFromMemory($address, $size);                                     # Return the unique number that of this string in the located sub tree
+ }
+
+#latest:;
 if (1) {                                                                        #Nasm::X86::Tree::put2 #Nasm::X86::Tree::get2
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18513,7 +18522,7 @@ found: .... .... .... ....
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        # Load a subroutine into an area and call it.
   unlink my $f = q(zzzArea.data);
 
