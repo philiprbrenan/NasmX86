@@ -5815,8 +5815,7 @@ sub Nasm::X86::Area::CreateTree($%)                                             
 
   my $tree = $area->DescribeTree(%options);                                     # Return a descriptor for a tree in the specified area
   my $o    = $tree->area->allocZmmBlock;                                        # Allocate header
-$o->d;
-     $tree->first->copy($o);                                                    # Install header
+  $tree->first->copy($o);                                                       # Install header
 
   $tree                                                                         # Description of array
  }
@@ -8625,38 +8624,30 @@ sub Nasm::X86::Tree::putStringFromMemory($$$)                                   
   PushR my $c = r13, my $a = r14, my $i = r15;
 
   $address->setReg($a);
-PrintErrStringNL "AAAA";
   $size->for(sub                                                                # Insert each character - obviously this can be improved by using registers instead of variables
-   {my ($index) = @_;                                                           # Position in the tring
+   {my ($index) = @_;                                                           # Position in the string
     $index->setReg($i);
     Mov $c."b", "[$a+$i]";                                                      # Get the next byte
     And $c, 0xff;                                                               # Clear to a byte
     my $char = V char => $c;                                                    # Next character of the string
 
-$char->d;
-$S->first->d;
     If $s == 1,
     Then                                                                        # String matches an existing string so far
      {$S->find($char);
-PrintErrStringNL "BBBB";
-$S->found->d;
       If $S->found == 0,
       Then                                                                      # Position on new element
        {$s->copy(0);
         my $T = $tree->area->CreateTree;
         $S->put($char, $T);
         $S->first->copy($T->first);
-PrintErrStringNL "CCCC";
        },
       Else
        {$S->first->copy($S->data);                                              # Position on found element
-PrintErrStringNL "DDDD";
        };
      },
     Else                                                                        # String no longer matches an existing string - we are creating a new path
      {my $T = $tree->area->CreateTree;
-PrintErrStringNL "EEEE";
-      $S->put($tree->data, $T);
+      $S->put($char, $T);
       $S->first->copy($T->first);
      };
    });
@@ -8665,12 +8656,13 @@ PrintErrStringNL "EEEE";
   $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
  }
 
-sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string and return its data in B<found> and B<data>.
+sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string but only if it is present and return its data in B<found> and B<data>.  If the string is not present then return a tree descriptor with found set to zero.
  {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
   @_ == 2 or confess "Two parameters";
   ref($string) =~ m(\ANasm::X86::::Tree\Z);
 
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
+  $S->found->copy(1);                                                           # The empty string maps to the offset of the string tree itself
 
   Block
    {my ($end, $start) = @_;                                                     # End label
@@ -8686,6 +8678,32 @@ sub Nasm::X86::Tree::getString($$)                                              
    };
 
   $S                                                                            # The result is shown via a tree descriptor
+ }
+
+sub Nasm::X86::Tree::getStringFromMemory($$$)                                   # Locate the tree in a string tree representing the specified string but only if it is present and return its data in B<found> and B<data>.  If the string is not present then return a tree descriptor with found set to zero.
+ {my ($tree, $address, $size) = @_;                                             # Tree descriptor representing string tree, variable address in memory of string, variable size of string
+  @_ == 3 or confess "Three parameters";
+
+  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
+  $S->found->copy(1);                                                           # The empty string maps to the offset of the string tree itself
+
+  PushR my $c = r13, my $a = r14, my $i = r15;
+
+  $address->setReg($a);
+
+  $size->for(sub                                                                # Insert each character - obviously this can be improved by using registers instead of variables
+   {my ($index, $start, $next, $end) = @_;                                      # Position in the string
+    $index->setReg($i);
+    Mov $c."b", "[$a+$i]";                                                      # Get the next byte
+    And $c, 0xff;                                                               # Clear to a byte
+    my $char = V char => $c;                                                    # Next character of the string
+
+    $S->find($char);
+    If $S->found == 0, Then {Jmp $end};                                          # Not found
+    $S->first->copy($S->data);                                                  # Position on found element
+   });
+  PopR;
+  $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
  }
 
 #D2 Print                                                                       # Print a tree
@@ -18376,24 +18394,38 @@ first: .... .... .... .6..
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #T Nasm::X86::Tree::putStringFromMemory
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-
-  my ($a, $l) = addressAndLengthOfConstantStringAsVariables("abcd");
+  my $A = CreateArea;
+  my $t = $A->CreateTree;
 
   K(loop => 9)->for(sub
    {my ($i, $start, $next, $end) = @_;
+    my ($a, $l) = addressAndLengthOfConstantStringAsVariables("abcd");
     $t->putStringFromMemory($a, $l)->outNL;
+    $A->makeReadOnly;
+    $t->getStringFromMemory($a, $l)->outNL;
    });
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
 first: .... .... .... .380
-first: .... .... .... .4C0
-first: .... .... .... .6..
-first: .... .... .... .4C0
-first: .... .... .... .6..
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
+first: .... .... .... .380
 END
  }
 
@@ -18518,9 +18550,10 @@ sub Nasm::X86::Tree::get2($$$)                                                  
       $tree->data->copy($t->data);
      };
    };
+  $t
  }
 
-sub Nasm::X86::Tree::keyString($$$$)                                            # Especially useful for Yggdrasil: puts a key into a tree if it is not already there then puts a string into the sub string tree and return the unique number for the string.
+sub Nasm::X86::Tree::putKeyString($$$$)                                         # Especially useful for Yggdrasil: puts a key into a tree if it is not already there then puts a string into the sub string tree and return the unique number for the string.
  {my ($tree, $key, $address, $size) = @_;                                       # Tree, key, variable address of string in memory, variable size of string
   @_ == 4 or confess "Four parameters";
 
@@ -18533,6 +18566,18 @@ sub Nasm::X86::Tree::keyString($$$$)                                            
    };
 
   $t->putStringFromMemory($address, $size);                                     # Return the unique number that of this string in the located sub tree
+ }
+
+sub Nasm::X86::Tree::getKeyString($$$$)                                         # Especially useful for Yggdrasil: locates a string tree by key then locates a string in that string tree if both the key and the string exist.  Th result of the search is indicated in the found and data fields of the returned tree descriptor.
+ {my ($tree, $key, $address, $size) = @_;                                       # Tree, key, variable address of string in memory, variable size of string
+  @_ == 4 or confess "Four parameters";
+
+  my $t = $tree->findSubTree($key);                                             # Find the key
+  If $t->found == 1,
+  Then
+   {$t->getStringFromMemory($address, $size);
+   };
+  $t                                                                            # Found field indicates whether the data field is valid
  }
 
 #latest:;
@@ -18585,22 +18630,21 @@ if (1) {                                                                        
 
     my $y = $a->yggdrasil;
     my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
-    my $n = $y->keyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);     # Make the string into a unique number
-    $y->put2(             Nasm::X86::Ygddrasil::SubroutineOffsets, $n, $off);   # Record the offset of the subroutine under the unique string number
+    my $n = $y->putKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    $y->put2(                Nasm::X86::Ygddrasil::SubroutineOffsets, $n, $off);# Record the offset of the subroutine under the unique string number
 
     $a->write(V file => Rs $f);                                                 # Save the area
     $a->free;
    }
-
   if (1)                                                                        # Read an area containing a subroutine into memory
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
     my $y = $a->yggdrasil;
     my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
-    my $n = $y->keyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);     # Make the string into a unique number
-    my $o = $y->get2(     Nasm::X86::Ygddrasil::SubroutineOffsets, $n);         # Record the offset of the subroutine under the unique string number
+    my $n = $y->putKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n);      # Get the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x9999}, override => $a->address + $o); # Call position independent code
+    $t->call(parameters=>{a => K key => 0x9999}, override => $a->address + $o->data); # Call position independent code
     PrintOutRegisterInHex rax;
    }
 
@@ -18609,18 +18653,18 @@ if (1) {                                                                        
    rax: .... .... .... 9999
 END
   ok -e $f;
-  is_deeply fileSize($f),  77 unless onGitHub;
-  is_deeply fileSize($f), 173 if     onGitHub;
+#  is_deeply fileSize($f),  77 unless onGitHub;
+#  is_deeply fileSize($f), 173 if     onGitHub;
 
   if (1)                                                                        # Read an area containing a subroutine into memory
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
     my $y = $a->yggdrasil;
     my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
-    my $n = $y->keyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);     # Make the string into a unique number
-    my $o = $y->get2(     Nasm::X86::Ygddrasil::SubroutineOffsets, $n);         # Record the offset of the subroutine under the unique string number
+    my $n = $y->putKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n);      # Record the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x8888}, override => $a->address + $o); # Call position independent code
+    $t->call(parameters=>{a => K key => 0x8888}, override => $a->address + $o->data); # Call position independent code
     PrintOutRegisterInHex rax;
    }
 
@@ -18633,10 +18677,10 @@ END
 
     my $y = $a->yggdrasil;
     my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
-    my $n = $y->keyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);     # Make the string into a unique number
+    my $n = $y->putKeyString(Nasm::X86::Ygddrasil::UniqueStrings,  $N, $L);     # Make the string into a unique number
     my $o = $y->get2(     Nasm::X86::Ygddrasil::SubroutineOffsets, $n);         # Record the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x7777}, override => $a->address + $o); # Call position independent code
+    $t->call(parameters=>{a => K key => 0x7777}, override => $a->address + $o->data); # Call position independent code
     PrintOutRegisterInHex rax;
    }
 
