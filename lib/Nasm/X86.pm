@@ -40,22 +40,23 @@ my @bss;                                                                        
 my @text;                                                                       # Code
 my @extern;                                                                     # External symbols imports for linking with C libraries
 my @link;                                                                       # Specify libraries which to link against in the final assembly stage
-my $interpreter = q(-I /usr/lib64/ld-linux-x86-64.so.2);                        # The ld command needs an interpreter if we are linking with C.
-my $develop     = -e q(/home/phil/);                                            # Developing
-my $sdeMixOut   = q(sde-mix-out.txt);                                           # Emulator hot spot output file
-my $sdeTraceOut = q(sde-debugtrace-out.txt);                                    # Emulator trace output file
-my $sdePtrCheck = q(sde-ptr-check.out.txt);                                     # Emulator pointer check file
-my $traceBack   = q(zzzTraceBack.txt);                                          # Trace back of last error observed in emulator trace file if tracing is on
-my $programErr  = q(zzzErr.txt);                                                # Program error  file
-my $programOut  = q(zzzOut.txt);                                                # Program output file
-my $sourceFile  = q(z.asm);                                                     # Source file
+my $interpreter  = q(-I /usr/lib64/ld-linux-x86-64.so.2);                       # The ld command needs an interpreter if we are linking with C.
+my $develop      = -e q(/home/phil/);                                           # Developing
+my $sdeMixOut    = q(sde-mix-out.txt);                                          # Emulator hot spot output file
+my $sdeTraceOut  = q(sde-debugtrace-out.txt);                                   # Emulator trace output file
+my $sdePtrCheck  = q(sde-ptr-check.out.txt);                                    # Emulator pointer check file
+my $traceBack    = q(zzzTraceBack.txt);                                         # Trace back of last error observed in emulator trace file if tracing is on
+my $programErr   = q(zzzErr.txt);                                               # Program error  file
+my $programOut   = q(zzzOut.txt);                                               # Program output file
+my $sourceFile   = q(z.asm);                                                    # Source file
 
-our $stdin      = 0;                                                            # File descriptor for standard input
-our $stdout     = 1;                                                            # File descriptor for standard output
-our $stderr     = 2;                                                            # File descriptor for standard error
+our $stdin       = 0;                                                           # File descriptor for standard input
+our $stdout      = 1;                                                           # File descriptor for standard output
+our $stderr      = 2;                                                           # File descriptor for standard error
 
-our $TraceMode  = 0;                                                            # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.  This mode assumes that you will not be using the mm0 register (most people are not)and that you have any IDE like Geany that can interpret a Perl error line number and position on that line in this file.
-our $DebugMode  = 0;                                                            # 1: enables checks that take time and sometimes catch programming errors.
+our $TraceMode   = 0;                                                           # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.  This mode assumes that you will not be using the mm0 register (most people are not)and that you have any IDE like Geany that can interpret a Perl error line number and position on that line in this file.
+our $DebugMode   = 0;                                                           # 1: enables checks that take time and sometimes catch programming errors.
+our $LibraryMode = 0;                                                           # 1: we are building a library so constants must appear in line in the text section rather than in a block in the data section
 
 my %Registers;                                                                  # The names of all the registers
 my %RegisterContaining;                                                         # The largest register containing a register
@@ -395,14 +396,24 @@ sub Rbwdq($@)                                                                   
   if (my $c = $rodata{$s}{$d})                                                  # Data already exists so return it
    {return $c
    }
-  my $l = Label; my $x = Label;                                                 # New data - create a label for the data  and then jumpo over it as it is in the code section -- we will have to optimize jumps later
-  push @text, <<END;                                                            # Save in read only data
-  Jmp $x;
-  $l: d$s $d
-  $x:
+  if ($LibraryMode)                                                             # Create data in a library - we put it inline soa tht is copied with the position independent subroutine after optimizing the jumps just before assembly.
+   {my $l = Label; my $x = Label;                                               # New data - create a label for the data  and then jump over it as it is in the code section -- we will have to optimize jumps later
+    push @text, <<END;                                                          # Save in read only data
+    Jmp $x;
+    $l: d$s $d
+    $x:
 END
-  $rodata{$s}{$d} = $l;                                                         # Record label
-  $l                                                                            # Return label
+    $rodata{$s}{$d} = $l;                                                       # Record label
+    return $l;
+   }
+  else
+   {my $l = Label;                                                              # New data - create a label
+    push @rodata, <<END;                                                        # Save in read only data
+    $l: d$s $d
+END
+    $rodata{$s}{$d} = $l;                                                       # Record label
+    return $l;
+   }
  }
 
 sub Rbwdq22($@)                                                                 #P Layout data.
@@ -446,14 +457,25 @@ sub Rs(@)                                                                       
   my $e = join ', ', @e;
   my $L = $rodatas{$e};
   return $L if defined $L;                                                      # Data already exists so return it
-  my $l = Label; my $x = Label;                                                 # New label for new data
-  $rodatas{$e} = $l;                                                            # Record label
-  push @text, <<END;                                                            # Define bytes
+
+  if ($LibraryMode)                                                             # Create data in a library - we put it inline soa tht is copied with the position independent subroutine after optimizing the jumps just before assembly.
+   {my $l = Label; my $x = Label;                                               # New label for new data
+    $rodatas{$e} = $l;                                                          # Record label
+    push @text, <<END;                                                          # Define bytes
   Jmp $x;
   $l: db  $e, 0;
   $x:
 END
-  $l                                                                            # Return label
+    return $l;                                                                  # Return label
+   }
+  else
+   {my $l = Label;                                                              # New label for new data
+    $rodatas{$e} = $l;                                                          # Record label
+    push @rodata, <<END;                                                        # Define bytes
+  $l: db  $e, 0;
+END
+    return $l                                                                   # Return label
+   }
  }
 
 sub Rs22(@)                                                                     # Layout bytes in read only memory and return their label.
@@ -1547,6 +1569,7 @@ sub Subroutine(&%)                                                              
     %rodata           = ();                                                     # New set of read only elements
     %rodatasSaved     = %rodatas;                                               # Current set of read only strings
     %rodatas          = ();                                                     # New set of read only strings
+    $LibraryMode = 1;                                                           # Please do not try to create a library while creating another library - create them one after the other.
    }
 
   $name or confess "Name required for subroutine, use name=>";
@@ -1610,6 +1633,7 @@ END
     %rodata      = %rodataSaved;                                                # Restore current set of read only elements
     %rodatas     = %rodatasSaved;                                               # Restore current set of read only strings
     $subroutines{$name} = $s;                                                   # Save current subroutine so we do not regenerate it
+    $LibraryMode = 0;                                                           # Please do not try to create a library while creating another library - create them one after the other.
    }
 
   $s                                                                            # Return subroutine definition
@@ -18907,7 +18931,7 @@ END
  }
 
 latest:;
-if (1) {                                                                        # Subroutine of sub routines which calls a subroutines
+if (1) {                                                                        # Subroutine of sub routines which calls a subroutines which returns data
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
 
