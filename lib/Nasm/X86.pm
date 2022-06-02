@@ -18616,7 +18616,7 @@ if (1) {
   my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1, clocks=>1259700, trace=>1;
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, clocks=>1259700, trace=>0;
 $l
 END
 }
