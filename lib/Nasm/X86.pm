@@ -17,6 +17,7 @@
 # Make trees faster by using an array for small keys
 # Jump forwarding
 # All options checking immediately after parameters
+# Which subs do we actually need SAveFirst four on?
 package Nasm::X86;
 our $VERSION = "20211204";
 use warnings FATAL => qw(all);
@@ -47,6 +48,7 @@ my $sdePtrCheck = q(sde-ptr-check.out.txt);                                     
 my $traceBack   = q(zzzTraceBack.txt);                                          # Trace back of last error observed in emulator trace file if tracing is on
 my $programErr  = q(zzzErr.txt);                                                # Program error  file
 my $programOut  = q(zzzOut.txt);                                                # Program output file
+my $sourceFile  = q(z.asm);                                                     # Source file
 
 our $stdin      = 0;                                                            # File descriptor for standard input
 our $stdout     = 1;                                                            # File descriptor for standard output
@@ -330,8 +332,6 @@ sub dWordRegister($)                                                            
   return esi if $r eq rsi;
   $r."d"
  }
-
-sub Subroutine(&%);                                                             # Create a subroutine that can be called in assembler code.
 
 #D1 Data                                                                        # Layout data
 
@@ -996,6 +996,13 @@ my $Vpcmp = genHash("Nasm::X86::CompareCodes",                                  
   gt=>6,                                                                        # Greater than
  );
 
+sub Subroutine(&%);                                                             # Create a subroutine that can be called in assembler code.
+sub Comment(@);                                                                 # Comment
+sub K($$);                                                                      # Define a constant
+sub V($$);                                                                      # Define a variable.
+sub CreateArea(%);                                                              # Create an relocatable area and returns its address in rax. We add a chain header so that 64 byte blocks of memory can be freed and reused within the area.
+sub PrintErrStringNL(@);                                                        # Print a string on stderr
+
 #D1 Structured Programming                                                      # Structured programming constructs
 
 sub If($$;$)                                                                    # If statement.
@@ -1251,7 +1258,7 @@ sub For(&$$;$)                                                                  
   @_ == 3 or @_ == 4 or confess;
   $increment //= 1;                                                             # Default increment
   my $next = Label;                                                             # Next iteration
-  &Comment("For $register $limit");
+  Comment "For $register $limit";
   my $start = Label;
   my $end   = Label;
   SetLabel $start;
@@ -1415,7 +1422,7 @@ sub PrintTraceBack($)                                                           
 
 sub PrintErrTraceBack($)                                                        # Print sub routine track back on stderr and then exit with a message.
  {my ($message) = @_;                                                           # Reason why we are printing the trace back and then stopping
-  &PrintErrStringNL($message);
+  PrintErrStringNL $message;
   PrintTraceBack($stderr);
   Exit(1);
  }
@@ -1480,23 +1487,29 @@ sub copyStructureMinusVariables($)                                              
 
 sub Subroutine(&%)                                                              # Create a subroutine that can be called in assembler code.
  {my ($block, %options) = @_;                                                   # Block of code as a sub, options
+  my $export     = $options{export};                                            # File to export this subroutine to and all its contained subroutines
   my $name       = $options{name};                                              # Subroutine name
   my $parameters = $options{parameters};                                        # Parameters block
   my $structures = $options{structures};                                        # Structures provided as parameters
-  my $export     = $options{export};                                            # File to export this subroutine to and all its contained subroutines
   my $trace      = $options{trace};                                             # If we are tracing and this subroutine is marked as traceable we always generate a new version of it so that we can trace each specific instance to get the exact context in which this subroutine was called rather than the context in which the original copy was called.
 
   if (1)                                                                        # Validate options
    {my %o = %options;
-    delete $o{$_} for qw(parameters structures name trace export);
+    delete $o{$_} for qw(export name parameters structures trace);
     if (my @i = sort keys %o)
      {confess "Invalid parameters: ".join(', ',@i);
      }
    }
 
+  my %subroutinesSaved;                                                         # Current set of subroutine definitions
+  if ($export)                                                                  # Create a new set of subroutines for this routine and all of its sub routines
+   {%subroutinesSaved = %subroutines;                                           # Save current set of subroutines
+    %subroutines      = ();                                                     # New set of subroutines
+   }
+
   $name or confess "Name required for subroutine, use name=>";
   if ($name and my $s = $subroutines{$name})                                    # Return the label of a pre-existing copy of the code possibly after running the subroutine. Make sure that the subroutine name is different for different subs as otherwise the unexpected results occur.
-   {return $s unless $TraceMode and $trace;                                     # If we are tracing and this subroutine is marked as traceable we always generate a new version of it so that we can trace each specific instance to get the exact context in which this subroutine was called rather than the context in which the original copy was called.
+   {return $s unless $TraceMode and $trace and !$export;                        # If we are tracing and this subroutine is marked as traceable we always generate a new version of it so that we can trace each specific instance to get the exact context in which this subroutine was called rather than the context in which the original copy was called.
    }
 
   if (1)                                                                        # Check for duplicate parameters
@@ -1534,8 +1547,9 @@ sub Subroutine(&%)                                                              
    );
 
   $s->mapStructureVariables(\%structureCopies) if $structures;                  # Map structures before we generate code so that we can put the parameters first in the new stack frame
-
+Comment "SSSSS start $name";
   my $E = @text;                                                                # Code entry that will contain the Enter instruction
+
   Enter 0, 0;                                                                   # The Enter instruction is 4 bytes long
   &$block({%parameters}, {%structureCopies}, $s);                               # Code with parameters and structures
 
@@ -1549,7 +1563,42 @@ sub Subroutine(&%)                                                              
   Enter $V*$w, 0
 END
 
+  if ($export)                                                                  # Create a new set of subroutines for this routine and all of its sub routines
+   {$s->writeToArea({%subroutines});                                            # Place the subroutine in an area then write the area containing the subroutine and its contained routines to a file
+    %subroutines = %subroutinesSaved;                                           # Save current set of subroutines
+    $subroutines{$name} = $s;                                                   # Save current subroutine so we do not regenerate it
+   }
+Comment "SSSSS end $name";
+
   $s                                                                            # Return subroutine definition
+ }
+
+sub Nasm::X86::Subroutine::writeToArea($$)                                      # Write a subroutine and its sub routines to an area then save the area in a file so thatthe subroutne can be relaoded at alater date either as separate file or via incorporation into a thing.  A thing was originally an assembly of people as in "The Allthing" or the "Stort Thing"
+ {my ($s, $subs) = @_;                                                          # Sub definition
+  my $a = CreateArea;
+  my $address = K address => $s->start;
+  my $size    = K size => "$$s{end}-$$s{start}";
+  my $off     = $a->appendMemory($address, $size);                              # Copy a subroutine into an area
+
+  my $y = $a->yggdrasil;
+  my ($N, $L) = addressAndLengthOfConstantStringAsVariables($s->name);          # The name of the subroutine
+  my $n = $y->putKeyString(&Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);   # Make the name of the subroutine into a unique number
+  my $o = $a->appendMemory($address, $size);                                    # Copy a subroutine into an area
+  $y->put2(                &Nasm::X86::Ygddrasil::SubroutineOffsets, $n, $off); # Record the offset of the subroutine under the unique string number
+
+  my $U = $y->findSubTree(&Nasm::X86::Ygddrasil::UniqueStrings);                # Find the unique string sub tree created above
+  my $O = $y->findSubTree(&Nasm::X86::Ygddrasil::SubroutineOffsets);            # Find the unique subroutine offset tree created above
+
+  for my $sub(sort keys %$subs)                                                 # Each sub routine definition contained in this subroutine
+   {my $r = $$subs{$sub};                                                       # A routine within the subroutine
+    my ($N, $L) = addressAndLengthOfConstantStringAsVariables($r->name);        # The name of the sub
+    my $n = $U->putStringFromMemory($N, $L);                                    # Make the name of the sub routine into a unique number
+    my $o = $off + K delta => "$$r{start}-$$s{start}";                          # Offset to this sub routine within the subroutine
+    $O->put($n, $o);                                                            # Record the offset of the subroutine under the unique string number
+   }
+
+   $a->write(V file => Rs $s->export);                                          # Save the area to the named file
+   $a->free;
  }
 
 sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           # Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined
@@ -2691,7 +2740,7 @@ sub K($$)                                                                       
   &Variable(@_, constant => 1)
  }
 
-sub R(*)                                                                        # Define a reference variable.
+sub R($)                                                                        # Define a reference variable.
  {my ($name) = @_;                                                              # Name of variable
   my $r = &Variable($name);                                                     # The referring variable is 64 bits wide
   $r->reference = 1;                                                            # Mark variable as a reference
@@ -5279,7 +5328,7 @@ sub Nasm::X86::Area::makeWriteable($)                                           
 sub Nasm::X86::Area::allocate($$)                                               # Allocate the variable amount of space in the variable addressed area and return the offset of the allocation in the area as a variable.
  {my ($area, $size) = @_;                                                       # Area descriptor, variable amount of allocation
   @_ == 2 or confess "Two parameters";
-
+Comment "Allocate";
   SaveFirstFour;
   $area->updateSpace($size);                                                    # Update space if needed
   $area->address->setReg(rax);
@@ -5289,6 +5338,7 @@ sub Nasm::X86::Area::allocate($$)                                               
   Add rsi, rdi;
   Mov "[rax+$$area{usedOffset}]", rsi;                                          # Update currently used
   RestoreFirstFour;
+Comment "AAAAA end";
   $offset
  }
 
@@ -7219,20 +7269,30 @@ sub Nasm::X86::Tree::findAndReload($$)                                          
  }
 
 sub Nasm::X86::Tree::findSubTree($$)                                            # Find a key in the specified tree and create a sub tree from the data field if possible
- {my ($t, $key) = @_;                                                           # Tree descriptor, key as a dword
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, key as a dword
   @_ == 2 or confess "Two parameters";
 
-  my $s = $t->describeTree;                                                     # The sub tree we are attempting to load
-     $s->found->copy(0);                                                        # Assume we will not find the sub tree
-  $t->find($key);                                                               # Find the key
+  my $t = $tree->describeTree;                                                  # The sub tree we are attempting to load
+     $t->first->copy($tree->first);                                             # Position on the tree
 
-  ifAnd [sub{$t->found > 0}, sub{$t->subTree > 0}],                             # Make the found data the new  tree
-  Then
-   {$s->first->copy($t->data);                                                  # Copy the data variable to the first variable without checking whether it is valid
-    $s->found->copy(1);
-   };
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $t = $$s{tree};
+    $t->found->copy(0);                                                         # Assume we will not find the sub tree
+    $t->find($$p{key});                                                         # Find the key
 
-  $s
+    ifAnd [sub{$t->found > 0}, sub{$t->subTree > 0}],                           # Make the found data the new  tree
+    Then
+     {$t->first->copy($t->data);                                                # Copy the data variable to the first variable without checking whether it is valid
+      $t->found->copy(1);
+     }
+    } parameters => [qw(key)],
+      structures => {tree=>$t},
+      name       => qq(Nasm::X86::Tree::findSubTree);
+
+  $s->call(structures=>{tree => $t}, parameters=>{key => $key});
+
+  $t
  }
 
 sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      #P Return the offset of the left most or right most node.
@@ -8621,41 +8681,54 @@ sub Nasm::X86::Tree::putStringFromMemory($$$)                                   
   @_ == 3 or confess "Three parameters";
 
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
-  my $s = V state => 1;                                                         # 1 - string found so far, 0 - inserting new string
 
-  PushR my $c = r13, my $a = r14, my $i = r15;
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
 
-  $address->setReg($a);
-  $size->for(sub                                                                # Insert each character - obviously this can be improved by using registers instead of variables
-   {my ($index) = @_;                                                           # Position in the string
-    $index->setReg($i);
-    Mov $c."b", "[$a+$i]";                                                      # Get the next byte
-    And $c, 0xff;                                                               # Clear to a byte
-    my $char = V char => $c;                                                    # Next character of the string
+    my $S = $$s{tree};
+    PushR my $c = r13, my $a = r14, my $i = r15;
 
-    If $s == 1,
-    Then                                                                        # String matches an existing string so far
-     {$S->find($char);
-      If $S->found == 0,
-      Then                                                                      # Position on new element
-       {$s->copy(0);
-        my $T = $tree->area->CreateTree;
+    $$p{address}->setReg($a);                                                   # Address of content in memory
+    my $f = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
+
+    $$p{size}->for(sub                                                          # Insert each character - obviously this can be improved by using registers instead of variables
+     {my ($index) = @_;                                                         # Position in the string
+      $index->setReg($i);
+      Mov $c."b", "[$a+$i]";                                                    # Get the next byte
+      And $c, 0xff;                                                             # Clear to a byte
+      my $char = V char => $c;                                                  # Next character of the string
+
+      If $f == 1,
+      Then                                                                      # String matches an existing string so far
+       {$S->find($char);
+        If $S->found == 0,
+        Then                                                                    # Position on new element
+         {$f->copy(0);
+          my $T = $S->area->CreateTree;
+          $S->put($char, $T);
+          $S->first->copy($T->first);
+         },
+        Else
+         {$S->first->copy($S->data);                                            # Position on found element
+         };
+       },
+      Else                                                                      # String no longer matches an existing string - we are creating a new path
+       {my $T = $S->area->CreateTree;
         $S->put($char, $T);
         $S->first->copy($T->first);
-       },
-      Else
-       {$S->first->copy($S->data);                                              # Position on found element
        };
-     },
-    Else                                                                        # String no longer matches an existing string - we are creating a new path
-     {my $T = $tree->area->CreateTree;
-      $S->put($char, $T);
-      $S->first->copy($T->first);
-     };
-   });
+     });
 
-  PopR;
-  $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
+    PopR;
+   } structures => {tree => $tree},
+     parameters => [qw(address size)],
+     name       =>  qq(Nasm::X86::Tree::putStringFromMemory);
+
+  $s->call(parameters => {address => $address, size=>$size},
+           structures => {tree    => $S});
+
+
+  $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.  We do not need to send an indicator as to whether this subt=routine sfailed or succeded becuase it always succeeds, or if it doe not something so serious has happened that it is not plausible to report it here
  }
 
 sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string but only if it is present and return its data in B<found> and B<data>.  If the string is not present then return a tree descriptor with found set to zero.
@@ -9361,6 +9434,25 @@ sub fixMixOutput                                                                
   $a
  }
 
+sub countComments($)                                                            # Count the number of comments in the text of the program so we can see what code is being generated too often
+ {my ($count) = @_;                                                             # Comment count
+  if ($count)                                                                   # Count the comments so we can see what code to put into subroutines
+   {my %c; my %b;                                                               # The number of lines between the comments, the number of blocks
+    for my $c(readFile $sourceFile)
+     {next unless $c =~ m(\A;);
+      my @w = split /\s+/, $c, 3;
+      $c{$w[1]}++;
+     }
+
+    my @c;
+    for my $c(keys %c)                                                          # Remove comments that do not appear often
+     {push @c, [$c{$c}, $b{$c}, $c] if $c{$c} >= $count;
+     }
+    my @d = sort {$$b[0] <=> $$a[0]} @c;
+    say STDERR formatTable(\@d, [qw(Lines Blocks Comment)]) if @d;              # Print frequently appearing comments
+   }
+ }
+
 sub onGitHub                                                                    # Whether we are on GitHub or not
  {$ENV{GITHUB_REPOSITORY_OWNER}
  }
@@ -9368,12 +9460,13 @@ sub onGitHub                                                                    
 our $assembliesPerformed  = 0;                                                  # Number of assemblies performed
 our $instructionsExecuted = 0;                                                  # Total number of instructions executed
 our $totalBytesAssembled  = 0;                                                  # Total size of the output programs
-our $testsThatPassed       = 0;                                                  # Number of runs that passed their test
-our $testsThatFailed       = 0;                                                  # Number of runs that failed to pass their tests
+our $testsThatPassed      = 0;                                                  # Number of runs that passed their test
+our $testsThatFailed      = 0;                                                  # Number of runs that failed to pass their tests
 
 sub Assemble(%)                                                                 # Assemble the generated code.
  {my (%options) = @_;                                                           # Options
   my $clocks     = $options{clocks};                                            # Expected number of clocks if known
+  my $count      = $options{count}//0;                                          # Count the comments that occur more frequently than this number
   my $debug      = $options{debug}//0;                                          # Debug: 0 - print stderr and compare stdout to eq if present, 1 - print stdout and stderr and compare sdterr to eq if present
   my $foot       = $options{foot};                                              # Foot print required
   my $keep       = $options{keep};                                              # Keep the executable rather than running it
@@ -9384,7 +9477,6 @@ sub Assemble(%)                                                                 
   my $ptr        = $options{ptr};                                               # Pointer check required
   my $trace      = $options{trace}//0;                                          # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
 
-  my $sourceFile = q(z.asm);                                                    # Source file
   my $execFile   = $keep // q(z);                                               # Executable file
   my $listFile   = q(z.txt);                                                    # Assembler listing
   my $objectFile = $library // q(z.o);                                          # Object file
@@ -9517,6 +9609,8 @@ END
 
   my $aTime = time - $aStart;
 
+  countComments $count;                                                         # Count the number of comments
+
   my $out  = $run ? "1>$o1" : '';
   my $err  = $run ? "2>$o2" : '';
 
@@ -9600,28 +9694,6 @@ END
 
   unlink $objectFile unless $library;                                           # Delete files
   unlink $execFile   unless $keep;                                              # Delete executable unless asked to keep it or its a library
-
-  if (my $N = $options{countComments})                                          # Count the comments so we can see what code to put into subroutines
-   {my %c; my %b;                                                               # The number of lines between the comments, the number of blocks
-    my $s;
-    for my $c(readFile $sourceFile)
-     {if (!$s)
-       {if ($c =~ m(;\s+CommentWithTraceBack\s+PushR))
-         {$s = $c =~ s(Push) (Pop)r;
-          $b{$s}++;
-         }
-       }
-      elsif ($c eq $s)  {$s = undef}
-      else              {$c{$s}++}
-     }
-
-    my @c;
-    for my $c(keys %c)                                                          # Remove comments that do not appear often
-     {push @c, [$c{$c}, $b{$c}, $c] if $c{$c} >= $N;
-     }
-    my @d = sort {$$b[0] <=> $$a[0]} @c;
-    say STDERR formatTable(\@d, [qw(Lines Blocks Comment)]);                    # Print frequently appearing comments
-   }
 
   Start;                                                                        # Clear work areas for next assembly
 
@@ -18551,9 +18623,11 @@ sub Nasm::X86::Tree::get2($$$)                                                  
   If $t->found > 0,
   Then                                                                          # First key found in first tree
    {$t->find($key2);
+    $tree->found->copy($t->found);
+    $tree->data ->copy($t->data);
    };
 
-  $t
+  $tree
  }
 
 sub Nasm::X86::Tree::putKeyString($$$$)                                         # Especially useful for Yggdrasil: puts a key into a tree if it is not already there then puts a string into the sub string tree and return the unique number for the string.
@@ -18579,9 +18653,10 @@ sub Nasm::X86::Tree::getKeyString($$$$)                                         
   If $t->found == 1,
   Then
    {my $T = $t->getStringFromMemory($address, $size);
-    If $T->found == 1,
-    Then
+    If $T->found > 0,
+    Then                                                                        # Found so copy the results into the returned tree
      {$t->data->copy($T->data);
+      $t->first->copy($T->first);
      }
    };
   $t                                                                            # Found field indicates whether the data field is valid
@@ -18608,12 +18683,12 @@ if (1) {                                                                        
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
 found: .... .... .... ...1
-data: .... .... .... ..80
+data: .... .... .... .333
 found: .... .... .... ....
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        # Load a subroutine into an area and call it.
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
@@ -18622,7 +18697,7 @@ if (1) {                                                                        
    {my ($p, $s, $sub) = @_;
     $$p{a}->setReg(rax);
     #$$p{a}->outNL;
-   } name => $sub, parameters=>[qw(a)], export=>$f;
+   } name => $sub, parameters=>[qw(a)];
 
   my $t = Subroutine {} name => "t", parameters=>[qw(a)];
 
@@ -18643,6 +18718,7 @@ if (1) {                                                                        
     $a->write(V file => Rs $f);                                                 # Save the area
     $a->free;
    }
+
   if (1)                                                                        # Read an area containing a subroutine into memory
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
@@ -18651,11 +18727,13 @@ if (1) {                                                                        
     my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x9999}, override => $a->address + $o->data); # Call position independent code
+    my $address = $a->address + $o->data;
+
+    $t->call(parameters=>{a => K key => 0x9999}, override => $address);         # Call position independent code
     PrintOutRegisterInHex rax;
    }
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=>0, trace=>0;
    rax: .... .... .... ...1
    rax: .... .... .... 9999
 END
@@ -18684,6 +18762,81 @@ END
 
     my $y = $a->yggdrasil;
     my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
+    my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a => K key => 0x7777}, override => $a->address + $o->data); # Call position independent code
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... 7777
+END
+  unlink $f;
+ }
+
+latest:;
+if (1) {                                                                        # Subroutine of sub routines
+  unlink my $f = q(zzzArea.data);
+  my $sub = "abcd";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+
+    my $a = Subroutine
+     {my ($p, $s, $sub) = @_;
+      Mov rax, 0x111;
+     } name => 'a', parameters=>[qw(a)];
+
+    my $b = Subroutine
+     {my ($p, $s, $sub) = @_;
+      $$p{a}->setReg(rax);
+     } name => 'b', parameters=>[qw(a)];
+
+   } name => $sub, parameters=>[qw(a)], export => $f;
+
+  my $t = Subroutine {} name => "t", parameters=>[qw(a)];
+
+  if (1)                                                                        # Read an area containing a subroutine into memory
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(b));
+    my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a => K key => 0x9999}, override => $a->address + $y->data); # Call position independent code
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0, count=>0;
+   rax: .... .... .... 9999
+END
+  ok -e $f;
+#  is_deeply fileSize($f),  77 unless onGitHub;
+#  is_deeply fileSize($f), 173 if     onGitHub;
+
+  if (1)                                                                        # Read an area containing a subroutine into memory
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(b));
+    my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a => K key => 0x8888}, override => $a->address + $o->data); # Call position independent code
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... 8888
+END
+
+  if (1)                                                                        # Load an area into a thing
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(b));
     my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
