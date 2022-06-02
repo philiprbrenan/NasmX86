@@ -362,7 +362,101 @@ END
   $l                                                                            # Return label
  }
 
+sub Dbwdq($@)                                                                   #P Layout data.
+ {my ($s, @d) = @_;                                                             # Element size, data to be laid out
+  my $d = join ', ', @d;
+  my $l = Label;
+  push @data, <<END;
+  $l: d$s $d
+END
+  $l                                                                            # Return label
+ }
+
+sub Db(@)                                                                       # Layout bytes in the data segment and return their label.
+ {my (@bytes) = @_;                                                             # Bytes to layout
+  Dbwdq 'b', @_;
+ }
+sub Dw(@)                                                                       # Layout words in the data segment and return their label.
+ {my (@words) = @_;                                                             # Words to layout
+  Dbwdq 'w', @_;
+ }
+sub Dd(@)                                                                       # Layout double words in the data segment and return their label.
+ {my (@dwords) = @_;                                                            # Double words to layout
+  Dbwdq 'd', @_;
+ }
+sub Dq(@)                                                                       # Layout quad words in the data segment and return their label.
+ {my (@qwords) = @_;                                                            # Quad words to layout
+  Dbwdq 'q', @_;
+ }
+
+sub Rbwdq($@)                                                                   #P Layout data.
+ {my ($s, @d) = @_;                                                             # Element size, data to be laid out
+  my $d = join ', ', map {$_ =~ m(\A\d+\Z) ? sprintf "0x%x", $_ : $_} @d;       # Data to be laid out
+  if (my $c = $rodata{$s}{$d})                                                  # Data already exists so return it
+   {return $c
+   }
+  my $l = Label; my $x = Label;                                                 # New data - create a label for the data  and then jumpo over it as it is in the code section -- we will have to optimize jumps later
+  push @text, <<END;                                                            # Save in read only data
+  Jmp $x;
+  $l: d$s $d
+  $x:
+END
+  $rodata{$s}{$d} = $l;                                                         # Record label
+  $l                                                                            # Return label
+ }
+
+sub Rbwdq22($@)                                                                 #P Layout data.
+ {my ($s, @d) = @_;                                                             # Element size, data to be laid out
+  my $d = join ', ', map {$_ =~ m(\A\d+\Z) ? sprintf "0x%x", $_ : $_} @d;       # Data to be laid out
+  if (my $c = $rodata{$s}{$d})                                                  # Data already exists so return it
+   {return $c
+   }
+  my $l = Label;                                                                # New data - create a label
+  push @rodata, <<END;                                                          # Save in read only data
+  $l: d$s $d
+END
+  $rodata{$s}{$d} = $l;                                                         # Record label
+  $l                                                                            # Return label
+ }
+
+sub Rb(@)                                                                       # Layout bytes in the data segment and return their label.
+ {my (@bytes) = @_;                                                             # Bytes to layout
+  Rbwdq 'b', @_;
+ }
+sub Rw(@)                                                                       # Layout words in the data segment and return their label.
+ {my (@words) = @_;                                                             # Words to layout
+  Rbwdq 'w', @_;
+ }
+sub Rd(@)                                                                       # Layout double words in the data segment and return their label.
+ {my (@dwords) = @_;                                                            # Double words to layout
+  Rbwdq 'd', @_;
+ }
+sub Rq(@)                                                                       # Layout quad words in the data segment and return their label.
+ {my (@qwords) = @_;                                                            # Quad words to layout
+  Rbwdq 'q', @_;
+ }
+
 sub Rs(@)                                                                       # Layout bytes in read only memory and return their label.
+ {my (@d) = @_;                                                                 # Data to be laid out
+  my $d = join '', @_;
+  my @e;
+  for my $e(split //, $d)
+   {if ($e !~ m([A-Z0-9])i) {push @e, sprintf("0x%x", ord($e))} else {push @e, qq('$e')}
+   }
+  my $e = join ', ', @e;
+  my $L = $rodatas{$e};
+  return $L if defined $L;                                                      # Data already exists so return it
+  my $l = Label; my $x = Label;                                                 # New label for new data
+  $rodatas{$e} = $l;                                                            # Record label
+  push @text, <<END;                                                            # Define bytes
+  Jmp $x;
+  $l: db  $e, 0;
+  $x:
+END
+  $l                                                                            # Return label
+ }
+
+sub Rs22(@)                                                                     # Layout bytes in read only memory and return their label.
  {my (@d) = @_;                                                                 # Data to be laid out
   my $d = join '', @_;
   my @e;
@@ -408,64 +502,6 @@ sub Rutf8(@)                                                                    
   $l: db  $e, 0;
 END
   $l                                                                            # Return label
- }
-
-sub Dbwdq($@)                                                                   #P Layout data.
- {my ($s, @d) = @_;                                                             # Element size, data to be laid out
-  my $d = join ', ', @d;
-  my $l = Label;
-  push @data, <<END;
-  $l: d$s $d
-END
-  $l                                                                            # Return label
- }
-
-sub Db(@)                                                                       # Layout bytes in the data segment and return their label.
- {my (@bytes) = @_;                                                             # Bytes to layout
-  Dbwdq 'b', @_;
- }
-sub Dw(@)                                                                       # Layout words in the data segment and return their label.
- {my (@words) = @_;                                                             # Words to layout
-  Dbwdq 'w', @_;
- }
-sub Dd(@)                                                                       # Layout double words in the data segment and return their label.
- {my (@dwords) = @_;                                                            # Double words to layout
-  Dbwdq 'd', @_;
- }
-sub Dq(@)                                                                       # Layout quad words in the data segment and return their label.
- {my (@qwords) = @_;                                                            # Quad words to layout
-  Dbwdq 'q', @_;
- }
-
-sub Rbwdq($@)                                                                   #P Layout data.
- {my ($s, @d) = @_;                                                             # Element size, data to be laid out
-  my $d = join ', ', map {$_ =~ m(\A\d+\Z) ? sprintf "0x%x", $_ : $_} @d;       # Data to be laid out
-  if (my $c = $rodata{$s}{$d})                                                  # Data already exists so return it
-   {return $c
-   }
-  my $l = Label;                                                                # New data - create a label
-  push @rodata, <<END;                                                          # Save in read only data
-  $l: d$s $d
-END
-  $rodata{$s}{$d} = $l;                                                         # Record label
-  $l                                                                            # Return label
- }
-
-sub Rb(@)                                                                       # Layout bytes in the data segment and return their label.
- {my (@bytes) = @_;                                                             # Bytes to layout
-  Rbwdq 'b', @_;
- }
-sub Rw(@)                                                                       # Layout words in the data segment and return their label.
- {my (@words) = @_;                                                             # Words to layout
-  Rbwdq 'w', @_;
- }
-sub Rd(@)                                                                       # Layout double words in the data segment and return their label.
- {my (@dwords) = @_;                                                            # Double words to layout
-  Rbwdq 'd', @_;
- }
-sub Rq(@)                                                                       # Layout quad words in the data segment and return their label.
- {my (@qwords) = @_;                                                            # Quad words to layout
-  Rbwdq 'q', @_;
  }
 
 my $Pi = "3.141592653589793238462";
@@ -1502,9 +1538,15 @@ sub Subroutine(&%)                                                              
    }
 
   my %subroutinesSaved;                                                         # Current set of subroutine definitions
+  my %rodataSaved;                                                              # Current set of read only elements
+  my %rodatasSaved;                                                             # Current set of read only strings
   if ($export)                                                                  # Create a new set of subroutines for this routine and all of its sub routines
    {%subroutinesSaved = %subroutines;                                           # Save current set of subroutines
     %subroutines      = ();                                                     # New set of subroutines
+    %rodataSaved      = %rodata;                                                # Current set of read only elements
+    %rodata           = ();                                                     # New set of read only elements
+    %rodatasSaved     = %rodatas;                                               # Current set of read only strings
+    %rodatas          = ();                                                     # New set of read only strings
    }
 
   $name or confess "Name required for subroutine, use name=>";
@@ -1565,6 +1607,8 @@ END
   if ($export)                                                                  # Create a new set of subroutines for this routine and all of its sub routines
    {$s->writeToArea({%subroutines});                                            # Place the subroutine in an area then write the area containing the subroutine and its contained routines to a file
     %subroutines = %subroutinesSaved;                                           # Save current set of subroutines
+    %rodata      = %rodataSaved;                                                # Restore current set of read only elements
+    %rodatas     = %rodatasSaved;                                               # Restore current set of read only strings
     $subroutines{$name} = $s;                                                   # Save current subroutine so we do not regenerate it
    }
 
@@ -18873,6 +18917,7 @@ if (1) {                                                                        
     my $a = Subroutine
      {my ($p, $s, $sub) = @_;
       $$p{a}->setReg(rax);
+      PrintOutStringNL "AAAAA";
       PrintOutRegisterInHex rax;
      } name => 'a', parameters=>[qw(a)];
    } name => $sub,  parameters=>[qw(a)], export => $f;
@@ -18889,10 +18934,10 @@ END
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $s->call(parameters=>{a => K key => 0x8888}, override => $a->address + $o->data); # Call position independent code
-    PrintOutRegisterInHex rax;
    }
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+AAAAA
    rax: .... .... .... 8888
 END
  }
