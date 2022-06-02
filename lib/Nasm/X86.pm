@@ -18813,8 +18813,6 @@ if (1) {                                                                        
    rax: .... .... .... 9999
 END
   ok -e $f;
-#  is_deeply fileSize($f),  77 unless onGitHub;
-#  is_deeply fileSize($f), 173 if     onGitHub;
 
   if (1)                                                                        # Read an area containing a subroutine into memory
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
@@ -18830,6 +18828,22 @@ END
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
    rax: .... .... .... 8888
+END
+
+  if (1)                                                                        # Load an area into a thing
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(a));
+    my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a => K key => 0x7777}, override => $a->address + $o->data); # Call position independent code
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... .111
 END
 
   if (1)                                                                        # Load an area into a thing
