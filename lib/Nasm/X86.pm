@@ -1547,7 +1547,6 @@ sub Subroutine(&%)                                                              
    );
 
   $s->mapStructureVariables(\%structureCopies) if $structures;                  # Map structures before we generate code so that we can put the parameters first in the new stack frame
-Comment "SSSSS start $name";
   my $E = @text;                                                                # Code entry that will contain the Enter instruction
 
   Enter 0, 0;                                                                   # The Enter instruction is 4 bytes long
@@ -1568,7 +1567,6 @@ END
     %subroutines = %subroutinesSaved;                                           # Save current set of subroutines
     $subroutines{$name} = $s;                                                   # Save current subroutine so we do not regenerate it
    }
-Comment "SSSSS end $name";
 
   $s                                                                            # Return subroutine definition
  }
@@ -18775,7 +18773,7 @@ END
   unlink $f;
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        # Subroutine of sub routines
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
@@ -18862,6 +18860,41 @@ END
    rax: .... .... .... 7777
 END
   unlink $f;
+ }
+
+latest:;
+if (1) {                                                                        # Subroutine of sub routines which calls a subroutines
+  unlink my $f = q(zzzArea.data);
+  my $sub = "abcd";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+
+    my $a = Subroutine
+     {my ($p, $s, $sub) = @_;
+      $$p{a}->setReg(rax);
+      PrintOutRegisterInHex rax;
+     } name => 'a', parameters=>[qw(a)];
+   } name => $sub,  parameters=>[qw(a)], export => $f;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+END
+
+  if (1)                                                                        # Read an area containing a subroutine into memory
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(a));
+    my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $s->call(parameters=>{a => K key => 0x8888}, override => $a->address + $o->data); # Call position independent code
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... 8888
+END
  }
 
 #latest:
