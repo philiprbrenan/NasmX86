@@ -1639,7 +1639,7 @@ END
   $s                                                                            # Return subroutine definition
  }
 
-sub Nasm::X86::Subroutine::writeToArea($$)                                      # Write a subroutine and its sub routines to an area then save the area in a file so thatthe subroutne can be relaoded at alater date either as separate file or via incorporation into a thing.  A thing was originally an assembly of people as in "The Allthing" or the "Stort Thing"
+sub Nasm::X86::Subroutine::writeToArea($$)                                      # Write a subroutine and its sub routines to an area then save the area in a file so that the subroutine can be reloaded at a later date either as separate file or via incorporation into a thing.  A thing was originally an assembly of people as in "The Allthing" or the "Stort Thing"
  {my ($s, $subs) = @_;                                                          # Sub definition
   my $a = CreateArea;
   my $address = K address => $s->start;
@@ -1655,12 +1655,21 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
   my $U = $y->findSubTree(&Nasm::X86::Ygddrasil::UniqueStrings);                # Find the unique string sub tree created above
   my $O = $y->findSubTree(&Nasm::X86::Ygddrasil::SubroutineOffsets);            # Find the unique subroutine offset tree created above
 
+  my %saved;                                                                    # An array of sub routine definitions preceded by this helpful string.  It is entirely possible that this string is not unique in this area - in that case one would have to parse Ygddrasil in Perl - but for the  moment this would be overkill.
   for my $sub(sort keys %$subs)                                                 # Each sub routine definition contained in this subroutine
    {my $r = $$subs{$sub};                                                       # A routine within the subroutine
     my ($N, $L) = addressAndLengthOfConstantStringAsVariables($r->name);        # The name of the sub
     my $n = $U->putStringFromMemory($N, $L);                                    # Make the name of the sub routine into a unique number
     my $o = $off + K delta => "$$r{start}-$$s{start}";                          # Offset to this sub routine within the subroutine
     $O->put($n, $o);                                                            # Record the offset of the subroutine under the unique string number
+
+    $saved{$r->name} = $$subs{$sub};                                            # Saved this subroutine definition as the sub is included in the area
+   }
+
+  if (1)                                                                        # Save the definitions of the subs in this area
+   {my $s = "SubroutineDefinitions:".dump(\%saved)."ZZZZ";                      # String to save
+    my $d = $a->appendMemory(addressAndLengthOfConstantStringAsVariables($s));  # Offset of string containing subroutine definition
+    $y->put(&Nasm::X86::Ygddrasil::SubroutineDefinitions, $d);                  # Record the offset of the subroutine definition under the unique string number for this subroutine
    }
 
    $a->write(V file => Rs $s->export);                                          # Save the area to the named file
@@ -5394,7 +5403,7 @@ sub Nasm::X86::Area::makeWriteable($)                                           
 sub Nasm::X86::Area::allocate($$)                                               # Allocate the variable amount of space in the variable addressed area and return the offset of the allocation in the area as a variable.
  {my ($area, $size) = @_;                                                       # Area descriptor, variable amount of allocation
   @_ == 2 or confess "Two parameters";
-Comment "Allocate";
+
   SaveFirstFour;
   $area->updateSpace($size);                                                    # Update space if needed
   $area->address->setReg(rax);
@@ -5404,7 +5413,7 @@ Comment "Allocate";
   Add rsi, rdi;
   Mov "[rax+$$area{usedOffset}]", rsi;                                          # Update currently used
   RestoreFirstFour;
-Comment "AAAAA end";
+
   $offset
  }
 
@@ -5561,9 +5570,10 @@ sub Nasm::X86::Area::clearZmmBlock($$)                                          
 
 #D2 Yggdrasil                                                                   # The world tree from which we can address so many other things
 
-sub Nasm::X86::Ygddrasil::UniqueStrings     {K key => 0}                        # A tree of strings that assigns unique numbers to strings
-sub Nasm::X86::Ygddrasil::SubroutineOffsets {K key => 1}                        # Translates a string number into the offset of a subroutine in an area
-sub Nasm::X86::Ygddrasil::Unisyn::Alphabets {K key => 2}                        # Unisyn alphabets
+sub Nasm::X86::Ygddrasil::UniqueStrings        {K key => 0}                     # A tree of strings that assigns unique numbers to strings
+sub Nasm::X86::Ygddrasil::SubroutineOffsets    {K key => 1}                     # Translates a string number into the offset of a subroutine in an area
+sub Nasm::X86::Ygddrasil::SubroutineDefinitions{K key => 2}                     # Maps the unique string number for a subroutine name to the offset in the are that contains the length (as a dword) followed by the string content of the Perl data structure describing the subroutine in question.
+sub Nasm::X86::Ygddrasil::Unisyn::Alphabets    {K key => 3}                     # Unisyn alphabets
 
 sub Nasm::X86::Area::yggdrasil($)                                               # Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
  {my ($area) = @_;                                                              # Area descriptor
@@ -18728,6 +18738,15 @@ sub Nasm::X86::Tree::getKeyString($$$$)                                         
   $t                                                                            # Found field indicates whether the data field is valid
  }
 
+sub Nasm::X86::Area::subroutineDefinition($$$)                                  # Get the definition of a subroutine from an area.
+ {my ($area, $file, $name) = @_;                                                # area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
+  my $a = readBinaryFile $file;                                                 # Reload the area
+  my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
+  my $c = eval $b;                                                              # Convert to Perl data structure
+  confess "Cannot extract subroutine definition from file $file\n$@\n" if $@;   # Complain if the eval failed
+  $$c{a};                                                                       # Extract subroutine definition
+ }
+
 #latest:;
 if (1) {                                                                        #Nasm::X86::Tree::put2 #Nasm::X86::Tree::get2
   my $a = CreateArea;
@@ -18962,12 +18981,10 @@ END
 
   if (1)                                                                        # Read an area containing a subroutine into memory
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+    my $A = $a->sub(addressAndLengthOfConstantStringAsVariables(q(a)));         # Locate the address of the subroutine inteh area
 
-    my $A = $a->sub(addressAndLengthOfConstantStringAsVariables(q(a)));         # Locate the address of the subroutine
-
-    my $s = Subroutine{} name => 'a', parameters=>[qw(a)];                      # Define a subroutine
-
-    $s->call(parameters=>{a => K key => 0x8888}, override => $A);               # Call position independent code at the specified address in the area
+    $a->subroutineDefinition($f, q(a))->                                        # Call position independent code at the specified address in the area after extracting the subroutine definition so that we can prepare the parameter list correctly.
+      call(parameters=>{a => K key => 0x8888}, override => $A);
    }
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Call the routine and observe that it produces the expected result.
@@ -18988,7 +19005,7 @@ done_testing;
 
 #unlink $_ for qw(sde-footprint.txt sde-log.txt);
 
-if (1)                                                                          # Summary
+if (1)                                                                          # Summary of processing
  {my $s = sprintf(<<END,
 # fails:%3d,     passes:%3d,    assemblies:%3d,    time: %.2fs,    bytes: %s,    execs: %s
 END
