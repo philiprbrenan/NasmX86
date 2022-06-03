@@ -18738,15 +18738,6 @@ sub Nasm::X86::Tree::getKeyString($$$$)                                         
   $t                                                                            # Found field indicates whether the data field is valid
  }
 
-sub Nasm::X86::Area::subroutineDefinition($$$)                                  # Get the definition of a subroutine from an area.
- {my ($area, $file, $name) = @_;                                                # area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
-  my $a = readBinaryFile $file;                                                 # Reload the area
-  my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
-  my $c = eval $b;                                                              # Convert to Perl data structure
-  confess "Cannot extract subroutine definition from file $file\n$@\n" if $@;   # Complain if the eval failed
-  $$c{a};                                                                       # Extract subroutine definition
- }
-
 #latest:;
 if (1) {                                                                        #Nasm::X86::Tree::put2 #Nasm::X86::Tree::get2
   my $a = CreateArea;
@@ -18947,6 +18938,15 @@ END
    rax: .... .... .... 7777
 END
   unlink $f;
+ }
+
+sub Nasm::X86::Area::subroutineDefinition($$$)                                  # Get the definition of a subroutine from an area.
+ {my ($area, $file, $name) = @_;                                                # area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
+  my $a = readBinaryFile $file;                                                 # Reload the area
+  my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
+  my $c = eval $b;                                                              # Convert to Perl data structure
+  confess "Cannot extract subroutine definition from file $file\n$@\n" if $@;   # Complain if the eval failed
+  $$c{a};                                                                       # Extract subroutine definition
  }
 
 sub Nasm::X86::Area::sub($$$)                                                   # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
