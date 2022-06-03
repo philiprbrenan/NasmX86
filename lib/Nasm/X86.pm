@@ -18930,6 +18930,17 @@ END
   unlink $f;
  }
 
+sub Nasm::X86::Area::sub($$$)                                                   # Obtain the address of the variable routine named from the variable addressed area.
+ {my ($area, $string, $size) = @_;                                              # Area containing the subroutine
+  @_ == 3 or confess "Three parameters";
+
+  my $y = $area->yggdrasil;
+  my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings, $string, $size);# Make the string into a unique number
+  my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);  # Get the offset of the subroutine under the unique string number
+
+  $area->address + $o->data                                                     # Actual address - valid until the area moves.
+ }
+
 latest:;
 if (1) {                                                                        # Subroutine of sub routines which calls a subroutines which returns data
   unlink my $f = q(zzzArea.data);
@@ -18946,21 +18957,20 @@ if (1) {                                                                        
      } name => 'a', parameters=>[qw(a)];
    } name => $sub,  parameters=>[qw(a)], export => $f;
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Assemble the routine into an area and thence into a file.
 END
 
   if (1)                                                                        # Read an area containing a subroutine into memory
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
-    my $y = $a->yggdrasil;
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(a));
-    my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+    my $A = $a->sub(addressAndLengthOfConstantStringAsVariables(q(a)));         # Locate the address of the subroutine
 
-    $s->call(parameters=>{a => K key => 0x8888}, override => $a->address + $o->data); # Call position independent code
+    my $s = Subroutine{} name => 'a', parameters=>[qw(a)];                      # Define a subroutine
+
+    $s->call(parameters=>{a => K key => 0x8888}, override => $A);               # Call position independent code at the specified address in the area
    }
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Call the routine and observe that it produces the expected result.
 AAAAA
    rax: .... .... .... 8888
 END
