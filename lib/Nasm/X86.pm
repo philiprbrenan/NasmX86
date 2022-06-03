@@ -18949,7 +18949,7 @@ END
   unlink $f;
  }
 
-sub Nasm::X86::Area::sub($$$)                                                   # Obtain the address of the variable routine named from the variable addressed area.
+sub Nasm::X86::Area::sub($$$)                                                   # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
  {my ($area, $string, $size) = @_;                                              # Area containing the subroutine
   @_ == 3 or confess "Three parameters";
 
@@ -18958,6 +18958,13 @@ sub Nasm::X86::Area::sub($$$)                                                   
   my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);  # Get the offset of the subroutine under the unique string number
 
   $area->address + $o->data                                                     # Actual address - valid until the area moves.
+ }
+
+sub Nasm::X86::Area::subFromConstantString($$)                                  # Obtain the address of the subroutine held in an area from a constant string.
+ {my ($area, $string) = @_;                                                     # Area containing the subroutine, a constant string
+  @_ == 2 or confess "Two parameters";
+
+  $area->sub(addressAndLengthOfConstantStringAsVariables($string))              # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
  }
 
 latest:;
@@ -18981,7 +18988,7 @@ END
 
   if (1)                                                                        # Read an area containing a subroutine into memory
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-    my $A = $a->sub(addressAndLengthOfConstantStringAsVariables(q(a)));         # Locate the address of the subroutine inteh area
+    my $A = $a->subFromConstantString(q(a));                                    # Locate the address of the subroutine in the area as longas the area does not move
 
     $a->subroutineDefinition($f, q(a))->                                        # Call position independent code at the specified address in the area after extracting the subroutine definition so that we can prepare the parameter list correctly.
       call(parameters=>{a => K key => 0x8888}, override => $A);
