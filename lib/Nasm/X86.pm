@@ -18946,10 +18946,10 @@ if (1) {                                                                        
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
 
-  my $s = Subroutine
+  my $s = Subroutine                                                            # The containing subroutine which will contain all the code written to the area
    {my ($p, $s, $sub) = @_;
 
-    my $a = Subroutine
+    my $a = Subroutine                                                          # The contained routine that we wish to call
      {my ($p, $s, $sub) = @_;
       $$p{a}->setReg(rax);
       PrintOutStringNL "AAAAA";
@@ -18957,7 +18957,7 @@ if (1) {                                                                        
      } name => 'a', parameters=>[qw(a)];
    } name => $sub,  parameters=>[qw(a)], export => $f;
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Assemble the routine into an area and thence into a file.
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Assemble the containing subroutine into an area and thence into a file.
 END
 
   if (1)                                                                        # Read an area containing a subroutine into memory
