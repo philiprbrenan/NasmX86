@@ -1647,7 +1647,7 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
   my $off     = $a->appendMemory($address, $size);                              # Copy a subroutine into an area
 
   my $y = $a->yggdrasil;
-  my ($N, $L) = addressAndLengthOfConstantStringAsVariables($s->name);          # The name of the subroutine
+  my ($N, $L) = constantString($s->name);          # The name of the subroutine
   my $n = $y->putKeyString(&Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);   # Make the name of the subroutine into a unique number
   my $o = $a->appendMemory($address, $size);                                    # Copy a subroutine into an area
   $y->put2(                &Nasm::X86::Ygddrasil::SubroutineOffsets, $n, $off); # Record the offset of the subroutine under the unique string number
@@ -1658,7 +1658,7 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
   my %saved;                                                                    # An array of sub routine definitions preceded by this helpful string.  It is entirely possible that this string is not unique in this area - in that case one would have to parse Ygddrasil in Perl - but for the  moment this would be overkill.
   for my $sub(sort keys %$subs)                                                 # Each sub routine definition contained in this subroutine
    {my $r = $$subs{$sub};                                                       # A routine within the subroutine
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables($r->name);        # The name of the sub
+    my ($N, $L) = constantString($r->name);        # The name of the sub
     my $n = $U->putStringFromMemory($N, $L);                                    # Make the name of the sub routine into a unique number
     my $o = $off + K delta => "$$r{start}-$$s{start}";                          # Offset to this sub routine within the subroutine
     $O->put($n, $o);                                                            # Record the offset of the subroutine under the unique string number
@@ -1668,7 +1668,7 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
 
   if (1)                                                                        # Save the definitions of the subs in this area
    {my $s = "SubroutineDefinitions:".dump(\%saved)."ZZZZ";                      # String to save
-    my $d = $a->appendMemory(addressAndLengthOfConstantStringAsVariables($s));  # Offset of string containing subroutine definition
+    my $d = $a->appendMemory(constantString($s));  # Offset of string containing subroutine definition
     $y->put(&Nasm::X86::Ygddrasil::SubroutineDefinitions, $d);                  # Record the offset of the subroutine definition under the unique string number for this subroutine
    }
 
@@ -3097,7 +3097,7 @@ sub Nasm::X86::Variable::update($$)                                             
   PopR;
  }
 
-sub addressAndLengthOfConstantStringAsVariables($)                              # Return the address and length of a constant string as two variables.
+sub constantString($)                              # Return the address and length of a constant string as two variables.
  {my ($string) = @_;                                                            # Constant string
   use bytes;
   my $L = length($string);
@@ -10558,7 +10558,7 @@ END
 if (1) {                                                                        #TVpgatherqq
   Mov rax, 0xCC;
   Kmovq k1, rax;
-  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("1234567"x8);
+  my ($s, $l) = constantString("1234567"x8);
   $s->setReg(rax);
   Vpgatherqq zmmM(1, 1), "[rax+zmm0]";                                          # Target register must be different from source register
   PrintOutRegisterInHex zmm1, k1;
@@ -10895,8 +10895,8 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TaddressAndLengthOfConstantStringAsVariables
-  my ($t, $l) = addressAndLengthOfConstantStringAsVariables("Hello World");
+if (1) {                                                                        #TconstantString
+  my ($t, $l) = constantString("Hello World");
   $t->printOutMemoryNL($l);
 
   ok Assemble eq => <<END, avx512=>1;
@@ -11706,7 +11706,7 @@ END
 #latest:
 if (1) {                                                                        #
   my ($s, $l) =                                                                 #TCopyMemory64
-    addressAndLengthOfConstantStringAsVariables('0123456789abcdef'x64);
+    constantString('0123456789abcdef'x64);
   my $t = $l->allocateMemory;
   my $N = K blocks => 2;
   CopyMemory64($s, $t, $N);
@@ -17683,7 +17683,7 @@ sub Nasm::X86::Unisyn::Lex::left     {3};                                       
 sub Nasm::X86::Unisyn::Lex::right    {4};                                       # Right operand
 sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       # Symbol
 
-sub Nasm::X86::Unisyn::Parse($$$)                                               # Parse a string of utf8 characters
+sub Nasm::X86::Area::UnisynParse($$$)                                           # Parse a string of utf8 characters
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
   my $brackets    = $area->CreateTree;                                          # Bracket stack
@@ -18067,7 +18067,7 @@ if (1) {                                                                        
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
 #$TraceMode = 1;
-  my ($parse, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                    # Parse the utf8 string minus the final new line and zero?
+  my ($parse, @a) = $a->UnisynParse($a8, $s8-2);                                # Parse the utf8 string minus the final new line and zero?
 
   $_->outNL for @a;
   $parse->dumpParseTree($a8);
@@ -18100,7 +18100,7 @@ sub unisynParse($$$)                                                            
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
+  my ($p, @a) = $a->UnisynParse($a8, $s8-2);                                    # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
   ok Assemble eq => $parse, avx512=>1;
@@ -18214,9 +18214,9 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
 block4: goto blockX unless $block{4};                                           # Fourth block of tests - latest development
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TaddressAndLengthOfConstantStringAsVariables
+if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TconstantString
   my $a = CreateArea;
-  my ($s, $l) = addressAndLengthOfConstantStringAsVariables("1234567");
+  my ($s, $l) = constantString("1234567");
   my $t = $a->treeFromString($s, $l);
      $t->dump8xx("AA");
 
@@ -18371,7 +18371,7 @@ if (1)
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($p, @a) = Nasm::X86::Unisyn::Parse $a, $a8, $s8-2;                        # Parse the utf8 string minus the final new line and zero?
+  my ($p, @a) = $a->UnisynParse($a8, $s8-2);                                    # Parse the utf8 string minus the final new line and zero?
 
   $p->dumpParseTree($a8);
   ok Assemble eq => <<END, avx512=>1, mix=>0;
@@ -18558,7 +18558,7 @@ if (1) {                                                                        
 
   K(loop => 9)->for(sub
    {my ($i, $start, $next, $end) = @_;
-    my ($a, $l) = addressAndLengthOfConstantStringAsVariables("abcd");
+    my ($a, $l) = constantString("abcd");
     $t->putStringFromMemory($a, $l)->outNL;
     $A->makeReadOnly;
     $t->getStringFromMemory($a, $l)->data->outNL;
@@ -18795,7 +18795,7 @@ if (1) {                                                                        
     my $off     = $a->appendMemory($address, $size);                            # Copy a subroutine into an area
 
     my $y = $a->yggdrasil;
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
+    my ($N, $L) = constantString($sub);
     my $n = $y->putKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     $y->put2(                Nasm::X86::Ygddrasil::SubroutineOffsets, $n, $off);# Record the offset of the subroutine under the unique string number
 
@@ -18807,7 +18807,7 @@ if (1) {                                                                        
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
     my $y = $a->yggdrasil;
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
+    my ($N, $L) = constantString($sub);
     my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
@@ -18829,7 +18829,7 @@ END
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
     my $y = $a->yggdrasil;
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
+    my ($N, $L) = constantString($sub);
     my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
@@ -18845,7 +18845,7 @@ END
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
     my $y = $a->yggdrasil;
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables($sub);
+    my ($N, $L) = constantString($sub);
     my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
@@ -18885,7 +18885,7 @@ if (1) {                                                                        
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
     my $y = $a->yggdrasil;
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(b));
+    my ($N, $L) = constantString(q(b));
     my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
@@ -18902,7 +18902,7 @@ END
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
     my $y = $a->yggdrasil;
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(b));
+    my ($N, $L) = constantString(q(b));
     my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
@@ -18918,7 +18918,7 @@ END
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
     my $y = $a->yggdrasil;
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(a));
+    my ($N, $L) = constantString(q(a));
     my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
@@ -18934,7 +18934,7 @@ END
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
 
     my $y = $a->yggdrasil;
-    my ($N, $L) = addressAndLengthOfConstantStringAsVariables(q(b));
+    my ($N, $L) = constantString(q(b));
     my $n = $y->getKeyString(Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Ygddrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
@@ -18972,7 +18972,7 @@ sub Nasm::X86::Area::subFromConstantString($$)                                  
  {my ($area, $string) = @_;                                                     # Area containing the subroutine, a constant string
   @_ == 2 or confess "Two parameters";
 
-  $area->sub(addressAndLengthOfConstantStringAsVariables($string))              # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
+  $area->sub(constantString($string))              # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
  }
 
 #latest:;
@@ -19038,19 +19038,18 @@ sub Nasm::X86::Tree::intersectionOfStringTrees($$)                              
   $result
  }
 
-
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $t = $a->CreateTree;
   my $T = $a->CreateTree;
 
   for my $s(qw(a ab abc))
-   {$t->putStringFromMemory(addressAndLengthOfConstantStringAsVariables $s);
+   {$t->putStringFromMemory(constantString $s);
    }
 
   for my $s(qw(ab abc abd))
-   {$T->putStringFromMemory(addressAndLengthOfConstantStringAsVariables $s);
+   {$T->putStringFromMemory(constantString $s);
    }
 
   my $R = $t->intersectionOfStringTrees($T);
@@ -19066,6 +19065,22 @@ At:  740                    length:    3,  data:  780,  nodes:  7C0,  first:  70
 end
 END
  }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+
+  my ($A, $N) = constantString  qq(1＋2);
+  my ($p, @a) = $a->UnisynParse($A, $N-1);                                      # Parse the utf8 string minus the final new line and zero?
+
+  $p->dumpParseTree($A);
+
+  ok Assemble eq => <<END, avx512=>1;
+＋
+._1
+._2
+END
+ };
 
 #latest:
 if (0) {                                                                        #
