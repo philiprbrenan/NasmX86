@@ -6011,6 +6011,14 @@ sub Nasm::X86::Tree::down($)                                                    
   $tree                                                                         # Return original descriptor
  }
 
+sub Nasm::X86::Tree::cloneAndDown($)                                            # Use the current B<find> result held in B<data> to position a new sub tree on the referenced subtree at the next level down.
+ {my ($tree) = @_;                                                              # Tree descriptor which has just completed a successful find
+  @_ == 1 or confess "One parameter";
+  my $t = $tree->describeTree;                                                  # Clone the supplied tree
+  $t->first->copy($tree->data);                                                 # The next sub tree down is addressed by the B<data> field of the tree descriptor
+  $t                                                                            # Return original descriptor
+ }
+
 sub Nasm::X86::Tree::copyDescription($)                                         #P Make a copy of a tree descriptor
  {my ($tree) = @_;                                                              # Tree descriptor
   my $t = $tree->describeTree;
@@ -8724,7 +8732,7 @@ sub Nasm::X86::Tree::putString($$)                                              
   confess "Second parameter must be a tree"
     unless ref($string) and ref($string) =~ m(Tree);
 
-  my $s = V state => 1;                                                      # 1 - string found so far, 0 - inserting new string
+  my $s = V state => 1;                                                         # 1 - string found so far, 0 - inserting new string
   my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
 
   $string->by(sub                                                               # Insert latest tree
@@ -18967,10 +18975,9 @@ sub Nasm::X86::Area::subFromConstantString($$)                                  
   $area->sub(addressAndLengthOfConstantStringAsVariables($string))              # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        # Subroutine of sub routines which calls a subroutines which returns data
   unlink my $f = q(zzzArea.data);
-  my $sub = "abcd";
 
   my $s = Subroutine                                                            # The containing subroutine which will contain all the code written to the area
    {my ($p, $s, $sub) = @_;
@@ -18980,8 +18987,9 @@ if (1) {                                                                        
       $$p{a}->setReg(rax);
       PrintOutStringNL "AAAAA";
       PrintOutRegisterInHex rax;
-     } name => 'a', parameters=>[qw(a)];
-   } name => $sub,  parameters=>[qw(a)], export => $f;
+     } name => "a", parameters=>[qw(a)];
+
+   } name => "abcd",  parameters=>[qw(a)], export => $f;
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Assemble the containing subroutine into an area and thence into a file.
 END
@@ -18997,6 +19005,65 @@ END
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Call the routine and observe that it produces the expected result.
 AAAAA
    rax: .... .... .... 8888
+END
+ }
+
+sub Nasm::X86::Tree::intersectionOfStringTrees($$)                              #P Find the intersection of two string trees. The result is a tree that maps the values of teh forst tree to those of the second tree whenever they have a string in common.  This is mapping becuase bot the keys and the data values are unique.
+ {my ($tree, $Tree) = @_;                                                       # First tree, second tree
+  @_ == 2 or confess "Two parameters";
+
+  my $result = $tree->area->CreateTree;                                         # The resulting mapping tree
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $t = $$s{tree};                                                          # First tree
+    my $T = $$s{Tree};                                                          # Second tree
+    my $r = $$s{result};                                                        # Result tree
+
+    $t->by(sub                                                                  # Elements of the current tree
+     {my ($s, $start, $next) = @_;
+      my $S = $T->findSubTree($s->key);
+      If $S->found > 0,
+      Then                                                                      # Found a matching sub tree
+       {$r->put($s->data, $S->data);
+        $sub->call(structures=>{tree=>$s->cloneAndDown, Tree=>$S, result=>$r});
+       };
+     });
+
+   } structures => {tree => $tree, Tree=>$tree, result=>$result},
+     name       => "Nasm::X86::Tree::intersectionOfStringTrees";
+
+  $s->call(structures=>{tree=>$tree, Tree=>$Tree, result=>$result});            # Start at the top of each input tree with an empty result so far
+
+  $result
+ }
+
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  for my $s(qw(a ab abc))
+   {$t->putStringFromMemory(addressAndLengthOfConstantStringAsVariables $s);
+   }
+
+  for my $s(qw(ab abc abd))
+   {$T->putStringFromMemory(addressAndLengthOfConstantStringAsVariables $s);
+   }
+
+  my $R = $t->intersectionOfStringTrees($T);
+
+  $R->dump('rr');
+
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
+rr
+At:  740                    length:    3,  data:  780,  nodes:  7C0,  first:  700, root, leaf
+  Index:    0    1    2
+  Keys :   C0  1C0  2C0
+  Data :  960 1216 1472
+end
 END
  }
 
