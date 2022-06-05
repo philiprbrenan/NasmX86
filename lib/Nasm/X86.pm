@@ -10712,7 +10712,7 @@ if (1) {                                                                        
   my $r = Assemble(avx512=>0, eq=><<END, debug=>0);
 rfl: .... .... .... .2.2
 r10: .... .... .... ..10
-r11: .... .... .... .2.2
+r11: .... .... .... .2.6
 r12: .... .... .... ..12
 r13: .... .... .... ..13
 r14: .... .... .... ..14
@@ -12909,7 +12909,7 @@ if (1) {                                                                        
   ok Assemble(debug => 0, keep2=>'z', emulator => 0, eq => <<END, avx512=>0);
 a
    rax: .... .... .... .2.2
-   r11: .... .... .... .212
+   r11: .... .... .... .2.2
 END
  }
 
@@ -18317,48 +18317,73 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, label=>'t4';
 AA
 Tree: .... .... .... ..40
-At:       80                                                                                length:        3,  data:       C0,  nodes:      100,  first:       40, root, leaf
-  Index:        0        1        2
-  Keys :        0        1        2
-  Data :        7 34333231   373635
+At:       80                                                                                length:        7,  data:       C0,  nodes:      100,  first:       40, root, leaf
+  Index:        0        1        2        3        4        5        6
+  Keys :        0        1        2        3        4        5        6
+  Data :       31       32       33       34       35       36       37
 end
 BB
 Tree: .... .... .... ..40
-At:       80                                                                                length:        4,  data:       C0,  nodes:      100,  first:       40, root, leaf
-  Index:        0        1        2        3
-  Keys :        0        1        2        3
-  Data :        7 34333231   373635       99
+At:       80                                                                                length:        8,  data:       C0,  nodes:      100,  first:       40, root, leaf
+  Index:        0        1        2        3        4        5        6        7
+  Keys :        0        1        2        3        4        5        6        7
+  Data :       31       32       33       34       35       36       37       99
 end
 CC
 Tree: .... .... .... .140
 At:      1C0                                                                                length:        1,  data:      200,  nodes:      240,  first:      140, root, leaf,  trees:             1
   Index:        0
-  Keys :        7
+  Keys :       31
   Data :      18*
    Tree:      180
      At:      2C0                                                                           length:        1,  data:      300,  nodes:      340,  first:      180, root, leaf,  trees:             1
        Index:        0
-       Keys : 34333231
+       Keys :       32
        Data :      28*
         Tree:      280
           At:      3C0                                                                      length:        1,  data:      400,  nodes:      440,  first:      280, root, leaf,  trees:             1
             Index:        0
-            Keys :   373635
+            Keys :       33
             Data :      38*
              Tree:      380
                At:      4C0                                                                 length:        1,  data:      500,  nodes:      540,  first:      380, root, leaf,  trees:             1
                  Index:        0
-                 Keys :       99
+                 Keys :       34
                  Data :      48*
                   Tree:      480
+                    At:      5C0                                                            length:        1,  data:      600,  nodes:      640,  first:      480, root, leaf,  trees:             1
+                      Index:        0
+                      Keys :       35
+                      Data :      58*
+                       Tree:      580
+                         At:      6C0                                                       length:        1,  data:      700,  nodes:      740,  first:      580, root, leaf,  trees:             1
+                           Index:        0
+                           Keys :       36
+                           Data :      68*
+                            Tree:      680
+                              At:      7C0                                                  length:        1,  data:      800,  nodes:      840,  first:      680, root, leaf,  trees:             1
+                                Index:        0
+                                Keys :       37
+                                Data :      78*
+                                 Tree:      780
+                                   At:      8C0                                             length:        1,  data:      900,  nodes:      940,  first:      780, root, leaf,  trees:             1
+                                     Index:        0
+                                     Keys :       99
+                                     Data :      88*
+                                      Tree:      880
 - empty
+                                   end
+                              end
+                         end
+                    end
                end
           end
      end
 end
 found: .... .... .... ...1
-data: .... .... .... .380
+data: .... .... .... .780
 END
+exit;
  }
 
 #latest:
