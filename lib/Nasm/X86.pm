@@ -499,7 +499,7 @@ END
 sub Rutf8(@)                                                                    # Layout a utf8 encoded string as bytes in read only memory and return their label.
  {my (@d) = @_;                                                                 # Data to be laid out
   confess unless @_;
-  my $d = join '', @_; ## No need to join and split
+  my $d = join '', @_;
   my @e;
   for my $e(split //, $d)
    {my $o  = ord $e;                                                            # Effectively the utf32 encoding of each character
@@ -509,6 +509,7 @@ sub Rutf8(@)                                                                    
     my $o2 = substr($x, 2, 2);
     my $o3 = substr($x, 4, 2);
     my $o4 = substr($x, 6, 2);
+
     if    ($o <= (1 << 7))  {push @e,                $o4}
     elsif ($o <= (1 << 11)) {push @e,           $o3, $o4}
     elsif ($o <= (1 << 16)) {push @e,      $o2, $o3, $o4}
@@ -1600,7 +1601,7 @@ sub Subroutine(&%)                                                              
     end                => $end,                                                 # End label for this subroutine
     export             => $export,                                              # File this subroutine was exported to if any
     name               => $name,                                                # Name of the subroutine from which the entry label is located
-    nameString         => Rs($name),                                            # Name of the sub as a string constant in read only storage
+    nameString         => Rutf8($name),                                         # Name of the sub as a string constant in read only storage
     offset             => undef,                                                # The offset of this routine in its library if it is in a library
     options            => \%options,                                            # Options used by the author of the subroutine
     parameters         => $parameters,                                          # Parameters definitions supplied by the author of the subroutine which get mapped in to parameter variables.
@@ -1647,7 +1648,7 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
   my $off     = $a->appendMemory($address, $size);                              # Copy a subroutine into an area
 
   my $y = $a->yggdrasil;
-  my ($N, $L) = constantString($s->name);          # The name of the subroutine
+  my ($N, $L) = constantString($s->name);                                       # The name of the subroutine
   my $n = $y->putKeyString(&Nasm::X86::Ygddrasil::UniqueStrings,     $N, $L);   # Make the name of the subroutine into a unique number
   my $o = $a->appendMemory($address, $size);                                    # Copy a subroutine into an area
   $y->put2(                &Nasm::X86::Ygddrasil::SubroutineOffsets, $n, $off); # Record the offset of the subroutine under the unique string number
@@ -1658,7 +1659,7 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
   my %saved;                                                                    # An array of sub routine definitions preceded by this helpful string.  It is entirely possible that this string is not unique in this area - in that case one would have to parse Ygddrasil in Perl - but for the  moment this would be overkill.
   for my $sub(sort keys %$subs)                                                 # Each sub routine definition contained in this subroutine
    {my $r = $$subs{$sub};                                                       # A routine within the subroutine
-    my ($N, $L) = constantString($r->name);        # The name of the sub
+    my ($N, $L) = constantString($r->name);                                     # The name of the sub
     my $n = $U->putStringFromMemory($N, $L);                                    # Make the name of the sub routine into a unique number
     my $o = $off + K delta => "$$r{start}-$$s{start}";                          # Offset to this sub routine within the subroutine
     $O->put($n, $o);                                                            # Record the offset of the subroutine under the unique string number
@@ -1668,7 +1669,7 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
 
   if (1)                                                                        # Save the definitions of the subs in this area
    {my $s = "SubroutineDefinitions:".dump(\%saved)."ZZZZ";                      # String to save
-    my $d = $a->appendMemory(constantString($s));  # Offset of string containing subroutine definition
+    my $d = $a->appendMemory(constantString($s));                               # Offset of string containing subroutine definition
     $y->put(&Nasm::X86::Ygddrasil::SubroutineDefinitions, $d);                  # Record the offset of the subroutine definition under the unique string number for this subroutine
    }
 
@@ -3097,8 +3098,8 @@ sub Nasm::X86::Variable::update($$)                                             
   PopR;
  }
 
-sub constantString($)                              # Return the address and length of a constant string as two variables.
- {my ($string) = @_;                                                            # Constant string
+sub constantString($)                                                           # Return the address and length of a constant string as two variables.
+ {my ($string) = @_;                                                            # Constant utf8 string
   use bytes;
   my $L = length($string);
   my $l = K length => $L;
@@ -7362,14 +7363,17 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $t = $$s{tree};
-    $t->found->copy(0);                                                         # Assume we will not find the sub tree
     $t->find($$p{key});                                                         # Find the key
 
     ifAnd [sub{$t->found > 0}, sub{$t->subTree > 0}],                           # Make the found data the new  tree
     Then
      {$t->first->copy($t->data);                                                # Copy the data variable to the first variable without checking whether it is valid
       $t->found->copy(1);
-     }
+     },
+    Else
+     {$t->first->copy(-1);                                                      # Remove any hint of a tree
+      $t->found->copy(0);                                                       # We did not find the sub tree
+     };
     } parameters => [qw(key)],
       structures => {tree=>$t},
       name       => qq(Nasm::X86::Tree::findSubTree);
@@ -8614,6 +8618,27 @@ sub Nasm::X86::Area::treeFromString($$$)                                        
 
   my $t = $area->CreateTree;                                                    # Create a tree to be used to store the string
 
+  PushR my $c = r13, my $a = r14, my $i = r15;
+
+  ClearRegisters $i;
+  $address->setReg($a);
+
+  $size->for(sub                                                                # Push each byte of the input string into the tree
+   {Mov $c."b", "[r14+r15]";                                                    # Load byte
+    $t->push(V chunk => $c);                                                     # Push byte into string
+    Inc $i;
+   });
+  PopR;
+
+  $t                                                                            # Description of tree loaded from string
+ }
+
+sub Nasm::X86::Area::treeFromString22($$$)                                      # Create a tree from a string of bytes held at a variable address with a variable length and return the resulting tree.  The first element of the tree is the specified length, in bytes, of the string.
+ {my ($area, $address, $size) = @_;                                             # Area description, address of string, length of string in bytes
+  @_ == 3 or confess "Three parameters";
+
+  my $t = $area->CreateTree;                                                    # Create a tree to be used to store the string
+
   $t->push($size);                                                              # Push the length of the string
 
   If $size > 0,
@@ -8771,15 +8796,13 @@ sub Nasm::X86::Tree::putStringFromMemory($$$)                                   
 
     my $S = $$s{tree};
     PushR my $c = r13, my $a = r14, my $i = r15;
-
+    ClearRegisters $c, $i;
     $$p{address}->setReg($a);                                                   # Address of content in memory
     my $f = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
 
     $$p{size}->for(sub                                                          # Insert each character - obviously this can be improved by using registers instead of variables
      {my ($index) = @_;                                                         # Position in the string
-      $index->setReg($i);
       Mov $c."b", "[$a+$i]";                                                    # Get the next byte
-      And $c, 0xff;                                                             # Clear to a byte
       my $char = V char => $c;                                                  # Next character of the string
 
       If $f == 1,
@@ -8801,6 +8824,7 @@ sub Nasm::X86::Tree::putStringFromMemory($$$)                                   
         $S->put($char, $T);
         $S->first->copy($T->first);
        };
+      Inc $i
      });
 
     PopR;
@@ -8811,6 +8835,59 @@ sub Nasm::X86::Tree::putStringFromMemory($$$)                                   
   $s->call(parameters => {address => $address, size=>$size},
            structures => {tree    => $S});
 
+  $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.  We do not need to send an indicator as to whether this subt=routine sfailed or succeded becuase it always succeeds, or if it doe not something so serious has happened that it is not plausible to report it here
+ }
+
+sub Nasm::X86::Tree::putStringFromMemory22($$$)                                 # Enter a string in memory into a tree of strings and return the offset of the last inserted tree as the unique number of this string.
+ {my ($tree, $address, $size) = @_;                                             # Tree descriptor representing string tree, variable address in memory of string, variable size of string
+  @_ == 3 or confess "Three parameters";
+
+  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+
+    my $S = $$s{tree};
+    PushR my $c = r13, my $a = r14, my $i = r15;
+    ClearRegisters $c, $i;
+    $$p{address}->setReg($a);                                                   # Address of content in memory
+    my $f = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
+
+    $$p{size}->for(sub                                                          # Insert each character - obviously this can be improved by using registers instead of variables
+     {my ($index) = @_;                                                         # Position in the string
+
+      Mov $c."b", "[$a+$i]";                                                    # Get the next byte
+      my $char = V char => $c;                                                  # Next character of the string
+
+      If $f == 1,
+      Then                                                                      # String matches an existing string so far
+       {$S->find($char);
+        If $S->found == 0,
+        Then                                                                    # Position on new element
+         {$f->copy(0);
+          my $T = $S->area->CreateTree;
+          $S->put($char, $T);
+          $S->first->copy($T->first);
+         },
+        Else
+         {$S->first->copy($S->data);                                            # Position on found element
+         };
+       },
+      Else                                                                      # String no longer matches an existing string - we are creating a new path
+       {my $T = $S->area->CreateTree;
+        $S->put($char, $T);
+        $S->first->copy($T->first);
+       };
+      Inc $i;
+     });
+
+    PopR;
+   } structures => {tree => $tree},
+     parameters => [qw(address size)],
+     name       =>  qq(Nasm::X86::Tree::putStringFromMemory);
+
+  $s->call(parameters => {address => $address, size=>$size},
+           structures => {tree    => $S});
 
   $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.  We do not need to send an indicator as to whether this subt=routine sfailed or succeded becuase it always succeeds, or if it doe not something so serious has happened that it is not plausible to report it here
  }
@@ -8847,18 +8924,18 @@ sub Nasm::X86::Tree::getStringFromMemory($$$)                                   
   $S->found->copy(1);                                                           # The empty string maps to the offset of the string tree itself
 
   PushR my $c = r13, my $a = r14, my $i = r15;
-
+  ClearRegisters $c, $i;
   $address->setReg($a);
 
   $size->for(sub                                                                # Insert each character - obviously this can be improved by using registers instead of variables
    {my ($index, $start, $next, $end) = @_;                                      # Position in the string
-    $index->setReg($i);
+
     Mov $c."b", "[$a+$i]";                                                      # Get the next byte
-    And $c, 0xff;                                                               # Clear to a byte
     my $char = V char => $c;                                                    # Next character of the string
     $S->find($char);
     If $S->found == 0, Then {Jmp $end};                                         # Not found
     $S->first->copy($S->data);                                                  # Position on found element
+    Inc $i;
    });
   PopR;
   $S                                                                            # Tree descriptor found and data fields indicate the value and validity of the result
@@ -17683,7 +17760,7 @@ sub Nasm::X86::Unisyn::Lex::left     {3};                                       
 sub Nasm::X86::Unisyn::Lex::right    {4};                                       # Right operand
 sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       # Symbol
 
-sub Nasm::X86::Area::UnisynParse($$$)                                           # Parse a string of utf8 characters
+sub Nasm::X86::Area::ParseUnisyn($$$)                                           # Parse a string of utf8 characters
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, add ress of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
   my $brackets    = $area->CreateTree;                                          # Bracket stack
@@ -18050,12 +18127,14 @@ sub Nasm::X86::Area::UnisynParse($$$)                                           
 
   my $parseTree = $parse->popSubTree; $parse->free; $brackets->free;            # Obtain the parse tree and free the brackets and stack trees
 
-   ($parseTree,                                                                 # The resulting parse tree
-    $parseChar,                                                                 # Last character processed
-    $parseFail,                                                                 # If not zero the parse has failed for some reason
-    $position,                                                                  # The position reached in the input string
-    $parseMatch,                                                                # The position of the matching bracket  that did not match
-    $parseReason)                                                               # The reason code describing the failure
+  genHash "Nasm::X86::Unisyn::Parse",                                           # Parse results
+    tree     => $parseTree,                                                     # The resulting parse tree
+    char     => $parseChar,                                                     # Last character processed
+    fail     => $parseFail,                                                     # If not zero the parse has failed for some reason
+    position => $position,                                                      # The position reached in the input string
+    match    => $parseMatch,                                                    # The position of the matching bracket  that did not match
+    reason   => $parseReason,                                                   # The reason code describing the failure if any
+    symbols  => $symbols;                                                       # The symbol tree produced by the parse
  } # Parse
 
 #latest:
@@ -18067,10 +18146,14 @@ if (1) {                                                                        
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
 #$TraceMode = 1;
-  my ($parse, @a) = $a->UnisynParse($a8, $s8-2);                                # Parse the utf8 string minus the final new line and zero?
+  my $parse = $a->ParseUnisyn($a8, $s8-2);                                      # Parse the utf8 string minus the final new line and zero?
 
-  $_->outNL for @a;
-  $parse->dumpParseTree($a8);
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->tree->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1, trace=>0;
 parseChar: .... .... ...1 D5D8
@@ -18092,7 +18175,7 @@ END
   unlink $f;
  }
 
-sub unisynParse($$$)                                                            # Test the parse of a unisyn expression
+sub ParseUnisyn($$$)                                                            # Test the parse of a unisyn expression
  {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
 # say STDERR readFile($f);
@@ -18100,48 +18183,48 @@ sub unisynParse($$$)                                                            
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($p, @a) = $a->UnisynParse($a8, $s8-2);                                    # Parse the utf8 string minus the final new line and zero?
+  my $p = $a->ParseUnisyn($a8, $s8-2);                                          # Parse the utf8 string minus the final new line and zero?
 
-  $p->dumpParseTree($a8);
+  $p->tree->dumpParseTree($a8);
   ok Assemble eq => $parse, avx512=>1;
   say STDERR readFile($programOut) =~ s(\n) (\\n)gsr if -e $programOut;
   unlink $f;
  };
 
-unisynParse '',                                        "\n",                    qq(\n\n);
-unisynParse 'va',                                      "𝗔\n",                   qq(𝗔\n);
-unisynParse 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
-unisynParse 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
-unisynParse 'va a= vb e+ vc',                          "𝗔＝𝗕＋𝗖\n",               qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
-unisynParse 'va a= vb e* vc',                          "𝗔＝𝗕✕𝗖\n",              qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
-unisynParse 'b( B)',                                   "【】\n",                  qq(【\n);
-unisynParse 'b( b[ B] B)',                             "【⟦⟧】\n",                qq(【\n._⟦\n);
-unisynParse 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",              qq(【\n._⟦\n._._⟨\n);
+ParseUnisyn '',                                        "\n",                    qq(\n\n);
+ParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
+ParseUnisyn 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
+ParseUnisyn 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
+ParseUnisyn 'va a= vb e+ vc',                          "𝗔＝𝗕＋𝗖\n",               qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
+ParseUnisyn 'va a= vb e* vc',                          "𝗔＝𝗕✕𝗖\n",              qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
+ParseUnisyn 'b( B)',                                   "【】\n",                  qq(【\n);
+ParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】\n",                qq(【\n._⟦\n);
+ParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",              qq(【\n._⟦\n._._⟨\n);
 
-unisynParse 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
-unisynParse 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
-unisynParse 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",             qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
-unisynParse 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",       qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
-unisynParse 's s s s s',                               "⟢⟢⟢⟢⟢\n",               qq();
-unisynParse 'va s vb',                                 "𝗔⟢𝗕\n",                 qq(⟢\n._𝗔\n._𝗕\n);
-unisynParse 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
-unisynParse 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
-unisynParse 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖\n",               qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
-unisynParse 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
-unisynParse 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
-unisynParse 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
-unisynParse 'va dif vb delse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖\n",           qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
-unisynParse 'va a= b1 vb e+ vc B1 e* vd dif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘\n",        qq(＝\n._𝗔\n._𝐈𝐅\n._._✕\n._._._⌊\n._._._._＋\n._._._._._𝗕\n._._._._._𝗖\n._._._𝗗\n._._𝗘\n);
-unisynParse 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
-unisynParse 'p11 va',                                  "𝑳𝗔\n",                  qq(𝑳\n._𝗔\n);
-unisynParse 'va q11',                                  "𝗔𝙇\n",                  qq(𝙇\n._𝗔\n);
-unisynParse 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
-unisynParse 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
-unisynParse 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
-unisynParse 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝙇\n._._𝗕\n);
-unisynParse 'va e+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇\n",              qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
-unisynParse 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",           qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
-unisynParse 'va e+ p11 vb q11 dif p21 b( vc e* vd B) q22 delse ve e* vf',
+ParseUnisyn 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
+ParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
+ParseUnisyn 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",             qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
+ParseUnisyn 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",       qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
+ParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢\n",               qq();
+ParseUnisyn 'va s vb',                                 "𝗔⟢𝗕\n",                 qq(⟢\n._𝗔\n._𝗕\n);
+ParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
+ParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
+ParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖\n",               qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
+ParseUnisyn 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
+ParseUnisyn 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
+ParseUnisyn 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
+ParseUnisyn 'va dif vb delse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖\n",           qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
+ParseUnisyn 'va a= b1 vb e+ vc B1 e* vd dif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘\n",        qq(＝\n._𝗔\n._𝐈𝐅\n._._✕\n._._._⌊\n._._._._＋\n._._._._._𝗕\n._._._._._𝗖\n._._._𝗗\n._._𝗘\n);
+ParseUnisyn 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
+ParseUnisyn 'p11 va',                                  "𝑳𝗔\n",                  qq(𝑳\n._𝗔\n);
+ParseUnisyn 'va q11',                                  "𝗔𝙇\n",                  qq(𝙇\n._𝗔\n);
+ParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
+ParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
+ParseUnisyn 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
+ParseUnisyn 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝙇\n._._𝗕\n);
+ParseUnisyn 'va e+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇\n",              qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
+ParseUnisyn 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",           qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
+ParseUnisyn 'va e+ p11 vb q11 dif p21 b( vc e* vd B) q22 delse ve e* vf',
             "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙\n",                                          qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._＋\n._._._𝗔\n._._._𝙇\n._._._._𝑳\n._._._._._𝗕\n._._𝙒\n._._._𝑽\n._._._._【\n._._._._._✕\n._._._._._._𝗖\n._._._._._._𝗗\n._✕\n._._𝗘\n._._𝗙\n);
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree
@@ -18371,9 +18454,9 @@ if (1)
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my ($p, @a) = $a->UnisynParse($a8, $s8-2);                                    # Parse the utf8 string minus the final new line and zero?
+  my $p = $a->ParseUnisyn($a8, $s8-2);                                          # Parse the utf8 string minus the final new line and zero?
 
-  $p->dumpParseTree($a8);
+  $p->tree->dumpParseTree($a8);
   ok Assemble eq => <<END, avx512=>1, mix=>0;
 ⟢
 ._＝
@@ -19066,19 +19149,137 @@ end
 END
  }
 
+sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators
+ {my ($parse, $library, $intersection) = @_;                                    # Parse tree, library of operators, intersection of parse tree with library of operators
+  @_ == 3 or confess "Three parameters";
+
+  my $s = Subroutine                                                            # Print a tree
+   {my ($parameters, $structures, $sub) = @_;                                   # Parameters, structures, subroutine definition
+
+    my $t = $$structures{tree};                                                 # Parse tree
+    my $i = $$structures{intersection};                                         # Intersection
+    my $L = $$structures{library};                                              # Library
+
+    my $l = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::left);
+    my $r = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::right);
+    my $𝞃 = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::type);
+    my $S = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::symbol);
+
+    If $l->found > 0,
+    Then                                                                        # There is a left sub tree
+     {$sub->call(structures => {tree => $l, intersection => $i, library => $L});
+     };
+
+    if (1)                                                                      # Process the lexical type associated with this node of the parse tree.
+     {my $d = my $p = my $a = my $v = my $q = my $s = my $b = my $B = sub {};   # Default lexical item processors
+
+      my $A = sub                                                               # Ascii
+       {PrintOutStringNL "Ascii";
+       };
+
+      my $e = sub                                                               # Operator
+       {PrintOutStringNL "Operator";
+
+        my $y = $L->yggdrasil;                                                  # Yggdrasil for the parse tree area
+        my $o = $y->findSubTree(Nasm::X86::Ygddrasil::SubroutineOffsets);       # Offsets of subroutines in library
+        $i->find($S->data);                                                     # Unique string in library
+        $o->find($i->data);                                                     # Offset of routine
+
+        my $t = Subroutine {}                                                   # Subroutine definition
+          name       => "Nasm::X86::Unisyn::Operator:plus",
+          parameters => [qw()];
+
+        $t->call(override => $L->address + $o->data);
+       };
+                                                                                # Process lexical from parse tree
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$A};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::d), Then {&$d};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::p), Then {&$p};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::a), Then {&$a};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::v), Then {&$v};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::q), Then {&$q};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::s), Then {&$s};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::e), Then {&$e};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::b), Then {&$b};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::B), Then {&$B};
+     }
+
+    If $r->found > 0,
+    Then                                                                        # There is a right sub tree
+     {$sub->call(structures => {tree         => $r,
+                                intersection => $i,
+                                library      => $L});
+     };
+   } structures => {tree        => $parse->tree,
+                   intersection => $intersection,
+                   library      => $library},
+     name       => "Nasm::X86::Tree::traverseApplyingLibraryOperators";
+
+  $s->call(structures => {tree         => $parse->tree,
+                          intersection => $intersection,
+                          library      => $library});
+ }
+
+
 latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+  my $f = "zzzOperators.lib";
+
+  my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
+   {my ($p, $s, $sub) = @_;
+
+    my $add = Subroutine                                                        # The contained routine that we wish to call
+     {my ($p, $s, $sub) = @_;
+#      my $c = $$p{a} + $$p{b};
+#      $$p{c}->copy($c);
+      PrintOutStringNL "Add";
+     } name => "＋", parameters=>[qw(a b c)];
+
+   } name => "operators",  parameters=>[qw(a b c)], export => $f;
+
+  ok Assemble eq => <<END, avx512=>1;
+END
+
+
+  my $l = ReadArea $f;                                                          # Area containing subroutine library
   my $a = CreateArea;                                                           # Area in which we will do the parse
 
-  my ($A, $N) = constantString  qq(1＋2);
-  my ($p, @a) = $a->UnisynParse($A, $N-1);                                      # Parse the utf8 string minus the final new line and zero?
+  my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
+  my $p = $a->ParseUnisyn($A, $N-1);                                            # Parse the utf8 string minus the final new line and zero?
 
-  $p->dumpParseTree($A);
+  $p->tree->dumpParseTree($A);                                                  # Parse tree
+
+  my $y = $l->yggdrasil;                                                        # Yggdrasil for the parse tree area
+  my $u = $y->findSubTree(Nasm::X86::Ygddrasil::UniqueStrings);                 # Unique strings in area from parse
+  my $o = $y->findSubTree(Nasm::X86::Ygddrasil::SubroutineOffsets);             # Offsets of subroutines in library
+  my $i = $p->symbols->intersectionOfStringTrees($u);                           # Mapping between the number of a symbol to the number of a routine.  The library sub tree SubroutineOffsets located via Yggdrasil can be used to obtain the actual offset of the routine in the library.
+
+  $i->dump8xx('ii');                                                            # Intersection of parse strings with library strings
+  $o->dump8xx('oo');                                                            # Subroutine offsets
+  $p->traverseApplyingLibraryOperators($l, $i);                                 # Traverse a parse tree applying a library of operators
 
   ok Assemble eq => <<END, avx512=>1;
 ＋
 ._1
 ._2
+ii
+Tree: .... .... ...1 8080
+At:    180C0                                                                                length:        3,  data:    18100,  nodes:    18140,  first:    18080, root, leaf
+  Index:        0        1        2
+  Keys :    17C80    17CC0    17DC0
+  Data :     20CA     210A     220A
+end
+oo
+Tree: .... .... .... .C4A
+At:      C8A                                                                                length:        4,  data:      CCA,  nodes:      D0A,  first:      C4A, root, leaf
+  Index:        0        1        2        3
+  Keys :      A65     148A     1FCA     220A
+  Data :       40       C2       5B       49
+end
+Ascii
+Operator
+Add
+Ascii
 END
  };
 
