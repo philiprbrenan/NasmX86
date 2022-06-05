@@ -19244,7 +19244,6 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
                           library      => $library});
  }
 
-
 latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $f = "zzzOperators.lib";
@@ -19278,28 +19277,14 @@ END
   my $o = $y->findSubTree(Nasm::X86::Ygddrasil::SubroutineOffsets);             # Offsets of subroutines in library
   my $i = $p->symbols->intersectionOfStringTrees($u);                           # Mapping between the number of a symbol to the number of a routine.  The library sub tree SubroutineOffsets located via Yggdrasil can be used to obtain the actual offset of the routine in the library.
 
-  $i->dump8xx('ii');                                                            # Intersection of parse strings with library strings
-  $o->dump8xx('oo');                                                            # Subroutine offsets
+#  $i->dump8xx('ii');                                                            # Intersection of parse strings with library strings
+#  $o->dump8xx('oo');                                                            # Subroutine offsets
   $p->traverseApplyingLibraryOperators($l, $i);                                 # Traverse a parse tree applying a library of operators
 
   ok Assemble eq => <<END, avx512=>1;
 ＋
 ._1
 ._2
-ii
-Tree: .... .... ...1 8080
-At:    180C0                                                                                length:        3,  data:    18100,  nodes:    18140,  first:    18080, root, leaf
-  Index:        0        1        2
-  Keys :    17C80    17CC0    17DC0
-  Data :     20CA     210A     220A
-end
-oo
-Tree: .... .... .... .C4A
-At:      C8A                                                                                length:        4,  data:      CCA,  nodes:      D0A,  first:      C4A, root, leaf
-  Index:        0        1        2        3
-  Keys :      A65     148A     1FCA     220A
-  Data :       40       C2       5B       49
-end
 Ascii
 Operator
 Add
