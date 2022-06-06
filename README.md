@@ -21,7 +21,7 @@ Each such dynamic data structure is held in a [relocatable](https://en.wikipedia
 data structures to be created in one [program](https://en.wikipedia.org/wiki/Computer_program) then mapped to files via virtual
 paging or to a [socket](https://en.wikipedia.org/wiki/Network_socket) before being reused at a different location in [memory](https://en.wikipedia.org/wiki/Computer_memory) by
 another [program](https://en.wikipedia.org/wiki/Computer_program). 
-In particular position independent X86_64 [code](https://en.wikipedia.org/wiki/Computer_program) can be placed in such areas,
+In particular position independent [X86-64](https://en.wikipedia.org/wiki/X86-64) [code](https://en.wikipedia.org/wiki/Computer_program) can be placed in such areas,
 indexed by a 6/13 [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) and then reloaded as a library of functions for reuse
 elsewhere at a later date.
 
