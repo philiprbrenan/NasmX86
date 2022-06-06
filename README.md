@@ -158,7 +158,7 @@ Generate and write some [Unicode](https://en.wikipedia.org/wiki/Unicode) [utf8](
   PrintOutNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
-𝝰𝝱𝝲𝝳𝝴𝝵𝝶𝝷𝝸𝝹𝝺𝝻𝝼𝝽𝝾𝝿
+ð°ð±ð²ð³ð´ðµð¶ð·ð¸ð¹ðºð»ð¼ð½ð¾ð¿
 END
 ```
 
