@@ -9208,20 +9208,20 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
 
   for my $w(split /\s+/, $words)
    {if    ($w =~ m(\AA(.*)))  {$s .= $1}                                        # Ascii - normal letters where possible
-    elsif ($w =~ m(\Aa=))     {$s .= "＝"}                                       # Assign chosen by number
+    elsif ($w =~ m(\Aa=))     {$s .= "ï¼"}                                       # Assign chosen by number
     elsif ($w =~ m(\Aa(\d+))) {$s .= c $1, "a"}                                 # Assign chosen by number
-    elsif ($w =~ m/\Ab\(/)    {$s .= '【'}                                       # Open bracket
-    elsif ($w =~ m/\Ab\[/)    {$s .= '⟦'}                                       # Open bracket
-    elsif ($w =~ m/\Ab\</)    {$s .= '⟨'}                                       # Open bracket
+    elsif ($w =~ m/\Ab\(/)    {$s .= 'ã'}                                       # Open bracket
+    elsif ($w =~ m/\Ab\[/)    {$s .= 'â¦'}                                       # Open bracket
+    elsif ($w =~ m/\Ab\</)    {$s .= 'â¨'}                                       # Open bracket
     elsif ($w =~ m(\Ab(\d+))) {$s .= c $1, "b"}                                 # Open bracket
-    elsif ($w =~ m/\AB\)/)    {$s .= '】'}                                       # Open bracket
-    elsif ($w =~ m/\AB\]/)    {$s .= '⟧'}                                       # Open bracket
-    elsif ($w =~ m/\AB\>/)    {$s .= '⟩'}                                       # Open bracket
+    elsif ($w =~ m/\AB\)/)    {$s .= 'ã'}                                       # Open bracket
+    elsif ($w =~ m/\AB\]/)    {$s .= 'â§'}                                       # Open bracket
+    elsif ($w =~ m/\AB\>/)    {$s .= 'â©'}                                       # Open bracket
     elsif ($w =~ m(\AB(\d+))) {$s .= c $1, "B"}                                 # Close bracket
     elsif ($w =~ m(\Ad(\d+))) {$s .= c $1, "d"}                                 # Dyad   chosen by number
     elsif ($w =~ m(\Ad(\w+))) {$s .= $dyad->($1)}                               # Dyad-1 name
-    elsif ($w =~ m(\Ae\*))    {$s .= "✕"}                                       # Multiply
-    elsif ($w =~ m(\Ae\+))    {$s .= "＋"}                                       # Plus
+    elsif ($w =~ m(\Ae\*))    {$s .= "â"}                                       # Multiply
+    elsif ($w =~ m(\Ae\+))    {$s .= "ï¼"}                                       # Plus
     elsif ($w =~ m(\Ae(\d+))) {$s .= c $1, "e"}                                 # Dyad2  chosen by number
     elsif ($w =~ m(\Ap(\d+))) {$s .= c $1, "p"}                                 # Prefix chosen by number
     elsif ($w =~ m(\Aq(\d+))) {$s .= c $1, "q"}                                 # Suffix chosen by number
@@ -12467,7 +12467,7 @@ if (1) {                                                                        
  ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+8;                        # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
   $out->out('out5 : ');     $size->outNL(' size : ');
 
-  my $statement = qq(𝖺\n 𝑎𝑠𝑠𝑖𝑔𝑛 【【𝖻 𝐩𝐥𝐮𝐬 𝖼】】\nAAAAAAAA);                        # A sample sentence to parse
+  my $statement = qq(ðº\n ðð ð ððð ããð» ð©ð¥ð®ð¬ ð¼ãã\nAAAAAAAA);                        # A sample sentence to parse
 
   my $s = K(statement => Rutf8($statement));
   my $l = StringLength $s;
@@ -12701,17 +12701,17 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::outCStringNL
-  my $s = Rutf8 '𝝰𝝱𝝲𝝳';
+  my $s = Rutf8 'ð°ð±ð²ð³';
   V(address => $s)->outCStringNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
-𝝰𝝱𝝲𝝳
+ð°ð±ð²ð³
 END
  }
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::printOutMemoryInHexNL
-  my $u = Rd(ord('𝝰'), ord('𝝱'), ord('𝝲'), ord('𝝳'));
+  my $u = Rd(ord('ð°'), ord('ð±'), ord('ð²'), ord('ð³'));
   Mov rax, $u;
   my $address = V address=>rax;
   $address->printOutMemoryInHexNL(K size => 16);
@@ -13008,7 +13008,7 @@ if (1) {                                                                        
   PrintOutNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
-𝝰𝝱𝝲𝝳𝝴𝝵𝝶𝝷𝝸𝝹𝝺𝝻𝝼𝝽𝝾𝝿
+ð°ð±ð²ð³ð´ðµð¶ð·ð¸ð¹ðºð»ð¼ð½ð¾ð¿
 END
  }
 
@@ -16342,11 +16342,11 @@ END
 #latest:
 if (1) {                                                                        #Tconvert_rax_from_utf32_to_utf8
 # $ 	U+0024                 010 0100                00100100                     24
-# £ 	U+00A3 	          000 1010 0011                11000010 10100011            C2 A3
-# ह 	  U+0939    	0000 1001 0011 1001                11100000 10100100 10111001   E0 A4 B9
-# € 	U+20AC    	0010 0000 1010 1100                11100010 10000010 10101100   E2 82 AC
-# 한 	U+D55C     	1101 0101 0101 1100                11101101 10010101 10011100   ED 95 9C
-# 𐍈   	U+10348 	0 0001 0000 0011 0100 1000 	11110000 10010000 10001101 10001000   F0 90 8D 88
+# Â£ 	U+00A3 	          000 1010 0011                11000010 10100011            C2 A3
+# à¤¹ 	  U+0939    	0000 1001 0011 1001                11100000 10100100 10111001   E0 A4 B9
+# â¬ 	U+20AC    	0010 0000 1010 1100                11100010 10000010 10101100   E2 82 AC
+# í 	U+D55C     	1101 0101 0101 1100                11101101 10010101 10011100   ED 95 9C
+# ð   	U+10348 	0 0001 0000 0011 0100 1000 	11110000 10010000 10001101 10001000   F0 90 8D 88
   Mov rax, 0x40;                                                                # 0x40
   convert_rax_from_utf32_to_utf8;
   PrintOutRegisterInHex rax;
@@ -16396,11 +16396,11 @@ if (1) {                                                                        
   $r->outAsUtf8NL;
 
   ok Assemble eq => <<END, avx512=>1;
-αβγδ
-αβγδαβγδ
-αβγδαβγδαβγδαβγδ
-αβγδ
-δγβα
+Î±Î²Î³Î´
+Î±Î²Î³Î´Î±Î²Î³Î´
+Î±Î²Î³Î´Î±Î²Î³Î´Î±Î²Î³Î´Î±Î²Î³Î´
+Î±Î²Î³Î´
+Î´Î³Î²Î±
 END
  }
 
@@ -16877,7 +16877,7 @@ END
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::LoadAlphabets
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
-  $t->find(K alpha => ord('𝝰')); $t->found->outNL; $t->data ->outNL;
+  $t->find(K alpha => ord('ð°')); $t->found->outNL; $t->data ->outNL;
   ok Assemble eq => <<END, avx512=>1;
 found: .... .... .... ...8
 data: .... .... .... ...6
@@ -16888,7 +16888,7 @@ END
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
-  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
+  is_deeply readFile($f), "ðï¼ãðï¼ðãâðððð\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
   $s8->outNL;
 
@@ -16998,7 +16998,7 @@ END
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
-  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
+  is_deeply readFile($f), "ðï¼ãðï¼ðãâðððð\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
@@ -17018,16 +17018,16 @@ parseFail: .... .... .... ....
 pos: .... .... .... ..2B
 parseMatch: .... .... .... ....
 parseReason: .... .... .... ....
-＝
-._𝗔
-._𝐈𝐅
-._._✕
-._._._【
-._._._._＋
-._._._._._𝗕
-._._._._._𝗖
-._._._𝗗
-._._𝗘
+ï¼
+._ð
+._ðð
+._._â
+._._._ã
+._._._._ï¼
+._._._._._ð
+._._._._._ð
+._._._ð
+._._ð
 END
   unlink $f;
  }
@@ -17051,40 +17051,40 @@ sub ParseUnisyn($$$)                                                            
  };
 
 ParseUnisyn '',                                        "\n",                    qq(\n\n);
-ParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
-ParseUnisyn 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
-ParseUnisyn 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
-ParseUnisyn 'va a= vb e+ vc',                          "𝗔＝𝗕＋𝗖\n",               qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
-ParseUnisyn 'va a= vb e* vc',                          "𝗔＝𝗕✕𝗖\n",              qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
-ParseUnisyn 'b( B)',                                   "【】\n",                  qq(【\n);
-ParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】\n",                qq(【\n._⟦\n);
-ParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",              qq(【\n._⟦\n._._⟨\n);
+ParseUnisyn 'va',                                      "ð\n",                   qq(ð\n);
+ParseUnisyn 'va a= va',                                "ðï¼ð\n",                 qq(ï¼\n._ð\n._ð\n);
+ParseUnisyn 'va e+ vb',                                "ðï¼ð\n",                 qq(ï¼\n._ð\n._ð\n);
+ParseUnisyn 'va a= vb e+ vc',                          "ðï¼ðï¼ð\n",               qq(ï¼\n._ð\n._ï¼\n._._ð\n._._ð\n);
+ParseUnisyn 'va a= vb e* vc',                          "ðï¼ðâð\n",              qq(ï¼\n._ð\n._â\n._._ð\n._._ð\n);
+ParseUnisyn 'b( B)',                                   "ãã\n",                  qq(ã\n);
+ParseUnisyn 'b( b[ B] B)',                             "ãâ¦â§ã\n",                qq(ã\n._â¦\n);
+ParseUnisyn 'b( b[ b< B> B] B)',                       "ãâ¦â¨â©â§ã\n",              qq(ã\n._â¦\n._._â¨\n);
 
-ParseUnisyn 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
-ParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
-ParseUnisyn 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",             qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
-ParseUnisyn 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",       qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
-ParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢\n",               qq();
-ParseUnisyn 'va s vb',                                 "𝗔⟢𝗕\n",                 qq(⟢\n._𝗔\n._𝗕\n);
-ParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
-ParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
-ParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖\n",               qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
-ParseUnisyn 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
-ParseUnisyn 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
-ParseUnisyn 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
-ParseUnisyn 'va dif vb delse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖\n",           qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
-ParseUnisyn 'va a= b1 vb e+ vc B1 e* vd dif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘\n",        qq(＝\n._𝗔\n._𝐈𝐅\n._._✕\n._._._⌊\n._._._._＋\n._._._._._𝗕\n._._._._._𝗖\n._._._𝗗\n._._𝗘\n);
-ParseUnisyn 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
-ParseUnisyn 'p11 va',                                  "𝑳𝗔\n",                  qq(𝑳\n._𝗔\n);
-ParseUnisyn 'va q11',                                  "𝗔𝙇\n",                  qq(𝙇\n._𝗔\n);
-ParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
-ParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
-ParseUnisyn 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
-ParseUnisyn 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝙇\n._._𝗕\n);
-ParseUnisyn 'va e+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇\n",              qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
-ParseUnisyn 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",           qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
+ParseUnisyn 'b( va B)',                                "ãðã\n",                 qq(ã\n._ð\n);
+ParseUnisyn 'b( b[ va B] B)',                          "ãâ¦ðâ§ã\n",               qq(ã\n._â¦\n._._ð\n);
+ParseUnisyn 'b( b[ va e+ vb B] B)',                    "ãâ¦ðï¼ðâ§ã\n",             qq(ã\n._â¦\n._._ï¼\n._._._ð\n._._._ð\n);
+ParseUnisyn 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "ãâ¦ðï¼ðâ§ââ¦ðï¼ðâ§ã\n",       qq(ã\n._â\n._._â¦\n._._._ï¼\n._._._._ð\n._._._._ð\n._._â¦\n._._._ï¼\n._._._._ð\n._._._._ð\n);
+ParseUnisyn 's s s s s',                               "â¢â¢â¢â¢â¢\n",               qq();
+ParseUnisyn 'va s vb',                                 "ðâ¢ð\n",                 qq(â¢\n._ð\n._ð\n);
+ParseUnisyn 'va s s vb',                               "ðâ¢â¢ð\n",                qq(â¢\n._ð\n._ð\n);
+ParseUnisyn 's s va s s vb s s',                       "â¢â¢ðâ¢â¢ðâ¢â¢\n",            qq(â¢\n._ð\n._ð\n);
+ParseUnisyn 'va a= vb a= vc',                          "ðï¼ðï¼ð\n",               qq(ï¼\n._ð\n._ï¼\n._._ð\n._._ð\n);
+ParseUnisyn 'va a= vb e+ vc a= vd e+ ve',              "ðï¼ðï¼ðï¼ðï¼ð\n",           qq(ï¼\n._ð\n._ï¼\n._._ï¼\n._._._ð\n._._._ð\n._._ï¼\n._._._ð\n._._._ð\n);
+ParseUnisyn 'va a= vb e+ vc s vd a= ve e+ vf',         "ðï¼ðï¼ðâ¢ðï¼ðï¼ð\n",         qq(â¢\n._ï¼\n._._ð\n._._ï¼\n._._._ð\n._._._ð\n._ï¼\n._._ð\n._._ï¼\n._._._ð\n._._._ð\n);
+ParseUnisyn 'va dif vb',                               "ðððð\n",                qq(ðð\n._ð\n._ð\n);
+ParseUnisyn 'va dif vb delse vc',                      "ððððððððð\n",           qq(ðððð\n._ðð\n._._ð\n._._ð\n._ð\n);
+ParseUnisyn 'va a= b1 vb e+ vc B1 e* vd dif ve',       "ðï¼âðï¼ðââðððð\n",        qq(ï¼\n._ð\n._ðð\n._._â\n._._._â\n._._._._ï¼\n._._._._._ð\n._._._._._ð\n._._._ð\n._._ð\n);
+ParseUnisyn 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "ðï¼ððððâðâ¢ð°ï¼ð±ððð²âð³â¢\n",  qq(â¢\n._ï¼\n._._ð\n._._ðð\n._._._ð\n._._._â\n._._._._ð\n._._._._ð\n._ï¼\n._._ð°\n._._ðð\n._._._ð±\n._._._â\n._._._._ð²\n._._._._ð³\n);
+ParseUnisyn 'p11 va',                                  "ð³ð\n",                  qq(ð³\n._ð\n);
+ParseUnisyn 'va q11',                                  "ðð\n",                  qq(ð\n._ð\n);
+ParseUnisyn 'p11 va q10',                              "ð³ðð\n",                 qq(ð\n._ð³\n._._ð\n);
+ParseUnisyn 'p11 b( B) q10',                           "ð³ããð\n",                qq(ð\n._ð³\n._._ã\n);
+ParseUnisyn 'p21 b( va e* vb B) q22',                  "ð½ãðâðãð\n",             qq(ð\n._ð½\n._._ã\n._._._â\n._._._._ð\n._._._._ð\n);
+ParseUnisyn 'va e+ vb q11',                            "ðï¼ðð\n",                qq(ï¼\n._ð\n._ð\n._._ð\n);
+ParseUnisyn 'va e+ p11 vb q11',                        "ðï¼ð³ðð\n",              qq(ï¼\n._ð\n._ð\n._._ð³\n._._._ð\n);
+ParseUnisyn 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "ðï¼ð³ððï¼ð½ãðâðãð\n",           qq(ï¼\n._ï¼\n._._ð\n._._ð\n._._._ð³\n._._._._ð\n._ð\n._._ð½\n._._._ã\n._._._._â\n._._._._._ð\n._._._._._ð\n);
 ParseUnisyn 'va e+ p11 vb q11 dif p21 b( vc e* vd B) q22 delse ve e* vf',
-            "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙\n",                                          qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._＋\n._._._𝗔\n._._._𝙇\n._._._._𝑳\n._._._._._𝗕\n._._𝙒\n._._._𝑽\n._._._._【\n._._._._._✕\n._._._._._._𝗖\n._._._._._._𝗗\n._✕\n._._𝗘\n._._𝗙\n);
+            "ðï¼ð³ððððð½ãðâðãððððððâð\n",                                          qq(ðððð\n._ðð\n._._ï¼\n._._._ð\n._._._ð\n._._._._ð³\n._._._._._ð\n._._ð\n._._._ð½\n._._._._ã\n._._._._._â\n._._._._._._ð\n._._._._._._ð\n._â\n._._ð\n._._ð\n);
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree.
  {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
@@ -17329,8 +17329,8 @@ END
 #latest:
 if (1)
  {my $compose = 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s';
-  my $text    = "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n";
-  my $parse  = q(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
+  my $text    = "ðï¼ððððâðâ¢ð°ï¼ð±ððð²âð³â¢\n";
+  my $parse  = q(â¢\n._ï¼\n._._ð\n._._ðð\n._._._ð\n._._._â\n._._._._ð\n._._._._ð\n._ï¼\n._._ð°\n._._ðð\n._._._ð±\n._._._â\n._._._._ð²\n._._._._ð³\n);
 
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
   is_deeply readFile($f), $text;
@@ -17341,21 +17341,21 @@ if (1)
 
   $p->tree->dumpParseTree($a8);
   ok Assemble eq => <<END, avx512=>1, mix=>0;
-⟢
-._＝
-._._𝗔
-._._𝐈𝐅
-._._._𝗕
-._._._✕
-._._._._𝗖
-._._._._𝗗
-._＝
-._._𝝰
-._._𝐈𝐅
-._._._𝝱
-._._._✕
-._._._._𝝲
-._._._._𝝳
+â¢
+._ï¼
+._._ð
+._._ðð
+._._._ð
+._._._â
+._._._._ð
+._._._._ð
+._ï¼
+._._ð°
+._._ðð
+._._._ð±
+._._._â
+._._._._ð²
+._._._._ð³
 END
   unlink $f;
  }
@@ -18051,7 +18051,7 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
 
     my $l = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::left);
     my $r = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::right);
-    my $𝞃 = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::type);
+    my $ð = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::type);
     my $S = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::symbol);
 
     If $l->found > 0,
@@ -18081,16 +18081,16 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
         $t->call(override => $L->address + $o->data);
        };
                                                                                 # Process lexical from parse tree
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$A};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::d), Then {&$d};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::p), Then {&$p};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::a), Then {&$a};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::v), Then {&$v};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::q), Then {&$q};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::s), Then {&$s};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::e), Then {&$e};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::b), Then {&$b};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::B), Then {&$B};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$A};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::d), Then {&$d};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::p), Then {&$p};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::a), Then {&$a};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::v), Then {&$v};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::q), Then {&$q};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::s), Then {&$s};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::e), Then {&$e};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::b), Then {&$b};
+      If $ð->data == K(type => Nasm::X86::Unisyn::Lex::Number::B), Then {&$B};
      }
 
     If $r->found > 0,
@@ -18121,7 +18121,7 @@ if (1) {                                                                        
 #      my $c = $$p{a} + $$p{b};
 #      $$p{c}->copy($c);
       PrintOutStringNL "Add";
-     } name => "＋", parameters=>[qw(a b c)];
+     } name => "ï¼", parameters=>[qw(a b c)];
 
    } name => "operators",  parameters=>[qw(a b c)], export => $f;
 
@@ -18132,7 +18132,7 @@ END
   my $l = ReadArea $f;                                                          # Area containing subroutine library
   my $a = CreateArea;                                                           # Area in which we will do the parse
 
-  my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
+  my ($A, $N) = constantString  qq(1ï¼2);                                        # Utf8 string to parse
   my $p = $a->ParseUnisyn($A, $N-1);                                            # Parse the utf8 string minus the final new line and zero?
 
   $p->tree->dumpParseTree($A);                                                  # Parse tree
@@ -18147,7 +18147,7 @@ END
   $p->traverseApplyingLibraryOperators($l, $i);                                 # Traverse a parse tree applying a library of operators
 
   ok Assemble eq => <<END, avx512=>1;
-＋
+ï¼
 ._1
 ._2
 Ascii
