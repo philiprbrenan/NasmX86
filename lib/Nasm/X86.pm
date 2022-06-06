@@ -40,13 +40,13 @@ my @extern;                                                                     
 my @link;                                                                       # Specify libraries which to link against in the final assembly stage
 my $interpreter  = q(-I /usr/lib64/ld-linux-x86-64.so.2);                       # The ld command needs an interpreter if we are linking with C.
 my $develop      = -e q(/home/phil/);                                           # Developing
-my $sdeMixOut    = q(sde-mix-out.txt);                                          # Emulator hot spot output file
-my $sdeTraceOut  = q(sde-debugtrace-out.txt);                                   # Emulator trace output file
-my $sdePtrCheck  = q(sde-ptr-check.out.txt);                                    # Emulator pointer check file
-my $traceBack    = q(zzzTraceBack.txt);                                         # Trace back of last error observed in emulator trace file if tracing is on
-my $programErr   = q(zzzErr.txt);                                               # Program error  file
-my $programOut   = q(zzzOut.txt);                                               # Program output file
-my $sourceFile   = q(z.asm);                                                    # Source file
+our $sdeMixOut   = q(sde-mix-out.txt);                                          # Emulator hot spot output file
+our $sdeTraceOut = q(sde-debugtrace-out.txt);                                   # Emulator trace output file
+our $sdePtrCheck = q(sde-ptr-check.out.txt);                                    # Emulator pointer check file
+our $traceBack   = q(zzzTraceBack.txt);                                         # Trace back of last error observed in emulator trace file if tracing is on
+our $programErr  = q(zzzErr.txt);                                               # Program error  file
+our $programOut  = q(zzzOut.txt);                                               # Program output file
+our $sourceFile  = q(z.asm);                                                    # Source file
 
 our $stdin       = 0;                                                           # File descriptor for standard input
 our $stdout      = 1;                                                           # File descriptor for standard output
@@ -10289,6 +10289,15 @@ Nasm::X86 - Generate X86 assembler code using Perl as a macro pre-processor.
 Write and execute B<x64> B<Avx512> assembler code from L<perl> using L<perl> as
 a powerful macro assembler.  The generated code can be run under the Intel
 emulator to obtain execution trace and instruction counts.
+
+Please see: L<https://github.com/philiprbrenan/NasmX86> for a complete working
+demonstration of how to run code produced by this module.
+
+While this module allows you to intermix Perl and Assembler code it is
+noticeable that the more Perl code that is written the less new Assembler code
+is required because there are more opportunities to call a Perl routine to
+generate the required Assembler code rather than writing the Assembler out by
+hand.
 
 =head2 Examples
 
@@ -26065,7 +26074,7 @@ test unless caller;
 
 1;
 # podDocumentation
-#__DATA__
+__DATA__
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -33773,7 +33782,7 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
                           library      => $library});
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $f = "zzzOperators.lib";
 
