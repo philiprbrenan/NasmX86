@@ -31,6 +31,8 @@ In particular position independent [X86-64](https://en.wikipedia.org/wiki/X86-64
 indexed by a 6/13 [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) and then reloaded as a library of functions for reuse
 elsewhere at a later date.
 
+[5/13 Multiway Tree using avx512](https://github.com/philiprbrenan/NasmX86/blob/main/lib/Nasm/images/MultiWayTree.svg)
+
 
 Such [relocatable](https://en.wikipedia.org/wiki/Relocation_%28computing%29) areas work well with parallel processing: each child [sub](https://perldoc.perl.org/perlsub.html) [task](http://docs.oasis-open.org/dita/dita/v1.3/errata02/os/complete/part3-all-inclusive/langRef/technicalContent/task.html#task) can run in a separate [process](https://en.wikipedia.org/wiki/Process_management_(computing)) that creates an area of dynamic data structures
 describing the results of the child's processing. The resulting areas  can be
@@ -62,7 +64,9 @@ that can make extensive use of the operators and alphabets provide by the [Unico
 - [Ascii table](https://www.asciitable.com/)
 
 
-# Print some [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+# Examples
+
+## Print some [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers:
 
 ```
@@ -121,7 +125,7 @@ world
 END
 ```
 
-# Read integers in decimal from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Read integers in decimal from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Read integers from 0 to 2**32 from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal:
 
 ```
@@ -143,7 +147,7 @@ Read integers from 0 to 2**32 from [stdin](https://en.wikipedia.org/wiki/Standar
 END
 ```
 
-# Write [Unicode](https://en.wikipedia.org/wiki/Unicode) characters from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Write [Unicode](https://en.wikipedia.org/wiki/Unicode) characters from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Generate and write some [Unicode](https://en.wikipedia.org/wiki/Unicode) [utf8](https://en.wikipedia.org/wiki/UTF-8) characters:
 
 ```
@@ -158,11 +162,11 @@ Generate and write some [Unicode](https://en.wikipedia.org/wiki/Unicode) [utf8](
   PrintOutNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END);
-ð°ð±ð²ð³ð´ðµð¶ð·ð¸ð¹ðºð»ð¼ð½ð¾ð¿
+𝝰𝝱𝝲𝝳𝝴𝝵𝝶𝝷𝝸𝝹𝝺𝝻𝝼𝝽𝝾𝝿
 END
 ```
 
-# Read a [file](https://en.wikipedia.org/wiki/Computer_file) and print it out from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Read a [file](https://en.wikipedia.org/wiki/Computer_file) and print it out from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 
 Read this file and print it out:
 
@@ -178,7 +182,7 @@ Read this file and print it out:
   ok index($r, readFile($0)) > -1;  # Output contains this file
 ```
 
-# Print numbers in decimal from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Print numbers in decimal from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Debug your [programs](https://en.wikipedia.org/wiki/Computer_program) quickly with powerful print statements:
 
 ```
@@ -192,7 +196,7 @@ Debug your [programs](https://en.wikipedia.org/wiki/Computer_program) quickly wi
 END
 ```
 
-# Call functions in Libc from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Call functions in Libc from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Call **C** functions by naming them as external and including their library:
 
 ```
@@ -212,7 +216,7 @@ Hello World
 END
 ```
 
-# Avx512 instructions from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Avx512 instructions from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Use [Advanced Vector Extensions](https://en.wikipedia.org/wiki/AVX-512) instructions to compare 64 bytes at a time using the 512 [bit](https://en.wikipedia.org/wiki/Bit) wide zmm registers from [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
   my $P = "2F";                                   # Value to test for
@@ -250,7 +254,7 @@ END
 ```
 
 
-# Create a library from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Create a library from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Create a [library](https://en.wikipedia.org/wiki/Library_(computing)) with three routines in it and save the [library](https://en.wikipedia.org/wiki/Library_(computing)) in a [file](https://en.wikipedia.org/wiki/Computer_file): 
 ```
   my $library = CreateLibrary          # Library definition
@@ -284,248 +288,63 @@ END
   unlink $l;
 ```
 
-# Dynamic [string](https://en.wikipedia.org/wiki/String_(computer_science)) held in an [arena](https://en.wikipedia.org/wiki/Region-based_memory_management) from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Create a dynamic [string](https://en.wikipedia.org/wiki/String_(computer_science)) within an [arena](https://en.wikipedia.org/wiki/Region-based_memory_management) and add some content to it:
+## Create a 6/13 multi way [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) in an area using SIMD instructions from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Create a multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) as in L<Tree::Multi> using B<Avx512> instructions then iterate through the [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) each time an element is deleted:
 
 ```
-  my $s = Rb(0..255);
-  my $A = CreateArena;
-  my $S = $A->CreateString;
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, $i);
+   });
+  $t->printInOrder(" 0"); $t->delete(K k =>  0);
+  $t->printInOrder(" 2"); $t->delete(K k =>  2);
+  $t->printInOrder(" 4"); $t->delete(K k =>  4);
+  $t->printInOrder(" 6"); $t->delete(K k =>  6);
+  $t->printInOrder(" 8"); $t->delete(K k =>  8);
+  $t->printInOrder("10"); $t->delete(K k => 10);
+  $t->printInOrder("12"); $t->delete(K k => 12);
+  $t->printInOrder("14"); $t->delete(K k => 14);
+  $t->printInOrder(" 1"); $t->delete(K k =>  1);
+  $t->printInOrder(" 3"); $t->delete(K k =>  3);
+  $t->printInOrder(" 5"); $t->delete(K k =>  5);
+  $t->printInOrder(" 7"); $t->delete(K k =>  7);
+  $t->printInOrder(" 9"); $t->delete(K k =>  9);
+  $t->printInOrder("11"); $t->delete(K k => 11);
+  $t->printInOrder("13"); $t->delete(K k => 13);
+  $t->printInOrder("15"); $t->delete(K k => 15);
+  $t->printInOrder("XX");
 
-  $S->append(V(source, $s), K(size, 256));
-  $S->len->outNL;
-  $S->clear;
-
-  $S->append(V(source, $s), K(size,  16));
-  $S->len->outNL;
-  $S->dump;
-
-  ok Assemble(debug => 0, eq => <<END);
-size: 0000 0000 0000 0100
-size: 0000 0000 0000 0010
-string Dump
-Offset: 0000 0000 0000 0018   Length: 0000 0000 0000 0010
- zmm31: 0000 0018 0000 0018   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 0000   0000 0000 0000 000F   0E0D 0C0B 0A09 0807   0605 0403 0201 0010
-
+  ok Assemble eq => <<END, avx512=>1;
+ 0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 2  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 4  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 6  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
+ 8  12:    1   3   5   7   8   9   A   B   C   D   E   F
+10  11:    1   3   5   7   9   A   B   C   D   E   F
+12  10:    1   3   5   7   9   B   C   D   E   F
+14   9:    1   3   5   7   9   B   D   E   F
+ 1   8:    1   3   5   7   9   B   D   F
+ 3   7:    3   5   7   9   B   D   F
+ 5   6:    5   7   9   B   D   F
+ 7   5:    7   9   B   D   F
+ 9   4:    9   B   D   F
+11   3:    B   D   F
+13   2:    D   F
+15   1:    F
+XX- empty
 END
 ```
 
-# Dynamic [array](https://en.wikipedia.org/wiki/Dynamic_array) held in an [arena](https://en.wikipedia.org/wiki/Region-based_memory_management) from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Create a dynamic [array](https://en.wikipedia.org/wiki/Dynamic_array) within an [arena](https://en.wikipedia.org/wiki/Region-based_memory_management), push some content on to it then pop it
-off again:
-```
-  my $N = 15;
-  my $A = CreateArena;
-  my $a = $A->CreateArray;
+## Error tracing with Geany in Perl and Nasm
 
-  $a->push(V(element, $_)) for 1..$N;
+Get a helpful trace back that translates the location of a failure in a
+generated Assembler [program](https://en.wikipedia.org/wiki/Computer_program) with the stack of Perl calls that created the
+failing [code](https://en.wikipedia.org/wiki/Computer_program). 
+![Trace back](https://github.com/philiprbrenan/Nasmx86/workflows/Test/badge.svg)
 
-  K(loop, $N)->for(sub
-   {my ($start, $end, $next) = @_;
-    my $l = $a->size;
-    If $l == 0, Then {Jmp $end};
-    $a->pop(my $e = V(element));
-    $e->outNL;
-   });
-
-  ok Assemble(debug => 0, eq => <<END);
-element: 0000 0000 0000 000F
-element: 0000 0000 0000 000E
-element: 0000 0000 0000 000D
-element: 0000 0000 0000 000C
-element: 0000 0000 0000 000B
-element: 0000 0000 0000 000A
-element: 0000 0000 0000 0009
-element: 0000 0000 0000 0008
-element: 0000 0000 0000 0007
-element: 0000 0000 0000 0006
-element: 0000 0000 0000 0005
-element: 0000 0000 0000 0004
-element: 0000 0000 0000 0003
-element: 0000 0000 0000 0002
-element: 0000 0000 0000 0001
-END
-```
-
-# Create a multi way [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) in an [arena](https://en.wikipedia.org/wiki/Region-based_memory_management) using SIMD instructions from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Create a multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) as in L<Tree::Multi> using B<Avx512> instructions and
-iterate through it:
-
-```
-  my $N = 12;
-  my $b = CreateArena;                       # Resizable memory block
-  my $t = $b->CreateTree;                    # Multi way tree in memory block
-
-  K(count, $N)->for(sub                      # Add some entries to the tree
-   {my ($index, $start, $next, $end) = @_;
-    my $k = $index + 1;
-    $t->insert($k,      $k + 0x100);
-    $t->insert($k + $N, $k + 0x200);
-   });
-
-  $t->by(sub                                 # Iterate through the tree
-   {my ($iter, $end) = @_;
-    $iter->key ->out('key: ');
-    $iter->data->out(' data: ');
-    $iter->tree->depth($iter->node, my $D = V(depth));
-
-    $t->find($iter->key);
-    $t->found->out(' found: '); $t->data->out(' data: '); $D->outNL(' depth: ');
-   });
-
-  $t->find(K(key, 0xffff));  $t->found->outNL('Found: ');
-  $t->find(K(key, 0xd));     $t->found->outNL('Found: ');
-
-  If ($t->found,
-  Then
-   {$t->data->outNL("Data : ");
-   });
-
-  ok Assemble(debug => 0, eq => <<END);
-key: 0000 0000 0000 0001 data: 0000 0000 0000 0101 found: 0000 0000 0000 0001 data: 0000 0000 0000 0101 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0002 data: 0000 0000 0000 0102 found: 0000 0000 0000 0001 data: 0000 0000 0000 0102 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0003 data: 0000 0000 0000 0103 found: 0000 0000 0000 0001 data: 0000 0000 0000 0103 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0004 data: 0000 0000 0000 0104 found: 0000 0000 0000 0001 data: 0000 0000 0000 0104 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0005 data: 0000 0000 0000 0105 found: 0000 0000 0000 0001 data: 0000 0000 0000 0105 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0006 data: 0000 0000 0000 0106 found: 0000 0000 0000 0001 data: 0000 0000 0000 0106 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0007 data: 0000 0000 0000 0107 found: 0000 0000 0000 0001 data: 0000 0000 0000 0107 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0008 data: 0000 0000 0000 0108 found: 0000 0000 0000 0001 data: 0000 0000 0000 0108 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0009 data: 0000 0000 0000 0109 found: 0000 0000 0000 0001 data: 0000 0000 0000 0109 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000A data: 0000 0000 0000 010A found: 0000 0000 0000 0001 data: 0000 0000 0000 010A depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000B data: 0000 0000 0000 010B found: 0000 0000 0000 0001 data: 0000 0000 0000 010B depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000C data: 0000 0000 0000 010C found: 0000 0000 0000 0001 data: 0000 0000 0000 010C depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000D data: 0000 0000 0000 0201 found: 0000 0000 0000 0001 data: 0000 0000 0000 0201 depth: 0000 0000 0000 0001
-key: 0000 0000 0000 000E data: 0000 0000 0000 0202 found: 0000 0000 0000 0001 data: 0000 0000 0000 0202 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 000F data: 0000 0000 0000 0203 found: 0000 0000 0000 0001 data: 0000 0000 0000 0203 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0010 data: 0000 0000 0000 0204 found: 0000 0000 0000 0001 data: 0000 0000 0000 0204 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0011 data: 0000 0000 0000 0205 found: 0000 0000 0000 0001 data: 0000 0000 0000 0205 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0012 data: 0000 0000 0000 0206 found: 0000 0000 0000 0001 data: 0000 0000 0000 0206 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0013 data: 0000 0000 0000 0207 found: 0000 0000 0000 0001 data: 0000 0000 0000 0207 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0014 data: 0000 0000 0000 0208 found: 0000 0000 0000 0001 data: 0000 0000 0000 0208 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0015 data: 0000 0000 0000 0209 found: 0000 0000 0000 0001 data: 0000 0000 0000 0209 depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0016 data: 0000 0000 0000 020A found: 0000 0000 0000 0001 data: 0000 0000 0000 020A depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0017 data: 0000 0000 0000 020B found: 0000 0000 0000 0001 data: 0000 0000 0000 020B depth: 0000 0000 0000 0002
-key: 0000 0000 0000 0018 data: 0000 0000 0000 020C found: 0000 0000 0000 0001 data: 0000 0000 0000 020C depth: 0000 0000 0000 0002
-Found: 0000 0000 0000 0000
-Found: 0000 0000 0000 0001
-Data : 0000 0000 0000 0201
-END
-```
-
-# Quarks held in an [arena](https://en.wikipedia.org/wiki/Region-based_memory_management) from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Quarks replace unique [strings](https://en.wikipedia.org/wiki/String_(computer_science)) with unique numbers and in doing so unite all
-that is best and brightest in dynamic [trees](https://en.wikipedia.org/wiki/Tree_(data_structure)), [arrays](https://en.wikipedia.org/wiki/Dynamic_array), [strings](https://en.wikipedia.org/wiki/String_(computer_science)) and short [strings](https://en.wikipedia.org/wiki/String_(computer_science)), all written in X86 [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler), all generated by Perl:
-
-```
-  my $N = 5;
-  my $a = CreateArena;                      # Arena containing quarks
-  my $Q = $a->CreateQuarks;                 # Quarks
-
-  my $s = CreateShortString(0);             # Short string used to load and unload quarks
-  my $d = Rb(1..63);
-
-  for my $i(1..$N)                          # Load a set of quarks
-   {my $j = $i - 1;
-    $s->load(K(address, $d), K(size, 4+$i));
-    my $q = $Q->quarkFromShortString($s);
-    $q->outNL("New quark    $j: ");         # New quark, new number
-   }
-  PrintOutNL;
-
-  for my $i(reverse 1..$N)                  # Reload a set of quarks
-   {my $j = $i - 1;
-    $s->load(K(address, $d), K(size, 4+$i));
-    my $q = $Q->quarkFromShortString($s);
-    $q->outNL("Old quark    $j: ");         # Old quark, old number
-   }
-  PrintOutNL;
-
-  for my $i(1..$N)                          # Dump quarks
-   {my $j = $i - 1;
-     $s->clear;
-    $Q->shortStringFromQuark(K(quark, $j), $s);
-    PrintOutString "Quark string $j: ";
-    PrintOutRegisterInHex xmm0;
-   }
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END);
-  New quark    0: 0000 0000 0000 0000
-  New quark    1: 0000 0000 0000 0001
-  New quark    2: 0000 0000 0000 0002
-  New quark    3: 0000 0000 0000 0003
-  New quark    4: 0000 0000 0000 0004
-
-  Old quark    4: 0000 0000 0000 0004
-  Old quark    3: 0000 0000 0000 0003
-  Old quark    2: 0000 0000 0000 0002
-  Old quark    1: 0000 0000 0000 0001
-  Old quark    0: 0000 0000 0000 0000
-
-  Quark string 0:   xmm0: 0000 0000 0000 0000   0000 0504 0302 0105
-  Quark string 1:   xmm0: 0000 0000 0000 0000   0006 0504 0302 0106
-  Quark string 2:   xmm0: 0000 0000 0000 0000   0706 0504 0302 0107
-  Quark string 3:   xmm0: 0000 0000 0000 0008   0706 0504 0302 0108
-  Quark string 4:   xmm0: 0000 0000 0000 0908   0706 0504 0302 0109
-  END
-```
-
-# Recursion with stack and parameter tracing from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Call a subroutine [recursively](https://en.wikipedia.org/wiki/Recursion) and get a trace back showing the procedure calls
-and parameters passed to each call. Parameters are passed by reference not
-value.
-
-```
-  my $d = V depth => 3;                       # Create a variable on the stack
-
-  my $s = Subroutine
-   {my ($p, $s) = @_;                         # Parameters, subroutine descriptor
-    PrintOutTraceBack;
-
-    my $d = $$p{depth}->copy($$p{depth} - 1); # Modify the variable referenced by the parameter
-
-    If ($d > 0,
-    Then
-     {$s->call($d);                           # Recurse
-     });
-
-    PrintOutTraceBack;
-   } [qw(depth)], name => 'ref';
-
-  $s->call($d);                               # Call the subroutine
-
-  ok Assemble(debug => 0, eq => <<END);
-
-Subroutine trace back, depth:  1
-0000 0000 0000 0003    ref
-
-
-Subroutine trace back, depth:  2
-0000 0000 0000 0002    ref
-0000 0000 0000 0002    ref
-
-
-Subroutine trace back, depth:  3
-0000 0000 0000 0001    ref
-0000 0000 0000 0001    ref
-0000 0000 0000 0001    ref
-
-
-Subroutine trace back, depth:  3
-0000 0000 0000 0000    ref
-0000 0000 0000 0000    ref
-0000 0000 0000 0000    ref
-
-
-Subroutine trace back, depth:  2
-0000 0000 0000 0000    ref
-0000 0000 0000 0000    ref
-
-
-Subroutine trace back, depth:  1
-0000 0000 0000 0000    ref
-
-END
-```
 
 # Process management from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Start a child [process](https://en.wikipedia.org/wiki/Process_management_(computing)) and wait for it, printing out the [process](https://en.wikipedia.org/wiki/Process_management_(computing)) identifiers of
