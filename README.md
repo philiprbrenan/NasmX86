@@ -32,8 +32,6 @@ indexed by a 6/13 [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) an
 elsewhere at a later date.
 
 ![5/13 Multiway Tree using avx512](http://prb.appaapps.com/MultiWayTree2.svg)
-![5/13 Multiway Tree using avx512](https://github.com/philiprbrenan/NasmX86/blob/main/lib/Nasm/images/MultiWayTree2.svg)
-
 
 Such [relocatable](https://en.wikipedia.org/wiki/Relocation_%28computing%29) areas work well with parallel processing: each child [sub](https://perldoc.perl.org/perlsub.html) [task](http://docs.oasis-open.org/dita/dita/v1.3/errata02/os/complete/part3-all-inclusive/langRef/technicalContent/task.html#task) can run in a separate [process](https://en.wikipedia.org/wiki/Process_management_(computing)) that creates an area of dynamic data structures
 describing the results of the child's processing. The resulting areas  can be
