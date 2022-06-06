@@ -343,7 +343,7 @@ END
 Get a helpful trace back that translates the location of a failure in a
 generated Assembler [program](https://en.wikipedia.org/wiki/Computer_program) with the stack of Perl calls that created the
 failing [code](https://en.wikipedia.org/wiki/Computer_program). 
-![Trace back](http://prb.appaapps.com/infinity.png)
+![Trace back](http://prb.appaapps.com/TraceBack.png)
 
 
 # Process management from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
