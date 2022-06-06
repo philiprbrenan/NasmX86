@@ -3735,7 +3735,7 @@ sub Nasm::X86::Variable::qFromZ($$$)                                            
 sub dFromPointInZ($$%)                                                          # Get the double word from the numbered zmm register at a point specified by the variable or register and return it in a variable.
  {my ($point, $zmm, %options) = @_;                                             # Point, numbered zmm, options
 
-  my $s = $options{set} // rsi;                                                 # register to set else a variable will be returned
+  my $s = $options{set} // rsi;                                                 # Register to set else a variable will be returned
   my $x = $zmm =~ m(\A(zmm)?0\Z) ? 1 : 0;                                       # The zmm we will extract into
   if (ref($point) =~ m(Variable))  {$point->setReg(k1)}                         # Point is in a variable
   else                             {Kmovq k1, $point}                           # Point is in a register
@@ -4870,7 +4870,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
  } # GetNextUtf8CharAsUtf32
 
 sub ConvertUtf8ToUtf32($$)                                                      # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
- {my ($a8, $s8) = @_;                                                           # utf8 string address variable, utf8 length variable
+ {my ($a8, $s8) = @_;                                                           # Utf8 string address variable, utf8 length variable
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine
@@ -4922,7 +4922,7 @@ sub ConvertUtf8ToUtf32($$)                                                      
     {a8  => $a8,  s8  => $s8,
      a32 => $a32, s32 => $s32, count=>$count, fail => $fail});
 
-  ($a32, $s32, $count, $fail)                                                   # utf32 string address as a variable, utf32 area length as a variable, number of characters converted, fail if one else zero
+  ($a32, $s32, $count, $fail)                                                   # Utf32 string address as a variable, utf32 area length as a variable, number of characters converted, fail if one else zero
  } # ConvertUtf8ToUtf32
 
 #   4---+---3---+---2---+---1---+---0  Octal not decimal
@@ -7005,7 +7005,7 @@ sub Nasm::X86::Tree::find($$)                                                   
         dFromPointInZ     (rsi,  $N, set =>  $Q);                               # Get the corresponding offset to the next sub tree
         Sub $loop, 1;
         Jnz $start;                                                             # Keep going but not for ever
-       } $loop, 99;                                                             # loop a limited number of times
+       } $loop, 99;                                                             # Loop a limited number of times
       PrintErrTraceBack "Stuck in find";                                        # We seem to be looping endlessly
      };                                                                         # Find completed successfully
 
@@ -9856,9 +9856,9 @@ sub OptimizeReload(%)                                                           
    {for my $i(1..@text-1)                                                       # Each line
      {my $a = $text[$i-1];
       my $b = $text[$i];
-      if ($a =~ m(\Amov (\[.*?\]), ([^\[\]].*?)\Z))                             # a = b
+      if ($a =~ m(\Amov (\[.*?\]), ([^\[\]].*?)\Z))                             # Check a = b
        {my $a1 = $1; my $a2 = $2;
-        if ($b eq qq(mov $a2, $a1\n))                                           # b = a
+        if ($b eq qq(mov $a2, $a1\n))                                           # Check b = a
          {$text[$i] = q(; Reload removed: ).$text[$i];
          }
        }
@@ -33578,7 +33578,7 @@ END
  }
 
 sub Nasm::X86::Area::subroutineDefinition($$$)                                  # Get the definition of a subroutine from an area.
- {my ($area, $file, $name) = @_;                                                # area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
+ {my ($area, $file, $name) = @_;                                                # Area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
   my $a = readBinaryFile $file;                                                 # Reload the area
   my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
   my $c = eval $b;                                                              # Convert to Perl data structure
