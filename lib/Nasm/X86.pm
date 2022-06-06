@@ -2587,10 +2587,10 @@ sub PrintRaxRightInDec($$)                                                      
    {my ($p) = @_;                                                               # Parameters
     PushR rax, rdi, rdx, r9, r10;
     Mov r9, 0;                                                                  # Number of decimal digits
-    Mov r10, 10;                                                                # Base of number system
+    Mov r10, 10;                                                                # Base of number system used to divide rax
     my $convert = SetLabel;
       Mov rdx, 0;                                                               # Rdx must be clear to receive remainder
-      Idiv r10;                                                                 # Remainder after integer division by 10
+      Idiv r10;                                                                 # Remainder after integer division of rax by 10
       Add rdx, 48;                                                              # Convert remainder to ascii
       Push rdx;                                                                 # Save remainder
       Inc r9;                                                                   # Number of digits
@@ -2639,6 +2639,8 @@ sub PrintOutRaxRightInDecNL($)                                                  
   PrintRaxRightInDec($width, $stdout);
   PrintOutNL;
  }
+
+#D2 Text                                                                        # Print the contents of a register as text.
 
 sub PrintRaxAsText($)                                                           # Print the string in rax on the specified channel.
  {my ($channel) = @_;                                                           # Channel to write on
@@ -10525,6 +10527,17 @@ if (1) {                                                                        
 Hello World
 
 Hello Skye
+END
+ }
+
+latest:;
+if (1) {                                                                        #TPrintOutRaxInHex #TPrintOutNL #TPrintOutString
+  Mov rax, 0x666;
+  PrintOutRaxRightInDec K width => 8;
+  PrintOutNL;
+
+  ok Assemble(avx512=>0, eq=><<END);
+    1638
 END
  }
 
