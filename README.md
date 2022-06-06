@@ -31,8 +31,8 @@ In particular position independent [X86-64](https://en.wikipedia.org/wiki/X86-64
 indexed by a 6/13 [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) and then reloaded as a library of functions for reuse
 elsewhere at a later date.
 
-[5/13 Multiway Tree using avx512](http://prb.appaapps.com/MultiWayTree2.svg)
-[5/13 Multiway Tree using avx512](https://github.com/philiprbrenan/NasmX86/blob/main/lib/Nasm/images/MultiWayTree2.svg)
+![5/13 Multiway Tree using avx512](http://prb.appaapps.com/MultiWayTree2.svg)
+![5/13 Multiway Tree using avx512](https://github.com/philiprbrenan/NasmX86/blob/main/lib/Nasm/images/MultiWayTree2.svg)
 
 
 Such [relocatable](https://en.wikipedia.org/wiki/Relocation_%28computing%29) areas work well with parallel processing: each child [sub](https://perldoc.perl.org/perlsub.html) [task](http://docs.oasis-open.org/dita/dita/v1.3/errata02/os/complete/part3-all-inclusive/langRef/technicalContent/task.html#task) can run in a separate [process](https://en.wikipedia.org/wiki/Process_management_(computing)) that creates an area of dynamic data structures
@@ -66,6 +66,14 @@ that can make extensive use of the operators and alphabets provide by the [Unico
 
 
 # Examples
+
+## Error tracing with Geany in Perl and Nasm
+
+Get a helpful trace back that translates the location of a failure in a
+generated Assembler [program](https://en.wikipedia.org/wiki/Computer_program) with the stack of Perl calls that created the
+failing [code](https://en.wikipedia.org/wiki/Computer_program). 
+![Trace back](http://prb.appaapps.com/TraceBack.png)
+
 
 ## Print some [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers:
@@ -338,15 +346,6 @@ Create a multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) as
 XX- empty
 END
 ```
-
-## Error tracing with Geany in Perl and Nasm
-
-Get a helpful trace back that translates the location of a failure in a
-generated Assembler [program](https://en.wikipedia.org/wiki/Computer_program) with the stack of Perl calls that created the
-failing [code](https://en.wikipedia.org/wiki/Computer_program). 
-![Trace back](http://prb.appaapps.com/TraceBack.png)
-
-
 # Process management from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Start a child [process](https://en.wikipedia.org/wiki/Process_management_(computing)) and wait for it, printing out the [process](https://en.wikipedia.org/wiki/Process_management_(computing)) identifiers of
 each [process](https://en.wikipedia.org/wiki/Process_management_(computing)) involved:
