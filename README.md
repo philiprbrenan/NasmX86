@@ -1,5 +1,8 @@
 # Please [help](https://en.wikipedia.org/wiki/Online_help) with this project by getting involved!
 
+Please feel free to join in with this interesting project - we need all the [help](https://en.wikipedia.org/wiki/Online_help) we can get - so much so that as an incentive to do so, we will be pleased
+to offer you free Perl and Assembler training to [help](https://en.wikipedia.org/wiki/Online_help) you make useful
+contributions to this [module](https://en.wikipedia.org/wiki/Modular_programming). 
 # Generate and run [X86-64](https://en.wikipedia.org/wiki/X86-64) [Advanced Vector Extensions](https://en.wikipedia.org/wiki/AVX-512) [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) [programs](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/) 
 ![Test](https://github.com/philiprbrenan/Nasmx86/workflows/Test/badge.svg)
 
@@ -36,8 +39,6 @@ Other notable features provided by this [module](https://en.wikipedia.org/wiki/M
 generic, universal, [utf8](https://en.wikipedia.org/wiki/UTF-8) based syntax for constructing programming languages
 that can make extensive use of the operators and alphabets provide by the [Unicode](https://en.wikipedia.org/wiki/Unicode) standard.
 
-Please feel free to join in with this interesting project - we need all the [help](https://en.wikipedia.org/wiki/Online_help) we can get. As an incentive to do so, we will be please to offer you free
-Perl and Assembler training to [help](https://en.wikipedia.org/wiki/Online_help) you make useful contributions to this [module](https://en.wikipedia.org/wiki/Modular_programming). 
 # Useful links
 
 - [x86 instructions](https://hjlebbink.github.io/x86doc/)
