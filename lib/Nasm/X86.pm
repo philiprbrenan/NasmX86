@@ -5793,6 +5793,8 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an area.
 
+#D2 Constructors                                                                # Construct a tree.
+
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
  {my (%options) = @_;                                                           # Tree description options
 
@@ -6470,7 +6472,6 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
 
 #D2 Insert                                                                      # Insert a key into the tree.
 
-# IIII
 sub Nasm::X86::Tree::indexXX($$$$$%)                                            #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
  {my ($tree, $key, $K, $cmp, $inc, %options) = @_;                              # Tree definition, key to search for as a variable or a zmm, zmm containing keys, comparison from B<Vpcmp>, whetehr to increment the result by one, options
   @_ >= 5 or confess "Five or more parameters";
@@ -7398,7 +7399,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
   $d
  } # depth
 
-#D2 Sub trees                                                                   # Construct trees of trees.
+##D2 Sub trees                                                                   # Construct trees of trees - all private.
 
 sub Nasm::X86::Tree::isTree($$$)                                                #P Set the Zero Flag to oppose the tree bit in the numbered zmm register holding the keys of a node to indicate whether the data element indicated by the specified register is an offset to a sub tree in the containing area or not.
 {my ($t, $zmm, $point) = @_;                                                    # Tree descriptor, numbered zmm register holding the keys for a node in the tree, register showing point to test
@@ -8613,7 +8614,7 @@ sub Nasm::X86::Tree::intersection($)                                            
   $i                                                                            # Intersection
  }
 
-#D3 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.
+#D2 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.
 
 sub Nasm::X86::Tree::putString($$)                                              # Enter a string tree into a tree of strings and return the offset of the last inserted tree as the unique number of this string.
  {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
@@ -9121,7 +9122,6 @@ sub Nasm::X86::Tree::plusAssign($$)                                             
 
 sub Nasm::X86::Tree::dec($)                                                     # Pop from the tree if it is being used as a stack
  {my ($tree) = @_;                                                              # Tree being used as a stack
-  @_ == 1 or confess "One parameter";
 
   !exists $tree->usage->{stack} and keys $tree->usage->%* and                   # Check that the tree is being used as a stack
     confess "Tree is not being used as a stack";
