@@ -1,5 +1,4 @@
 #!/usr/bin/perl -I/home/phil/perl/cpan/DataTableText/lib/ -I. -I/home/phil/perl/cpan/AsmC/lib/
-#91909
 #-------------------------------------------------------------------------------
 # Generate X86 assembler code using Perl as a macro pre-processor.
 # Philip R Brenan at appaapps dot com, Appa Apps Ltd Inc., 2021
@@ -10389,7 +10388,7 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFour;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -10401,7 +10400,7 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFourExceptRax;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -10409,16 +10408,16 @@ B<Example:>
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     Bswap rax;
     PrintOutRegisterInHex rax;
-  
+
     my $l = Label;
     Jmp $l;
-  
+
     SetLabel $l;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rdi: .... .... .... ...4
@@ -10436,9 +10435,9 @@ B<Example:>
      rdi: .... .... .... ...4
      rax: .3.. .... .... ....
   END
-  
+
     ok 8 == RegisterSize rax;
-  
+
 
 =head2 Ds(@d)
 
@@ -10451,7 +10450,7 @@ B<Example:>
 
 
     my $q = Rs('a'..'z');
-  
+
     Mov rax, Ds('0'x64);                                                          # Output area  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Vmovdqu32(xmm0, "[$q]");                                                      # Load
@@ -10459,11 +10458,11 @@ B<Example:>
     Vmovdqu32("[rax]", xmm0);                                                     # Save
     Mov rdi, 16;
     PrintOutMemoryNL;
-  
+
     ok Assemble(avx512=>1, eq=><<END)
   efghabcdmnopijkl
   END
-  
+
 
 =head2 Db(@bytes)
 
@@ -10476,28 +10475,28 @@ B<Example:>
 
 
     my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
-  
+
     my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Vmovdqu8 xmm0, "[$s]";
     Vmovdqu8 xmm1, "[$t]";
     PrintOutRegisterInHex xmm0;
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
-  
+
     Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     xmm0: .... .... .... ...4  .... ...3 ...2 .1..
     xmm1: .... .... .... ...4  .... ...3 ...2 .1..
   __.1 .2__ .3__ ____  .4__ ____ ____ ____
   END
-  
+
 
 =head2 Dw(@words)
 
@@ -10510,28 +10509,28 @@ B<Example:>
 
 
     my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
-  
+
     my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Vmovdqu8 xmm0, "[$s]";
     Vmovdqu8 xmm1, "[$t]";
     PrintOutRegisterInHex xmm0;
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
-  
+
     Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     xmm0: .... .... .... ...4  .... ...3 ...2 .1..
     xmm1: .... .... .... ...4  .... ...3 ...2 .1..
   __.1 .2__ .3__ ____  .4__ ____ ____ ____
   END
-  
+
 
 =head2 Dd(@dwords)
 
@@ -10544,28 +10543,28 @@ B<Example:>
 
 
     my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
-  
+
     my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Vmovdqu8 xmm0, "[$s]";
     Vmovdqu8 xmm1, "[$t]";
     PrintOutRegisterInHex xmm0;
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
-  
+
     Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     xmm0: .... .... .... ...4  .... ...3 ...2 .1..
     xmm1: .... .... .... ...4  .... ...3 ...2 .1..
   __.1 .2__ .3__ ____  .4__ ____ ____ ____
   END
-  
+
 
 =head2 Dq(@qwords)
 
@@ -10578,28 +10577,28 @@ B<Example:>
 
 
     my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
-  
+
     my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Vmovdqu8 xmm0, "[$s]";
     Vmovdqu8 xmm1, "[$t]";
     PrintOutRegisterInHex xmm0;
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
-  
+
     Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     xmm0: .... .... .... ...4  .... ...3 ...2 .1..
     xmm1: .... .... .... ...4  .... ...3 ...2 .1..
   __.1 .2__ .3__ ____  .4__ ____ ____ ____
   END
-  
+
 
 =head2 Rb(@bytes)
 
@@ -10611,29 +10610,29 @@ Layout bytes in the data segment and return their label.
 B<Example:>
 
 
-  
+
     my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
-  
+
     Vmovdqu8 xmm0, "[$s]";
     Vmovdqu8 xmm1, "[$t]";
     PrintOutRegisterInHex xmm0;
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
-  
+
     Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     xmm0: .... .... .... ...4  .... ...3 ...2 .1..
     xmm1: .... .... .... ...4  .... ...3 ...2 .1..
   __.1 .2__ .3__ ____  .4__ ____ ____ ____
   END
-  
+
 
 =head2 Rw(@words)
 
@@ -10645,29 +10644,29 @@ Layout words in the data segment and return their label.
 B<Example:>
 
 
-  
+
     my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
-  
+
     Vmovdqu8 xmm0, "[$s]";
     Vmovdqu8 xmm1, "[$t]";
     PrintOutRegisterInHex xmm0;
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
-  
+
     Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     xmm0: .... .... .... ...4  .... ...3 ...2 .1..
     xmm1: .... .... .... ...4  .... ...3 ...2 .1..
   __.1 .2__ .3__ ____  .4__ ____ ____ ____
   END
-  
+
 
 =head2 Rd(@dwords)
 
@@ -10679,29 +10678,29 @@ Layout double words in the data segment and return their label.
 B<Example:>
 
 
-  
+
     my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
-  
+
     Vmovdqu8 xmm0, "[$s]";
     Vmovdqu8 xmm1, "[$t]";
     PrintOutRegisterInHex xmm0;
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
-  
+
     Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     xmm0: .... .... .... ...4  .... ...3 ...2 .1..
     xmm1: .... .... .... ...4  .... ...3 ...2 .1..
   __.1 .2__ .3__ ____  .4__ ____ ____ ____
   END
-  
+
 
 =head2 Rq(@qwords)
 
@@ -10713,29 +10712,29 @@ Layout quad words in the data segment and return their label.
 B<Example:>
 
 
-  
+
     my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
-  
+
     Vmovdqu8 xmm0, "[$s]";
     Vmovdqu8 xmm1, "[$t]";
     PrintOutRegisterInHex xmm0;
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
-  
+
     Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
     CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     xmm0: .... .... .... ...4  .... ...3 ...2 .1..
     xmm1: .... .... .... ...4  .... ...3 ...2 .1..
   __.1 .2__ .3__ ____  .4__ ____ ____ ____
   END
-  
+
 
 =head2 Rs(@d)
 
@@ -10749,16 +10748,16 @@ B<Example:>
 
     Comment "Print a string from memory";
     my $s = "Hello World";
-  
+
     Mov rax, Rs($s);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov rdi, length $s;
     PrintOutMemory;
     Exit(0);
-  
+
     ok Assemble(avx512=>0) =~ m(Hello World);
-  
-  
+
+
     my $q = Rs('abababab');  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov r10, 0x10;
@@ -10776,7 +10775,7 @@ B<Example:>
     Mov rdx, 5;
     Mov rsi, 6;
     PrintOutRegistersInHex;
-  
+
     my $r = Assemble(avx512=>0, eq=><<END, debug=>0);
   rfl: .... .... .... .2.2
   r10: .... .... .... ..10
@@ -10794,7 +10793,7 @@ B<Example:>
   rdx: .... .... .... ...5
   rsi: .... .... .... ...6
   END
-  
+
 
 =head2 Rutf8(@d)
 
@@ -10834,7 +10833,7 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFour;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -10846,7 +10845,7 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFourExceptRax;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -10854,14 +10853,14 @@ B<Example:>
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     Bswap rax;
     PrintOutRegisterInHex rax;
-  
+
     my $l = Label;
     Jmp $l;
     SetLabel $l;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rdi: .... .... .... ...4
@@ -10879,11 +10878,11 @@ B<Example:>
      rdi: .... .... .... ...4
      rax: .3.. .... .... ....
   END
-  
-  
+
+
     ok 8 == RegisterSize rax;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
 
 =head2 Push, Pop, Peek
 
@@ -10903,17 +10902,17 @@ B<Example:>
     Mov rbx, 0x22222222;
     PushR my @save = (rax, rbx);
     Mov rax, 0x33333333;
-  
+
     PopR;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
     PrintOutRegisterInHex rbx;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... 1111 1111
      rbx: .... .... 2222 2222
   END
-  
+
     LoadZmm(17, 0x10..0x50);
     PrintOutRegisterInHex zmm17;
     Mov r14, 2; Mov r15, 3;
@@ -10922,7 +10921,7 @@ B<Example:>
     LoadZmm(17, 0x20..0x70);
     PrintOutRegisterInHex zmm17;
     Mov r14, 22; Mov r15, 33;
-  
+
     PopR;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex zmm17;
@@ -10936,7 +10935,7 @@ B<Example:>
      r14: .... .... .... ...2
      r15: .... .... .... ...3
   END
-  
+
 
 =head2 General
 
@@ -10972,7 +10971,7 @@ B<Example:>
     Mov r14, 0xFFDC;                                                              # Insert a zero into the register at that position shifting the bits above that position up left one to make space for the new zero.
     Mov r13, 0xF03F;
     PrintOutRegisterInHex         r14, r15;
-  
+
     InsertZeroIntoRegisterAtPoint r15, r14;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex r14;
@@ -10987,7 +10986,7 @@ B<Example:>
      r14: .... .... ...1 FFDC
      r13: .... .... ...1 E13F
   END
-  
+
 
 =head3 InsertOneIntoRegisterAtPoint($point, $in)
 
@@ -11008,7 +11007,7 @@ B<Example:>
     PrintOutRegisterInHex r14;
     Or r14, r15;                                                                  # Replace the inserted zero with a one
     PrintOutRegisterInHex r14;
-  
+
     InsertOneIntoRegisterAtPoint r15, r13;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex r13;
@@ -11019,7 +11018,7 @@ B<Example:>
      r14: .... .... ...1 FFDC
      r13: .... .... ...1 E13F
   END
-  
+
 
 =head2 Save and Restore
 
@@ -11037,7 +11036,7 @@ B<Example:>
 
     Mov rax, 1;
     Mov rdi, 1;
-  
+
     SaveFirstFour;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov rax, 2;
@@ -11050,8 +11049,8 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFour;
     PrintOutRegisterInHex rax, rdi;
-  
-  
+
+
     SaveFirstFour;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov rax, 2;
@@ -11064,8 +11063,8 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFourExceptRax;
     PrintOutRegisterInHex rax, rdi;
-  
-  
+
+
     SaveFirstFour;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov rax, 2;
@@ -11074,14 +11073,14 @@ B<Example:>
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     Bswap rax;
     PrintOutRegisterInHex rax;
-  
+
     my $l = Label;
     Jmp $l;
     SetLabel $l;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rdi: .... .... .... ...4
@@ -11099,9 +11098,9 @@ B<Example:>
      rdi: .... .... .... ...4
      rax: .3.. .... .... ....
   END
-  
+
     ok 8 == RegisterSize rax;
-  
+
 
 =head3 RestoreFirstFour()
 
@@ -11122,11 +11121,11 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstSeven;
     PrintOutRegisterInHex rax, rdi;
-  
+
     RestoreFirstFour;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -11138,7 +11137,7 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFourExceptRax;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -11146,14 +11145,14 @@ B<Example:>
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     Bswap rax;
     PrintOutRegisterInHex rax;
-  
+
     my $l = Label;
     Jmp $l;
     SetLabel $l;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rdi: .... .... .... ...4
@@ -11171,9 +11170,9 @@ B<Example:>
      rdi: .... .... .... ...4
      rax: .3.. .... .... ....
   END
-  
+
     ok 8 == RegisterSize rax;
-  
+
 
 =head3 RestoreFirstFourExceptRax()
 
@@ -11196,7 +11195,7 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFour;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -11206,11 +11205,11 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstSevenExceptRax;
     PrintOutRegisterInHex rax, rdi;
-  
+
     RestoreFirstFourExceptRax;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -11218,14 +11217,14 @@ B<Example:>
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     Bswap rax;
     PrintOutRegisterInHex rax;
-  
+
     my $l = Label;
     Jmp $l;
     SetLabel $l;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rdi: .... .... .... ...4
@@ -11243,9 +11242,9 @@ B<Example:>
      rdi: .... .... .... ...4
      rax: .3.. .... .... ....
   END
-  
+
     ok 8 == RegisterSize rax;
-  
+
 
 =head3 SaveFirstSeven()
 
@@ -11260,7 +11259,7 @@ B<Example:>
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
-  
+
     SaveFirstSeven;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov rax, 3;
@@ -11270,11 +11269,11 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFour;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
-  
+
     SaveFirstSeven;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov rax, 3;
@@ -11284,24 +11283,24 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFourExceptRax;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
-  
+
     SaveFirstSeven;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     Bswap rax;
     PrintOutRegisterInHex rax;
-  
+
     my $l = Label;
     Jmp $l;
     SetLabel $l;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rdi: .... .... .... ...4
@@ -11319,9 +11318,9 @@ B<Example:>
      rdi: .... .... .... ...4
      rax: .3.. .... .... ....
   END
-  
+
     ok 8 == RegisterSize rax;
-  
+
 
 =head3 RestoreFirstSeven()
 
@@ -11340,13 +11339,13 @@ B<Example:>
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     RestoreFirstSeven;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFour;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -11358,7 +11357,7 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFourExceptRax;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -11366,14 +11365,14 @@ B<Example:>
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     Bswap rax;
     PrintOutRegisterInHex rax;
-  
+
     my $l = Label;
     Jmp $l;
     SetLabel $l;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rdi: .... .... .... ...4
@@ -11391,9 +11390,9 @@ B<Example:>
      rdi: .... .... .... ...4
      rax: .3.. .... .... ....
   END
-  
+
     ok 8 == RegisterSize rax;
-  
+
 
 =head3 RestoreFirstSevenExceptRax()
 
@@ -11416,7 +11415,7 @@ B<Example:>
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFour;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -11424,13 +11423,13 @@ B<Example:>
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     RestoreFirstSevenExceptRax;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax, rdi;
     RestoreFirstFourExceptRax;
     PrintOutRegisterInHex rax, rdi;
-  
+
     SaveFirstFour;
     Mov rax, 2;
     Mov rdi, 2;
@@ -11438,14 +11437,14 @@ B<Example:>
     Mov rax, 3;
     Mov rdi, 4;
     PrintOutRegisterInHex rax, rdi;
-  
+
     Bswap rax;
     PrintOutRegisterInHex rax;
-  
+
     my $l = Label;
     Jmp $l;
     SetLabel $l;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rdi: .... .... .... ...4
@@ -11463,9 +11462,9 @@ B<Example:>
      rdi: .... .... .... ...4
      rax: .3.. .... .... ....
   END
-  
+
     ok 8 == RegisterSize rax;
-  
+
 
 =head3 ClearRegisters(@registers)
 
@@ -11484,19 +11483,19 @@ B<Example:>
     Kaddb k0,  k0, k0;
     Kmovq rax, k0;
     PushR k0;
-  
+
     ClearRegisters k0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Kmovq k1, k0;
     PopR  k0;
     PrintOutRegisterInHex k0;
     PrintOutRegisterInHex k1;
-  
+
     ok Assemble(avx512 => 1, eq => <<END)
       k0: .... .... .... ...8
       k1: .... .... .... ....
   END
-  
+
 
 =head3 SetZF()
 
@@ -11506,36 +11505,36 @@ Set the zero flag.
 B<Example:>
 
 
-  
+
     SetZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutZF;
     ClearZF;
     PrintOutZF;
-  
+
     SetZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutZF;
-  
+
     SetZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutZF;
     ClearZF;
     PrintOutZF;
-  
-  
+
+
     SetZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
     ClearZF;
     IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
-  
+
     Mov r15, 5;
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   ZF=1
   ZF=0
@@ -11549,7 +11548,7 @@ B<Example:>
   Carry
   NO carry
   END
-  
+
 
 =head3 ClearZF()
 
@@ -11561,7 +11560,7 @@ B<Example:>
 
     SetZF;
     PrintOutZF;
-  
+
     ClearZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutZF;
@@ -11569,24 +11568,24 @@ B<Example:>
     PrintOutZF;
     SetZF;
     PrintOutZF;
-  
+
     ClearZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutZF;
-  
+
     SetZF;
     IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
-  
+
     ClearZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
-  
+
     Mov r15, 5;
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   ZF=1
   ZF=0
@@ -11600,7 +11599,7 @@ B<Example:>
   Carry
   NO carry
   END
-  
+
 
 =head2 x, y, zmm
 
@@ -11631,14 +11630,14 @@ B<Example:>
 
 
     LoadZmm 0, 0..63;
-  
+
     PrintOutRegisterInHex zmm 0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   END
-  
+
 
 =head3 zmmM($z, $m)
 
@@ -11667,15 +11666,15 @@ Load a numbered zmm with the specified bytes.
 B<Example:>
 
 
-  
+
     LoadZmm 0, 0..63;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex zmm 0;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   END
-  
+
 
 =head3 checkZmmRegister($z)
 
@@ -11860,31 +11859,31 @@ B<Example:>
 
     Mov rax, 8;
     Mov rsi, -1;
-  
+
     Inc rsi; SetMaskRegister(0, rax, rsi); PrintOutRegisterInHex k0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Inc rsi; SetMaskRegister(1, rax, rsi); PrintOutRegisterInHex k1;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Inc rsi; SetMaskRegister(2, rax, rsi); PrintOutRegisterInHex k2;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Inc rsi; SetMaskRegister(3, rax, rsi); PrintOutRegisterInHex k3;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Inc rsi; SetMaskRegister(4, rax, rsi); PrintOutRegisterInHex k4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Inc rsi; SetMaskRegister(5, rax, rsi); PrintOutRegisterInHex k5;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Inc rsi; SetMaskRegister(6, rax, rsi); PrintOutRegisterInHex k6;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Inc rsi; SetMaskRegister(7, rax, rsi); PrintOutRegisterInHex k7;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
       k0: .... .... .... ....
       k1: .... .... .... .1..
@@ -11895,7 +11894,7 @@ B<Example:>
       k6: .... .... .... 3F..
       k7: .... .... .... 7F..
   END
-  
+
 
 =head3 LoadConstantIntoMaskRegister($mask, $value)
 
@@ -11930,13 +11929,13 @@ B<Example:>
       K($_,$_)->setMaskBit("k$_");
       PrintOutRegisterInHex "k$_";
      }
-  
+
     ClearRegisters k7;
-  
+
     LoadBitsIntoMaskRegister(7, '1010', -4, +4, -2, +2, -1, +1, -1, +1);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex "k7";
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
       k0: .... .... .... ...1
       k1: .... .... .... ...2
@@ -11948,7 +11947,7 @@ B<Example:>
       k7: .... .... .... ..80
       k7: .... .... ...A .F35
   END
-  
+
 
 =head1 Comparison codes
 
@@ -11975,7 +11974,7 @@ B<Example:>
 
 
     my $c = K(one => 1);
-  
+
     If ($c == 0,  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Then
@@ -11984,23 +11983,23 @@ B<Example:>
     Else
      {PrintOutStringNL "1 != 0";
      });
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   1 != 0
   END
-  
+
     my $a = K(key => 1);
-  
+
     If $a > 0,  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Then {Mov rax, 1},
     Else {Mov rax, 2};
     PrintOutRegisterInHex rax;
-  
+
     ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
      rax: .... .... .... ...1
   END
-  
+
 
 =head3 Then($block)
 
@@ -12014,16 +12013,16 @@ B<Example:>
 
     my $a = K(key => 1);
     If $a > 0,
-  
+
     Then {Mov rax, 1},  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Else {Mov rax, 2};
     PrintOutRegisterInHex rax;
-  
+
     ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
      rax: .... .... .... ...1
   END
-  
+
     my $a = V(a => 3);  $a->outNL;
     my $b = K(b => 2);  $b->outNL;
     my $c = $a +  $b; $c->outNL;
@@ -12031,9 +12030,9 @@ B<Example:>
     my $g = $a *  $b; $g->outNL;
     my $h = $g /  $b; $h->outNL;
     my $i = $a %  $b; $i->outNL;
-  
+
     If ($a == 3,
-  
+
     Then  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {PrintOutStringNL "a == 3"
@@ -12041,10 +12040,10 @@ B<Example:>
     Else
      {PrintOutStringNL "a != 3"
      });
-  
+
     ++$a; $a->outNL;
     --$a; $a->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   a: .... .... .... ...3
   b: .... .... .... ...2
@@ -12057,7 +12056,7 @@ B<Example:>
   a: .... .... .... ...4
   a: .... .... .... ...3
   END
-  
+
 
 =head3 Else($block)
 
@@ -12072,15 +12071,15 @@ B<Example:>
     my $a = K(key => 1);
     If $a > 0,
     Then {Mov rax, 1},
-  
+
     Else {Mov rax, 2};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
-  
+
     ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
      rax: .... .... .... ...1
   END
-  
+
     my $a = V(a => 3);  $a->outNL;
     my $b = K(b => 2);  $b->outNL;
     my $c = $a +  $b; $c->outNL;
@@ -12088,20 +12087,20 @@ B<Example:>
     my $g = $a *  $b; $g->outNL;
     my $h = $g /  $b; $h->outNL;
     my $i = $a %  $b; $i->outNL;
-  
+
     If ($a == 3,
     Then
      {PrintOutStringNL "a == 3"
      },
-  
+
     Else  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {PrintOutStringNL "a != 3"
      });
-  
+
     ++$a; $a->outNL;
     --$a; $a->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   a: .... .... .... ...3
   b: .... .... .... ...2
@@ -12114,7 +12113,7 @@ B<Example:>
   a: .... .... .... ...4
   a: .... .... .... ...3
   END
-  
+
 
 =head3 opposingJump($j)
 
@@ -12163,7 +12162,7 @@ B<Example:>
 
     my $cmp = sub
      {my ($a, $b) = @_;
-  
+
       for my $op(qw(eq ne lt le gt ge))
        {Mov rax, $a;
         Cmp rax, $b;
@@ -12195,7 +12194,7 @@ B<Example:>
   3 gt 2
   3 ge 2
   END
-  
+
 
 =head3 IfNe($then, $else)
 
@@ -12210,7 +12209,7 @@ B<Example:>
 
     my $cmp = sub
      {my ($a, $b) = @_;
-  
+
       for my $op(qw(eq ne lt le gt ge))
        {Mov rax, $a;
         Cmp rax, $b;
@@ -12242,7 +12241,7 @@ B<Example:>
   3 gt 2
   3 ge 2
   END
-  
+
 
 =head3 IfNz($then, $else)
 
@@ -12257,7 +12256,7 @@ B<Example:>
 
     Mov rax, 0;
     Test rax,rax;
-  
+
     IfNz  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Then
@@ -12268,7 +12267,7 @@ B<Example:>
      };
     Mov rax, 1;
     Test rax,rax;
-  
+
     IfNz  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Then
@@ -12277,9 +12276,9 @@ B<Example:>
     Else
      {PrintOutRegisterInHex rdx;
      };
-  
+
     ok Assemble(avx512=>0) =~ m(rbx.*rcx)s;
-  
+
 
 =head3 IfZ($then, $else)
 
@@ -12302,20 +12301,20 @@ B<Example:>
     PrintOutZF;
     ClearZF;
     PrintOutZF;
-  
+
     SetZF;
-  
+
     IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     ClearZF;
     IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
-  
+
     Mov r15, 5;
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   ZF=1
   ZF=0
@@ -12329,7 +12328,7 @@ B<Example:>
   Carry
   NO carry
   END
-  
+
 
 =head3 IfC($then, $else)
 
@@ -12352,22 +12351,22 @@ B<Example:>
     PrintOutZF;
     ClearZF;
     PrintOutZF;
-  
+
     SetZF;
     IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
     ClearZF;
     IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
-  
+
     Mov r15, 5;
-  
+
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   ZF=1
   ZF=0
@@ -12381,7 +12380,7 @@ B<Example:>
   Carry
   NO carry
   END
-  
+
 
 =head3 IfNc($then, $else)
 
@@ -12404,22 +12403,22 @@ B<Example:>
     PrintOutZF;
     ClearZF;
     PrintOutZF;
-  
+
     SetZF;
     IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
     ClearZF;
     IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
-  
+
     Mov r15, 5;
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
-  
+
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   ZF=1
   ZF=0
@@ -12433,7 +12432,7 @@ B<Example:>
   Carry
   NO carry
   END
-  
+
 
 =head3 IfLt($then, $else)
 
@@ -12448,7 +12447,7 @@ B<Example:>
 
     my $cmp = sub
      {my ($a, $b) = @_;
-  
+
       for my $op(qw(eq ne lt le gt ge))
        {Mov rax, $a;
         Cmp rax, $b;
@@ -12480,7 +12479,7 @@ B<Example:>
   3 gt 2
   3 ge 2
   END
-  
+
 
 =head3 IfLe($then, $else)
 
@@ -12495,7 +12494,7 @@ B<Example:>
 
     my $cmp = sub
      {my ($a, $b) = @_;
-  
+
       for my $op(qw(eq ne lt le gt ge))
        {Mov rax, $a;
         Cmp rax, $b;
@@ -12527,7 +12526,7 @@ B<Example:>
   3 gt 2
   3 ge 2
   END
-  
+
 
 =head3 IfGt($then, $else)
 
@@ -12542,7 +12541,7 @@ B<Example:>
 
     my $cmp = sub
      {my ($a, $b) = @_;
-  
+
       for my $op(qw(eq ne lt le gt ge))
        {Mov rax, $a;
         Cmp rax, $b;
@@ -12574,7 +12573,7 @@ B<Example:>
   3 gt 2
   3 ge 2
   END
-  
+
 
 =head3 IfGe($then, $else)
 
@@ -12589,7 +12588,7 @@ B<Example:>
 
     my $cmp = sub
      {my ($a, $b) = @_;
-  
+
       for my $op(qw(eq ne lt le gt ge))
        {Mov rax, $a;
         Cmp rax, $b;
@@ -12621,7 +12620,7 @@ B<Example:>
   3 gt 2
   3 ge 2
   END
-  
+
 
 =head3 IfS($then, $else)
 
@@ -12662,21 +12661,21 @@ B<Example:>
       Je  $pass;
       PrintOutStringNL "Fail";
      }
-  
+
     Pass  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {my ($end, $pass, $start) = @_;
-  
+
       PrintOutStringNL "Pass";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      };
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
-  
+
   Pass  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
   END
-  
+
 
 =head3 Fail($block)
 
@@ -12697,19 +12696,19 @@ B<Example:>
       Jne $fail;
       PrintOutStringNL "Pass";
      }
-  
+
     Fail  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {my ($end, $fail, $start) = @_;
-  
+
       PrintOutStringNL "Fail";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      };
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   Pass
   END
-  
+
 
 =head3 Block($code)
 
@@ -12730,7 +12729,7 @@ B<Example:>
 
 
     Mov rax, 1; Mov rdx, 2;
-  
+
     AndBlock  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {my ($fail, $end, $start) = @_;
@@ -12744,11 +12743,11 @@ B<Example:>
      {my ($end, $fail, $start) = @_;
       PrintOutStringNL "Fail";
      };
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   Pass
   END
-  
+
 
 =head3 OrBlock($test, $pass)
 
@@ -12762,7 +12761,7 @@ B<Example:>
 
 
     Mov rax, 1;
-  
+
     OrBlock  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {my ($pass, $end, $start) = @_;
@@ -12776,11 +12775,11 @@ B<Example:>
      {my ($end, $pass, $start) = @_;
       PrintOutStringNL "Pass";
      };
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   Pass
   END
-  
+
 
 =head2 Iteration
 
@@ -12799,7 +12798,7 @@ For - iterate the block as long as register is less than limit incrementing by i
 B<Example:>
 
 
-  
+
     For  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {my ($start, $end, $next) = @_;
@@ -12807,13 +12806,13 @@ B<Example:>
       Jge $end;
       PrintOutRegisterInHex rax;
      } rax, 16, 1;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ....
      rax: .... .... .... ...1
      rax: .... .... .... ...2
   END
-  
+
 
 =head3 ForIn($full, $last, $register, $limitRegister, $increment)
 
@@ -12871,21 +12870,21 @@ B<Example:>
 
 
     my $d = V depth => 3;                                                         # Create a variable on the stack
-  
+
     my $s = Subroutine
      {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine descriptor
       $$p{depth}->outNL;
       my $d = $$p{depth}->copy($$p{depth} - 1);                                   # Modify the variable referenced by the parameter
-  
+
       If $d > 0,
       Then
        {$sub->call(parameters => {depth => $d});                                  # Recurse
        };
-  
+
      } parameters =>[qw(depth)], name => 'ref';
-  
+
     $s->call(parameters=>{depth => $d});
-  
+
     $d->outNL;
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   depth: .... .... .... ...3
@@ -12893,7 +12892,7 @@ B<Example:>
   depth: .... .... .... ...1
   depth: .... .... .... ....
   END
-  
+
 
 =head3 OnSegv()
 
@@ -12903,24 +12902,24 @@ Request a trace back followed by exit on a B<segv> signal.
 B<Example:>
 
 
-  
+
     OnSegv();                                                                     # Request a trace back followed by exit on a segv signal.  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     my $t = Subroutine                                                            # Subroutine that will cause an error to occur to force a trace back to be printed
      {Mov r15, 0;
       Mov r15, "[r15]";                                                           # Try to read an unmapped memory location
      } [qw(in)], name => 'sub that causes a segv';                                # The name that will appear in the trace back
-  
+
     $t->call(K(in, 42));
-  
+
     ok Assemble(debug => 0, keep2 => 'signal', avx512=>0, eq => <<END, avx512=>0);# Cannot use the emulator because it does not understand signals
-  
+
   Subroutine trace back, depth:  1
   0000 0000 0000 002A    sub that causes a segv
-  
+
   END
-  
+
 
 =head3 copyStructureMinusVariables($s)
 
@@ -12941,7 +12940,7 @@ B<Example:>
 
 
     my $g = V g => 3;
-  
+
     my $s = Subroutine  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {my ($p, $s, $sub) = @_;
@@ -12953,23 +12952,23 @@ B<Example:>
        {$sub->call(parameters=>{g => $g});
        };
      } parameters=>[qw(g)], name => 'ref';
-  
+
     $s->call(parameters=>{g => $g});
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   g: .... .... .... ...2
   g: .... .... .... ...1
   g: .... .... .... ....
   END
-  
-  
+
+
     my $s = Subroutine                                                              # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
-  
+
+
     my $t = Subroutine                                                              # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
 
 =head3 Nasm::X86::Subroutine::mapStructureVariables($sub, $S, @P)
 
@@ -13001,7 +13000,7 @@ Call a sub optionally passing it parameters.
 B<Example:>
 
 
-  
+
    my $h = genHash("AAAA",
      a => V(a =>  1),
      b => V(b =>  2),
@@ -13015,7 +13014,7 @@ B<Example:>
      j => V(j => 10),
      k => V(k => 11),
      l => V(l => 12));
-  
+
    my $i = genHash("AAAA",
      a => V(a => 0x011),
      b => V(b => 0x022),
@@ -13029,7 +13028,7 @@ B<Example:>
      j => V(j => 0x111),
      k => V(k => 0x222),
      l => V(l => 0x333));
-  
+
     my $s = Subroutine
      {my ($p, $s, $sub) = @_;
       my $h = $$s{h};
@@ -13048,10 +13047,10 @@ B<Example:>
       $$h{l}->outNL;
       $$p{b}->outNL;
      } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
-  
+
     $s->call(structures => {h => $i}, parameters=>{a=>V(key => 1), b=>V(key => 0x111)});
     $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
-  
+
     Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>9151, label => 'aa';
   a: .... .... .... ..11
   b: .... .... .... ..22
@@ -13080,8 +13079,8 @@ B<Example:>
   l: .... .... .... ...C
   b: .... .... .... .222
   END
-  
-  
+
+
    my $h = genHash("AAAA",
      a => V(a =>  1),
      b => V(b =>  2),
@@ -13095,7 +13094,7 @@ B<Example:>
      j => V(j => 10),
      k => V(k => 11),
      l => V(l => 12));
-  
+
     my $s = Subroutine
      {my ($p, $s, $sub) = @_;
       my $h = $$s{h};
@@ -13117,9 +13116,9 @@ B<Example:>
        {$sub->call(structures => {h => $h}, parameters=>{a=>V(key => 0), b=>V(key => 0x111)});
        };
      } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
-  
+
     $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
-  
+
     Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>17609, label => 'aaa';
   a: .... .... .... ...1
   b: .... .... .... ...2
@@ -13146,7 +13145,7 @@ B<Example:>
   k: .... .... .... ...B
   l: .... .... .... ...C
   END
-  
+
 
 =head3 Nasm::X86::Subroutine::inline($sub, %options)
 
@@ -13163,15 +13162,15 @@ B<Example:>
      {my ($p, $s, $sub) = @_;
       $$p{ppp}->outNL;
      } name => "s", parameters=>[qw(ppp)];
-  
+
     $s->call  (parameters => {ppp => V ppp => 0x99});                             # Call   378
     $s->inline(parameters => {ppp => V ppp => 0xaa});                             # Inline 364
-  
+
     Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
   ppp: .... .... .... ..99
   ppp: .... .... .... ..AA
   END
-  
+
 
 =head1 Comments
 
@@ -13194,7 +13193,7 @@ Insert a comment into the assembly code.
 B<Example:>
 
 
-  
+
     Comment "Print a string from memory";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $s = "Hello World";
@@ -13202,9 +13201,9 @@ B<Example:>
     Mov rdi, length $s;
     PrintOutMemory;
     Exit(0);
-  
+
     ok Assemble(avx512=>0) =~ m(Hello World);
-  
+
 
 =head2 DComment(@comment)
 
@@ -13252,21 +13251,21 @@ B<Example:>
     Mov(rax, "[$q]");
     PrintOutString "rax: ";
     PrintOutRaxInHex;
-  
+
     PrintOutNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Xor rax, rax;
     PrintOutString "rax: ";
     PrintOutRaxInHex;
-  
+
     PrintOutNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(avx512=>0, eq=><<END)
   rax: 6261 6261 6261 6261
   rax: .... .... .... ....
   END
-  
+
 
 =head3 PrintString($channel, @string)
 
@@ -13304,16 +13303,16 @@ B<Example:>
     PrintOutStringNL "Hello World";
     PrintOutStringNL "Hello
 World";
-  
+
     PrintErrStringNL "Hello World";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble debug => 0, eq => <<END, avx512=>0, label=>'t1';
   Hello World
   Hello
   World
   END
-  
+
 
 =head3 PrintOutString(@string)
 
@@ -13327,23 +13326,23 @@ B<Example:>
 
     my $q = Rs('abababab');
     Mov(rax, "[$q]");
-  
+
     PrintOutString "rax: ";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRaxInHex;
     PrintOutNL;
     Xor rax, rax;
-  
+
     PrintOutString "rax: ";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRaxInHex;
     PrintOutNL;
-  
+
     ok Assemble(avx512=>0, eq=><<END)
   rax: 6261 6261 6261 6261
   rax: .... .... .... ....
   END
-  
+
 
 =head3 PrintOutStringNL(@string)
 
@@ -13355,21 +13354,21 @@ Print a constant string to stdout followed by a new line.
 B<Example:>
 
 
-  
+
     PrintOutStringNL "Hello World";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     PrintOutStringNL "Hello
 World";  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintErrStringNL "Hello World";
-  
+
     ok Assemble debug => 0, eq => <<END, avx512=>0, label=>'t1';
   Hello World
   Hello
   World
   END
-  
+
 
 =head3 PrintCString($channel, $string)
 
@@ -13442,22 +13441,22 @@ B<Example:>
     my $q = Rs('abababab');
     Mov(rax, "[$q]");
     PrintOutString "rax: ";
-  
+
     PrintOutRaxInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutNL;
     Xor rax, rax;
     PrintOutString "rax: ";
-  
+
     PrintOutRaxInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutNL;
-  
+
     ok Assemble(avx512=>0, eq=><<END)
   rax: 6261 6261 6261 6261
   rax: .... .... .... ....
   END
-  
+
 
 =head3 PrintOutRaxInHexNL()
 
@@ -13468,19 +13467,19 @@ B<Example:>
 
 
     my $s = Rb(0..255);
-  
+
     Vmovdqu64 xmm1, "[$s]";
     PrintOutRegisterInHex xmm1;
     PrintOutRegisterInHex xmm1;
-  
+
     Vmovdqu64 ymm1, "[$s]";
     PrintOutRegisterInHex ymm1;
     PrintOutRegisterInHex ymm1;
-  
+
     Vmovdqu64 zmm1, "[$s]";
     PrintOutRegisterInHex zmm1;
     PrintOutRegisterInHex zmm1;
-  
+
     ok Assemble avx512=>1, debug=>0, eq =><<END;
     xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
     xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
@@ -13489,7 +13488,7 @@ B<Example:>
     zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
     zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   END
-  
+
 
 =head3 PrintRax_InHex($channel, $end)
 
@@ -13531,20 +13530,20 @@ B<Example:>
     Shl rax, 32;
     Or  rax, 0x07654321;
     PushR rax;
-  
+
     PrintOutRaxInHex;
     PrintOutNL;
-  
+
     PrintOutRaxInReverseInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutNL;
-  
+
     Mov rax, rsp;
     Mov rdi, 8;
     PrintOutMemoryInHex;
     PrintOutNL;
     PopR rax;
-  
+
     Mov rax, 4096;
     PushR rax;
     Mov rax, rsp;
@@ -13552,14 +13551,14 @@ B<Example:>
     PrintOutMemoryInHex;
     PrintOutNL;
     PopR rax;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   .765 4321 .765 4321
   2143 65.7 2143 65.7
   2143 65.7 2143 65.7
   ..10 .... .... ....
   END
-  
+
 
 =head3 PrintOneRegisterInHex($channel, $r)
 
@@ -13642,10 +13641,10 @@ B<Example:>
     Mov rdi, 4;
     Mov rdx, 5;
     Mov rsi, 6;
-  
+
     PrintOutRegistersInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     my $r = Assemble(avx512=>0, eq=><<END, debug=>0);
   rfl: .... .... .... .2.2
   r10: .... .... .... ..10
@@ -13663,7 +13662,7 @@ B<Example:>
   rdx: .... .... .... ...5
   rsi: .... .... .... ...6
   END
-  
+
 
 =head2 Zero Flag
 
@@ -13683,37 +13682,37 @@ B<Example:>
 
 
     SetZF;
-  
+
     PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     ClearZF;
-  
+
     PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     SetZF;
-  
+
     PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     SetZF;
-  
+
     PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     ClearZF;
-  
+
     PrintOutZF;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     SetZF;
     IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
     ClearZF;
     IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
-  
+
     Mov r15, 5;
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
     Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
     Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   ZF=1
   ZF=0
@@ -13727,7 +13726,7 @@ B<Example:>
   Carry
   NO carry
   END
-  
+
 
 =head2 Hexadecimal
 
@@ -13778,9 +13777,9 @@ B<Example:>
 
 
     my $N = K number => 0x12345678;
-  
+
     for my $i(reverse 1..16)
-  
+
      {PrintOutRightInHexNL($N, K width => $i);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      }
@@ -13802,7 +13801,7 @@ B<Example:>
   78
   8
   END
-  
+
 
 =head2 Binary
 
@@ -13854,7 +13853,7 @@ B<Example:>
 
     K(count => 64)->for(sub
      {my ($index, $start, $next, $end) = @_;
-  
+
       PrintOutRightInBinNL K(number => 0x99), K(max => 64) - $index;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      });
@@ -13924,7 +13923,7 @@ B<Example:>
   01
   1
   END
-  
+
 
 =head2 Decimal
 
@@ -13951,25 +13950,25 @@ B<Example:>
 
 
     my $w = V width => 12;
-  
+
     Mov rax, 0;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 0x2a;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 1;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 255;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 123456;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 1234567890;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 0x2;
     Shl rax, 16;
     Mov rdx, 0xdfdc;
@@ -13978,7 +13977,7 @@ B<Example:>
     Mov rdx, 0x1c35;
     Or rax, rdx;
     PrintOutRaxRightInDecNL $w;
-  
+
   # 1C BE99 1A14
     Mov rax, 0x1c;
     Shl rax, 16;
@@ -13987,10 +13986,10 @@ B<Example:>
     Shl rax, 16;
     Mov rdx, 0x1a14;
     Or rax, rdx;
-  
+
     PrintOutRaxInDecNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
   # 2 EE33 3961
     Mov rax, 0x2;
     Shl rax, 16;
@@ -14000,7 +13999,7 @@ B<Example:>
     Mov rdx, 0x3961;
     Or rax, rdx;
     PrintOutRaxRightInDecNL $w;
-  
+
     ok Assemble avx512=>0, eq => <<END;
              0
             42
@@ -14012,7 +14011,7 @@ B<Example:>
   123456789012
    12586269025
   END
-  
+
 
 =head3 PrintErrRaxInDec()
 
@@ -14057,25 +14056,25 @@ B<Example:>
 
 
     my $w = V width => 12;
-  
+
     Mov rax, 0;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 0x2a;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 1;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 255;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 123456;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 1234567890;
     PrintOutRaxRightInDecNL $w;
-  
+
     Mov rax, 0x2;
     Shl rax, 16;
     Mov rdx, 0xdfdc;
@@ -14084,7 +14083,7 @@ B<Example:>
     Mov rdx, 0x1c35;
     Or rax, rdx;
     PrintOutRaxRightInDecNL $w;
-  
+
   # 1C BE99 1A14
     Mov rax, 0x1c;
     Shl rax, 16;
@@ -14094,7 +14093,7 @@ B<Example:>
     Mov rdx, 0x1a14;
     Or rax, rdx;
     PrintOutRaxInDecNL;
-  
+
   # 2 EE33 3961
     Mov rax, 0x2;
     Shl rax, 16;
@@ -14104,7 +14103,7 @@ B<Example:>
     Mov rdx, 0x3961;
     Or rax, rdx;
     PrintOutRaxRightInDecNL $w;
-  
+
     ok Assemble avx512=>0, eq => <<END;
              0
             42
@@ -14116,18 +14115,18 @@ B<Example:>
   123456789012
    12586269025
   END
-  
+
     Mov rax, 0x2a;
-  
+
     PrintOutRaxRightInDec   V width=> 4;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Shl rax, 1;
     PrintOutRaxRightInDecNL V width=> 6;
-  
+
     ok Assemble eq => <<END, avx512=>0;
     42    84
   END
-  
+
 
 =head3 PrintOutRaxRightInDecNL($width)
 
@@ -14142,14 +14141,14 @@ B<Example:>
     Mov rax, 0x2a;
     PrintOutRaxRightInDec   V width=> 4;
     Shl rax, 1;
-  
+
     PrintOutRaxRightInDecNL V width=> 6;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble eq => <<END, avx512=>0;
     42    84
   END
-  
+
 
 =head3 PrintRaxAsText($channel)
 
@@ -14174,25 +14173,25 @@ B<Example:>
     my $t = Rs('abcdefghi');
     Mov rax, $t;
     Mov rax, "[rax]";
-  
+
     PrintOutRaxAsTextNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     ok Assemble eq => <<END, avx512=>0;
   abcdefgh
   END
   }
-  
+
   #latest:
   if (1) {                                                                         ;
     my $e = q(parameters);
-  
+
     (V string => "[rbp+8]")->outInDecNL;
     (V string => "[rbp+16]")->outCStringNL;
     (V string => "[rbp+24]")->outCStringNL;
     (V string => "[rbp+32]")->outCStringNL;
     (V string => "[rbp+40]")->outCStringNL;
     (V string => "[rbp+48]")->outInDecNL;
-  
+
     (V string => "[rbp+8]")->for(sub
      {my ($index, $start, $next, $end) = @_;
       $index->setReg(rax);
@@ -14203,9 +14202,9 @@ B<Example:>
       Shl rax, 3;
       (V string => "[rbp+rax]")->outCStringNL;
      });
-  
+
     Assemble keep => $e;
-  
+
     is_deeply scalar(qx(./$e AaAaAaAaAa BbCcDdEe 123456789)), <<END;
   string: 4
   ./parameters
@@ -14218,9 +14217,9 @@ B<Example:>
   3 : BbCcDdEe
   4 : 123456789
   END
-  
+
     unlink $e;
-  
+
     V( loop => 16)->for(sub
      {my ($index, $start, $next, $end) = @_;
       $index->setReg(rax);
@@ -14230,11 +14229,11 @@ B<Example:>
       PrintOutRaxAsText;
      });
     PrintOutNL;
-  
+
     ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
   𝝰𝝱𝝲𝝳𝝴𝝵𝝶𝝷𝝸𝝹𝝺𝝻𝝼𝝽𝝾𝝿
   END
-  
+
 
 =head3 PrintErrRaxAsText()
 
@@ -14262,28 +14261,28 @@ B<Example:>
 
 
     my $e = q(readChar);
-  
+
     ForEver
      {my ($start, $end) = @_;
       ReadChar;
       Cmp rax, 0xa;
       Jle $end;
-  
+
       PrintOutRaxAsChar;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
       PrintOutRaxAsChar;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      };
     PrintOutNL;
-  
+
     Assemble keep => $e;
-  
+
     is_deeply qx(echo "ABCDCBA" | ./$e), <<END;
   AABBCCDDCCBBAA
   END
     unlink $e;
-  
+
 
 =head3 PrintOutRaxAsCharNL()
 
@@ -14327,7 +14326,7 @@ Return a "[register expression]" to address the data in the variable in the curr
 B<Example:>
 
 
-  if (1)                                                                          
+  if (1)
    {my $v = V var => 2;
     Mov rax, $v->at;
     PrintOutRegisterInHex rax;
@@ -14335,7 +14334,7 @@ B<Example:>
      rax: .... .... .... ...2
   END
    }
-  
+
 
 =head3 K($name, $expr)
 
@@ -14352,41 +14351,41 @@ B<Example:>
      {my ($p) = @_;
       $$p{v}->copy($$p{v} + $$p{k} + $$p{g} + 1);
      } name => 'add', parameters=>[qw(v k g)];
-  
+
     my $v = V(v => 1);
-  
+
     my $k = K(k => 2);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $g = V(g => 3);
     $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
     $v->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   v: .... .... .... ...7
   END
-  
+
     my $g = V g => 0;
     my $s = Subroutine
      {my ($p) = @_;
-  
+
       $$p{g}->copy(K value => 1);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      } name => 'ref2', parameters=>[qw(g)];
-  
+
     my $t = Subroutine
      {my ($p) = @_;
       $s->call(parameters=>{g=>$$p{g}});
      } name => 'ref', parameters=>[qw(g)];
-  
+
     $t->call(parameters=>{g=>$g});
     $g->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   g: .... .... .... ...1
   END
-  
+
     my $a = V(a => 3);  $a->outNL;
-  
+
     my $b = K(b => 2);  $b->outNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $c = $a +  $b; $c->outNL;
@@ -14394,7 +14393,7 @@ B<Example:>
     my $g = $a *  $b; $g->outNL;
     my $h = $g /  $b; $h->outNL;
     my $i = $a %  $b; $i->outNL;
-  
+
     If ($a == 3,
     Then
      {PrintOutStringNL "a == 3"
@@ -14402,10 +14401,10 @@ B<Example:>
     Else
      {PrintOutStringNL "a != 3"
      });
-  
+
     ++$a; $a->outNL;
     --$a; $a->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   a: .... .... .... ...3
   b: .... .... .... ...2
@@ -14418,7 +14417,7 @@ B<Example:>
   a: .... .... .... ...4
   a: .... .... .... ...3
   END
-  
+
 
 =head3 R($name)
 
@@ -14442,42 +14441,42 @@ B<Example:>
      {my ($p) = @_;
       $$p{v}->copy($$p{v} + $$p{k} + $$p{g} + 1);
      } name => 'add', parameters=>[qw(v k g)];
-  
-  
+
+
     my $v = V(v => 1);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $k = K(k => 2);
-  
+
     my $g = V(g => 3);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
     $v->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   v: .... .... .... ...7
   END
-  
-  
+
+
     my $g = V g => 0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $s = Subroutine
      {my ($p) = @_;
       $$p{g}->copy(K value => 1);
      } name => 'ref2', parameters=>[qw(g)];
-  
+
     my $t = Subroutine
      {my ($p) = @_;
       $s->call(parameters=>{g=>$$p{g}});
      } name => 'ref', parameters=>[qw(g)];
-  
+
     $t->call(parameters=>{g=>$g});
     $g->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   g: .... .... .... ...1
   END
-  
-  
+
+
     my $a = V(a => 3);  $a->outNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $b = K(b => 2);  $b->outNL;
@@ -14486,7 +14485,7 @@ B<Example:>
     my $g = $a *  $b; $g->outNL;
     my $h = $g /  $b; $h->outNL;
     my $i = $a %  $b; $i->outNL;
-  
+
     If ($a == 3,
     Then
      {PrintOutStringNL "a == 3"
@@ -14494,10 +14493,10 @@ B<Example:>
     Else
      {PrintOutStringNL "a != 3"
      });
-  
+
     ++$a; $a->outNL;
     --$a; $a->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   a: .... .... .... ...3
   b: .... .... .... ...2
@@ -14510,7 +14509,7 @@ B<Example:>
   a: .... .... .... ...4
   a: .... .... .... ...3
   END
-  
+
 
 =head2 Print variables
 
@@ -14575,7 +14574,7 @@ B<Example:>
               4369
               1111
   END
-  
+
 
 =head3 Nasm::X86::Variable::debug22($left)
 
@@ -14628,14 +14627,14 @@ B<Example:>
 
 
     my $e = q(parameters);
-  
+
     (V string => "[rbp+8]")->outInDecNL;
     (V string => "[rbp+16]")->outCStringNL;
     (V string => "[rbp+24]")->outCStringNL;
     (V string => "[rbp+32]")->outCStringNL;
     (V string => "[rbp+40]")->outCStringNL;
     (V string => "[rbp+48]")->outInDecNL;
-  
+
     (V string => "[rbp+8]")->for(sub
      {my ($index, $start, $next, $end) = @_;
       $index->setReg(rax);
@@ -14646,9 +14645,9 @@ B<Example:>
       Shl rax, 3;
       (V string => "[rbp+rax]")->outCStringNL;
      });
-  
+
     Assemble keep => $e;
-  
+
     is_deeply scalar(qx(./$e AaAaAaAaAa BbCcDdEe 123456789)), <<END;
   string: 4
   ./parameters
@@ -14661,9 +14660,9 @@ B<Example:>
   3 : BbCcDdEe
   4 : 123456789
   END
-  
+
     unlink $e;
-  
+
 
 =head3 Decimal representation right justified
 
@@ -14863,20 +14862,20 @@ B<Example:>
 
     my $s = Rutf8 '𝝰𝝱𝝲𝝳';
     V(address => $s)->outCStringNL;
-  
+
     ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
   𝝰𝝱𝝲𝝳
   END
-  
+
     my $e = q(parameters);
-  
+
     (V string => "[rbp+8]")->outInDecNL;
     (V string => "[rbp+16]")->outCStringNL;
     (V string => "[rbp+24]")->outCStringNL;
     (V string => "[rbp+32]")->outCStringNL;
     (V string => "[rbp+40]")->outCStringNL;
     (V string => "[rbp+48]")->outInDecNL;
-  
+
     (V string => "[rbp+8]")->for(sub
      {my ($index, $start, $next, $end) = @_;
       $index->setReg(rax);
@@ -14887,9 +14886,9 @@ B<Example:>
       Shl rax, 3;
       (V string => "[rbp+rax]")->outCStringNL;
      });
-  
+
     Assemble keep => $e;
-  
+
     is_deeply scalar(qx(./$e AaAaAaAaAa BbCcDdEe 123456789)), <<END;
   string: 4
   ./parameters
@@ -14902,9 +14901,9 @@ B<Example:>
   3 : BbCcDdEe
   4 : 123456789
   END
-  
+
     unlink $e;
-  
+
 
 =head2 Addressing
 
@@ -14942,29 +14941,29 @@ Return the address and length of a constant string as two variables.
 B<Example:>
 
 
-  
+
     my ($t, $l) = constantString("Hello World");  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $t->printOutMemoryNL($l);
-  
+
     ok Assemble eq => <<END, avx512=>1;
   Hello World
   END
-  
+
     my $a = CreateArea;
-  
+
     my ($s, $l) = constantString("1234567");  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     my $t = $a->treeFromString($s, $l);
        $t->dump8xx("AA");
-  
+
        $t->push(my $v = K key => 0x99);
        $t->dump8xx("BB");
-  
+
     my $T = $a->CreateTree;
        $T->putString($t);
        $T->dump8xx("CC");
-  
+
        $t->pop;
     my $S = $T->getString($t);
        $S->found->outNL;
@@ -15038,7 +15037,7 @@ B<Example:>
   found: .... .... .... ...1
   data: .... .... .... .780
   END
-  
+
 
 =head2 Operations
 
@@ -15072,14 +15071,14 @@ B<Example:>
 
     my $a = V('a', 1);
     my $b = $a->clone('a');
-  
+
     $_->outNL for $a, $b;
-  
+
     ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
   a: .... .... .... ...1
   a: .... .... .... ...1
   END
-  
+
 
 =head3 Nasm::X86::Variable::copy($left, $right)
 
@@ -15096,35 +15095,35 @@ B<Example:>
      {my ($p) = @_;
       $$p{v}->copy($$p{v} + $$p{k} + $$p{g} + 1);
      } name => 'add', parameters=>[qw(v k g)];
-  
+
     my $v = V(v => 1);
     my $k = K(k => 2);
     my $g = V(g => 3);
     $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
     $v->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   v: .... .... .... ...7
   END
-  
+
     my $g = V g => 0;
     my $s = Subroutine
      {my ($p) = @_;
       $$p{g}->copy(K value => 1);
      } name => 'ref2', parameters=>[qw(g)];
-  
+
     my $t = Subroutine
      {my ($p) = @_;
       $s->call(parameters=>{g=>$$p{g}});
      } name => 'ref', parameters=>[qw(g)];
-  
+
     $t->call(parameters=>{g=>$g});
     $g->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   g: .... .... .... ...1
   END
-  
+
 
 =head3 Nasm::X86::Variable::copyRef($left, $right)
 
@@ -15150,14 +15149,14 @@ B<Example:>
     Cmp r15, 2; $z->copyZF;         $z->outNL;
     Cmp r15, 1; $z->copyZFInverted; $z->outNL;
     Cmp r15, 2; $z->copyZFInverted; $z->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   zf: .... .... .... ...1
   zf: .... .... .... ....
   zf: .... .... .... ....
   zf: .... .... .... ...1
   END
-  
+
 
 =head3 Nasm::X86::Variable::copyZFInverted($var)
 
@@ -15175,14 +15174,14 @@ B<Example:>
     Cmp r15, 2; $z->copyZF;         $z->outNL;
     Cmp r15, 1; $z->copyZFInverted; $z->outNL;
     Cmp r15, 2; $z->copyZFInverted; $z->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   zf: .... .... .... ...1
   zf: .... .... .... ....
   zf: .... .... .... ....
   zf: .... .... .... ...1
   END
-  
+
 
 =head3 Nasm::X86::Variable::equals($op, $left, $right)
 
@@ -15445,14 +15444,14 @@ B<Example:>
     $b->outNL;
     $c->outNL;
     $d->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   a: .... .... .... ...1
   b: .... .... .... ...2
   min: .... .... .... ...1
   max: .... .... .... ...2
   END
-  
+
 
 =head3 Nasm::X86::Variable::max($left, $right)
 
@@ -15473,14 +15472,14 @@ B<Example:>
     $b->outNL;
     $c->outNL;
     $d->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   a: .... .... .... ...1
   b: .... .... .... ...2
   min: .... .... .... ...1
   max: .... .... .... ...2
   END
-  
+
 
 =head3 Nasm::X86::Variable::and($left, $right)
 
@@ -15514,11 +15513,11 @@ B<Example:>
     my $length = V("Length", 3);
     $start->setMask($length, k7);
     PrintOutRegisterInHex k7;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
       k7: .... .... .... .380
   END
-  
+
     my $z = V('zero', 0);
     my $o = V('one',  1);
     my $t = V('two',  2);
@@ -15528,10 +15527,10 @@ B<Example:>
     $o->setMask($o,       k4); PrintOutRegisterInHex k4;
     $o->setMask($t,       k3); PrintOutRegisterInHex k3;
     $o->setMask($o+$t,    k2); PrintOutRegisterInHex k2;
-  
+
     $t->setMask($o,       k1); PrintOutRegisterInHex k1;
     $t->setMask($t,       k0); PrintOutRegisterInHex k0;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
       k7: .... .... .... ...1
       k6: .... .... .... ...3
@@ -15542,7 +15541,7 @@ B<Example:>
       k1: .... .... .... ...4
       k0: .... .... .... ...C
   END
-  
+
 
 =head3 Nasm::X86::Variable::setMaskFirst($length, $mask)
 
@@ -15599,21 +15598,21 @@ B<Example:>
 
     my $s = Rb(0..128);
     my $source = V(Source=> $s);
-  
+
     if (1)                                                                        # First block
      {$source->setZmm(0, K(key => 7), K length => 3);
      }
-  
+
     if (1)                                                                        # Second block
      {$source->setZmm(0, K(key => 33), K key => 12);
      }
-  
+
     PrintOutRegisterInHex zmm0;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     zmm0: .... .... .... ....  .... .... .... .... - .... ...B .A.9 .8.7  .6.5 .4.3 .2.1 .... + .... .... .... ....  .... .... .... .... - .... .... .... .2.1  .... .... .... ....
   END
-  
+
 
 =head3 Nasm::X86::Variable::loadZmm($source, $zmm)
 
@@ -15681,19 +15680,19 @@ B<Example:>
 
 
     my $tree = DescribeTree(length => 7);
-  
+
     my $K = 31;
-  
+
     K(K => Rd(0..15))->loadZmm($K);
-  
+
     PrintOutRegisterInHex zmm $K;
     K( offset => 1 << 5)->dFromPointInZ($K)->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... ...F .... ...E  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
   d: .... .... .... ...5
   END
-  
+
 
 =head3 Nasm::X86::Variable::dIntoPointInZ($point, $zmm, $content)
 
@@ -15791,7 +15790,7 @@ B<Example:>
     wFromZ(zmm0, 12)->outNL;
     dFromZ(zmm0, 12)->outNL;
     qFromZ(zmm0, 12)->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     zmm0: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .7.6 .5.4 .3.2 .1.. - .... .3.2 .1.. ....  .1.. .... .... ....
   b at offset 12 in zmm0: .... .... .... ...2
@@ -15799,7 +15798,7 @@ B<Example:>
   d at offset 12 in zmm0: .... .... .... .3.2
   q at offset 12 in zmm0: .3.2 .1.. .... .3.2
   END
-  
+
 
 =head3 Nasm::X86::Variable::qIntoZ($content, $zmm, $offset)
 
@@ -15904,13 +15903,13 @@ B<Example:>
     Mov rax, $u;
     my $address = V address=>rax;
     $address->printOutMemoryInHexNL(K size => 16);
-  
+
     ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
   70D7 .1.. 71D7 .1..  72D7 .1.. 73D7 .1..
   END
-  
+
     my $v = V var => 2;
-  
+
     If  $v == 0, Then {Mov rax, 0},
     Ef {$v == 1} Then {Mov rax, 1},
     Ef {$v == 2} Then {Mov rax, 2},
@@ -15919,7 +15918,7 @@ B<Example:>
     ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...2
   END
-  
+
 
 =head3 Nasm::X86::Variable::freeMemory($address, $size)
 
@@ -15935,20 +15934,20 @@ B<Example:>
     my $N = K size => 2048;
     my $q = Rs('a'..'p');
     my $address = $N->allocateMemory;
-  
+
     Vmovdqu8 xmm0, "[$q]";
     $address->setReg(rax);
     Vmovdqu8 "[rax]", xmm0;
     Mov rdi, 16;
     PrintOutMemory;
     PrintOutNL;
-  
+
     $address->freeMemory($N);
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   abcdefghijklmnop
   END
-  
+
 
 =head3 Nasm::X86::Variable::allocateMemory($size)
 
@@ -15963,20 +15962,20 @@ B<Example:>
     my $N = K size => 2048;
     my $q = Rs('a'..'p');
     my $address = $N->allocateMemory;
-  
+
     Vmovdqu8 xmm0, "[$q]";
     $address->setReg(rax);
     Vmovdqu8 "[rax]", xmm0;
     Mov rdi, 16;
     PrintOutMemory;
     PrintOutNL;
-  
+
     $address->freeMemory($N);
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   abcdefghijklmnop
   END
-  
+
 
 =head2 Structured Programming with variables
 
@@ -15997,7 +15996,7 @@ B<Example:>
      {my ($i, $start, $next, $end) = @_;
       $i->outNL;
      });
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   index: .... .... .... ....
   index: .... .... .... ...1
@@ -16010,7 +16009,7 @@ B<Example:>
   index: .... .... .... ...8
   index: .... .... .... ...9
   END
-  
+
 
 =head1 Operating system
 
@@ -16028,10 +16027,10 @@ Fork: create and execute a copy of the current process.
 B<Example:>
 
 
-  
+
     Fork;                                                                         # Fork  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Test rax,rax;
     IfNz                                                                          # Parent
     Then
@@ -16049,23 +16048,23 @@ B<Example:>
       Mov r10,rax;
       PrintOutRegisterInHex r8, r9, r10;
      };
-  
+
     my $r = Assemble(avx512=>0);
-  
+
   #    r8: 0000 0000 0000 0000   #1 Return from fork as seen by child
   #    r9: 0000 0000 0003 0C63   #2 Pid of child
   #   r10: 0000 0000 0003 0C60   #3 Pid of parent from child
   #   rax: 0000 0000 0003 0C63   #4 Return from fork as seen by parent
   #   rbx: 0000 0000 0003 0C63   #5 Wait for child pid result
   #   rcx: 0000 0000 0003 0C60   #6 Pid of parent
-  
+
     if ($r =~ m(r8:( 0000){4}.*r9:(.*)\s{5,}r10:(.*)\s{5,}rax:(.*)\s{5,}rbx:(.*)\s{5,}rcx:(.*)\s{2,})s)
      {ok $2 eq $4;
       ok $2 eq $5;
       ok $3 eq $6;
       ok $2 gt $6;
      }
-  
+
 
 =head3 GetPid()
 
@@ -16076,13 +16075,13 @@ B<Example:>
 
 
     Fork;                                                                         # Fork
-  
+
     Test rax,rax;
     IfNz                                                                          # Parent
     Then
      {Mov rbx, rax;
       WaitPid;
-  
+
       GetPid;                                                                     # Pid of parent as seen in parent  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
       Mov rcx,rax;
@@ -16090,7 +16089,7 @@ B<Example:>
      },
     Else                                                                          # Child
      {Mov r8,rax;
-  
+
       GetPid;                                                                     # Child pid as seen in child  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
       Mov r9,rax;
@@ -16098,23 +16097,23 @@ B<Example:>
       Mov r10,rax;
       PrintOutRegisterInHex r8, r9, r10;
      };
-  
+
     my $r = Assemble(avx512=>0);
-  
+
   #    r8: 0000 0000 0000 0000   #1 Return from fork as seen by child
   #    r9: 0000 0000 0003 0C63   #2 Pid of child
   #   r10: 0000 0000 0003 0C60   #3 Pid of parent from child
   #   rax: 0000 0000 0003 0C63   #4 Return from fork as seen by parent
   #   rbx: 0000 0000 0003 0C63   #5 Wait for child pid result
   #   rcx: 0000 0000 0003 0C60   #6 Pid of parent
-  
+
     if ($r =~ m(r8:( 0000){4}.*r9:(.*)\s{5,}r10:(.*)\s{5,}rax:(.*)\s{5,}rbx:(.*)\s{5,}rcx:(.*)\s{2,})s)
      {ok $2 eq $4;
       ok $2 eq $5;
       ok $3 eq $6;
       ok $2 gt $6;
      }
-  
+
 
 =head3 GetPidInHex()
 
@@ -16124,21 +16123,21 @@ Get process identifier in hex as 8 zero terminated bytes in rax.
 B<Example:>
 
 
-  
+
     GetPidInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov r15, rax;
-  
-  
+
+
     GetPidInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Cmp r15, rax;
     IfEq Then {PrintOutStringNL "Same"}, Else {PrintOutStringNL "Diff"};
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   Same
   END
-  
+
 
 =head3 GetPPid()
 
@@ -16149,7 +16148,7 @@ B<Example:>
 
 
     Fork;                                                                         # Fork
-  
+
     Test rax,rax;
     IfNz                                                                          # Parent
     Then
@@ -16163,29 +16162,29 @@ B<Example:>
      {Mov r8,rax;
       GetPid;                                                                     # Child pid as seen in child
       Mov r9,rax;
-  
+
       GetPPid;                                                                    # Parent pid as seen in child  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
       Mov r10,rax;
       PrintOutRegisterInHex r8, r9, r10;
      };
-  
+
     my $r = Assemble(avx512=>0);
-  
+
   #    r8: 0000 0000 0000 0000   #1 Return from fork as seen by child
   #    r9: 0000 0000 0003 0C63   #2 Pid of child
   #   r10: 0000 0000 0003 0C60   #3 Pid of parent from child
   #   rax: 0000 0000 0003 0C63   #4 Return from fork as seen by parent
   #   rbx: 0000 0000 0003 0C63   #5 Wait for child pid result
   #   rcx: 0000 0000 0003 0C60   #6 Pid of parent
-  
+
     if ($r =~ m(r8:( 0000){4}.*r9:(.*)\s{5,}r10:(.*)\s{5,}rax:(.*)\s{5,}rbx:(.*)\s{5,}rcx:(.*)\s{2,})s)
      {ok $2 eq $4;
       ok $2 eq $5;
       ok $3 eq $6;
       ok $2 gt $6;
      }
-  
+
 
 =head3 GetUid()
 
@@ -16195,8 +16194,8 @@ Get userid of current process.
 B<Example:>
 
 
-  if ($homeTest) {                                                                
-  
+  if ($homeTest) {
+
 
 =head3 WaitPid()
 
@@ -16207,12 +16206,12 @@ B<Example:>
 
 
     Fork;                                                                         # Fork
-  
+
     Test rax,rax;
     IfNz                                                                          # Parent
     Then
      {Mov rbx, rax;
-  
+
       WaitPid;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
       GetPid;                                                                     # Pid of parent as seen in parent
@@ -16227,23 +16226,23 @@ B<Example:>
       Mov r10,rax;
       PrintOutRegisterInHex r8, r9, r10;
      };
-  
+
     my $r = Assemble(avx512=>0);
-  
+
   #    r8: 0000 0000 0000 0000   #1 Return from fork as seen by child
   #    r9: 0000 0000 0003 0C63   #2 Pid of child
   #   r10: 0000 0000 0003 0C60   #3 Pid of parent from child
   #   rax: 0000 0000 0003 0C63   #4 Return from fork as seen by parent
   #   rbx: 0000 0000 0003 0C63   #5 Wait for child pid result
   #   rcx: 0000 0000 0003 0C60   #6 Pid of parent
-  
+
     if ($r =~ m(r8:( 0000){4}.*r9:(.*)\s{5,}r10:(.*)\s{5,}rax:(.*)\s{5,}rbx:(.*)\s{5,}rcx:(.*)\s{2,})s)
      {ok $2 eq $4;
       ok $2 eq $5;
       ok $3 eq $6;
       ok $2 gt $6;
      }
-  
+
 
 =head3 ReadTimeStampCounter()
 
@@ -16254,17 +16253,17 @@ B<Example:>
 
 
     for(1..10)
-  
+
      {ReadTimeStampCounter;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
       PrintOutRegisterInHex rax;
      }
-  
+
     my @s = split /
 /, Assemble(avx512=>0);
     my @S = sort @s;
     is_deeply \@s, \@S;
-  
+
 
 =head2 Memory
 
@@ -16294,37 +16293,37 @@ B<Example:>
     Shl rax, 32;
     Or  rax, 0x07654321;
     PushR rax;
-  
+
     PrintOutRaxInHex;
     PrintOutNL;
     PrintOutRaxInReverseInHex;
     PrintOutNL;
-  
+
     Mov rax, rsp;
     Mov rdi, 8;
-  
+
     PrintOutMemoryInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutNL;
     PopR rax;
-  
+
     Mov rax, 4096;
     PushR rax;
     Mov rax, rsp;
     Mov rdi, 8;
-  
+
     PrintOutMemoryInHex;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutNL;
     PopR rax;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   .765 4321 .765 4321
   2143 65.7 2143 65.7
   2143 65.7 2143 65.7
   ..10 .... .... ....
   END
-  
+
 
 =head3 PrintErrMemoryInHexNL()
 
@@ -16343,18 +16342,18 @@ B<Example:>
     my $s = Rb 0..$N-1;
     my $a = AllocateMemory K size => $N;
     CopyMemory(V(source => $s), $a, K(size => $N));
-  
+
     my $b = AllocateMemory K size => $N;
     CopyMemory($a, $b, K size => $N);
-  
+
     $b->setReg(rax);
     Mov rdi, $N;
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug=>0, eq => <<END, avx512=>0);
   __.1 .2.3 .4.5 .6.7  .8.9 .A.B .C.D .E.F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
   END
-  
+
 
 =head3 PrintMemory_InHex($channel)
 
@@ -16393,7 +16392,7 @@ Print the memory addressed by rax for a length of rdi on the specified channel w
 B<Example:>
 
 
-  if (1)                                                                            
+  if (1)
    {my $s = "zzzCreated.data";
     my $f = Rs $s;
     Mov rax, $f;
@@ -16401,7 +16400,7 @@ B<Example:>
     Mov r15, rax;
     Mov rax, $f;
     Mov rdi, length $s;
-  
+
     PrintMemory r15;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     CloseFile;
@@ -16410,9 +16409,9 @@ B<Example:>
     ok -e $s;
     unlink $s;
    }
-  
-  if (!$homeTest) {                                                                
-  
+
+  if (!$homeTest) {
+
 
 =head3 PrintMemoryNL()
 
@@ -16436,13 +16435,13 @@ B<Example:>
     my $s = "Hello World";
     Mov rax, Rs($s);
     Mov rdi, length $s;
-  
+
     PrintOutMemory;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Exit(0);
-  
+
     ok Assemble(avx512=>0) =~ m(Hello World);
-  
+
 
 =head3 PrintErrMemoryNL()
 
@@ -16463,16 +16462,16 @@ Hello Skye");
     my $l = StringLength(my $t = V string => $s);
     $t->setReg(rax);
     $l->setReg(rdi);
-  
+
     PrintOutMemoryNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   Hello World
-  
+
   Hello Skye
   END
-  
+
 
 =head3 AllocateMemory($size)
 
@@ -16486,61 +16485,61 @@ B<Example:>
 
     my $N = K size => 2048;
     my $q = Rs('a'..'p');
-  
+
     my $address = AllocateMemory $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     Vmovdqu8 xmm0, "[$q]";
     $address->setReg(rax);
     Vmovdqu8 "[rax]", xmm0;
     Mov rdi, 16;
     PrintOutMemory;
     PrintOutNL;
-  
+
     FreeMemory $address, $N;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   abcdefghijklmnop
   END
-  
+
     my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
-  
-  
+
+
     my $A = AllocateMemory $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ClearMemory($A, $N);
-  
+
     $A->setReg(rax);
     Mov rdi, 128;
     PrintOutMemory_InHexNL;
-  
+
     FreeMemory $A, $N;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
     my $N = 256;
     my $s = Rb 0..$N-1;
-  
+
     my $a = AllocateMemory K size => $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     CopyMemory(V(source => $s), $a, K(size => $N));
-  
-  
+
+
     my $b = AllocateMemory K size => $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     CopyMemory($a, $b, K size => $N);
-  
+
     $b->setReg(rax);
     Mov rdi, $N;
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug=>0, eq => <<END, avx512=>0);
   __.1 .2.3 .4.5 .6.7  .8.9 .A.B .C.D .E.F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
   END
-  
+
 
 =head3 FreeMemory($address, $size)
 
@@ -16556,40 +16555,40 @@ B<Example:>
     my $N = K size => 2048;
     my $q = Rs('a'..'p');
     my $address = AllocateMemory $N;
-  
+
     Vmovdqu8 xmm0, "[$q]";
     $address->setReg(rax);
     Vmovdqu8 "[rax]", xmm0;
     Mov rdi, 16;
     PrintOutMemory;
     PrintOutNL;
-  
-  
+
+
     FreeMemory $address, $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   abcdefghijklmnop
   END
-  
+
     my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
-  
+
     my $A = AllocateMemory $N;
-  
+
     ClearMemory($A, $N);
-  
+
     $A->setReg(rax);
     Mov rdi, 128;
     PrintOutMemory_InHexNL;
-  
-  
+
+
     FreeMemory $A, $N;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
 
 =head3 ClearMemory($address, $size)
 
@@ -16607,38 +16606,38 @@ B<Example:>
       $index->setReg(15);
       Push r15;
      });
-  
+
     Mov rax, rsp;
     Mov rdi, 8*9;
     PrintOutMemory_InHexNL;
-  
+
     ClearMemory(V(address => rax), K(size => 8*9));  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   .8__ ____ ____ ____  .7__ ____ ____ ____  .6__ ____ ____ ____  .5__ ____ ____ ____  .4__ ____ ____ ____  .3__ ____ ____ ____  .2__ ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____
   ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
     my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
-  
+
     my $A = AllocateMemory $N;
-  
-  
+
+
     ClearMemory($A, $N);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     $A->setReg(rax);
     Mov rdi, 128;
     PrintOutMemory_InHexNL;
-  
+
     FreeMemory $A, $N;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
 
 =head3 CopyMemory($source, $target, $size)
 
@@ -16654,47 +16653,47 @@ B<Example:>
 
     my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
     my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
-  
+
     Vmovdqu8 xmm0, "[$s]";
     Vmovdqu8 xmm1, "[$t]";
     PrintOutRegisterInHex xmm0;
     PrintOutRegisterInHex xmm1;
     Sub rsp, 16;
-  
+
     Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
     Mov rdi, 16;
     Mov rsi, $s;
-  
+
     CopyMemory(V(source => rsi), V(target => rax), V size => rdi);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
     xmm0: .... .... .... ...4  .... ...3 ...2 .1..
     xmm1: .... .... .... ...4  .... ...3 ...2 .1..
   __.1 .2__ .3__ ____  .4__ ____ ____ ____
   END
-  
+
     my $N = 256;
     my $s = Rb 0..$N-1;
     my $a = AllocateMemory K size => $N;
-  
+
     CopyMemory(V(source => $s), $a, K(size => $N));  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     my $b = AllocateMemory K size => $N;
-  
+
     CopyMemory($a, $b, K size => $N);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     $b->setReg(rax);
     Mov rdi, $N;
     PrintOutMemory_InHexNL;
-  
+
     ok Assemble(debug=>0, eq => <<END, avx512=>0);
   __.1 .2.3 .4.5 .6.7  .8.9 .A.B .C.D .E.F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
   END
-  
+
 
 =head3 CopyMemory64($source, $target, $size)
 
@@ -16708,8 +16707,8 @@ Copy memory in 64 byte blocks.
 B<Example:>
 
 
-    my ($s, $l) =                                                                 
-  
+    my ($s, $l) =
+
 
 =head3 CopyMemory4K($source, $target, $size)
 
@@ -16733,24 +16732,24 @@ B<Example:>
 
 
     Mov rax, Rs($0);                                                              # File to read
-  
+
     OpenRead;                                                                     # Open file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
     CloseFile;                                                                    # Close file
     PrintOutRegisterInHex rax;
-  
+
     Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
     OpenWrite;                                                                    # Open file
     CloseFile;                                                                    # Close file
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rax: .... .... .... ....
   END
     ok -e $f;                                                                     # Created file
     unlink $f;
-  
+
 
 =head3 OpenWrite()
 
@@ -16760,11 +16759,11 @@ Create the file named by the terminated string addressed by rax for write.  The 
 B<Example:>
 
 
-  if (1)                                                                            
+  if (1)
    {my $s = "zzzCreated.data";
     my $f = Rs $s;
     Mov rax, $f;
-  
+
     OpenWrite;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov r15, rax;
@@ -16777,26 +16776,26 @@ B<Example:>
     ok -e $s;
     unlink $s;
    }
-  
+
     Mov rax, Rs($0);                                                              # File to read
     OpenRead;                                                                     # Open file
     PrintOutRegisterInHex rax;
     CloseFile;                                                                    # Close file
     PrintOutRegisterInHex rax;
-  
+
     Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
-  
+
     OpenWrite;                                                                    # Open file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     CloseFile;                                                                    # Close file
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rax: .... .... .... ....
   END
     ok -e $f;                                                                     # Created file
     unlink $f;
-  
+
 
 =head3 CloseFile()
 
@@ -16806,7 +16805,7 @@ Close the file whose descriptor is in rax.
 B<Example:>
 
 
-  if (1)                                                                            
+  if (1)
    {my $s = "zzzCreated.data";
     my $f = Rs $s;
     Mov rax, $f;
@@ -16815,7 +16814,7 @@ B<Example:>
     Mov rax, $f;
     Mov rdi, length $s;
     PrintMemory r15;
-  
+
     CloseFile;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
@@ -16823,28 +16822,28 @@ B<Example:>
     ok -e $s;
     unlink $s;
    }
-  
+
     Mov rax, Rs($0);                                                              # File to read
     OpenRead;                                                                     # Open file
     PrintOutRegisterInHex rax;
-  
+
     CloseFile;                                                                    # Close file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
-  
+
     Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
     OpenWrite;                                                                    # Open file
-  
+
     CloseFile;                                                                    # Close file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... .... ...3
      rax: .... .... .... ....
   END
     ok -e $f;                                                                     # Created file
     unlink $f;
-  
+
 
 =head3 StatSize()
 
@@ -16855,16 +16854,16 @@ B<Example:>
 
 
     Mov rax, Rs($0);                                                              # File to stat
-  
+
     StatSize;                                                                     # Stat the file  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
-  
+
     my $r = Assemble(avx512=>0) =~ s( ) ()gsr;
     if ($r =~ m(rax:([0-9a-f]{16}))is)                                            # Compare file size obtained with that from fileSize()
      {is_deeply $1, sprintf("%016X", fileSize($0));
      }
-  
+
 
 =head3 ReadChar()
 
@@ -16883,48 +16882,48 @@ B<Example:>
     my $f = writeTempFile("hello
 world
 ");
-  
-  
+
+
     ReadLine;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRaxAsTextNL;
-  
+
     ReadLine;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRaxAsTextNL;
-  
+
     Assemble keep => $e;
-  
+
     is_deeply scalar(qx(./$e < $f)), <<END;
   hello
   world
   END
     unlink $f;
   }
-  
+
   #latest:
-  if (1) {                                                                        
+  if (1) {
     my $e = q(readInteger);
     my $f = writeTempFile("11
 22
 ");
-  
+
     ReadInteger;
     Shl rax, 1;
     PrintOutRaxInDecNL;
     ReadInteger;
     Shl rax, 1;
     PrintOutRaxInDecNL;
-  
+
     Assemble keep => $e;
-  
+
     is_deeply scalar(qx(./$e < $f)), <<END;
   22
   44
   END
-  
+
     unlink $e, $f;
-  
+
 
 =head3 ReadInteger()
 
@@ -16938,27 +16937,27 @@ B<Example:>
     my $f = writeTempFile("11
 22
 ");
-  
-  
+
+
     ReadInteger;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Shl rax, 1;
     PrintOutRaxInDecNL;
-  
+
     ReadInteger;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Shl rax, 1;
     PrintOutRaxInDecNL;
-  
+
     Assemble keep => $e;
-  
+
     is_deeply scalar(qx(./$e < $f)), <<END;
   22
   44
   END
-  
+
     unlink $e, $f;
-  
+
 
 =head3 ReadFile($File)
 
@@ -16970,8 +16969,8 @@ Read a file into memory.
 B<Example:>
 
 
-  if (!$homeTest) {                                                                
-  
+  if (!$homeTest) {
+
 
 =head3 executeFileViaBash($file)
 
@@ -16983,8 +16982,8 @@ Execute the file named in a variable
 B<Example:>
 
 
-  if (0 and $homeTest) {                                                          # Execute the content of an area     
-  
+  if (0 and $homeTest) {                                                          # Execute the content of an area
+
 
 =head3 unlinkFile($file)
 
@@ -16996,8 +16995,8 @@ Unlink the named file.
 B<Example:>
 
 
-  if (0 and $homeTest) {                                                          # Execute the content of an area     
-  
+  if (0 and $homeTest) {                                                          # Execute the content of an area
+
 
 =head1 Hash functions
 
@@ -17011,28 +17010,28 @@ Hash a string addressed by rax with length held in rdi and return the hash code 
 B<Example:>
 
 
-  # Make hash accept parameters at: 
-  
+  # Make hash accept parameters at:
+
     Mov rax, "[rbp+24]";                                                          # Address of string as parameter
     StringLength(V string => rax)->setReg(rdi);                                   # Length of string to hash
-  
+
     Hash();                                                                       # Hash string  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     PrintOutRegisterInHex r15;
-  
+
     my $e = Assemble keep => 'hash';                                              # Assemble to the specified file name
     say STDERR qx($e "");
     say STDERR qx($e "a");
     ok qx($e "")  =~ m(r15: 0000 3F80 0000 3F80);                                 # Test well known hashes
     ok qx($e "a") =~ m(r15: 0000 3F80 C000 45B2);
-  
-  
+
+
     if (0)                                                                        # Hash various strings  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      {my %r; my %f; my $count = 0;
       my $N = RegisterSize zmm0;
-  
+
       if (1)                                                                      # Fixed blocks
        {for my $l(qw(a ab abc abcd), 'a a', 'a  a')
          {for my $i(1..$N)
@@ -17049,7 +17048,7 @@ B<Example:>
            }
          }
        }
-  
+
       if (1)                                                                      # Variable blocks
        {for my $l(qw(a ab abc abcd), '', 'a a', 'a  a')
          {for my $i(1..$N)
@@ -17067,14 +17066,14 @@ B<Example:>
       for my $r(keys %r)
        {delete $r{$r} if $r{$r}->@* < 2;
        }
-  
+
       say STDERR dump(\%r);
       say STDERR "Keys hashed: ", $count;
       confess "Duplicates : ",  scalar keys(%r);
      }
-  
+
     unlink 'hash';
-  
+
 
 =head1 Unicode
 
@@ -17095,36 +17094,36 @@ B<Example:>
   # 한 	U+D55C     	1101 0101 0101 1100                11101101 10010101 10011100   ED 95 9C
   # 𐍈   	U+10348 	0 0001 0000 0011 0100 1000 	11110000 10010000 10001101 10001000   F0 90 8D 88
     Mov rax, 0x40;                                                                # 0x40
-  
+
     convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
-  
+
     Mov rax, 0x03b1;                                                              # 0xCE 0xB1
-  
+
     convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
-  
+
     Mov rax, 0x20ac;                                                              # 0xE2 0x82 0xAC;
-  
+
     convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
-  
+
     Mov rax, 0x10348;                                                             # 0xf0 0x90 0x8d 0x88
-  
+
     convert_rax_from_utf32_to_utf8;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     PrintOutRegisterInHex rax;
-  
+
     ok Assemble eq => <<END, avx512=>1;
      rax: .... .... .... ..40
      rax: .... .... .... B1CE
      rax: .... .... ..AC 82E2
      rax: .... .... 888D 90F0
   END
-  
+
 
 =head2 GetNextUtf8CharAsUtf32($in)
 
@@ -17145,53 +17144,53 @@ B<Example:>
 
 
     my ($out, $size, $fail);
-  
+
     my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
     my $chars = V(chars => $Chars);
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+0;                        # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
     $out->out('out1 : ');
     $size->outNL(' size : ');
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+1;                        # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
     $out->out('out2 : ');     $size->outNL(' size : ');
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+3;                        # Alpha                UTF-8 Encoding: 0xC9 0x91           UTF-32 Encoding: 0x00000251
     $out->out('out3 : ');     $size->outNL(' size : ');
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+5;                        # Euro                 UTF-8 Encoding: 0xE2 0x82 0xAC      UTF-32 Encoding: 0x000020AC
     $out->out('out4 : ');     $size->outNL(' size : ');
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+8;                        # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
     $out->out('out5 : ');     $size->outNL(' size : ');
-  
+
     my $statement = qq(𝖺
  𝑎𝑠𝑠𝑖𝑔𝑛 【【𝖻 𝐩𝐥𝐮𝐬 𝖼】】
 AAAAAAAA);                        # A sample sentence to parse
-  
+
     my $s = K(statement => Rutf8($statement));
     my $l = StringLength $s;
-  
+
     my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
     CopyMemory($s, $address, $l);
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address;
     $out->out('outA : ');     $size->outNL(' size : ');
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+4;
     $out->out('outB : ');     $size->outNL(' size : ');
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+5;
     $out->out('outC : ');     $size->outNL(' size : ');
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+30;
     $out->out('outD : ');     $size->outNL(' size : ');
-  
+
    ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+35;
     $out->out('outE : ');     $size->outNL(' size : ');
-  
+
     $address->printOutMemoryInHexNL($l);
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   out1 : .... .... .... ..24 size : .... .... .... ...1
   out2 : .... .... .... ..A2 size : .... .... .... ...2
@@ -17205,7 +17204,7 @@ AAAAAAAA);                        # A sample sentence to parse
   outE : .... .... .... ..10 size : .... .... .... ...2
   F09D 96BA .A20 F09D  918E F09D 91A0 F09D  91A0 F09D 9196 F09D  9194 F09D 919B 20E3  8090 E380 90F0 9D96  BB20 F09D 90A9 F09D  90A5 F09D 90AE F09D  90AC 20F0 9D96 BCE3  8091 E380 91.A 4141  4141 4141 4141 ....
   END
-  
+
 
 =head2 ClassifyInRange($address, $size)
 
@@ -17254,17 +17253,17 @@ B<Example:>
 
     K(K => Rd(map {32 * $_     } 0..15))->loadZmm(29);
     K(K => Rd(map {32 * $_ + 16} 0..15))->loadZmm(30);
-  
+
     V(classify => 20)->dClassify(29, 30)->outNL;
     V(classify => 14)->dClassify(29, 30)->outNL;
     V(classify => 40)->dClassify(29, 30)->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   point: .... .... .... ....
   point: .... .... .... ...1
   point: .... .... .... ...2
   END
-  
+
 
 =head1 C Strings
 
@@ -17283,26 +17282,26 @@ B<Example:>
     my $s = Rs("Hello World
 
 Hello Skye");
-  
+
     my $l = StringLength(my $t = V string => $s);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $t->setReg(rax);
     $l->setReg(rdi);
     PrintOutMemoryNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   Hello World
-  
+
   Hello Skye
   END
-  
-  
+
+
     StringLength(V string => Rs("abcd"))->outNL;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Assemble(debug => 0, eq => <<END, avx512=>0);
   size: .... .... .... ...4
   END
-  
+
 
 =head1 Areas
 
@@ -17329,7 +17328,7 @@ Create an relocatable area and returns its address in rax. We add a chain header
 B<Example:>
 
 
-  
+
     my $a = CreateArea;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $a->q('aa');
@@ -17337,11 +17336,11 @@ B<Example:>
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   aa
   END
-  
-  
+
+
     my $a = CreateArea;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     my $b = CreateArea;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $a->q('aa');
@@ -17354,11 +17353,11 @@ B<Example:>
   aa
   bb
   END
-  
-  
+
+
     my $a = CreateArea;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     my $b = CreateArea;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $a->q('aa');
@@ -17368,11 +17367,11 @@ B<Example:>
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   aaAA
   END
-  
-  
+
+
     my $a = CreateArea;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     my $b = CreateArea;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $a->q('aa');
@@ -17387,12 +17386,12 @@ B<Example:>
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   aaAAaabbBBbb
   END
-  
-  
+
+
     my $a = CreateArea;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $a->q('ab');
-  
+
     my $b = CreateArea;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $b->append($a);
@@ -17404,8 +17403,8 @@ B<Example:>
     $b->append($a);
     $b->append($a);
     $b->append($a);
-  
-  
+
+
     $a->out;   PrintOutNL;
     $b->out;   PrintOutNL;
     my $sa = $a->used; $sa->outNL;
@@ -17413,7 +17412,7 @@ B<Example:>
     $a->clear;
     my $sA = $a->used; $sA->outNL;
     my $sB = $b->used; $sB->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   abababababababab
   ababababababababababababababababababababababababababababababababababababab
@@ -17422,7 +17421,7 @@ B<Example:>
   area used up: .... .... .... ....
   area used up: .... .... .... ..4A
   END
-  
+
 
 =head3 ReadArea($file)
 
@@ -17450,7 +17449,7 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     $a->q("a" x 255);
     $a->used->outNL;
     $a->size->outNL;
@@ -17459,7 +17458,7 @@ B<Example:>
     $a->used->outNL;
     $a->size->outNL;
     $a->dump('B');
-  
+
     $a->q("a" x 4095);
     $a->used->outNL;
     $a->size->outNL;
@@ -17468,9 +17467,9 @@ B<Example:>
     $a->used->outNL;
     $a->size->outNL;
     $a->dump('D');
-  
+
     $a->free;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   area used up: .... .... .... ..FF
   size of area: .... .... .... 10..
@@ -17505,7 +17504,7 @@ B<Example:>
   .... .... .... ..80 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
   .... .... .... ..C0 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
   END
-  
+
 
 =head2 Memory
 
@@ -17522,7 +17521,7 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     $a->q("a" x 255);
     $a->used->outNL;
     $a->size->outNL;
@@ -17531,7 +17530,7 @@ B<Example:>
     $a->used->outNL;
     $a->size->outNL;
     $a->dump('B');
-  
+
     $a->q("a" x 4095);
     $a->used->outNL;
     $a->size->outNL;
@@ -17540,9 +17539,9 @@ B<Example:>
     $a->used->outNL;
     $a->size->outNL;
     $a->dump('D');
-  
+
     $a->free;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   area used up: .... .... .... ..FF
   size of area: .... .... .... 10..
@@ -17577,7 +17576,7 @@ B<Example:>
   .... .... .... ..80 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
   .... .... .... ..C0 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
   END
-  
+
 
 =head3 Nasm::X86::Area::size($area)
 
@@ -17590,7 +17589,7 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     $a->q("a" x 255);
     $a->used->outNL;
     $a->size->outNL;
@@ -17599,7 +17598,7 @@ B<Example:>
     $a->used->outNL;
     $a->size->outNL;
     $a->dump('B');
-  
+
     $a->q("a" x 4095);
     $a->used->outNL;
     $a->size->outNL;
@@ -17608,9 +17607,9 @@ B<Example:>
     $a->used->outNL;
     $a->size->outNL;
     $a->dump('D');
-  
+
     $a->free;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   area used up: .... .... .... ..FF
   size of area: .... .... .... 10..
@@ -17645,7 +17644,7 @@ B<Example:>
   .... .... .... ..80 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
   .... .... .... ..C0 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
   END
-  
+
 
 =head3 Nasm::X86::Area::makeReadOnly($area)
 
@@ -17684,20 +17683,20 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     my $m = $a->allocZmmBlock;
     K(K => Rd(1..16))->loadZmm(31);
-  
+
     $a->putZmmBlock  ($m, 31);
     $a->dump("A");
-  
+
     $a->getZmmBlock  ($m, 30);
     $a->clearZmmBlock($m);
     $a->getZmmBlock  ($m, 29);
-  
+
     $a->clearZmmBlock($m);
     PrintOutRegisterInHex 31, 30, 29;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   A
   Area     Size:     4096    Used:      128
@@ -17709,35 +17708,35 @@ B<Example:>
    zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
     my $a = CreateArea;
-  
+
     K(loop => 3)->for(sub
      {my ($i, $start, $next, $end) = @_;
       $i->outNL;
       my $m1 = $a->allocZmmBlock;
       my $m2 = $a->allocZmmBlock;
-  
+
       K(K => Rd(1..16))->loadZmm(31);
       K(K => Rd(17..32))->loadZmm(30);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->putZmmBlock($m1, 31);
       $a->putZmmBlock($m2, 30);
       $a->dump("A");
-  
+
       $a->getZmmBlock($m1, 30);
       $a->getZmmBlock($m2, 31);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->clearZmmBlock($m1);
       $a->freeZmmBlock($m1);
       $a->dump("B");
-  
+
       $a->freeZmmBlock($m2);
       $a->dump("C");
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   index: .... .... .... ....
    zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
@@ -17809,7 +17808,7 @@ B<Example:>
   .... .... .... ..80 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
 
 =head3 Nasm::X86::Area::allocZmmBlock3($area)
 
@@ -17831,7 +17830,7 @@ B<Example:>
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K loop => 16;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->size->out("t: ", " ");
     $a->used->out("u: ", " ");
@@ -17842,7 +17841,7 @@ B<Example:>
     $a->used->out("u: ", " ");
     $a->freeChainSpace->out("f: ", " ");
     $a->size->outNL;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->size->out("t: ", " ");
     $a->used->out("u: ", " ");
@@ -17853,18 +17852,18 @@ B<Example:>
     $a->used->out("u: ", " ");
     $a->freeChainSpace->out("f: ", " ");
     $a->size->outNL;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->free;
     $a->used->out("Clear tree:            u: ");
     $a->freeChainSpace->out(" f: ", " ");
     $a->size->outNL;
-  
+
     $a->clear;
     $a->used->out("Clear area:            u: ");
     $a->freeChainSpace->out(" f: ", " ");
     $a->size->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... .... size of area: .... .... .... 10..
   t: .... .... .... .... u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
@@ -17873,7 +17872,7 @@ B<Example:>
   Clear tree:            u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
   Clear area:            u: .... .... .... .... f: .... .... .... .... size of area: .... .... .... 10..
   END
-  
+
 
 =head2 Yggdrasil
 
@@ -17926,19 +17925,19 @@ B<Example:>
   found: .... .... .... ....
   found: .... .... .... ...1
   END
-  
+
     my $f = q(zzzArea.data);
-  
+
     if (1)                                                                        # Create alphabets and write to a file
      {my $a = CreateArea;
       my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
       $t->find(K key => 0x27e2);
       $t->data->outNL;
-  
+
       $a->write(V file => Rs $f);
       $a->free;
      }
-  
+
     if (2)                                                                        # Load alphabets from a file
      {my $a = ReadArea $f;
       my $y = $a->yggdrasil;
@@ -17946,14 +17945,14 @@ B<Example:>
       $t->find(K key => 0x27e2);
       $t->data->outNL;
      }
-  
+
     ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
   data: .... .... .... ...8
   data: .... .... .... ...8
   END
     ok -e $f;
     is_deeply fileSize($f), 88512;
-  
+
     if (3)                                                                        # Incorporate alphabets in an an assembly
      {my $a = loadAreaIntoThing $f;
       my $y = $a->yggdrasil;
@@ -17961,12 +17960,12 @@ B<Example:>
       $t->find(K key => 0x27e2);
       $t->data->outNL;
      }
-  
+
     ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
   data: .... .... .... ...8
   END
     unlink $f;
-  
+
 
 =head2 Areas as Strings
 
@@ -18038,7 +18037,7 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     $a->q("a" x 255);
     $a->used->outNL;
     $a->size->outNL;
@@ -18047,7 +18046,7 @@ B<Example:>
     $a->used->outNL;
     $a->size->outNL;
     $a->dump('B');
-  
+
     $a->q("a" x 4095);
     $a->used->outNL;
     $a->size->outNL;
@@ -18056,9 +18055,9 @@ B<Example:>
     $a->used->outNL;
     $a->size->outNL;
     $a->dump('D');
-  
+
     $a->free;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>1);
   area used up: .... .... .... ..FF
   size of area: .... .... .... 10..
@@ -18093,11 +18092,11 @@ B<Example:>
   .... .... .... ..80 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
   .... .... .... ..C0 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K loop => 16;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->size->out("t: ", " ");
     $a->used->out("u: ", " ");
@@ -18108,7 +18107,7 @@ B<Example:>
     $a->used->out("u: ", " ");
     $a->freeChainSpace->out("f: ", " ");
     $a->size->outNL;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->size->out("t: ", " ");
     $a->used->out("u: ", " ");
@@ -18119,18 +18118,18 @@ B<Example:>
     $a->used->out("u: ", " ");
     $a->freeChainSpace->out("f: ", " ");
     $a->size->outNL;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->free;
     $a->used->out("Clear tree:            u: ");
     $a->freeChainSpace->out(" f: ", " ");
     $a->size->outNL;
-  
+
     $a->clear;
     $a->used->out("Clear area:            u: ");
     $a->freeChainSpace->out(" f: ", " ");
     $a->size->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... .... size of area: .... .... .... 10..
   t: .... .... .... .... u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
@@ -18139,7 +18138,7 @@ B<Example:>
   Clear tree:            u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
   Clear area:            u: .... .... .... .... f: .... .... .... .... size of area: .... .... .... 10..
   END
-  
+
 
 =head3 Nasm::X86::Area::read($area, $file)
 
@@ -18193,20 +18192,20 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     my $m = $a->allocZmmBlock;
     K(K => Rd(1..16))->loadZmm(31);
-  
+
     $a->putZmmBlock  ($m, 31);
     $a->dump("A");
-  
+
     $a->getZmmBlock  ($m, 30);
     $a->clearZmmBlock($m);
     $a->getZmmBlock  ($m, 29);
-  
+
     $a->clearZmmBlock($m);
     PrintOutRegisterInHex 31, 30, 29;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   A
   Area     Size:     4096    Used:      128
@@ -18218,35 +18217,35 @@ B<Example:>
    zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
     my $a = CreateArea;
-  
+
     K(loop => 3)->for(sub
      {my ($i, $start, $next, $end) = @_;
       $i->outNL;
       my $m1 = $a->allocZmmBlock;
       my $m2 = $a->allocZmmBlock;
-  
+
       K(K => Rd(1..16))->loadZmm(31);
       K(K => Rd(17..32))->loadZmm(30);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->putZmmBlock($m1, 31);
       $a->putZmmBlock($m2, 30);
       $a->dump("A");
-  
+
       $a->getZmmBlock($m1, 30);
       $a->getZmmBlock($m2, 31);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->clearZmmBlock($m1);
       $a->freeZmmBlock($m1);
       $a->dump("B");
-  
+
       $a->freeZmmBlock($m2);
       $a->dump("C");
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   index: .... .... .... ....
    zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
@@ -18318,7 +18317,7 @@ B<Example:>
   .... .... .... ..80 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
 
 =head1 Tree
 
@@ -18401,54 +18400,54 @@ B<Example:>
 
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->put(K(key => 1), V(key => 1));  $t->size->outNL;
     $t->put(K(key => 2), K(key => 2));  $t->size->outNL;
     $t->put(V(key => 2), V(key => 2));  $t->size->outNL;
-  
+
     $t->put(K(key => 3), K(key => 3));  $t->size->outNL;
     $t->put(V(key => 3), V(key => 3));  $t->size->outNL;
-  
+
     $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
     $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
-  
+
     $t->put(K(key => 5), K(key => 5));  $t->size->outNL;
     $t->put(V(key => 5), V(key => 5));  $t->size->outNL;
-  
+
     $t->put(K(key => 6), K(key => 5));  $t->size->outNL;
     $t->put(V(key => 6), V(key => 5));  $t->size->outNL;
-  
+
     $t->put(K(key => 7), K(key => 7));  $t->size->outNL;
     $t->put(V(key => 7), V(key => 7));  $t->size->outNL;
-  
+
     $t->put(K(key => 8), K(key => 8));  $t->size->outNL;
     $t->put(V(key => 8), V(key => 8));  $t->size->outNL;
-  
+
     $t->put(K(key => 9), K(key => 9));  $t->size->outNL;
     $t->put(V(key => 9), V(key => 9));  $t->size->outNL;
-  
+
     $t->put(K(key => 10), K(key => 10));  $t->size->outNL;
     $t->put(V(key => 10), V(key => 10));  $t->size->outNL;
-  
+
     $t->put(K(key => 11), K(key => 11));  $t->size->outNL;
     $t->put(V(key => 11), V(key => 11));  $t->size->outNL;
-  
+
     $t->put(K(key => 12), K(key => 12));  $t->size->outNL;
     $t->put(V(key => 12), V(key => 12));  $t->size->outNL;
-  
+
     $t->put(K(key => 13), K(key => 13));  $t->size->outNL;
     $t->put(V(key => 13), V(key => 13));  $t->size->outNL;
-  
+
     $t->put(K(key => 14), K(key => 14));  $t->size->outNL;
     $t->put(V(key => 14), V(key => 14));  $t->size->outNL;
-  
+
     $t->put(K(key => 15), K(key => 15));  $t->size->outNL;
     $t->put(V(key => 15), V(key => 15));  $t->size->outNL;
-  
+
    $t->put(K(key => 4), K(key => 4));
-  
+
    $t->dump8xx("AAA");
-  
+
     ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>0, mix => 1, clocks=>18177;
   size of tree: .... .... .... ...1
   size of tree: .... .... .... ...2
@@ -18498,7 +18497,7 @@ B<Example:>
       end
   end
   END
-  
+
 
 =head2 Insert
 
@@ -18518,14 +18517,14 @@ B<Example:>
 
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->put(K(key=>1), K(data=>0x11));
     $t->put(K(key=>2), K(data=>0x22));
     $t->put(K(key=>3), K(data=>0x33));
     $t->put(K(key=>4), K(data=>0x44));
     $a->dump("4444", K depth => 11);
     $t->dump("4444");
-  
+
     ok Assemble eq => <<END, avx512=>1;
   4444
   Area     Size:     4096    Used:      320
@@ -18547,17 +18546,17 @@ B<Example:>
     Data :   17   34   51   68
   end
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->put(K(key=>1), K(data=>0x11));
     $t->put(K(key=>2), K(data=>0x22));
     $t->put(K(key=>3), K(data=>0x33));
     $t->put(K(key=>4), K(data=>0x44));
     $t->put(K(key=>5), K(data=>0x55));
     $a->dump("5555",   K depth => 11);
-  
+
     ok Assemble eq => <<END, avx512=>1;
   5555
   Area     Size:     4096    Used:      320
@@ -18573,10 +18572,10 @@ B<Example:>
   .... .... .... .240 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   .... .... .... .280 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->put(K(key=>1), K(data=>0x11));
     $t->put(K(key=>2), K(data=>0x22));
     $t->put(K(key=>3), K(data=>0x33));
@@ -18584,7 +18583,7 @@ B<Example:>
     $t->put(K(key=>5), K(data=>0x55));
     $t->put(K(key=>6), K(data=>0x66));
     $a->dump("6666",   K depth => 14);
-  
+
     ok Assemble eq => <<END, avx512=>1;
   6666
   Area     Size:     4096    Used:      320
@@ -18603,10 +18602,10 @@ B<Example:>
   .... .... .... .3.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   .... .... .... .340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->put(K(key=>1), K(data=>0x11));
     $t->put(K(key=>2), K(data=>0x22));
     $t->put(K(key=>3), K(data=>0x33));
@@ -18615,7 +18614,7 @@ B<Example:>
     $t->put(K(key=>6), K(data=>0x66));
     $t->put(K(key=>7), K(data=>0x77));
     $a->dump("7777",   K depth => 14);
-  
+
     ok Assemble eq => <<END, avx512=>1;
   7777
   Area     Size:     4096    Used:      320
@@ -18634,10 +18633,10 @@ B<Example:>
   .... .... .... .3.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   .... .... .... .340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->put(K(key=>1), K(data=>0x11));
     $t->put(K(key=>2), K(data=>0x22));
     $t->put(K(key=>3), K(data=>0x33));
@@ -18647,7 +18646,7 @@ B<Example:>
     $t->put(K(key=>7), K(data=>0x77));
     $t->put(K(key=>8), K(data=>0x88));
     $t->dump("8888");
-  
+
     ok Assemble eq => <<END, avx512=>1;
   8888
   At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -18656,11 +18655,11 @@ B<Example:>
     Data :   17   34   51   68   85  102  119  136
   end
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K count => 128;
-  
+
     $N->for(sub
      {my ($index, $start, $next, $end) = @_;
       my $l = $N-$index;
@@ -18670,7 +18669,7 @@ B<Example:>
      });
     $t->put(K(zero=>0), K(zero=>0));
     $t->printInOrder("AAAA");
-  
+
     PrintOutStringNL 'Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512';
     $N->for(sub
      {my ($index, $start, $next, $end) = @_;
@@ -18693,7 +18692,7 @@ B<Example:>
       $t->find($p);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
       $t->find($q);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDecNL(K width => 8);
      });
-  
+
      ok Assemble eq => <<END, avx512=>1;
   AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
   Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512
@@ -18826,57 +18825,57 @@ B<Example:>
    126   10000     2C0     252   10000    1E80     504               0       0               0       0               0       0               0       0               0       0               0       0               0       0
    127  100000     2C0     254 1000000    1E80     508               0       0               0       0               0       0               0       0               0       0               0       0               0       0
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->put(K(key => 1), V(key => 1));  $t->size->outNL;
     $t->put(K(key => 2), K(key => 2));  $t->size->outNL;
     $t->put(V(key => 2), V(key => 2));  $t->size->outNL;
-  
+
     $t->put(K(key => 3), K(key => 3));  $t->size->outNL;
     $t->put(V(key => 3), V(key => 3));  $t->size->outNL;
-  
+
     $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
     $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
-  
+
     $t->put(K(key => 5), K(key => 5));  $t->size->outNL;
     $t->put(V(key => 5), V(key => 5));  $t->size->outNL;
-  
+
     $t->put(K(key => 6), K(key => 5));  $t->size->outNL;
     $t->put(V(key => 6), V(key => 5));  $t->size->outNL;
-  
+
     $t->put(K(key => 7), K(key => 7));  $t->size->outNL;
     $t->put(V(key => 7), V(key => 7));  $t->size->outNL;
-  
+
     $t->put(K(key => 8), K(key => 8));  $t->size->outNL;
     $t->put(V(key => 8), V(key => 8));  $t->size->outNL;
-  
+
     $t->put(K(key => 9), K(key => 9));  $t->size->outNL;
     $t->put(V(key => 9), V(key => 9));  $t->size->outNL;
-  
+
     $t->put(K(key => 10), K(key => 10));  $t->size->outNL;
     $t->put(V(key => 10), V(key => 10));  $t->size->outNL;
-  
+
     $t->put(K(key => 11), K(key => 11));  $t->size->outNL;
     $t->put(V(key => 11), V(key => 11));  $t->size->outNL;
-  
+
     $t->put(K(key => 12), K(key => 12));  $t->size->outNL;
     $t->put(V(key => 12), V(key => 12));  $t->size->outNL;
-  
+
     $t->put(K(key => 13), K(key => 13));  $t->size->outNL;
     $t->put(V(key => 13), V(key => 13));  $t->size->outNL;
-  
+
     $t->put(K(key => 14), K(key => 14));  $t->size->outNL;
     $t->put(V(key => 14), V(key => 14));  $t->size->outNL;
-  
+
     $t->put(K(key => 15), K(key => 15));  $t->size->outNL;
     $t->put(V(key => 15), V(key => 15));  $t->size->outNL;
-  
+
    $t->put(K(key => 4), K(key => 4));
-  
+
    $t->dump8xx("AAA");
-  
+
     ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>0, mix => 1, clocks=>18177;
   size of tree: .... .... .... ...1
   size of tree: .... .... .... ...2
@@ -18926,24 +18925,24 @@ B<Example:>
       end
   end
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     my $N = K(key => 999);
     $N->for(sub
      {my ($index, $start, $next, $end) = @_;
       $t->put($index, $index);
      });
-  
+
     $N->for(sub
      {my ($index, $start, $next, $end) = @_;
       $t->find($index);
      });
-  
+
     ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>763430;
   END
-  
+
 
 =head2 Find
 
@@ -18963,7 +18962,7 @@ B<Example:>
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K count => 128;
-  
+
     $N->for(sub
      {my ($index, $start, $next, $end) = @_;
       my $l = $N-$index;
@@ -18973,7 +18972,7 @@ B<Example:>
      });
     $t->put(K(zero=>0), K(zero=>0));
     $t->printInOrder("AAAA");
-  
+
     PrintOutStringNL 'Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512';
     $N->for(sub
      {my ($index, $start, $next, $end) = @_;
@@ -18996,7 +18995,7 @@ B<Example:>
       $t->find($p);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
       $t->find($q);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDecNL(K width => 8);
      });
-  
+
      ok Assemble eq => <<END, avx512=>1;
   AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
   Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512
@@ -19129,24 +19128,24 @@ B<Example:>
    126   10000     2C0     252   10000    1E80     504               0       0               0       0               0       0               0       0               0       0               0       0               0       0
    127  100000     2C0     254 1000000    1E80     508               0       0               0       0               0       0               0       0               0       0               0       0               0       0
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     my $N = K(key => 999);
     $N->for(sub
      {my ($index, $start, $next, $end) = @_;
       $t->put($index, $index);
      });
-  
+
     $N->for(sub
      {my ($index, $start, $next, $end) = @_;
       $t->find($index);
      });
-  
+
     ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>763430;
   END
-  
+
 
 =head3 Nasm::X86::Tree::findFirst($tree)
 
@@ -19161,17 +19160,17 @@ B<Example:>
     my $N = K(key => 32);
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $N->for(sub
      {my ($i, $start, $next, $end) = @_;
       $t->put($i, $i);
      });
-  
+
     $N->for(sub
      {my ($i, $start, $next, $end) = @_;
       $t->put($N + $i, $N + $i);
       $t->findFirst;
-  
+
       If $t->key != $i,
       Then
        {PrintOutTraceBack "Reverse queue first failed at: "; $i->outNL;
@@ -19183,7 +19182,7 @@ B<Example:>
        };
       $t->printInOrder("A");
      });
-  
+
     ok Assemble eq => <<END, avx512=>1,  trace=>2, mix=>1;
   A  32:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
   A  32:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
@@ -19218,7 +19217,7 @@ B<Example:>
   A  32:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
   A  32:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F
   END
-  
+
 
 =head3 Nasm::X86::Tree::findLast($tree)
 
@@ -19233,12 +19232,12 @@ B<Example:>
     my $N = K(key => 32);
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $N->for(sub
      {my ($i, $start, $next, $end) = @_;
       $t->put($N + $i, $N + $i);
      });
-  
+
     $N->for(sub
      {my ($i, $start, $next, $end) = @_;
       $t->put($N - $i, $N - $i);
@@ -19250,7 +19249,7 @@ B<Example:>
        };
       $t->printInOrder("A");
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   A  31:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
   A  31:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D
@@ -19285,7 +19284,7 @@ B<Example:>
   A  31:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
   A  31:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F
   END
-  
+
 
 =head3 Nasm::X86::Tree::findNext($tree, $key)
 
@@ -19305,7 +19304,7 @@ B<Example:>
      {my ($i) = @_;
       $t->put(2*$i, 2*$i);
      });
-  
+
     (2*$N)->for(sub
      {my ($i) = @_;
       $i->outRightInDec(K(key => 4)); PrintOutString " -> ";
@@ -19314,7 +19313,7 @@ B<Example:>
       If $t->found > 0, Then {$t->key->out};
       PrintOutStringNL '.';
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
      0 -> f: .... .... .... ...2 key: .... .... .... ...2.
      1 -> f: .... .... .... ...2 key: .... .... .... ...2.
@@ -19333,7 +19332,7 @@ B<Example:>
     14 -> f: .... .... .... .... .
     15 -> f: .... .... .... .... .
   END
-  
+
 
 =head3 Nasm::X86::Tree::findPrev($tree, $key)
 
@@ -19353,7 +19352,7 @@ B<Example:>
      {my ($i) = @_;
       $t->put(2*$i, 2*$i);
      });
-  
+
     (2*$N)->for(sub
      {my ($i) = @_;
       $i->outRightInDec(K(key => 4)); PrintOutString " -> ";
@@ -19362,7 +19361,7 @@ B<Example:>
       If $t->found > 0, Then {$t->key->out};
       PrintOutStringNL '.';
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
      0 -> f: .... .... .... .... .
      1 -> f: .... .... .... ...1 key: .... .... .... .....
@@ -19381,7 +19380,7 @@ B<Example:>
     14 -> f: .... .... .... ..40 key: .... .... .... ...C.
     15 -> f: .... .... .... ..80 key: .... .... .... ...E.
   END
-  
+
 
 =head3 Nasm::X86::Tree::findSubTree($tree, $key)
 
@@ -19416,15 +19415,15 @@ B<Example:>
 
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->put   (K(key => 1), K(key => 0x11));
     $t->delete(K key => 1);
     $t->size->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
   size of tree: .... .... .... ....
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $i2 = V  k => 2; $t->put($i2, $i2);
@@ -19433,7 +19432,7 @@ B<Example:>
     my $i1 = V  k => 1; $t->put($i1, $i1);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
-  
+
     ok Assemble eq => <<END, avx512=>1;
      4
   4
@@ -19451,7 +19450,7 @@ B<Example:>
   end
   X   3:    1   2   3
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $i20 = V  k => 20; $t->put($i20, $i20);
@@ -19464,7 +19463,7 @@ B<Example:>
     $t->size->outRightInDecNL(K width => 4);  $t->dump("33"); $t->delete($i33);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("40"); $t->delete($i40);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
-  
+
     ok Assemble eq => <<END, avx512=>1;
      7
   33
@@ -19489,7 +19488,7 @@ B<Example:>
   end
   X   5:    A  14  1E  1F  20
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $i1 = V  k =>  0; $t->put($i1, $i1);
@@ -19501,7 +19500,7 @@ B<Example:>
     $a->dump("AAA", K blocks => 12);
     $t->delete($i2);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
-  
+
     ok Assemble eq => <<END, avx512=>1;
      4
   1
@@ -19533,7 +19532,7 @@ B<Example:>
   end
   X   3:    0   D   F
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $i1 = V  k => 1; $t->put($i1, $i1);
@@ -19542,7 +19541,7 @@ B<Example:>
     my $i4 = V  k => 4; $t->put($i4, $i4);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $a->dump("AAA", K blocks => 12); $t->delete($i1);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
-  
+
     ok Assemble eq => <<END, avx512=>1;
      4
   1
@@ -19574,7 +19573,7 @@ B<Example:>
   end
   X   3:    2   3   4
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $i1 = V  k => 1; $t->put($i1, $i1);
@@ -19583,7 +19582,7 @@ B<Example:>
     my $i4 = V  k => 4; $t->put($i4, $i4);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i2);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
-  
+
     ok Assemble eq => <<END, avx512=>1;
      4
   2
@@ -19601,7 +19600,7 @@ B<Example:>
   end
   X   3:    1   3   4
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $i1 = V  k => 1; $t->put($i1, $i1);
@@ -19610,7 +19609,7 @@ B<Example:>
     my $i4 = V  k => 4; $t->put($i4, $i4);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i3);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
-  
+
     ok Assemble eq => <<END, avx512=>1;
      4
   3
@@ -19628,7 +19627,7 @@ B<Example:>
   end
   X   3:    1   2   4
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $i1 = V  k => 1; $t->put($i1, $i1);
@@ -19637,7 +19636,7 @@ B<Example:>
     my $i4 = V  k => 4; $t->put($i4, $i4);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
-  
+
     ok Assemble eq => <<END, avx512=>1;
      4
   4
@@ -19655,7 +19654,7 @@ B<Example:>
   end
   X   3:    1   2   3
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $i2 = V  k => 2; $t->put($i2, $i2);
@@ -19667,7 +19666,7 @@ B<Example:>
     $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i4);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i1);
     $t->size->outRightInDecNL(K width => 4);  $t->dump("1");
-  
+
     ok Assemble eq => <<END, avx512=>1;
      4
   0
@@ -19701,7 +19700,7 @@ B<Example:>
   1
   - empty
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     $t->put(   K(k=>1), K(d=>11));
@@ -19726,7 +19725,7 @@ B<Example:>
   2
   - empty
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     $t->put(   K(k=>1), K(d=>11));
@@ -19770,7 +19769,7 @@ B<Example:>
   4
   - empty
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     $t->put(   K(k=>1), K(d=>11));
@@ -19814,7 +19813,7 @@ B<Example:>
   1
   - empty
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $i1 = V  k => 1; $t->put($i1, $i1);
@@ -19835,7 +19834,7 @@ B<Example:>
     $t->size->outRightInDecNL(K width => 4);  $t->dump("8"); $t->delete($i8);
     $t->size->outRightInDecNL(K width => 4);
     $t->dump("X");
-  
+
     ok Assemble eq => <<END, avx512=>1;
      8
   1
@@ -19897,7 +19896,7 @@ B<Example:>
   X
   - empty
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K loop => 20;
@@ -19926,7 +19925,7 @@ B<Example:>
     $t->delete(K k => 16);  $t->printInOrder("16");
     $t->delete(K k => 14);  $t->printInOrder("14");
     $t->delete(K k => 15);  $t->printInOrder("15");
-  
+
     ok Assemble eq => <<END, avx512=>1;
   size of tree: .... .... .... ..14
   AA  20:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
@@ -19951,7 +19950,7 @@ B<Example:>
   14   1:    F
   15- empty
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K loop => 16;
@@ -19976,7 +19975,7 @@ B<Example:>
     $t->printInOrder("13"); $t->delete(K k => 13);
     $t->printInOrder("15"); $t->delete(K k => 15);
     $t->printInOrder("XX");
-  
+
     ok Assemble eq => <<END, avx512=>1;
    0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
    2  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
@@ -19996,33 +19995,33 @@ B<Example:>
   15   1:    F
   XX- empty
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K max => 8;
-  
+
     $N->for(sub                                                                   # Load tree
      {my ($i) = @_;
       $t->put(         $i,     2 *        $i);
       $t->put(2 * $N - $i - 1, 2 * ($N -  $i));
      });
   #  $t->printInOrder("Full");
-  
+
     ($N-1)->for(sub                                                               # Delete elements
      {my ($i) = @_;
       my $n1 = ($N + $i)->clone("1111"); my $n2 = ($N - $i - 1)->clone("2222");
-  
+
       $n1->outNL;
       $t->delete($n1);
       $t->printInOrder("1111");
-  
+
       $n2->outNL;
       $t->delete($n2);
       $t->printInOrder("2222");
      });
     $t->dump("Two:");
     $t->size->outRightInDecNL(K width => 4);
-  
+
     ok Assemble eq => <<END, avx512=>1;
   1111: .... .... .... ...8
   1111  15:    0   1   2   3   4   5   6   7   9   A   B   C   D   E   F
@@ -20060,11 +20059,11 @@ B<Example:>
   end
      2
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K max => 100;
-  
+
     $N->for(sub                                                                   # Load tree
      {my ($index, $start, $next, $end) = @_;
       $t->put($index, 2 * $index);
@@ -20073,7 +20072,7 @@ B<Example:>
        {PrintOutStringNL "SSSS"; $index->outNL; Exit(0);
        };
      });
-  
+
     $N->for(sub                                                                   # Check elements
      {my ($i) = @_;
       $t->find($i);
@@ -20082,16 +20081,16 @@ B<Example:>
        {PrintOutStringNL "AAAA"; $i->outNL; Exit(0);
        };
      });
-  
+
     $N->for(sub                                                                   # Delete elements
      {my ($i) = @_;
       $t->delete($i);
-  
+
       If $t->size != $N - $i - 1,
       Then
        {PrintOutStringNL "TTTT"; $i->outNL; Exit(0);
        };
-  
+
       $N->for(sub                                                                 # Check elements
        {my ($j) = @_;
         $t->find($j);
@@ -20110,10 +20109,10 @@ B<Example:>
          };
        });
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K loop => 16;
@@ -20132,7 +20131,7 @@ B<Example:>
       $t->delete($i * 2 + 1);
      });
     $t->printInOrder("CCCC");
-  
+
     ok Assemble eq => <<END, avx512=>1;
   AAAA  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
   AAAA  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
@@ -20152,7 +20151,7 @@ B<Example:>
   BBBB   1:    F
   CCCC- empty
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K loop => 36;
@@ -20168,7 +20167,7 @@ B<Example:>
     $t->delete(K 1 => 25); $t->printInOrder("25");
     $t->delete(K 1 => 30); $t->printInOrder("30");
     $t->delete(K 1 => 35); $t->printInOrder("35");
-  
+
     $t->delete(K 1 =>  1); $t->printInOrder(" 1");
     $t->delete(K 1 =>  6); $t->printInOrder(" 6");
     $t->delete(K 1 => 11); $t->printInOrder("11");
@@ -20176,7 +20175,7 @@ B<Example:>
     $t->delete(K 1 => 21); $t->printInOrder("21");
     $t->delete(K 1 => 26); $t->printInOrder("26");
     $t->delete(K 1 => 31); $t->printInOrder("31");
-  
+
     $t->delete(K 1 =>  2); $t->printInOrder(" 2");
     $t->delete(K 1 =>  7); $t->printInOrder(" 7");
     $t->delete(K 1 => 12); $t->printInOrder("12");
@@ -20184,7 +20183,7 @@ B<Example:>
     $t->delete(K 1 => 22); $t->printInOrder("22");
     $t->delete(K 1 => 27); $t->printInOrder("27");
     $t->delete(K 1 => 32); $t->printInOrder("32");
-  
+
     $t->delete(K 1 =>  3); $t->printInOrder(" 3");
     $t->delete(K 1 =>  8); $t->printInOrder(" 8");
     $t->delete(K 1 => 13); $t->printInOrder("13");
@@ -20192,7 +20191,7 @@ B<Example:>
     $t->delete(K 1 => 23); $t->printInOrder("23");
     $t->delete(K 1 => 28); $t->printInOrder("28");
     $t->delete(K 1 => 33); $t->printInOrder("33");
-  
+
     $t->delete(K 1 =>  4); $t->printInOrder(" 4");
     $t->delete(K 1 =>  9); $t->printInOrder(" 9");
     $t->delete(K 1 => 14); $t->printInOrder("14");
@@ -20200,7 +20199,7 @@ B<Example:>
     $t->delete(K 1 => 24); $t->printInOrder("24");
     $t->delete(K 1 => 29); $t->printInOrder("29");
     $t->delete(K 1 => 34); $t->printInOrder("34");
-  
+
     ok Assemble eq => <<END, avx512=>1;
    0  35:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
    5  34:    1   2   3   4   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
@@ -20239,7 +20238,7 @@ B<Example:>
   29   1:   22
   34- empty
   END
-  
+
 
 =head3 Nasm::X86::Tree::clear($tree)
 
@@ -20254,7 +20253,7 @@ B<Example:>
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K loop => 16;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->size->out("t: ", " ");
     $a->used->out("u: ", " ");
@@ -20265,7 +20264,7 @@ B<Example:>
     $a->used->out("u: ", " ");
     $a->freeChainSpace->out("f: ", " ");
     $a->size->outNL;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->size->out("t: ", " ");
     $a->used->out("u: ", " ");
@@ -20276,18 +20275,18 @@ B<Example:>
     $a->used->out("u: ", " ");
     $a->freeChainSpace->out("f: ", " ");
     $a->size->outNL;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->free;
     $a->used->out("Clear tree:            u: ");
     $a->freeChainSpace->out(" f: ", " ");
     $a->size->outNL;
-  
+
     $a->clear;
     $a->used->out("Clear area:            u: ");
     $a->freeChainSpace->out(" f: ", " ");
     $a->size->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... .... size of area: .... .... .... 10..
   t: .... .... .... .... u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
@@ -20296,7 +20295,7 @@ B<Example:>
   Clear tree:            u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
   Clear area:            u: .... .... .... .... f: .... .... .... .... size of area: .... .... .... 10..
   END
-  
+
 
 =head3 Nasm::X86::Tree::free($tree)
 
@@ -20311,7 +20310,7 @@ B<Example:>
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K loop => 16;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->size->out("t: ", " ");
     $a->used->out("u: ", " ");
@@ -20322,7 +20321,7 @@ B<Example:>
     $a->used->out("u: ", " ");
     $a->freeChainSpace->out("f: ", " ");
     $a->size->outNL;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->size->out("t: ", " ");
     $a->used->out("u: ", " ");
@@ -20333,18 +20332,18 @@ B<Example:>
     $a->used->out("u: ", " ");
     $a->freeChainSpace->out("f: ", " ");
     $a->size->outNL;
-  
+
     $N->for(sub {my ($i) = @_; $t->push($i+1)});
     $t->free;
     $a->used->out("Clear tree:            u: ");
     $a->freeChainSpace->out(" f: ", " ");
     $a->size->outNL;
-  
+
     $a->clear;
     $a->used->out("Clear area:            u: ");
     $a->freeChainSpace->out(" f: ", " ");
     $a->size->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... .... size of area: .... .... .... 10..
   t: .... .... .... .... u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
@@ -20353,7 +20352,7 @@ B<Example:>
   Clear tree:            u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
   Clear area:            u: .... .... .... .... f: .... .... .... .... size of area: .... .... .... 10..
   END
-  
+
 
 =head2 Iteration
 
@@ -20377,12 +20376,12 @@ B<Example:>
      {my ($i) = @_;
       $t->put($i, 2 * $i);
      });
-  
+
     $t->by(sub
      {my ($tree, $start, $next, $end) = @_;
       $tree->key->out("");  $tree->data->outNL(" ");
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   .... .... .... .... .... .... .... ....
   .... .... .... ...1 .... .... .... ...2
@@ -20401,7 +20400,7 @@ B<Example:>
   .... .... .... ...E .... .... .... ..1C
   .... .... .... ...F .... .... .... ..1E
   END
-  
+
 
 =head3 Nasm::X86::Tree::yb($tree, $block)
 
@@ -20421,12 +20420,12 @@ B<Example:>
      {my ($i) = @_;
       $t->put($i, 2* $i);
      });
-  
+
     $t->yb(sub
      {my ($tree, $start, $prev, $end) = @_;
       $tree->key->out("");  $tree->data->outNL(" ");
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   .... .... .... ...F .... .... .... ..1E
   .... .... .... ...E .... .... .... ..1C
@@ -20445,7 +20444,7 @@ B<Example:>
   .... .... .... ...1 .... .... .... ...2
   .... .... .... .... .... .... .... ....
   END
-  
+
 
 =head2 Push and Pop
 
@@ -20469,21 +20468,21 @@ B<Example:>
      {my ($i) = @_;
       $t->push($i);
      });
-  
+
     $t->peek(K key => 1)->data ->outNL;
     $t->peek(K key => 2)->data ->outNL;
     $t->peek(K key => 3)->found->outNL;
     $t->peek(2 * $N    )->found->outNL;
-  
+
     $t->size->outNL;
     $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
-  
+
     $N->for(sub
      {my ($i) = @_;
       $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
      });
     $t->pop; $t->found->outNL("f: ");
-  
+
     ok Assemble eq => <<END, avx512=>1;
   data: .... .... .... ...F
   data: .... .... .... ...E
@@ -20509,7 +20508,7 @@ B<Example:>
   f: .... .... .... ...1 i: .... .... .... .... data: .... .... .... ....
   f: .... .... .... ....
   END
-  
+
 
 =head3 Nasm::X86::Tree::peekSubTree($tree, $back)
 
@@ -20536,21 +20535,21 @@ B<Example:>
      {my ($i) = @_;
       $t->push($i);
      });
-  
+
     $t->peek(K key => 1)->data ->outNL;
     $t->peek(K key => 2)->data ->outNL;
     $t->peek(K key => 3)->found->outNL;
     $t->peek(2 * $N    )->found->outNL;
-  
+
     $t->size->outNL;
     $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
-  
+
     $N->for(sub
      {my ($i) = @_;
       $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
      });
     $t->pop; $t->found->outNL("f: ");
-  
+
     ok Assemble eq => <<END, avx512=>1;
   data: .... .... .... ...F
   data: .... .... .... ...E
@@ -20576,7 +20575,7 @@ B<Example:>
   f: .... .... .... ...1 i: .... .... .... .... data: .... .... .... ....
   f: .... .... .... ....
   END
-  
+
 
 =head3 Nasm::X86::Tree::popSubTree($tree)
 
@@ -20591,7 +20590,7 @@ B<Example:>
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $T = $a->CreateTree;
-  
+
     $T->push(K key => 1);
     $t->push($T);
     $t->dump8xx('AA');
@@ -20622,7 +20621,7 @@ B<Example:>
     Data :        1
   end
   END
-  
+
 
 =head3 Nasm::X86::Tree::get($tree, $key)
 
@@ -20642,21 +20641,21 @@ B<Example:>
      {my ($i) = @_;
       $t->push($i);
      });
-  
+
     $t->peek(K key => 1)->data ->outNL;
     $t->peek(K key => 2)->data ->outNL;
     $t->peek(K key => 3)->found->outNL;
     $t->peek(2 * $N    )->found->outNL;
-  
+
     $t->size->outNL;
     $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
-  
+
     $N->for(sub
      {my ($i) = @_;
       $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
      });
     $t->pop; $t->found->outNL("f: ");
-  
+
     ok Assemble eq => <<END, avx512=>1;
   data: .... .... .... ...F
   data: .... .... .... ...E
@@ -20682,7 +20681,7 @@ B<Example:>
   f: .... .... .... ...1 i: .... .... .... .... data: .... .... .... ....
   f: .... .... .... ....
   END
-  
+
 
 =head2 Trees as Strings
 
@@ -20708,7 +20707,7 @@ B<Example:>
     ok Assemble eq => <<END, avx512=>1;
   A
   END
-  
+
 
 =head3 Nasm::X86::Tree::append($string, $append)
 
@@ -20723,26 +20722,26 @@ B<Example:>
 
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->push(K alpha => 0x03b1);
     $t->push(K beta  => 0x03b2);
     $t->push(K gamma => 0x03b3);
     $t->push(K delta => 0x03b4);
-  
+
     $t->outAsUtf8NL;
-  
+
     $t->append($t);
     $t->outAsUtf8NL;
-  
+
     $t->append($t);
     $t->outAsUtf8NL;
-  
+
     my $T = $t->substring(K(key => 4), K(key => 8));
     $T->outAsUtf8NL;
-  
+
     my $r = $T->reverse;
     $r->outAsUtf8NL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   αβγδ
   αβγδαβγδ
@@ -20750,36 +20749,36 @@ B<Example:>
   αβγδ
   δγβα
   END
-  
+
     my $a = CreateArea;
     my $p = $a->CreateTree(usage=>q(stack));
     my $q = $a->CreateTree;
     my $r = $a->CreateTree;
     my $s = $a->CreateTree;
     my $t = $a->CreateTree;
-  
+
     $s->push(K char => ord $_) for split //, 'abc1';
     $r->push(K char => ord $_) for split //, 'abd2';
     $q->push(K char => ord $_) for split //, 'abe3';
     $p +=    K(char => ord $_) for split //, 'abf4';
-  
+
     $t->putString($s);   $t->putString($s);   $t->putString($s);                  # Removing or duplicating these columsn should have no effect
     $t->putString($r);   $t->putString($r);   $t->putString($r);
     $t->putString($q);   $t->putString($q);   $t->putString($q);
     $t->putString($p);   $t->putString($p);   $t->putString($p);
     $t->dump8xx('t = abcd');
-  
+
     $t->find(K key => 0x61);
     for my $f(qw(found key data subTree offset))
      {$t->{$f}->outNL(sprintf("%-8s", $f));
      }
-  
+
     $t->getString($s); $t->found->outNL("found:  ");
     $s--;
     my $f = $t->getString($s); $f->found->outNL("found:  "); $f->data->outNL("data:   ");
     $s->pop;
     my $F = $t->getString($s); $F->found->outNL("found:  "); $F->data->outNL("data:   ");
-  
+
     ok Assemble eq => <<END, avx512=>1, trace=>1;
   t = abcd
   Tree: .... .... .... .140
@@ -20843,23 +20842,23 @@ B<Example:>
   found:  .... .... .... ...1
   data:   .... .... .... .580
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $T = $a->CreateTree;
-  
+
     for my $s(qw(a ab abc))
      {$t->putStringFromMemory(constantString $s);
      }
-  
+
     for my $s(qw(ab abc abd))
      {$T->putStringFromMemory(constantString $s);
      }
-  
+
     my $R = $t->intersectionOfStringTrees($T);
-  
+
     $R->dump('rr');
-  
+
     ok Assemble eq => <<END, avx512=>1, trace=>1;
   rr
   At:  740                    length:    3,  data:  780,  nodes:  7C0,  first:  700, root, leaf
@@ -20868,42 +20867,42 @@ B<Example:>
     Data :  960 1216 1472
   end
   END
-  
+
     my $f = "zzzOperators.lib";
-  
+
     my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
      {my ($p, $s, $sub) = @_;
-  
+
       my $add = Subroutine                                                        # The contained routine that we wish to call
        {my ($p, $s, $sub) = @_;
   #      my $c = $$p{a} + $$p{b};
   #      $$p{c}->copy($c);
         PrintOutStringNL "Add";
        } name => "＋", parameters=>[qw(a b c)];
-  
+
      } name => "operators",  parameters=>[qw(a b c)], export => $f;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   END
-  
-  
+
+
     my $l = ReadArea $f;                                                          # Area containing subroutine library
     my $a = CreateArea;                                                           # Area in which we will do the parse
-  
+
     my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
     my $p = $a->ParseUnisyn($A, $N-1);                                            # Parse the utf8 string minus the final new line and zero?
-  
+
     $p->tree->dumpParseTree($A);                                                  # Parse tree
-  
+
     my $y = $l->yggdrasil;                                                        # Yggdrasil for the parse tree area
     my $u = $y->findSubTree(Nasm::X86::Ygddrasil::UniqueStrings);                 # Unique strings in area from parse
     my $o = $y->findSubTree(Nasm::X86::Ygddrasil::SubroutineOffsets);             # Offsets of subroutines in library
     my $i = $p->symbols->intersectionOfStringTrees($u);                           # Mapping between the number of a symbol to the number of a routine.  The library sub tree SubroutineOffsets located via Yggdrasil can be used to obtain the actual offset of the routine in the library.
-  
+
   #  $i->dump8xx('ii');                                                           # Intersection of parse strings with library strings
   #  $o->dump8xx('oo');                                                           # Subroutine offsets
     $p->traverseApplyingLibraryOperators($l, $i);                                 # Traverse a parse tree applying a library of operators
-  
+
     ok Assemble eq => <<END, avx512=>1;
   ＋
   ._1
@@ -20913,7 +20912,7 @@ B<Example:>
   Add
   Ascii
   END
-  
+
 
 =head3 Nasm::X86::Tree::clone($string)
 
@@ -20965,23 +20964,23 @@ B<Example:>
     my $r = $a->CreateTree;
     my $s = $a->CreateTree;
     my $t = $a->CreateTree;
-  
+
     $r->put(K(key => 1), K(data => 1));
     $r->put(K(key => 2), K(data => 2));
-  
+
     $s->put(K(key => 1), K(data => 1));
     $s->put(K(key => 3), K(data => 3));
-  
+
     $t->push($r);
     $t->push($s);
-  
+
     my $u = $t->union;
     $t->dump('input 1 2  1 3');
     $u->dump('union 1 2    3');
-  
+
     my $i = $t->intersection;
     $i->dump('intersection 1');
-  
+
     ok Assemble eq => <<END, avx512=>1;
   input 1 2  1 3
   At:  280                    length:    2,  data:  2C0,  nodes:  300,  first:   C0, root, leaf,  trees:            11
@@ -21012,7 +21011,7 @@ B<Example:>
     Data :    1
   end
   END
-  
+
 
 =head3 Nasm::X86::Tree::intersection($tree)
 
@@ -21028,23 +21027,23 @@ B<Example:>
     my $r = $a->CreateTree;
     my $s = $a->CreateTree;
     my $t = $a->CreateTree;
-  
+
     $r->put(K(key => 1), K(data => 1));
     $r->put(K(key => 2), K(data => 2));
-  
+
     $s->put(K(key => 1), K(data => 1));
     $s->put(K(key => 3), K(data => 3));
-  
+
     $t->push($r);
     $t->push($s);
-  
+
     my $u = $t->union;
     $t->dump('input 1 2  1 3');
     $u->dump('union 1 2    3');
-  
+
     my $i = $t->intersection;
     $i->dump('intersection 1');
-  
+
     ok Assemble eq => <<END, avx512=>1;
   input 1 2  1 3
   At:  280                    length:    2,  data:  2C0,  nodes:  300,  first:   C0, root, leaf,  trees:            11
@@ -21075,7 +21074,7 @@ B<Example:>
     Data :    1
   end
   END
-  
+
 
 =head2 Trees of strings
 
@@ -21095,26 +21094,26 @@ B<Example:>
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $T = $a->CreateTree;
-  
+
     $t->push(K key => 1);
     $t->push(K key => 2);
     $t->push(K key => 3);
     $T->putString($t)->outNL;
-  
+
     K(key => 2)->for(sub
      {$t->pop;
       $t->pop;
       $t->push(K key => 3);
       $t->push(K key => 4);
       $T->putString($t)->outNL;
-  
+
       $t->pop;
       $t->pop;
       $t->push(K key => 4);
       $t->push(K key => 5);
       $T->putString($t)->outNL;
      });
-  
+
     ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
   first: .... .... .... .380
   first: .... .... .... .4C0
@@ -21122,7 +21121,7 @@ B<Example:>
   first: .... .... .... .4C0
   first: .... .... .... .6..
   END
-  
+
 
 =head3 Nasm::X86::Tree::putStringFromMemory($tree, $address, $size)
 
@@ -21168,7 +21167,7 @@ B<Example:>
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $N = K count => 128;
-  
+
     $N->for(sub
      {my ($index, $start, $next, $end) = @_;
       my $l0 = ($N-$index) / 2;
@@ -21181,11 +21180,11 @@ B<Example:>
       $t->put($h0, $h0 * 2);
      });
     $t->printInOrder("AAAA");
-  
+
     ok Assemble eq => <<END, avx512=>1;
   AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
   END
-  
+
 
 =head3 Nasm::X86::Tree::outAsUtf8($string)
 
@@ -21199,26 +21198,26 @@ B<Example:>
 
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     $t->push(K alpha => 0x03b1);
     $t->push(K beta  => 0x03b2);
     $t->push(K gamma => 0x03b3);
     $t->push(K delta => 0x03b4);
-  
+
     $t->outAsUtf8NL;
-  
+
     $t->append($t);
     $t->outAsUtf8NL;
-  
+
     $t->append($t);
     $t->outAsUtf8NL;
-  
+
     my $T = $t->substring(K(key => 4), K(key => 8));
     $T->outAsUtf8NL;
-  
+
     my $r = $T->reverse;
     $r->outAsUtf8NL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   αβγδ
   αβγδαβγδ
@@ -21226,36 +21225,36 @@ B<Example:>
   αβγδ
   δγβα
   END
-  
+
     my $a = CreateArea;
     my $p = $a->CreateTree(usage=>q(stack));
     my $q = $a->CreateTree;
     my $r = $a->CreateTree;
     my $s = $a->CreateTree;
     my $t = $a->CreateTree;
-  
+
     $s->push(K char => ord $_) for split //, 'abc1';
     $r->push(K char => ord $_) for split //, 'abd2';
     $q->push(K char => ord $_) for split //, 'abe3';
     $p +=    K(char => ord $_) for split //, 'abf4';
-  
+
     $t->putString($s);   $t->putString($s);   $t->putString($s);                  # Removing or duplicating these columsn should have no effect
     $t->putString($r);   $t->putString($r);   $t->putString($r);
     $t->putString($q);   $t->putString($q);   $t->putString($q);
     $t->putString($p);   $t->putString($p);   $t->putString($p);
     $t->dump8xx('t = abcd');
-  
+
     $t->find(K key => 0x61);
     for my $f(qw(found key data subTree offset))
      {$t->{$f}->outNL(sprintf("%-8s", $f));
      }
-  
+
     $t->getString($s); $t->found->outNL("found:  ");
     $s--;
     my $f = $t->getString($s); $f->found->outNL("found:  "); $f->data->outNL("data:   ");
     $s->pop;
     my $F = $t->getString($s); $F->found->outNL("found:  "); $F->data->outNL("data:   ");
-  
+
     ok Assemble eq => <<END, avx512=>1, trace=>1;
   t = abcd
   Tree: .... .... .... .140
@@ -21319,23 +21318,23 @@ B<Example:>
   found:  .... .... .... ...1
   data:   .... .... .... .580
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
     my $T = $a->CreateTree;
-  
+
     for my $s(qw(a ab abc))
      {$t->putStringFromMemory(constantString $s);
      }
-  
+
     for my $s(qw(ab abc abd))
      {$T->putStringFromMemory(constantString $s);
      }
-  
+
     my $R = $t->intersectionOfStringTrees($T);
-  
+
     $R->dump('rr');
-  
+
     ok Assemble eq => <<END, avx512=>1, trace=>1;
   rr
   At:  740                    length:    3,  data:  780,  nodes:  7C0,  first:  700, root, leaf
@@ -21344,42 +21343,42 @@ B<Example:>
     Data :  960 1216 1472
   end
   END
-  
+
     my $f = "zzzOperators.lib";
-  
+
     my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
      {my ($p, $s, $sub) = @_;
-  
+
       my $add = Subroutine                                                        # The contained routine that we wish to call
        {my ($p, $s, $sub) = @_;
   #      my $c = $$p{a} + $$p{b};
   #      $$p{c}->copy($c);
         PrintOutStringNL "Add";
        } name => "＋", parameters=>[qw(a b c)];
-  
+
      } name => "operators",  parameters=>[qw(a b c)], export => $f;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   END
-  
-  
+
+
     my $l = ReadArea $f;                                                          # Area containing subroutine library
     my $a = CreateArea;                                                           # Area in which we will do the parse
-  
+
     my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
     my $p = $a->ParseUnisyn($A, $N-1);                                            # Parse the utf8 string minus the final new line and zero?
-  
+
     $p->tree->dumpParseTree($A);                                                  # Parse tree
-  
+
     my $y = $l->yggdrasil;                                                        # Yggdrasil for the parse tree area
     my $u = $y->findSubTree(Nasm::X86::Ygddrasil::UniqueStrings);                 # Unique strings in area from parse
     my $o = $y->findSubTree(Nasm::X86::Ygddrasil::SubroutineOffsets);             # Offsets of subroutines in library
     my $i = $p->symbols->intersectionOfStringTrees($u);                           # Mapping between the number of a symbol to the number of a routine.  The library sub tree SubroutineOffsets located via Yggdrasil can be used to obtain the actual offset of the routine in the library.
-  
+
   #  $i->dump8xx('ii');                                                           # Intersection of parse strings with library strings
   #  $o->dump8xx('oo');                                                           # Subroutine offsets
     $p->traverseApplyingLibraryOperators($l, $i);                                 # Traverse a parse tree applying a library of operators
-  
+
     ok Assemble eq => <<END, avx512=>1;
   ＋
   ._1
@@ -21389,7 +21388,7 @@ B<Example:>
   Add
   Ascii
   END
-  
+
 
 =head3 Nasm::X86::Tree::outAsUtf8NL($string)
 
@@ -21409,7 +21408,7 @@ B<Example:>
     ok Assemble eq => <<END, avx512=>1;
   A
   END
-  
+
 
 =head3 Nasm::X86::Tree::plusAssign($tree, $data)
 
@@ -21562,7 +21561,7 @@ Compose phrases of Earl Zero, write them to a temporary file, return the tempora
 B<Example:>
 
 
-  
+
     my $f = Nasm::X86::Unisyn::Lex::composeUnisyn  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      ('va a= b( vb e+ vc B) e* vd dif ve');
@@ -21570,10 +21569,10 @@ B<Example:>
 ";
     my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
     $s8->outNL;
-  
+
     my ($a32, $s32, $count, $fail) = ConvertUtf8ToUtf32 $a8, $s8;                 # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
     $_->outNL for $s32, $count, $fail;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   size: .... .... .... ..2C
   s32: .... .... .... ..B0
@@ -21581,26 +21580,26 @@ B<Example:>
   fail: .... .... .... ....
   END
     unlink $f;
-  
-  
+
+
     my $f = Nasm::X86::Unisyn::Lex::composeUnisyn  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      ('va a= b( vb e+ vc B) e* vd dif ve');
     is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘
 ";
     my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-  
+
     my $a = CreateArea;                                                           # Area in which we will do the parse
   #$TraceMode = 1;
     my $parse = $a->ParseUnisyn($a8, $s8-2);                                      # Parse the utf8 string minus the final new line and zero?
-  
+
     $parse->char    ->outNL;                                                      # Print results
     $parse->fail    ->outNL;
     $parse->position->outNL;
     $parse->match   ->outNL;
     $parse->reason  ->outNL;
     $parse->tree->dumpParseTree($a8);
-  
+
     ok Assemble eq => <<END, avx512=>1, trace=>0;
   parseChar: .... .... ...1 D5D8
   parseFail: .... .... .... ....
@@ -21619,7 +21618,7 @@ B<Example:>
   ._._𝗘
   END
     unlink $f;
-  
+
 
 =head3 Nasm::X86::Unisyn::Lex::PermissibleTransitions($area)
 
@@ -21632,14 +21631,14 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     my $t = Nasm::X86::Unisyn::Lex::PermissibleTransitions $a;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $t->size->outNL;
     ok Assemble eq => <<END, avx512=>1, label=>'t3';
   size of tree: .... .... .... ...B
   END
-  
+
     my $a = CreateArea;
     my ($o, $c) = Nasm::X86::Unisyn::Lex::OpenClose($a);
     $o->printInOrder('OC');
@@ -21648,7 +21647,7 @@ B<Example:>
   OC  38: 2308230A23292768276A276C276E27702772277427E627E827EA27EC27EE2983298529872989298B298D298F299129932995299729FC2E283008300A3010301430163018301AFD3EFF08FF5F
   CO  38: 2309230B232A2769276B276D276F27712773277527E727E927EB27ED27EF298429862988298A298C298E2990299229942996299829FD2E293009300B3011301530173019301BFD3FFF09FF60
   END
-  
+
 
 =head3 Nasm::X86::Unisyn::Lex::OpenClose($area)
 
@@ -21668,7 +21667,7 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     $t->find(K alpha => ord('𝝰')); $t->found->outNL; $t->data ->outNL;
@@ -21676,7 +21675,7 @@ B<Example:>
   found: .... .... .... ...8
   data: .... .... .... ...6
   END
-  
+
 
 =head3 Nasm::X86::Unisyn::Lex::Reason::Success           {0};(sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};)
 
@@ -21799,27 +21798,27 @@ B<Example:>
     my $format = Rs "Hello %s
 ";
     my $data   = Rs "World";
-  
+
     Extern qw(printf exit malloc strcpy); Link 'c';
-  
-  
+
+
     CallC 'malloc', length($format)+1;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov r15, rax;
-  
+
     CallC 'strcpy', r15, $format;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     CallC 'printf', r15, $data;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     CallC 'exit', 0;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble avx512=>0, eq => <<END;
   Hello World
   END
-  
+
 
 =head2 Extern(@externalReferences)
 
@@ -21834,21 +21833,21 @@ B<Example:>
     my $format = Rs "Hello %s
 ";
     my $data   = Rs "World";
-  
-  
+
+
     Extern qw(printf exit malloc strcpy); Link 'c';  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     CallC 'malloc', length($format)+1;
     Mov r15, rax;
     CallC 'strcpy', r15, $format;
     CallC 'printf', r15, $data;
     CallC 'exit', 0;
-  
+
     ok Assemble avx512=>0, eq => <<END;
   Hello World
   END
-  
+
 
 =head2 Link(@libraries)
 
@@ -21863,21 +21862,21 @@ B<Example:>
     my $format = Rs "Hello %s
 ";
     my $data   = Rs "World";
-  
-  
+
+
     Extern qw(printf exit malloc strcpy); Link 'c';  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     CallC 'malloc', length($format)+1;
     Mov r15, rax;
     CallC 'strcpy', r15, $format;
     CallC 'printf', r15, $data;
     CallC 'exit', 0;
-  
+
     ok Assemble avx512=>0, eq => <<END;
   Hello World
   END
-  
+
 
 =head2 Start()
 
@@ -21899,12 +21898,12 @@ B<Example:>
     Mov rax, Rs($s);
     Mov rdi, length $s;
     PrintOutMemory;
-  
+
     Exit(0);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
-  
+
     ok Assemble(avx512=>0) =~ m(Hello World);
-  
+
 
 =head2 lineNumbersToSubNamesFromSource()
 
@@ -21947,15 +21946,15 @@ B<Example:>
     PrintOutStringNL "Hello
 World";
     PrintErrStringNL "Hello World";
-  
-  
+
+
     ok Assemble debug => 0, eq => <<END, avx512=>0, label=>'t1';  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
   Hello World
   Hello
   World
   END
-  
+
 
 =head1 Library
 
@@ -21971,7 +21970,7 @@ Create a library.
 B<Example:>
 
 
-  
+
     my $l = CreateLibrary  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
      (subroutines =>
@@ -21991,19 +21990,19 @@ B<Example:>
        ],
       file => q(library),
      );
-  
+
     my ($address, $size) = $l->load;
-  
+
     $l->call(q(ssss));
     $l->call(q(tttt), parameters=>{p => V key => 42});
-  
+
     ok Assemble eq => <<END, avx512=>0;
   SSSS
   TTTT
   p: .... .... .... ..2A
   END
     unlink $l->file;
-  
+
 
 =head2 Nasm::X86::Library::load($library)
 
@@ -22369,7 +22368,7 @@ default value supplied for this attribute by this package.
 =head2 Replaceable Attribute List
 
 
-Pi32 Pi64 
+Pi32 Pi64
 
 
 =head2 Pi32
@@ -22428,24 +22427,24 @@ B<Example:>
 
     Mov rax, 0x11111111;
     Mov rbx, 0x22222222;
-  
+
     PushR my @save = (rax, rbx);  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     Mov rax, 0x33333333;
     PopR;
     PrintOutRegisterInHex rax;
     PrintOutRegisterInHex rbx;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
      rax: .... .... 1111 1111
      rbx: .... .... 2222 2222
   END
-  
+
     LoadZmm(17, 0x10..0x50);
     PrintOutRegisterInHex zmm17;
     Mov r14, 2; Mov r15, 3;
     PrintOutRegisterInHex r14, r15;
-  
+
     PushR 14, 15, 16..31;  # 𝗘𝘅𝗮𝗺𝗽𝗹𝗲
 
     LoadZmm(17, 0x20..0x70);
@@ -22463,7 +22462,7 @@ B<Example:>
      r14: .... .... .... ...2
      r15: .... .... .... ...3
   END
-  
+
 
 =head2 PopRR(@r)
 
@@ -22539,7 +22538,7 @@ B<Example:>
     my $g = $a *  $b; $g->outNL;
     my $h = $g /  $b; $h->outNL;
     my $i = $a %  $b; $i->outNL;
-  
+
     If ($a == 3,
     Then
      {PrintOutStringNL "a == 3"
@@ -22547,10 +22546,10 @@ B<Example:>
     Else
      {PrintOutStringNL "a != 3"
      });
-  
+
     ++$a; $a->outNL;
     --$a; $a->outNL;
-  
+
     ok Assemble(debug => 0, eq => <<END, avx512=>0);
   a: .... .... .... ...3
   b: .... .... .... ...2
@@ -22563,7 +22562,7 @@ B<Example:>
   a: .... .... .... ...4
   a: .... .... .... ...3
   END
-  
+
 
 =head2 ClassifyRange($recordOffsetInRange, $address, $size)
 
@@ -22599,20 +22598,20 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     my $m = $a->allocZmmBlock;
     K(K => Rd(1..16))->loadZmm(31);
-  
+
     $a->putZmmBlock  ($m, 31);
     $a->dump("A");
-  
+
     $a->getZmmBlock  ($m, 30);
     $a->clearZmmBlock($m);
     $a->getZmmBlock  ($m, 29);
-  
+
     $a->clearZmmBlock($m);
     PrintOutRegisterInHex 31, 30, 29;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   A
   Area     Size:     4096    Used:      128
@@ -22624,35 +22623,35 @@ B<Example:>
    zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
     my $a = CreateArea;
-  
+
     K(loop => 3)->for(sub
      {my ($i, $start, $next, $end) = @_;
       $i->outNL;
       my $m1 = $a->allocZmmBlock;
       my $m2 = $a->allocZmmBlock;
-  
+
       K(K => Rd(1..16))->loadZmm(31);
       K(K => Rd(17..32))->loadZmm(30);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->putZmmBlock($m1, 31);
       $a->putZmmBlock($m2, 30);
       $a->dump("A");
-  
+
       $a->getZmmBlock($m1, 30);
       $a->getZmmBlock($m2, 31);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->clearZmmBlock($m1);
       $a->freeZmmBlock($m1);
       $a->dump("B");
-  
+
       $a->freeZmmBlock($m2);
       $a->dump("C");
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   index: .... .... .... ....
    zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
@@ -22724,7 +22723,7 @@ B<Example:>
   .... .... .... ..80 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
 
 =head2 Nasm::X86::Area::getZmmBlock($area, $block, $zmm)
 
@@ -22739,20 +22738,20 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     my $m = $a->allocZmmBlock;
     K(K => Rd(1..16))->loadZmm(31);
-  
+
     $a->putZmmBlock  ($m, 31);
     $a->dump("A");
-  
+
     $a->getZmmBlock  ($m, 30);
     $a->clearZmmBlock($m);
     $a->getZmmBlock  ($m, 29);
-  
+
     $a->clearZmmBlock($m);
     PrintOutRegisterInHex 31, 30, 29;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   A
   Area     Size:     4096    Used:      128
@@ -22764,35 +22763,35 @@ B<Example:>
    zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
     my $a = CreateArea;
-  
+
     K(loop => 3)->for(sub
      {my ($i, $start, $next, $end) = @_;
       $i->outNL;
       my $m1 = $a->allocZmmBlock;
       my $m2 = $a->allocZmmBlock;
-  
+
       K(K => Rd(1..16))->loadZmm(31);
       K(K => Rd(17..32))->loadZmm(30);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->putZmmBlock($m1, 31);
       $a->putZmmBlock($m2, 30);
       $a->dump("A");
-  
+
       $a->getZmmBlock($m1, 30);
       $a->getZmmBlock($m2, 31);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->clearZmmBlock($m1);
       $a->freeZmmBlock($m1);
       $a->dump("B");
-  
+
       $a->freeZmmBlock($m2);
       $a->dump("C");
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   index: .... .... .... ....
    zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
@@ -22864,7 +22863,7 @@ B<Example:>
   .... .... .... ..80 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
 
 =head2 Nasm::X86::Area::putZmmBlock($area, $block, $zmm)
 
@@ -22879,20 +22878,20 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     my $m = $a->allocZmmBlock;
     K(K => Rd(1..16))->loadZmm(31);
-  
+
     $a->putZmmBlock  ($m, 31);
     $a->dump("A");
-  
+
     $a->getZmmBlock  ($m, 30);
     $a->clearZmmBlock($m);
     $a->getZmmBlock  ($m, 29);
-  
+
     $a->clearZmmBlock($m);
     PrintOutRegisterInHex 31, 30, 29;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   A
   Area     Size:     4096    Used:      128
@@ -22904,35 +22903,35 @@ B<Example:>
    zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
     my $a = CreateArea;
-  
+
     K(loop => 3)->for(sub
      {my ($i, $start, $next, $end) = @_;
       $i->outNL;
       my $m1 = $a->allocZmmBlock;
       my $m2 = $a->allocZmmBlock;
-  
+
       K(K => Rd(1..16))->loadZmm(31);
       K(K => Rd(17..32))->loadZmm(30);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->putZmmBlock($m1, 31);
       $a->putZmmBlock($m2, 30);
       $a->dump("A");
-  
+
       $a->getZmmBlock($m1, 30);
       $a->getZmmBlock($m2, 31);
       PrintOutRegisterInHex 31, 30;
-  
+
       $a->clearZmmBlock($m1);
       $a->freeZmmBlock($m1);
       $a->dump("B");
-  
+
       $a->freeZmmBlock($m2);
       $a->dump("C");
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   index: .... .... .... ....
    zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
@@ -23004,7 +23003,7 @@ B<Example:>
   .... .... .... ..80 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
   END
-  
+
 
 =head2 Nasm::X86::Area::clearZmmBlock($area, $offset)
 
@@ -23018,20 +23017,20 @@ B<Example:>
 
 
     my $a = CreateArea;
-  
+
     my $m = $a->allocZmmBlock;
     K(K => Rd(1..16))->loadZmm(31);
-  
+
     $a->putZmmBlock  ($m, 31);
     $a->dump("A");
-  
+
     $a->getZmmBlock  ($m, 30);
     $a->clearZmmBlock($m);
     $a->getZmmBlock  ($m, 29);
-  
+
     $a->clearZmmBlock($m);
     PrintOutRegisterInHex 31, 30, 29;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   A
   Area     Size:     4096    Used:      128
@@ -23043,7 +23042,7 @@ B<Example:>
    zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
 
 =head2 Nasm::X86::Area::checkYggdrasilCreated($area)
 
@@ -23066,7 +23065,7 @@ B<Example:>
   found: .... .... .... ....
   found: .... .... .... ...1
   END
-  
+
 
 =head2 DescribeTree(%options)
 
@@ -23145,8 +23144,8 @@ B<Example:>
     $t->getBlock($b, 25, 24, 23);
     PrintOutRegisterInHex 25;
     $t->lengthFromKeys(25)->outNL;
-  
-  
+
+
     $t->firstFromMemory(28);
     $t->incSizeInFirst (28);
     $t->rootIntoFirst  (28, K value => 0x2222);
@@ -23154,16 +23153,16 @@ B<Example:>
     $t->root           (28, K value => 0x2221);  PrintOutZF;
     $t->root           (28, K value => 0x2222);  PrintOutZF;
     $t->firstIntoMemory(28);
-  
+
     $t->first->outNL;
     $b->outNL;
     $a->dump("1111");
     PrintOutRegisterInHex 31, 30, 29, 28;
-  
+
     If $t->leafFromNodes(29) > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
     If $t->leafFromNodes(28) > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
-  
-  
+
+
     ok Assemble eq => <<END, avx512=>1;
    zmm25: .... ..C0 .... ...9  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... ..33 .... ....
   b at offset 56 in zmm25: .... .... .... ...9
@@ -23185,7 +23184,7 @@ B<Example:>
   29 Leaf
   28 Branch
   END
-  
+
 
 =head2 Nasm::X86::Tree::sizeFromFirst($tree, $zmm)
 
@@ -23256,8 +23255,8 @@ B<Example:>
     $t->getBlock($b, 25, 24, 23);
     PrintOutRegisterInHex 25;
     $t->lengthFromKeys(25)->outNL;
-  
-  
+
+
     $t->firstFromMemory(28);
     $t->incSizeInFirst (28);
     $t->rootIntoFirst  (28, K value => 0x2222);
@@ -23265,16 +23264,16 @@ B<Example:>
     $t->root           (28, K value => 0x2221);  PrintOutZF;
     $t->root           (28, K value => 0x2222);  PrintOutZF;
     $t->firstIntoMemory(28);
-  
+
     $t->first->outNL;
     $b->outNL;
     $a->dump("1111");
     PrintOutRegisterInHex 31, 30, 29, 28;
-  
+
     If $t->leafFromNodes(29) > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
     If $t->leafFromNodes(28) > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
-  
-  
+
+
     ok Assemble eq => <<END, avx512=>1;
    zmm25: .... ..C0 .... ...9  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... ..33 .... ....
   b at offset 56 in zmm25: .... .... .... ...9
@@ -23296,7 +23295,7 @@ B<Example:>
   29 Leaf
   28 Branch
   END
-  
+
 
 =head2 Nasm::X86::Tree::freeBlock($tree, $k, $K, $D, $N)
 
@@ -23419,8 +23418,8 @@ B<Example:>
     $t->getBlock($b, 25, 24, 23);
     PrintOutRegisterInHex 25;
     $t->lengthFromKeys(25)->outNL;
-  
-  
+
+
     $t->firstFromMemory(28);
     $t->incSizeInFirst (28);
     $t->rootIntoFirst  (28, K value => 0x2222);
@@ -23428,16 +23427,16 @@ B<Example:>
     $t->root           (28, K value => 0x2221);  PrintOutZF;
     $t->root           (28, K value => 0x2222);  PrintOutZF;
     $t->firstIntoMemory(28);
-  
+
     $t->first->outNL;
     $b->outNL;
     $a->dump("1111");
     PrintOutRegisterInHex 31, 30, 29, 28;
-  
+
     If $t->leafFromNodes(29) > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
     If $t->leafFromNodes(28) > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
-  
-  
+
+
     ok Assemble eq => <<END, avx512=>1;
    zmm25: .... ..C0 .... ...9  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... ..33 .... ....
   b at offset 56 in zmm25: .... .... .... ...9
@@ -23459,7 +23458,7 @@ B<Example:>
   29 Leaf
   28 Branch
   END
-  
+
 
 =head2 Nasm::X86::Tree::putBlock($t, $offset, $K, $D, $N)
 
@@ -23484,8 +23483,8 @@ B<Example:>
     $t->getBlock($b, 25, 24, 23);
     PrintOutRegisterInHex 25;
     $t->lengthFromKeys(25)->outNL;
-  
-  
+
+
     $t->firstFromMemory(28);
     $t->incSizeInFirst (28);
     $t->rootIntoFirst  (28, K value => 0x2222);
@@ -23493,16 +23492,16 @@ B<Example:>
     $t->root           (28, K value => 0x2221);  PrintOutZF;
     $t->root           (28, K value => 0x2222);  PrintOutZF;
     $t->firstIntoMemory(28);
-  
+
     $t->first->outNL;
     $b->outNL;
     $a->dump("1111");
     PrintOutRegisterInHex 31, 30, 29, 28;
-  
+
     If $t->leafFromNodes(29) > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
     If $t->leafFromNodes(28) > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
-  
-  
+
+
     ok Assemble eq => <<END, avx512=>1;
    zmm25: .... ..C0 .... ...9  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... ..33 .... ....
   b at offset 56 in zmm25: .... .... .... ...9
@@ -23524,7 +23523,7 @@ B<Example:>
   29 Leaf
   28 Branch
   END
-  
+
 
 =head2 Nasm::X86::Tree::firstNode($tree, $K, $D, $N)
 
@@ -23541,50 +23540,50 @@ B<Example:>
 
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     my ($K, $D, $N) = (31, 30, 29);
-  
+
     K(K => Rd( 1..16))->loadZmm($K);
     K(K => Rd( 1..16))->loadZmm($N);
-  
+
     $t->lengthIntoKeys($K, K length => $t->length);
-  
+
     PrintOutRegisterInHex 31, 29;
     my $f = $t->firstNode($K, $D, $N);
     my $l = $t-> lastNode($K, $D, $N);
     $f->outNL;
     $l->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... ..10 .... ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
   d at offset 0 in zmm29: .... .... .... ...1
   d at offset (b at offset 56 in zmm31 times 4) in zmm29: .... .... .... ...E
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     my ($K, $D, $N) = (31, 30, 29);
-  
+
     K(K => Rd( 1..16))->loadZmm($K);
     K(K => Rd( 1..16))->loadZmm($N);
-  
+
     $t->lengthIntoKeys($K, K length => $t->length);
-  
+
     PrintOutRegisterInHex 31, 29;
     my $f = $t->firstNode($K, $D, $N);
     my $l = $t-> lastNode($K, $D, $N);
     $f->outNL;
     $l->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... ..10 .... ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
   d at offset 0 in zmm29: .... .... .... ...1
   d at offset (b at offset 56 in zmm31 times 4) in zmm29: .... .... .... ...E
   END
-  
+
 
 =head2 Nasm::X86::Tree::lastNode($tree, $K, $D, $N)
 
@@ -23601,50 +23600,50 @@ B<Example:>
 
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     my ($K, $D, $N) = (31, 30, 29);
-  
+
     K(K => Rd( 1..16))->loadZmm($K);
     K(K => Rd( 1..16))->loadZmm($N);
-  
+
     $t->lengthIntoKeys($K, K length => $t->length);
-  
+
     PrintOutRegisterInHex 31, 29;
     my $f = $t->firstNode($K, $D, $N);
     my $l = $t-> lastNode($K, $D, $N);
     $f->outNL;
     $l->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... ..10 .... ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
   d at offset 0 in zmm29: .... .... .... ...1
   d at offset (b at offset 56 in zmm31 times 4) in zmm29: .... .... .... ...E
   END
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     my ($K, $D, $N) = (31, 30, 29);
-  
+
     K(K => Rd( 1..16))->loadZmm($K);
     K(K => Rd( 1..16))->loadZmm($N);
-  
+
     $t->lengthIntoKeys($K, K length => $t->length);
-  
+
     PrintOutRegisterInHex 31, 29;
     my $f = $t->firstNode($K, $D, $N);
     my $l = $t-> lastNode($K, $D, $N);
     $f->outNL;
     $l->outNL;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... ..10 .... ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
    zmm29: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
   d at offset 0 in zmm29: .... .... .... ...1
   d at offset (b at offset 56 in zmm31 times 4) in zmm29: .... .... .... ...E
   END
-  
+
 
 =head2 Nasm::X86::Tree::relativeNode($tree, $offset, $relative, $K, $N)
 
@@ -23672,7 +23671,7 @@ B<Example:>
 
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     K(loop => 66)->for(sub
      {my ($index, $start, $next, $end) = @_;
       $t->put($index, 2 * $index);
@@ -23680,12 +23679,12 @@ B<Example:>
     $t->getBlock(K(offset=>0x200), 31, 30, 29);
     $t->nextNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
     $t->prevNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
-  
+
     ok Assemble eq => <<END, avx512=>1;
   500
   380
   END
-  
+
 
 =head2 Nasm::X86::Tree::prevNode($tree, $offset, $K, $N)
 
@@ -23702,7 +23701,7 @@ B<Example:>
 
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     K(loop => 66)->for(sub
      {my ($index, $start, $next, $end) = @_;
       $t->put($index, 2 * $index);
@@ -23710,12 +23709,12 @@ B<Example:>
     $t->getBlock(K(offset=>0x200), 31, 30, 29);
     $t->nextNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
     $t->prevNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
-  
+
     ok Assemble eq => <<END, avx512=>1;
   500
   380
   END
-  
+
 
 =head2 Nasm::X86::Tree::indexNode($tree, $offset, $K, $N)
 
@@ -23749,28 +23748,28 @@ B<Example:>
 
 
     my ($K, $D) = (31, 30);
-  
+
     K(K => Rd(reverse 1..16))->loadZmm($K);
     K(K => Rd(reverse 1..16))->loadZmm($D);
     PrintOutStringNL "Start";
     PrintOutRegisterInHex $K, $D;
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     K(loop => 14)->for(sub
      {my ($index, $start, $next, $end) = @_;
-  
+
       $t->key    ->copy($index);
       $t->data   ->copy($index * 2);
       $t->subTree->copy($index % 2);
-  
+
       $t->replace(K(one=>1)<<$index, $K, $D);
-  
+
       $index->outNL;
       PrintOutRegisterInHex $K, $D;
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   Start
    zmm31: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...E  .... ...F .... ..10
@@ -23818,7 +23817,7 @@ B<Example:>
    zmm31: .... ...1 2AAA ...2  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
    zmm30: .... ...1 .... ...2  .... ..1A .... ..18 - .... ..16 .... ..14  .... ..12 .... ..10 + .... ...E .... ...C  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
   END
-  
+
 
 =head2 Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($tree, $point, $K, $D, $IK, $ID, $subTree)
 
@@ -23859,12 +23858,12 @@ B<Example:>
 
 
     my $tree = DescribeTree(length => 7);
-  
+
     my $K = 31;
-  
+
     K(K => Rd(0..15))->loadZmm($K);
     $tree->lengthIntoKeys($K, K length => 13);
-  
+
     K(loop => 16)->for(sub
      {my ($index, $start, $next, $end) = @_;
       my $f = $tree->indexEq ($index, $K);
@@ -23872,7 +23871,7 @@ B<Example:>
       $f    ->outRightInBin(K width => 14);
       PrintOutStringNL " |"
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
    0             1 |
    1            10 |
@@ -23891,7 +23890,7 @@ B<Example:>
   14               |
   15               |
   END
-  
+
     my $tree = DescribeTree();
     $tree->maskForFullKeyArea(7);                                                 # Mask for full key area
     PrintOutRegisterInHex k7;
@@ -23901,7 +23900,7 @@ B<Example:>
       k7: .... .... .... 3FFF
       k7: .... .... .... 7FFF
   END
-  
+
 
 =head2 Nasm::X86::Tree::insertionPoint($tree, $key, $K, %options)
 
@@ -23917,12 +23916,12 @@ B<Example:>
 
 
     my $tree = DescribeTree(length => 7);
-  
+
     my $K = 31;
-  
+
     K(K => Rd(map {2*$_} 1..16))->loadZmm($K);
     $tree->lengthIntoKeys($K, K length => 13);
-  
+
     K(loop => 32)->for(sub
      {my ($index, $start, $next, $end) = @_;
       my $f = $tree->insertionPoint($index, $K);
@@ -23930,7 +23929,7 @@ B<Example:>
       $f    ->outRightInBin(K width => 16);
       PrintOutStringNL " |"
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
    0               1 |
    1               1 |
@@ -23965,7 +23964,7 @@ B<Example:>
   30  10000000000000 |
   31  10000000000000 |
   END
-  
+
 
 =head2 Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($tree, $point, $F, $K, $D, $IK, $ID, $subTree)
 
@@ -24079,43 +24078,43 @@ Set the Zero Flag to oppose the tree bit in the numbered zmm register holding th
 B<Example:>
 
 
-  
+
     my $t = DescribeTree;
     Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
-  
+
                                                        $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
-  
+
     $t->getTreeBits(31, r8);
     V(TreeBits => r8)->outRightInHexNL(K width => 4);
     PrintOutRegisterInHex 31;
-  
+
     Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... .... ...4 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
    zmm31: .... .... ...6 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
@@ -24144,7 +24143,7 @@ B<Example:>
   ZF=1
    zmm31: .... .... 3FFF ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
 
 =head2 Nasm::X86::Tree::getTreeBit($t, $zmm, $point, %options)
 
@@ -24206,43 +24205,43 @@ Load the tree bits from the numbered zmm into the specified register.
 B<Example:>
 
 
-  
+
     my $t = DescribeTree;
     Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
-  
+
                                                        $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
-  
+
     $t->getTreeBits(31, r8);
     V(TreeBits => r8)->outRightInHexNL(K width => 4);
     PrintOutRegisterInHex 31;
-  
+
     Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... .... ...4 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
    zmm31: .... .... ...6 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
@@ -24271,7 +24270,7 @@ B<Example:>
   ZF=1
    zmm31: .... .... 3FFF ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
 
 =head2 Nasm::X86::Tree::setTreeBits($t, $zmm, $register)
 
@@ -24285,43 +24284,43 @@ Put the tree bits in the specified register into the numbered zmm.
 B<Example:>
 
 
-  
+
     my $t = DescribeTree;
     Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
-  
+
                                                        $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
-  
+
     $t->getTreeBits(31, r8);
     V(TreeBits => r8)->outRightInHexNL(K width => 4);
     PrintOutRegisterInHex 31;
-  
+
     Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... .... ...4 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
    zmm31: .... .... ...6 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
@@ -24350,7 +24349,7 @@ B<Example:>
   ZF=1
    zmm31: .... .... 3FFF ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
 
 =head2 Nasm::X86::Tree::insertTreeBit($t, $onz, $zmm, $point)
 
@@ -24374,43 +24373,43 @@ Insert a zero into the tree bits field in the numbered zmm at the specified poin
 B<Example:>
 
 
-  
+
     my $t = DescribeTree;
     Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
-  
+
                                                        $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
-  
+
     $t->getTreeBits(31, r8);
     V(TreeBits => r8)->outRightInHexNL(K width => 4);
     PrintOutRegisterInHex 31;
-  
+
     Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... .... ...4 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
    zmm31: .... .... ...6 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
@@ -24439,7 +24438,7 @@ B<Example:>
   ZF=1
    zmm31: .... .... 3FFF ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
 
 =head2 Nasm::X86::Tree::insertOneIntoTreeBits($t, $zmm, $point)
 
@@ -24453,43 +24452,43 @@ Insert a one into the tree bits field in the numbered zmm at the specified point
 B<Example:>
 
 
-  
+
     my $t = DescribeTree;
     Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
     Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
-  
+
                                                        $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
     Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
-  
+
     $t->getTreeBits(31, r8);
     V(TreeBits => r8)->outRightInHexNL(K width => 4);
     PrintOutRegisterInHex 31;
-  
+
     Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
     Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
-  
+
     Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
-  
+
     ok Assemble eq => <<END, avx512=>1;
    zmm31: .... .... ...4 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
    zmm31: .... .... ...6 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
@@ -24518,7 +24517,7 @@ B<Example:>
   ZF=1
    zmm31: .... .... 3FFF ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
 
 =head2 Nasm::X86::Tree::insertIntoTreeBits($t, $zmm, $point, $content)
 
@@ -24545,26 +24544,26 @@ B<Example:>
 
 
     my ($K, $D, $N) = (31, 30, 29);
-  
+
     K(K => Rd( 1..16))->loadZmm($K);
     K(K => Rd( 1..16))->loadZmm($D);
     K(K => Rd(map {0} 1..16))->loadZmm($N);
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     my $p = K(one => 1) << K three => 3;
     Mov r15, 0xAAAA;
     $t->setTreeBits($K, r15);
-  
+
     PrintOutStringNL "Start";
     PrintOutRegisterInHex 31, 30, 29;
-  
+
     $t->extract($p, $K, $D, $N);
-  
+
     PrintOutStringNL "Finish";
     PrintOutRegisterInHex 31, 30, 29;
-  
+
     ok Assemble eq => <<END, avx512=>1;
   Start
    zmm31: .... ..10 2AAA ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
@@ -24575,7 +24574,7 @@ B<Example:>
    zmm30: .... ..10 .... ...F  .... ...E .... ...E - .... ...D .... ...C  .... ...B .... ...A + .... ...9 .... ...8  .... ...7 .... ...6 - .... ...5 .... ...3  .... ...2 .... ...1
    zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
   END
-  
+
 
 =head2 Nasm::X86::Tree::extractFirst($tree, $K, $D, $N)
 
@@ -24591,35 +24590,35 @@ B<Example:>
 
 
     my ($K, $D, $N) = (31, 30, 29);
-  
+
     K(K => Rd( 1..16))       ->loadZmm($K);
     K(K => Rd( 1..16))       ->loadZmm($D);
     K(K => Rd(map {0} 1..16))->loadZmm($N);
-  
+
     my $a = CreateArea;
     my $t = $a->CreateTree;
-  
+
     my $p = K(one => 1) << K three => 3;
     Mov r15, 0xAAAA;
     $t->setTreeBits($K, r15);
-  
+
     PrintOutStringNL "Start";
     PrintOutRegisterInHex 31, 30, 29;
-  
+
     K(n=>4)->for(sub
      {my ($index, $start, $next, $end) = @_;
-  
+
       $t->extractFirst($K, $D, $N);
-  
+
       PrintOutStringNL "-------------";
       $index->outNL;
       PrintOutRegisterInHex 31, 30, 29;
-  
+
       $t->data->outNL;
       $t->subTree->outNL;
       $t->lengthFromKeys($K)->outNL;
      });
-  
+
     ok Assemble eq => <<END, avx512=>1;
   Start
    zmm31: .... ..10 2AAA ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
@@ -24658,7 +24657,7 @@ B<Example:>
   subTree: .... .... .... ...1
   b at offset 56 in zmm31: .... .... .... ...B
   END
-  
+
 
 =head2 Nasm::X86::Tree::mergeOrSteal($tree, $offset)
 
@@ -24743,21 +24742,21 @@ B<Example:>
      {my ($i) = @_;
       $t->push($i);
      });
-  
+
     $t->peek(K key => 1)->data ->outNL;
     $t->peek(K key => 2)->data ->outNL;
     $t->peek(K key => 3)->found->outNL;
     $t->peek(2 * $N    )->found->outNL;
-  
+
     $t->size->outNL;
     $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
-  
+
     $N->for(sub
      {my ($i) = @_;
       $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
      });
     $t->pop; $t->found->outNL("f: ");
-  
+
     ok Assemble eq => <<END, avx512=>1;
   data: .... .... .... ...F
   data: .... .... .... ...E
@@ -24783,7 +24782,7 @@ B<Example:>
   f: .... .... .... ...1 i: .... .... .... .... data: .... .... .... ....
   f: .... .... .... ....
   END
-  
+
     my $b = Rb(0x41..0x51);
     my $a = CreateArea;
     my $T;
@@ -24793,7 +24792,7 @@ B<Example:>
       $t->push($T) if $T;
       $T = $t;
      }
-  
+
     $T->dump8xx("T");
     ok Assemble eq => <<END, avx512=>1, trace=>0;
   T
@@ -24846,7 +24845,7 @@ B<Example:>
        end
   end
   END
-  
+
 
 =head2 Nasm::X86::Tree::dumpWithWidth($tree, $title, $width, $margin, $first, $keyX, $dataX)
 
@@ -32474,98 +32473,98 @@ deref (addr a add 16): .... .... .... ...3
 END
  }
 
-#D1 Library                                                                     # Create a library and call the methods contained in it.
-
-sub CreateLibrary(%)                                                            # Create a library.
- {my (%library) = @_;                                                           # Library definition
-
-  $library{subroutines} or confess "Subroutines required";
-  $library{file}        or confess "Subroutines file name required";
-
-  my @s = $library{subroutines}->@*;
-
-  Mov rax, scalar @s;
-  Ret;
-  my @l = map {my $l = Label; Mov rax, $l; $l} @s;                              # Vector of subroutine addresses
-
-  my @c = map {&$_} @s;                                                         # Call the subroutines provided to write their code into the program and return the details of the subroutine so written
-
-  for my $c(keys @c)                                                            # Write the entry point of each routine
-   {my $e = $c[$c]->start;
-    push @text, <<END;
-$l[$c] equ $e
-END
-   }
-
-  unlink my $f = $library{file};                                                # The name of the file containing the library
-
-  Assemble library => $f;                                                       # Create the library file
-
-  $library{address} = undef;                                                    # Address of the library once it has been loaded
-  $library{size}    = undef;                                                    # Size of the library in bytes
-  $library{meta}    = \@c;                                                      # Array describing each subroutine in the order they are held in the library
-  $library{name}{$c[$_]{name}} = $c[$_] for keys @c;                            # Subroutine description by name
-
-  genHash "Nasm::X86::Library", %library
- }
-
-# Pilates of East Lake
-sub Nasm::X86::Library::load($)                                                 # Load a library and return the addresses of its subroutines as variables.
- {my ($library) = @_;                                                           # Description of library to load
-
-  my @offsets = sub                                                             # Examine library at run time
-   {my $c = readBinaryFile $$library{file};
-    my (undef, $n) = unpack "SQ", $c;
-    my @v = unpack "SQC(SQ)[$n]", $c;
-    map {$_ > 2 && $_ % 2 == 0 ? ($v[$_]) : () } keys @v
-   }->();
-
-  my @s = $$library{meta}->@*;
-  $s[$_]{offset} = V(entry=>$offsets[$_]) for keys @s;                          # Variable offset of each subroutine
-
-  ($library->address, $library->size) = ReadFile $$library{file};               # Load library at run time
- }
-
-sub Nasm::X86::Library::call($$%)                                               # Call a library routine
- {my ($library, $name, %options) = @_;                                          # Description of library, method name, options - which includes parameters and structures
-  @_ >= 2 or confess "Two or more parameters";
-
-  $library->name->{$name}->call(library => $library->address, %options);
- }
-
-#latest:
-if (1) {                                                                        #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
-  my $l = CreateLibrary
-   (subroutines =>
-     [sub
-       {Subroutine
-         {my ($p, $s, $sub) = @_;
-          PrintOutStringNL "SSSS";
-         } name=>"ssss";
-       },
-      sub
-       {Subroutine
-         {my ($p, $s, $sub) = @_;
-          PrintOutStringNL "TTTT";
-          $$p{p}->outNL;
-         } name=>"tttt",  parameters=>[qw(p)];
-       },
-     ],
-    file => q(library),
-   );
-
-  my ($address, $size) = $l->load;
-
-  $l->call(q(ssss));
-  $l->call(q(tttt), parameters=>{p => V key => 42});
-
-  ok Assemble eq => <<END, avx512=>0;
-SSSS
-TTTT
-p: .... .... .... ..2A
-END
-  unlink $l->file;
- }
+# Early version of library - the later version fixed the problem of not including code used to build the library in the library by defining a specific scope for the code to be placed in the library - namely the scope of the containing subroutine.
+##D1 Library                                                                     # Create a library and call the methods contained in it.
+#
+#sub CreateLibrary(%)                                                            # Create a library.
+# {my (%library) = @_;                                                           # Library definition
+#
+#  $library{subroutines} or confess "Subroutines required";
+#  $library{file}        or confess "Subroutines file name required";
+#
+#  my @s = $library{subroutines}->@*;
+#
+#  Mov rax, scalar @s;
+#  Ret;
+#  my @l = map {my $l = Label; Mov rax, $l; $l} @s;                              # Vector of subroutine addresses
+#
+#  my @c = map {&$_} @s;                                                         # Call the subroutines provided to write their code into the program and return the details of the subroutine so written
+#
+#  for my $c(keys @c)                                                            # Write the entry point of each routine
+#   {my $e = $c[$c]->start;
+#    push @text, <<END;
+#$l[$c] equ $e
+#END
+#   }
+#
+#  unlink my $f = $library{file};                                                # The name of the file containing the library
+#
+#  Assemble library => $f;                                                       # Create the library file
+#
+#  $library{address} = undef;                                                    # Address of the library once it has been loaded
+#  $library{size}    = undef;                                                    # Size of the library in bytes
+#  $library{meta}    = \@c;                                                      # Array describing each subroutine in the order they are held in the library
+#  $library{name}{$c[$_]{name}} = $c[$_] for keys @c;                            # Subroutine description by name
+#
+#  genHash "Nasm::X86::Library", %library
+# }
+#
+#sub Nasm::X86::Library::load($)                                                 # Load a library and return the addresses of its subroutines as variables.
+# {my ($library) = @_;                                                           # Description of library to load
+#
+#  my @offsets = sub                                                             # Examine library at run time
+#   {my $c = readBinaryFile $$library{file};
+#    my (undef, $n) = unpack "SQ", $c;
+#    my @v = unpack "SQC(SQ)[$n]", $c;
+#    map {$_ > 2 && $_ % 2 == 0 ? ($v[$_]) : () } keys @v
+#   }->();
+#
+#  my @s = $$library{meta}->@*;
+#  $s[$_]{offset} = V(entry=>$offsets[$_]) for keys @s;                          # Variable offset of each subroutine
+#
+#  ($library->address, $library->size) = ReadFile $$library{file};               # Load library at run time
+# }
+#
+#sub Nasm::X86::Library::call($$%)                                               # Call a library routine
+# {my ($library, $name, %options) = @_;                                          # Description of library, method name, options - which includes parameters and structures
+#  @_ >= 2 or confess "Two or more parameters";
+#
+#  $library->name->{$name}->call(library => $library->address, %options);
+# }
+#
+##latest:
+#if (1) {                                                                        #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
+#  my $l = CreateLibrary
+#   (subroutines =>
+#     [sub
+#       {Subroutine
+#         {my ($p, $s, $sub) = @_;
+#          PrintOutStringNL "SSSS";
+#         } name=>"ssss";
+#       },
+#      sub
+#       {Subroutine
+#         {my ($p, $s, $sub) = @_;
+#          PrintOutStringNL "TTTT";
+#          $$p{p}->outNL;
+#         } name=>"tttt",  parameters=>[qw(p)];
+#       },
+#     ],
+#    file => q(library),
+#   );
+#
+#  my ($address, $size) = $l->load;
+#
+#  $l->call(q(ssss));
+#  $l->call(q(tttt), parameters=>{p => V key => 42});
+#
+#  ok Assemble eq => <<END, avx512=>0;
+#SSSS
+#TTTT
+#p: .... .... .... ..2A
+#END
+#  unlink $l->file;
+# }
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::dClassify
@@ -33911,4 +33910,6 @@ END
   say STDERR $s;
   exit(1) if $testsThatFailed;                                                  # Show failure on gitHub
  }
+
 # podDocumentation
+# 91909 - Pilates of East Lake
