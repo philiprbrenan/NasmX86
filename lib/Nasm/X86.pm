@@ -1800,7 +1800,8 @@ END
 
     my @st = map{[$_+0, $st{$_}]} sort keys %st;                                # Parameters in stack frame order
 
-    if (1 and (!$nr && $nd or $nr && !$nd) and @st >= 4 and 1 + $st[-1][0] - $st[0][0] == @st)  # The mapping is compact so we can do the whole thing without masking - and - the mapping is big enough to use zmm registers.  Further we are either doing everything by reference or everything directly - we do not have a mixture of references and directs require more instructions to handle - the goal here is, after all, to reduce the number of instructions required to construct a parameter list.
+    if (1 and (!$nr && $nd or $nr && !$nd) and                                  # The mapping is compact so we can do the whole thing without masking - and - the mapping is big enough to use zmm registers.  Further we are either doing everything by reference or everything directly - we do not have a mixture of references and directs require more instructions to handle - the goal here is, after all, to reduce the number of instructions required to construct a parameter list.
+        @st >= 4 and 1 + $st[-1][0] - $st[0][0] == @st)
      {pop @text while @text and $text[-1] !~ m(\;AAAAAAAA);                     # Back up to the start of the structure parameters
       my $w = RegisterSize rax;                                                 # Size of one parameter
       my $W = RegisterSize zmm0;                                                # Space in parameter block
@@ -7386,7 +7387,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
        });
       PrintErrStringNL "Stuck in depth";                                        # We seem to be looping endlessly
       Exit(1);
-     };                                                          # Insert completed successfully
+     };                                                                         # Insert completed successfully
     PopR;
    }  structures => {tree => $tree},
       parameters => [qw(node depth)],
@@ -8189,8 +8190,8 @@ sub Nasm::X86::Tree::delete($$)                                                 
                 $t->putBlock($Q, $K, $D, $N);                                   # Save block
 
                 my $key     = $t->key->clone("key");                            # Record details of leaf
-                my $data    = $t->data->clone("data");                          #
-                my $subTree = $t->subTree->clone("data");                       #
+                my $data    = $t->data->clone("data");
+                my $subTree = $t->subTree->clone("data");
                 $t->find($k);                                                   # Find key we actually want to delete
 
                 $t->key    ->copy($key);                                        # Reload
@@ -27300,7 +27301,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #
+if (1) {
   my ($s, $l) =                                                                 #TCopyMemory64
     constantString('0123456789abcdef'x64);
   my $t = $l->allocateMemory;
@@ -30229,7 +30230,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #Nasm::X86::Variable::shiftLeft #Nasm::X86::Variable::shiftRight
+if (1) {                                                                        #TNasm::X86::Variable::shiftLeft #TNasm::X86::Variable::shiftRight
   K(loop=>16)->for(sub
    {my ($index, $start, $next, $end) = @_;
    (K(one => 1)     << $index)->outRightInBinNL(K width => 16);
@@ -32335,7 +32336,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #
+if (1) {
   my $t = Subroutine                                                            #TSubroutine
    {my ($p, $s, $sub) = @_;
     PrintOutStringNL "TTTT";
@@ -32950,7 +32951,7 @@ if (1) {                                                                        
 
 
   Mov rax, Rq(0x11);
-  $S->call(parameters => {fail => K(zero=> 0)});                                # call
+  $S->call(parameters => {fail => K(zero=> 0)});                                # Call subroutine to be traced
   $T->call;
 
   Assemble eq=><<END, avx512=>1, trace=>1, mix=>0;
@@ -33376,7 +33377,7 @@ sub Nasm::X86::Tree::getKeyString($$$$)                                         
  }
 
 #latest:;
-if (1) {                                                                        #Nasm::X86::Tree::put2 #Nasm::X86::Tree::get2
+if (1) {                                                                        #TNasm::X86::Tree::put2 #TNasm::X86::Tree::get2
   my $a = CreateArea;
   my $t = $a->CreateTree;
   my $k1 = K key1 => 0x1;
@@ -33462,7 +33463,8 @@ END
     my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x8888}, override => $a->address + $o->data); # Call position independent code
+    $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
+                          override => $a->address + $o->data);
     PrintOutRegisterInHex rax;
    }
 
@@ -33478,7 +33480,8 @@ END
     my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x7777}, override => $a->address + $o->data); # Call position independent code
+    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
+                          override => $a->address + $o->data);
     PrintOutRegisterInHex rax;
    }
 
@@ -33518,7 +33521,8 @@ if (1) {                                                                        
     my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x9999}, override => $a->address + $y->data); # Call position independent code
+    $t->call(parameters=>{a        => K key => 0x9999},                         # Call position independent code
+                          override => $a->address + $y->data);
     PrintOutRegisterInHex rax;
    }
 
@@ -33535,7 +33539,8 @@ END
     my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x8888}, override => $a->address + $o->data); # Call position independent code
+    $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
+                          override => $a->address + $o->data);
     PrintOutRegisterInHex rax;
    }
 
@@ -33551,7 +33556,8 @@ END
     my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x7777}, override => $a->address + $o->data); # Call position independent code
+    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
+                          override => $a->address + $o->data);
     PrintOutRegisterInHex rax;
    }
 
@@ -33567,7 +33573,8 @@ END
     my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
-    $t->call(parameters=>{a => K key => 0x7777}, override => $a->address + $o->data); # Call position independent code
+    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
+                          override => $a->address + $o->data);
     PrintOutRegisterInHex rax;
    }
 
@@ -33815,7 +33822,7 @@ END
  };
 
 #latest:
-if (0) {                                                                        #
+if (0) {                                                                        #TAssemble
   ok Assemble eq => <<END, avx512=>1;
 END
  }
