@@ -5817,15 +5817,6 @@ sub DescribeTree(%)                                                             
 
   my $l2 = int($length/2);                                                      # Minimum length of length after splitting
 
-  my $usage = sub
-   {return {} unless my $u = $options{usage};
-    my $r = ref $u;                                                             # Usage expressed as:
-    return {$u=>1}            unless $r;                                        # Scalar
-    return $u                 if $r =~ m(hash)i;                                # Hash
-    return {map {$_=> 1} @$u} if $r =~ m(array)i;                               # Array
-    confess qq(Unexpected usage parameter of type: $r\n).dump($u);
-   }->();
-
   genHash(__PACKAGE__."::Tree",                                                 # Tree
     area        => ($options{area} // DescribeArea),                            # Area definition.
     length       => $length,                                                    # Number of keys in a maximal block
@@ -5850,19 +5841,16 @@ sub DescribeTree(%)                                                             
     maxNodesZ    => $b / $o - 1,                                                # The maximum possible number of nodes in a zmm register
 
     rootOffset   => $o * 0,                                                     # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
-    upOffset     => $o * 1,                                                     # Offset of the up field which points to any containing tree
-    sizeOffset   => $o * 2,                                                     # Offset of the size field which tells us the number of  keys in the tree
+    upOffset     => $o * 1,                                                     # Offset of the up field  in the first block -  points to any containing tree
+    sizeOffset   => $o * 2,                                                     # Offset of the size field  in the first block - tells us the number of  keys in the tree
+    fcControl    => $o * 3,                                                     # Offset of the tree bits and present bits in the first cache of low key values for this tree. The first 12 bits are the tree bits for each cached dword, then 4 bits unused, then 12 bits of present or not present
+    fcArray      => $b / $o - 4,                                                # Number of dwords available in the first cache.  The first cache supplies an alternate area to store the values of keys less than this value  to fill the otherwise unused space in a way that improves the performance of trees when used to represent small arrays, stacks or structures.
     middleOffset => $o * ($l2 + 0),                                             # Offset of the middle slot in bytes
     rightOffset  => $o * ($l2 + 1),                                             # Offset of the first right slot in bytes
 
-    usage        => $usage,                                                     # How this tree is being used so that we can map operators into subroutine calls
-
-#   compare      => V(compare => 0),                                            # Last comparison result -1, 0, +1
     data         => V(data    => 0),                                            # Variable containing the current data
-#   debug        => V(debug   => 0),                                            # Write debug trace if true
     first        => V(first   => 0),                                            # Variable addressing offset to first block of the tree which is the header block
     found        => V(found   => 0),                                            # Variable indicating whether the last find was successful or not
-#   index        => V(index   => 0),                                            # Index of key in last node found
     key          => V(key     => 0),                                            # Variable containing the current key
     offset       => V(offset  => 0),                                            # Variable containing the offset of the block containing the current key
     subTree      => V(subTree => 0),                                            # Variable indicating whether the last find found a sub tree
@@ -8336,8 +8324,6 @@ sub Nasm::X86::Tree::push($$)                                                   
  {my ($tree, $data) = @_;                                                       # Tree descriptor, variable data
   @_ == 2 or confess "Two parameters";
 
-  $tree->usage->{stack}++;                                                      # Being used as a stack
-
   $tree->findLast;                                                              # Last element
   If $tree->found == 0,
   Then                                                                          # Empty tree
@@ -8353,8 +8339,6 @@ sub Nasm::X86::Tree::peek($$)                                                   
   @_ == 2 or confess "Two parameters";
   ref($back) =~ m(Variable) or confess "Must be a variable, not: ", dump($back);
 
-  $tree->usage->{stack} or confess "Tree not being used as a stack";            # Check usage
-
   $tree->found->copy(0);                                                        # Assume we will not be able to find the desired element
 
   my $size = $tree->size;                                                       # Size of the stack
@@ -8369,8 +8353,6 @@ sub Nasm::X86::Tree::peekSubTree($$)                                            
  {my ($tree, $back) = @_;                                                       # Tree descriptor, how far back to go with 1 being the top
   @_ == 2 or confess "Two parameters";
   ref($back) =~ m(Variable) or confess "Must be a variable, not: ", dump($back);
-
-  $tree->usage->{stack} or confess "Tree not being used as a stack";            # Check usage
 
   my $t = $tree->describeTree;                                                  # Create a tree descriptor
   $t->found->copy(0);                                                           # Mark tree as not set
@@ -8390,8 +8372,6 @@ sub Nasm::X86::Tree::pop($)                                                     
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
-  $tree->usage->{stack} or confess "Tree not being used as a stack";            # Check usage
-
   $tree->findLast;                                                              # Last element
   If $tree->found > 0,
   Then                                                                          # Empty tree
@@ -8409,8 +8389,6 @@ sub Nasm::X86::Tree::pop($)                                                     
 sub Nasm::X86::Tree::popSubTree($)                                              # Pop the last value out of a tree and return a tree descriptor positioned on it with the first/found fields set.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-
-  $tree->usage->{stack} or confess "Tree not being used as a stack";            # Check usage
 
   my $t = $tree->describeTree;                                                  # Create a tree descriptor
   $t->found->copy(0);                                                           # Mark tree as not set
@@ -9113,8 +9091,6 @@ if (1)                                                                          
 sub Nasm::X86::Tree::plusAssign($$)                                             # Use plus to push an element to a tree being used as a stack.
  {my ($tree, $data) = @_;                                                       # Tree being used as a stack, data to push
 
-  !exists $tree->usage->{stack} and keys $tree->usage->%* and                   # Check that the tree is being used as a stack
-    confess "Tree is not being used as a stack";
   ref($data) =~ m(Variable|Tree) or                                             # Check right operand on right
     confess "Need a tree or variable on the right";
 
@@ -9124,9 +9100,6 @@ sub Nasm::X86::Tree::plusAssign($$)                                             
 
 sub Nasm::X86::Tree::dec($)                                                     # Pop from the tree if it is being used as a stack.
  {my ($tree) = @_;                                                              # Tree being used as a stack
-
-  !exists $tree->usage->{stack} and keys $tree->usage->%* and                   # Check that the tree is being used as a stack
-    confess "Tree is not being used as a stack";
 
   $tree->pop                                                                    # Perform the pop
  }
@@ -16498,7 +16471,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
-  my $p = $a->CreateTree(usage=>q(stack));
+  my $p = $a->CreateTree;
   my $q = $a->CreateTree;
   my $r = $a->CreateTree;
   my $s = $a->CreateTree;
