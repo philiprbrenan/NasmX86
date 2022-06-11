@@ -10113,6 +10113,11 @@ sub countComments($)                                                            
    }
  }
 
+sub numberWithUnderScores($)                                                    #P Place underscores in the string representation of a number.
+ {my ($n) = @_;                                                                 # Number to add commas to
+  scalar reverse join '_',  unpack("(A3)*", reverse $n);
+ }
+
 sub onGitHub                                                                    # Whether we are on GitHub or not.
  {$ENV{GITHUB_REPOSITORY_OWNER}
  }
@@ -10320,9 +10325,9 @@ END
     say STDERR                                                                  # Rows
       sprintf("%4s    %12s    %12s    %12s    %12s  %12.6f  %12.2f  %12.2f  at $file line $line",
       $label ? $label : sprintf("%4d", $assembliesPerformed),
-      (map {numberWithCommas $_} $instructions,         $bytes,
-                                 $instructionsExecuted, $totalBytesAssembled),
-                                 $eTime, $aTime, $perlTime);
+      (map {numberWithUnderScores $_}
+        $instructions, $bytes, $instructionsExecuted, $totalBytesAssembled),
+        $eTime, $aTime, $perlTime);
     if (my $i = $instructions)
      {if ($mix and my $c = $clocks)
        {if ($i != $c)
@@ -11579,7 +11584,7 @@ if (!$homeTest) {                                                               
   $s->read(K file => Rs($0));
   $s->out;
 
-  my $r = Assemble(emulator => 0);
+  my $r = Assemble;
   is_deeply stringMd5Sum($r), fileMd5Sum($0);                                   # Output contains this file
  }
 
@@ -12854,7 +12859,7 @@ if (1) {                                                                        
   Pushfq;
   Pop rax;
   PrintOutRegisterInHex rax, r11;
-  ok Assemble(debug => 0, keep2=>'z', emulator => 0, eq => <<END, avx512=>0);
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
 a
    rax: .... .... .... .2.2
    r11: .... .... .... .2.2
@@ -17157,7 +17162,7 @@ DDDD22
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
@@ -17174,7 +17179,7 @@ if (1) {                                                                        
   $parse->reason  ->outNL;
   $parse->tree->dumpParseTree($a8);
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1369790;
 parseChar: .... .... ...1 D5D8
 parseFail: .... .... .... ....
 pos: .... .... .... ..2B
@@ -17192,7 +17197,6 @@ parseReason: .... .... .... ....
 ._._𝗘
 END
   unlink $f;
-exit;
  }
 
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
@@ -18479,8 +18483,8 @@ END
   $testsThatPassed,
   $assembliesPerformed,
   time - $start,
-  numberWithCommas(totalBytesAssembled),
-  numberWithCommas($instructionsExecuted));
+  numberWithUnderScores(totalBytesAssembled),
+  numberWithUnderScores($instructionsExecuted));
   owf(q(zzzStatus.txt), $s);
   say STDERR $s;
   exit(1) if $testsThatFailed;                                                  # Show failure on gitHub
