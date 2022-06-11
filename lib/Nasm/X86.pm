@@ -831,7 +831,7 @@ sub extractRegisterNumberFromMM($)                                              
 sub getBwdqFromMm($$$$%)                                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
  {my ($xyz, $size, $mm, $offset, %options) = @_;                                # Size of mm, size of get, mm register, offset in bytes either as a constant or as a variable, options
   my $set = $options{set};                                                      # Optionally set this register or variable rather than returning a new variable
-  my $setVar = $set and ref($set) =~ m(Variable);                               # Set a this variable to the result
+  my $setVar = $set && ref($set) =~ m(Variable);                                # Set a this variable to the result
 
   my $n = extractRegisterNumberFromMM $mm;                                      # Register number or fail if not an mm register
   my $m = $xyz.'mm'.$n;                                                         # Full name of register
@@ -11354,7 +11354,7 @@ if (!$homeTest) {                                                               
   ok stringMd5Sum($r) eq fileMd5Sum($0);                                        # Output contains this file
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #TCreateArea #TArea::clear #TArea::outNL #TArea::copy #TArea::nl
   my $a = CreateArea;
   $a->q('aa');
