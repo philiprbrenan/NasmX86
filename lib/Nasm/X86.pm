@@ -830,20 +830,21 @@ sub extractRegisterNumberFromMM($)                                              
 
 sub getBwdqFromMm($$$$%)                                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
  {my ($xyz, $size, $mm, $offset, %options) = @_;                                # Size of mm, size of get, mm register, offset in bytes either as a constant or as a variable, options
-  my $set = $options{set};                                                      # Optionally set this register rather than returning a variable
+  my $set = $options{set};                                                      # Optionally set this register or variable rather than returning a new variable
+  my $setVar = $set and ref($set) =~ m(Variable);                               # Set a this variable to the result
 
   my $n = extractRegisterNumberFromMM $mm;                                      # Register number or fail if not an mm register
   my $m = $xyz.'mm'.$n;                                                         # Full name of register
 
-  if (!ref($offset) and $offset == 0 and $set)                                  # Use Pextr in this special circumstance - need to include other such
-   {my $d = dWordRegister $set;                                                 # Target a dword register
+  if (!ref($offset) and $offset == 0 and $set and !$setVar)                     # Use Pextr in this special circumstance - need to include other such
+   {my $d = dWordRegister $set;                                                 # Target a dword register as set is not a variable
     push @text, <<END;
 vpextr$size $d, xmm$n, 0
 END
     return;
    }
 
-  my $r = $set // rdi;                                                          # Choose a work register
+  my $r = $setVar ? rdi : ($set // rdi);                                        # Choose a work register
 
   my $o;                                                                        # The offset into the mm register
   if (ref($offset))                                                             # The offset is being passed in a variable
@@ -861,7 +862,12 @@ END
   Mov  byteRegister($r), "[rsp+$o-$w]" if $size =~ m(b);                        # Load byte register from offset
   Mov  wordRegister($r), "[rsp+$o-$w]" if $size =~ m(w);                        # Load word register from offset
   Mov dWordRegister($r), "[rsp+$o-$w]" if $size =~ m(d);                        # Load double word register from offset
-  Mov rdi,               "[rsp+$o-$w]" if $size =~ m(q);                        # Load register from offset
+  Mov $r,                "[rsp+$o-$w]" if $size =~ m(q);                        # Load register from offset
+
+  if ($setVar)                                                                  # Set the supplied variable
+   {$setVar->copy($r);
+    return;
+   }
 
   V("$size at offset $offset in $m", rdi) unless $set;                          # Create variable unless a target register has been supplied
  }
@@ -7104,7 +7110,7 @@ sub Nasm::X86::Tree::find($$)                                                   
           IfC
           Then                                                                  # Found
            {$tree->found->copy(1);                                              # Show as found
-            $tree->data->copy($d);                                              # SAve found data as it is valid
+            $tree->data->copy($d);                                              # Save found data as it is valid
            },
           Else                                                                  # Not found
            {$tree->found->copy(0);                                              # Show as not found
