@@ -6859,6 +6859,8 @@ sub Nasm::X86::Tree::put($$$)                                                   
  {my ($tree, $key, $data) = @_;                                                 # Tree definition, key as a variable, data as a variable or a tree descriptor
   @_ == 3 or confess "Three parameters";
 
+  my $dt = ref($data) =~ m(Tree);                                               # We are inserting a sub tree if true
+
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
@@ -6946,23 +6948,26 @@ sub Nasm::X86::Tree::put($$$)                                                   
         if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
          {my $F = 1;                                                            # Place first block in this zmm
           $tree->firstFromMemory($F);                                           # Load first block
-          my $p = $k * $tree->width + $tree->fcArray;                           # Save dword
-          $data->dIntoZ($F, $p);                                                # Save dword
+          my $p = $k * $tree->width + $tree->fcArray;                           # Offset of dword in bytes
+          ($dt ? $data->first : $data)->dIntoZ($F, $p);                         # Save dword - either the supplied data or the offset of the sub tree
           if ($tree->lowKeys == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
-           {PushR my $control = r15;                                            # copy of the control dword
+           {PushR my $bit = r14, my $control = r15;                             # Bit ot test, copy of the control dword
             Pextrd $control."d", xmm1, $co;                                     # Get the control dword
             my $b = $k+$tree->fcPresent;                                        # Present bit
             my $B = $k+$tree->fcTreeBits;                                       # Tree bit
-            Bts $control, $b;
+            $b->setReg($bit);
+            Bts $control, $bit;
             IfNc
             Then                                                                # Not previously present so increase length
              {$tree->incSizeInFirst(zmm $F);                                    # Increment the size field in the first block of a tree when the first block is held in a zmm register.
              };                                                                 # Putting the previous code inline will enable us to use a free register and thus avoid the PushR PopR
-            if (ref($data) =~ m(Tree)i)                                         # Tree
-             {Bts $control, $B;                                                 # Set tree bit
+
+            $B->setReg($bit);
+            if ($dt)                                                            # Tree
+             {Bts $control, $bit;                                               # Set tree bit
              }
             else                                                                # Not a tree
-             {Btc $control, $B;                                                 # Clear tree bit
+             {Btc $control, $bit;                                               # Clear tree bit
              }
             Pinsrd xmm1, $control."d", $co;                                     # Save control word
             PopR;
@@ -6977,8 +6982,8 @@ sub Nasm::X86::Tree::put($$$)                                                   
         Then                                                                    # Less than the upper limit
          {my $F = 1;                                                            # Place first block in this zmm
           $tree->firstFromMemory($F);                                           # Load first block
-          my $p = $key * $tree->width + $tree->fcArray;                         # Save dword
-          $data->dIntoZ($F, $p);                                                # Save dword
+          my $p = $key * $tree->width + $tree->fcArray;                         # Offset of dword in bytes
+          ($dt ? $data->first : $data)->dIntoZ($F, $p);                         # Save dword - either the supplied data or the offset of the sub tree
           if ($tree->lowKeys == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
            {PushR my $bit = r14, my $control = r15;                             # Copy of the control dword
             Pextrd $control."d", xmm1, $co;                                     # Get the control dword
@@ -6991,7 +6996,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
              {$tree->incSizeInFirst(zmm $F);                                    # Increment the size field in the first block of a tree when the first block is held in a zmm register.
              };                                                                 # Putting the previous code inline will enable us to use a free register and thus avoid the PushR PopR
             $B->setReg($bit);                                                   # Bit to set
-            if (ref($data) =~ m(Tree)i)                                         # Tree
+            if ($dt)                                                            # Tree
              {Bts $control, $bit;                                               # Set tree bit
              }
             else                                                                # Not a tree
@@ -7006,17 +7011,17 @@ sub Nasm::X86::Tree::put($$$)                                                   
        }
      }
 
-    if (ref($data) !~ m(Tree))                                                  # Whether we are a putting a sub tree
-     {$s->call(structures => {tree    => $tree},                                # Not a sub tree
-               parameters => {key     => $key,
-                              data    => $data,
-                              subTree => K(zero => 0)});
-     }
-    else                                                                        # Sub tree
+    if ($dt)                                                                    # Put a sub tree
      {$s->call(structures => {tree    => $tree},
                parameters => {key     => $key,
                               data    => $data->first,
                               subTree => K(key => 1)});
+     }
+    else                                                                        # Not a usb tree
+     {$s->call(structures => {tree    => $tree},
+               parameters => {key     => $key,
+                              data    => $data,
+                              subTree => K(zero => 0)});
      }
    }
  } # put
@@ -7148,11 +7153,12 @@ sub Nasm::X86::Tree::find($$)                                                   
             $tree->firstFromMemory($F);                                         # Load first block
             my $o = $key * $tree->width + $tree->fcArray;                       # Offset if dword containing data
             my $d = dFromZ($F, $o);                                             # Get dword representing data
-            PushR my $control = r15;                                            # Copy of the control dword
+            PushR my $bit = r14, my $control = r15;                             # Bit to select, Copy of the control dword
             Pextrd $control."d", xmm1, $co;                                     # Get the control dword
             my $b = $key+$tree->fcPresent;                                      # Present bit
             my $B = $key+$tree->fcTreeBits;                                     # Tree bit
-            Bt $control, $b;                                                    # Present bit for this element
+            $b->setReg($bit);
+            Bt $control, $bit;                                                  # Present bit for this element
             IfC
             Then                                                                # Found
              {$tree->found->copy(1);                                            # Show as found
@@ -7161,7 +7167,8 @@ sub Nasm::X86::Tree::find($$)                                                   
             Else                                                                # Not found
              {$tree->found->copy(0);                                            # Show as not found
              };
-            Bt $control, $B;                                                    # Tree bit
+            $B->setReg($bit);
+            Bt $control, $bit;                                                  # Tree bit
             IfC
             Then                                                                # Sub tree
              {$tree->subTree->copy(1);
@@ -7213,20 +7220,20 @@ sub Nasm::X86::Tree::findFirst($)                                               
 
       K(loop => 99)->for(sub                                                    # Step down through the tree a reasonable number of times
        {my ($i, $start, $next, $end) = @_;
-        my $k = dFromZ($K, 0);
-        my $d = dFromZ($D, 0);
-        my $n = dFromZ($N, 0);
-        my $b = $t->getTreeBit($K, K key => 1);
 
         If $t->leafFromNodes($N) > 0,                                           # Leaf node means we have arrived
         Then
-         {$t->found  ->copy(1);
+         {my $k = dFromZ($K, 0);
+          my $d = dFromZ($D, 0);
+          my $b = $t->getTreeBit($K, K key => 1);
+          $t->found  ->copy(1);
           $t->key    ->copy($k);
           $t->data   ->copy($d);
           $t->subTree->copy($b);
           Jmp $success
          };
 
+        my $n = dFromZ($N, 0);
         $t->getBlock($n, $K, $D, $N);
        });
       PrintErrTraceBack "Stuck looking for first";
@@ -9489,7 +9496,7 @@ sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       
 sub Nasm::X86::Area::ParseUnisyn($$$)                                           # Parse a string of utf8 characters.
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
-  my $brackets    = $area->CreateTree(lowKeys=> -e q(/home/phil/) ? 1 : 0);     # Bracket stack
+  my $brackets    = $area->CreateTree;#(lowKeys=> -e q(/home/phil/) ? 1 : 0);     # Bracket stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
   my $symbols     = $area->CreateTree;                                          # String tree of symbols encountered during the parse
 
@@ -18151,7 +18158,7 @@ AAAAA
 END
  }
 
-sub Nasm::X86::Tree::intersectionOfStringTrees($$)                              #P Find the intersection of two string trees. The result is a tree that maps the values of teh forst tree to those of the second tree whenever they have a string in common.  This is mapping because bot the keys and the data values are unique.
+sub Nasm::X86::Tree::intersectionOfStringTrees($$)                              #P Find the intersection of two string trees. The result is a tree that maps the values of the first tree to those of the second tree whenever they have a string in common.  This is mapping because bot the keys and the data values are unique.
  {my ($tree, $Tree) = @_;                                                       # First tree, second tree
   @_ == 2 or confess "Two parameters";
 
