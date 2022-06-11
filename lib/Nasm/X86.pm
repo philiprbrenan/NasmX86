@@ -869,7 +869,7 @@ END
     return;
    }
 
-  V("$size at offset $offset in $m", rdi) unless $set;                          # Create variable unless a target register has been supplied
+  V("$size at offset $offset in $m", $r) unless $set;                           # Create variable unless a target register has been supplied
  }
 
 sub bFromX($$)                                                                  # Get the byte from the numbered xmm register and return it in a variable.
