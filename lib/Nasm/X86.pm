@@ -5808,28 +5808,28 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
  {my (%options) = @_;                                                           # Tree description options
-  my $lowKeys   = $options{lowKeys};                                            # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
-  my $lowTree   = $options{lowTree};                                            # This tree is at the lowest level if true. As there are no sub trees hanging from this tree we may optimize put, find, delete to not process information required to describe sub trees.  This action has not been done yet except n the case of low key processing.
-
-  confess "Maximum keys must be less than or equal to 14"
-    unless ($options{length}//0) <= 14;                                         # Maximum number of keys is 14
+  my $area      = delete $options{area};                                        # The area containing the tree
+  my $lowKeys   = delete $options{lowKeys};                                     # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
+  my $lowTree   = delete $options{lowTree};                                     # This tree is at the lowest level if true. As there are no sub trees hanging from this tree we may optimize put, find, delete to not process information required to describe sub trees.  This action has not been done yet except n the case of low key processing.
+  my $length    = delete $options{length};                                      # Maximum number of keys per node
+     $length    = 13;                                                           # Maximum number of keys per node
+  confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid keys
 
   my $b = RegisterSize 31;                                                      # Size of a block == size of a zmm register
   my $o = RegisterSize eax;                                                     # Size of a double word
 
   my $keyAreaWidth = $b - $o * 2 ;                                              # Key / data area width  in bytes
   my $kwdw   = $keyAreaWidth / $o;                                              # Number of keys in a maximal block
-  my $length = 13; #$options{length} // $keyAreaWidth / $o;                     # Length of block to split
 
   confess "Length: $length is even not odd" unless $length % 2;                 # Ideally length is odd
   confess "Length must be greater than 2, not: $length" unless $length > 2;     # Check minimum length
   confess "Length must be less than or equal to $kwdw, not $length"             # Check maximum length
     unless $length <= $kwdw;
 
-  my $l2 = int($length/2);                                                      # Minimum length of length after splitting
+  my $l2 = int($length/2);                                                      # Minimum number of keys in a node
 
   genHash(__PACKAGE__."::Tree",                                                 # Tree
-    area        => ($options{area} // DescribeArea),                            # Area definition.
+    area        => ($area // DescribeArea),                                     # Area definition.
     length       => $length,                                                    # Number of keys in a maximal block
     lengthLeft   => $l2,                                                        # Left minimal number of keys
     lengthMiddle => $l2 + 1,                                                    # Number of splitting key counting from 1
@@ -9489,7 +9489,7 @@ sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       
 sub Nasm::X86::Area::ParseUnisyn($$$)                                           # Parse a string of utf8 characters.
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
-  my $brackets    = $area->CreateTree;                                          # Bracket stack
+  my $brackets    = $area->CreateTree(lowKeys=>1);                              # Bracket stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
   my $symbols     = $area->CreateTree;                                          # String tree of symbols encountered during the parse
 
@@ -17162,7 +17162,7 @@ DDDD22
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
@@ -17179,7 +17179,10 @@ if (1) {                                                                        
   $parse->reason  ->outNL;
   $parse->tree->dumpParseTree($a8);
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1369790;
+#              Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#   1       1_369_790         644_032       1_369_790         644_032      0.594831          1.25          0.00  normal trees
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1_369_790;
 parseChar: .... .... ...1 D5D8
 parseFail: .... .... .... ....
 pos: .... .... .... ..2B
@@ -17197,6 +17200,7 @@ parseReason: .... .... .... ....
 ._._𝗘
 END
   unlink $f;
+confess if $homeTest;
  }
 
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
