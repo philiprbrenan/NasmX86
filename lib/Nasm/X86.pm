@@ -18446,10 +18446,10 @@ if (1) {                                                                        
   for my $i(1..$N)
    {$t->find(K(key => $i)); $t->data->outNL;
    }
-# $t->put (K(key => 1), K(key => 1));                                           # 18
-  $t->find(K(key => 1));                                                        # 7
+# $t->put (K(key => 1), K(key => 1));                                           # 11
+# $t->find(K(key => 1));                                                        # 7
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1156;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1066;
 data: .... .... .... ..11
 data: .... .... .... ..22
 data: .... .... .... ..33
