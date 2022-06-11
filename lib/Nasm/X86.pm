@@ -10125,17 +10125,21 @@ our $testsThatFailed      = 0;                                                  
 
 sub Assemble(%)                                                                 # Assemble the generated code.
  {my (%options) = @_;                                                           # Options
-  my $clocks     = $options{clocks};                                            # Expected number of clocks if known
-  my $count      = $options{count}//0;                                          # Count the comments that occur more frequently than this number
-  my $debug      = $options{debug}//0;                                          # Debug: 0 - print stderr and compare stdout to eq if present, 1 - print stdout and stderr and compare stderr to eq if present
-  my $foot       = $options{foot};                                              # Foot print required
-  my $keep       = $options{keep};                                              # Keep the executable rather than running it
-  my $label      = $options{label};                                             # Label for this test if provided
-  my $library    = $options{library};                                           # Create  the named library if supplied from the supplied assembler code
-  my $list       = $options{list};                                              # Create and retain a listing file so we can see where a trace error occurs
-  my $mix        = $options{mix};                                               # Create mix output and fix with line number locations in source
-  my $ptr        = $options{ptr};                                               # Pointer check required
-  my $trace      = $options{trace}//0;                                          # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
+  my $avx512     = delete $options{avx512};                                     # Avx512 instruction set needed
+  my $clocks     = delete $options{clocks};                                     # Number of clocks required to execute this program - if a different number are required then a message is written to that effect.  Set mix > 0 for this to take effect.
+  my $count      = delete $options{count}  // 0;                                # Count the comments that occur more frequently than this number
+  my $debug      = delete $options{debug}  // 0;                                # Debug: 0 - print stderr and compare stdout to eq if present, 1 - print stdout and stderr and compare stderr to eq if present
+  my $eq         = delete $options{eq};                                         # The expected output
+  my $foot       = delete $options{foot};                                       # Foot print required
+  my $keep       = delete $options{keep};                                       # Keep the executable rather than running it
+  my $label      = delete $options{label};                                      # Label for this test if provided
+  my $library    = delete $options{library};                                    # Create  the named library if supplied from the supplied assembler code
+  my $list       = delete $options{list};                                       # Create and retain a listing file so we can see where a trace error occurs
+  my $mix        = delete $options{mix};                                        # Create mix output and fix with line number locations in source
+  my $ptr        = delete $options{ptr};                                        # Pointer check required
+  my $trace      = delete $options{trace}  //0;                                 # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
+
+  confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid keys
 
   my $execFile   = $keep // q(z);                                               # Executable file
   my $listFile   = q(z.txt);                                                    # Assembler listing
@@ -10149,8 +10153,8 @@ sub Assemble(%)                                                                 
 
   Exit 0 unless $library or @text > 4 && $text[-4] =~ m(Exit code:);            # Exit with code 0 if an exit was not the last thing coded in a program but ignore for a library.
 
-# Optimize(%options);                                                           # Perform any optimizations requested
-  OptimizeReload(%options);
+# Optimize(@_);                                                                 # Perform any optimizations requested
+  OptimizeReload(@_);
 
   if (1)                                                                        # Concatenate source code
    {my $r = join "\n", map {s/\s+\Z//sr}   @rodata;
@@ -10213,11 +10217,11 @@ END
     return;
    }
 
-  my $avx512 = hasAvx512 ? 0 : exists $options{avx512} ? $options{avx512} : 1;  # Emulate if necessary
-  my $sde      = LocateIntelEmulator;                                           # Locate the emulator
-  my $run      = !$keep && !$library;                                           # Are we actually going to run the resulting code?
+  my $emulate = hasAvx512 ? 0 : ($avx512 // 1) ;                                # Emulate if necessary
+  my $sde     = LocateIntelEmulator;                                            # Locate the emulator
+  my $run     = !$keep && !$library;                                            # Are we actually going to run the resulting code?
 
-  if ($run and $avx512 and !$sde)                                               # Complain about the emulator if we are going to run and we have not suppressed the emulator and the emulator is not present
+  if ($run and $emulate and !$sde)                                              # Complain about the emulator if we are going to run and we have not suppressed the emulator and the emulator is not present
    {my $f = fpf(currentDirectory, $execFile);
     say STDERR <<END;
 Executable written to the following file:
@@ -10238,7 +10242,7 @@ without running it, or use the option(2) to run without the emulator:
 
 (2) Assemble(avx512=>0)
 END
-    $avx512 = 0;
+    $emulate = 0;
    }
 
   if (my @emulatorFiles = searchDirectoryTreesForMatchingFiles(qw(. .txt)))     # Remove prior emulator output files
@@ -10284,7 +10288,7 @@ END
 
     my $e = $execFile;                                                          # Executable file name - this is the thing we are going to run by itself or on the emulator
 
-    if ($avx512 && !hasAvx512 or $trace or $mix or $ptr or $foot)               # Command to execute program via the  emulator
+    if ($emulate && !hasAvx512 or $trace or $mix or $ptr or $foot)              # Command to execute program via the  emulator
      {return qq($o -- ./$e $err $out)
      }
 
@@ -10303,8 +10307,6 @@ END
    {my $instructions       = getInstructionCount;                               # Instructions executed under emulator
     $instructionsExecuted += $instructions;                                     # Count instructions executed
     my $p = $assembliesPerformed++;                                             # Count assemblies
-    my $n = $options{number};
-    !$n or $n == $p or warn "Assembly $p versus number => $n";
 
     my $bytes = (fileSize($execFile)//9448) - 9448;                             # Estimate the size of the output program
     $totalBytesAssembled += $bytes;                                             # Estimate total of all programs assembled
@@ -10322,7 +10324,7 @@ END
                                  $instructionsExecuted, $totalBytesAssembled),
                                  $eTime, $aTime, $perlTime);
     if (my $i = $instructions)
-     {if (my $c = $clocks)
+     {if ($mix and my $c = $clocks)
        {if ($i != $c)
          {my $l = $c - $i;
           my $g = - $l;
@@ -10354,7 +10356,7 @@ END
 
   Start;                                                                        # Clear work areas for next assembly
 
-  if ($run and defined(my $e = $options{eq}))                                   # Diff results against expected
+  if ($run and my $e = $eq)                                                     # Diff results against expected
    {my $g = readFile($debug ? $o2 : $o1);
        $e =~ s(\s+#.*?\n) (\n)gs;                                               # Remove comments so we can annotate listings
     s(Subroutine trace back.*) ()s for $e, $g;                                  # Remove any trace back because the location of the subroutine in memory will vary
@@ -17155,7 +17157,7 @@ DDDD22
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
@@ -17163,7 +17165,6 @@ if (1) {                                                                        
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-#$TraceMode = 1;
   my $parse = $a->ParseUnisyn($a8, $s8-2);                                      # Parse the utf8 string minus the final new line and zero?
 
   $parse->char    ->outNL;                                                      # Print results
@@ -17173,7 +17174,7 @@ if (1) {                                                                        
   $parse->reason  ->outNL;
   $parse->tree->dumpParseTree($a8);
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
 parseChar: .... .... ...1 D5D8
 parseFail: .... .... .... ....
 pos: .... .... .... ..2B
@@ -17191,6 +17192,7 @@ parseReason: .... .... .... ....
 ._._𝗘
 END
   unlink $f;
+exit;
  }
 
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
