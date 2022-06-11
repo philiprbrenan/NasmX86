@@ -6936,7 +6936,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
       confess "Should be three" unless $co == 3;
 
       if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
-       {my $k = $key->expr;                                                     # Key is small enough to go in cache
+       {my $k = $key->expr;                                                     # Key value
         if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
          {my $F = 1;                                                            # Place first block in this zmm
           PushR my $control = r15;                                              # copy of the control dword
