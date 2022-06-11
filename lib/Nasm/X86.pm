@@ -828,12 +828,13 @@ sub extractRegisterNumberFromMM($)                                              
       $mm =~ m(\A([zyx]mm)?(\d{1,2})\Z) ? $2 : confess "Not an mm register";
  }
 
-sub getBwdqFromMm($$$%)                                                         # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
- {my ($size, $mm, $offset, %options) = @_;                                      # Size of get, mm register, offset in bytes either as a constant or as a variable, options
+sub getBwdqFromMm($$$$%)                                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
+ {my ($xyz, $size, $mm, $offset, %options) = @_;                                # Size of mm, size of get, mm register, offset in bytes either as a constant or as a variable, options
 
   my $n = extractRegisterNumberFromMM $mm;                                      # Register number or fail if not an mm register
+  my $m = $xyz.'mm'.$n;                                                         # Full name of register
 
-  if (!ref($offset) and $offset == 0 and my $s = $options{set})                 # Use Pextr in this special circumstance
+  if (!ref($offset) and $offset == 0 and my $s = $options{set})                 # Use Pextr in this special circumstance - need to include other such
    {my $d = dWordRegister $s;                                                   # Target a dword register
     push @text, <<END;
 vpextr$size $d, xmm$n, 0
@@ -852,8 +853,8 @@ END
    {$o = $offset;
    }
 
-  my $w = RegisterSize $mm;                                                     # Size of mm register
-  Vmovdqu32 "[rsp-$w]", $mm;                                                    # Write below the stack
+  my $w = RegisterSize $m;                                                      # Size of mm register
+  Vmovdqu32 "[rsp-$w]", $m;                                                     # Write below the stack
 
   ClearRegisters rdi if $size !~ m(q|d);                                        # Clear the register if necessary
   Mov  byteRegister(rdi), "[rsp+$o-$w]" if $size =~ m(b);                       # Load byte register from offset
@@ -861,51 +862,51 @@ END
   Mov dWordRegister(rdi), "[rsp+$o-$w]" if $size =~ m(d);                       # Load double word register from offset
   Mov rdi,                "[rsp+$o-$w]" if $size =~ m(q);                       # Load register from offset
 
-  V("$size at offset $offset in $mm", rdi) unless $options{set};                # Create variable unless a target register has been supplied
+  V("$size at offset $offset in $m", rdi) unless $options{set};                 # Create variable unless a target register has been supplied
  }
 
 sub bFromX($$)                                                                  # Get the byte from the numbered xmm register and return it in a variable.
  {my ($xmm, $offset) = @_;                                                      # Numbered xmm, offset in bytes
-  getBwdqFromMm('b', "xmm$xmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
+  getBwdqFromMm('x', 'b', "xmm$xmm", $offset)                                   # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
  }
 
 sub wFromX($$)                                                                  # Get the word from the numbered xmm register and return it in a variable.
  {my ($xmm, $offset) = @_;                                                      # Numbered xmm, offset in bytes
-  getBwdqFromMm('w', "xmm$xmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
+  getBwdqFromMm('x', 'w', "xmm$xmm", $offset)                                   # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
  }
 
 sub dFromX($$)                                                                  # Get the double word from the numbered xmm register and return it in a variable.
  {my ($xmm, $offset) = @_;                                                      # Numbered xmm, offset in bytes
-  getBwdqFromMm('d', "xmm$xmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
+  getBwdqFromMm('x', 'd', "xmm$xmm", $offset)                                   # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
  }
 
 sub qFromX($$)                                                                  # Get the quad word from the numbered xmm register and return it in a variable.
  {my ($xmm, $offset) = @_;                                                      # Numbered xmm, offset in bytes
-  getBwdqFromMm('q', "xmm$xmm", $offset)                                        # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
+  getBwdqFromMm('x', 'q', "xmm$xmm", $offset)                                   # Get the numbered byte|word|double word|quad word from the numbered xmm register and return it in a variable
  }
 
 sub bFromZ($$%)                                                                 # Get the byte from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
   my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('b', $z, $offset, %options)                                     # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  getBwdqFromMm('z', 'b', $z, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub wFromZ($$)                                                                  # Get the word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
   my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('w', $z, $offset)                                               # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  getBwdqFromMm('z', 'w', $z, $offset)                                          # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub dFromZ($$%)                                                                 # Get the double word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
-  my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('d', $z, $offset, %options)                                     # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  my $z = extractRegisterNumberFromMM $zmm;
+  getBwdqFromMm('z', 'd', $z, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub qFromZ($$)                                                                  # Get the quad word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset) = @_;                                                      # Numbered zmm, offset in bytes
   my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('q', $z, $offset)                                               # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  getBwdqFromMm('z', 'q', $z, $offset)                                          # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 #D2 Mask                                                                        # Operations on mask registers
@@ -3714,25 +3715,25 @@ sub Nasm::X86::Variable::loadZmm($$)                                            
 sub Nasm::X86::Variable::bFromZ($$$)                                            # Get the byte from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
-  $variable->copy(getBwdqFromMm 'b', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
+  $variable->copy(getBwdqFromMm 'z', 'b', $zmm, $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::wFromZ($$$)                                            # Get the word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
-  $variable->copy(getBwdqFromMm 'w', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
+  $variable->copy(getBwdqFromMm 'z', 'w', $zmm, $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::dFromZ($$$)                                            # Get the double word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
-  $variable->copy(getBwdqFromMm 'd', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
+  $variable->copy(getBwdqFromMm 'z', 'd', $zmm, $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub Nasm::X86::Variable::qFromZ($$$)                                            # Get the quad word from the numbered zmm register and put it in a variable.
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
-  $variable->copy(getBwdqFromMm 'q', "zmm$zmm", $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
+  $variable->copy(getBwdqFromMm 'z', 'q', $zmm, $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
  }
 
 sub dFromPointInZ($$%)                                                          # Get the double word from the numbered zmm register at a point specified by the variable or register and return it in a variable.
@@ -5800,7 +5801,8 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
  {my (%options) = @_;                                                           # Tree description options
-  my $lowKeys = $options{lowKeys};                                              # Where possible low numbered keys should be placed in the first block if true.  This is only beneficial for small trees where the first block cache is likely to be used more frequently than in large trees.
+  my $lowKeys   = $options{lowKeys};                                            # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
+  my $lowTree   = $options{lowTree};                                            # This tree is at the lowest level if true. As there are no sub trees hanging from this tree we may optimize put, find, delete to not process information required to describe sub trees.  This action has not been done yet except n the case of low key processing.
 
   confess "Maximum keys must be less than or equal to 14"
     unless ($options{length}//0) <= 14;                                         # Maximum number of keys is 14
@@ -5842,6 +5844,7 @@ sub DescribeTree(%)                                                             
     maxKeysZ     => $b / $o - 2,                                                # The maximum possible number of keys in a zmm register
     maxNodesZ    => $b / $o - 1,                                                # The maximum possible number of nodes in a zmm register
     lowKeys      => $lowKeys,                                                   # Low keys should be placed in first block where possible
+    lowTree      => $lowTree,                                                   # No sub trees depend on this tree
 
     rootOffset   => $o * 0,                                                     # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
     upOffset     => $o * 1,                                                     # Offset of the up field  in the first block -  points to any containing tree
@@ -7079,7 +7082,81 @@ sub Nasm::X86::Tree::find($$)                                                   
      structures => {tree=>$tree},
      name       => qq(Nasm::X86::Tree::find-$$tree{length});
 
-  $s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
+  Block                                                                         # Find low keys if possible
+   {my ($end) = @_;                                                             # End of block
+    if ($tree->lowKeys)                                                         # only if low key placement is enabled for this tree. Small tres benefit nore than large trees from this optimization.
+     {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
+      confess "Should be three" unless $co == 3;
+
+      if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
+       {my $k = $key->expr;                                                     # Key is small enough to go in cache
+        if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
+         {my $F = zmm1;                                                         # Place first block in this zmm
+          $tree->firstFromMemory($F);                                           # Load first block
+          my $o = $k * $tree->width + $tree->fcArray;                           # Offset in bytes of data
+          my $d = dFromZ($F, $o);                                               # Get dword representing data
+          PushR my $control = r15;                                              # Copy of the control dword
+          Pextrd $control."d", xmm1, $co;                                       # Get the control dword
+          my $b = $k+$tree->fcPresent;                                          # Present bit
+          my $B = $k+$tree->fcTreeBits;                                         # Tree bit
+          Bt $control, $b;                                                      # Present bit for this element
+          IfC
+          Then                                                                  # Found
+           {$tree->found->copy(1);                                              # Show as found
+            $tree->data->copy($d);                                              # SAve found data as it is valid
+           },
+          Else                                                                  # Not found
+           {$tree->found->copy(0);                                              # Show as not found
+           };
+          Bt $control, $B;                                                      # Tree bit
+          IfC
+          Then                                                                  # Sub tree
+           {$tree->subTree->copy(1);
+           },
+          Else                                                                  # Not sub tree
+           {$tree->subTree->copy(0);
+           };
+          PopR;
+          Jmp $end;                                                             # Successfully saved
+         }
+       }
+
+      else                                                                      # The key is a variable, we check if it should go in the first cache
+       {ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
+        Then                                                                    # Less than the upper limit
+         {my $F = zmm1;                                                         # Place first block in this zmm
+          $tree->firstFromMemory($F);                                           # Load first block
+          my $o = $key * $tree->width + $tree->fcArray;                         # Offset if dword containing data
+          my $d = dFromZ($F, $o);                                               # Get dword representing data
+          PushR my $control = r15;                                              # Copy of the control dword
+          Pextrd $control."d", xmm1, $co;                                       # Get the control dword
+          my $b = $key+$tree->fcPresent;                                        # Present bit
+          my $B = $key+$tree->fcTreeBits;                                       # Tree bit
+          Bt $control, $b;                                                      # Present bit for this element
+          IfC
+          Then                                                                  # Found
+           {$tree->found->copy(1);                                              # Show as found
+            $tree->data->copy($d);                                              # SAve found data as it is valid
+           },
+          Else                                                                  # Not found
+           {$tree->found->copy(0);                                              # Show as not found
+           };
+          Bt $control, $B;                                                      # Tree bit
+          IfC
+          Then                                                                  # Sub tree
+           {$tree->subTree->copy(1);
+           },
+          Else                                                                  # Not sub tree
+           {$tree->subTree->copy(0);
+           };
+          PopR;
+          Jmp $end;                                                             # Successfully saved
+         };
+       }
+     }
+
+    $s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
+   };
  } # find
 
 sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree and set B<found>|B<key>|B<data>|B<subTree> to show the result.
@@ -18219,7 +18296,7 @@ END
  };
 
 
-latest:
+#latest:
 if (1) {                                                                        # First cache constants
   my $a = CreateArea;
   my $t = $a->CreateTree(lowKeys=>1);
@@ -18239,7 +18316,7 @@ Area     Size:     4096    Used:      128
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # First cache variables
   my $a = CreateArea;
   my $t = $a->CreateTree(lowKeys=>1);
@@ -18256,6 +18333,30 @@ Area     Size:     4096    Used:      128
 .... .... .... ..40 | ____ ____ ____ ____  .1__ ____ .2__ .2__  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+latest:
+if (1) {                                                                        # First cache variables
+  my $a = CreateArea;
+  my $t = $a->CreateTree(lowKeys=>1);
+
+  my $N = 3;
+
+  for my $i(1..$N)
+   {$t->put(K(key => $i), K(key => eval "0x$i$i"));
+   }
+
+  for my $i(1..$N)
+   {$t->find(K(key => $i)); $t->found->out; PrintOutString "  "; $t->data->outNL;
+   }
+  $t->put (K(key => 1), K(key => 1));                                           # 18
+# $t->find(K(key => 1));                                                        # 20
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1953;
+found: .... .... .... ...1  data: .... .... .... ..11
+found: .... .... .... ...1  data: .... .... .... ..22
+found: .... .... .... ...1  data: .... .... .... ..33
 END
  }
 
