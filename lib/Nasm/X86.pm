@@ -7098,32 +7098,40 @@ sub Nasm::X86::Tree::find($$)                                                   
       if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
        {my $k = $key->expr;                                                     # Key is small enough to go in cache
         if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
-         {my $F = zmm1;                                                         # Place first block in this zmm
-          $tree->firstFromMemory($F);                                           # Load first block
-          my $o = $k * $tree->width + $tree->fcArray;                           # Offset in bytes of data
-          my $d = dFromZ($F, $o);                                               # Get dword representing data
-          PushR my $control = r15;                                              # Copy of the control dword
-          Pextrd $control."d", xmm1, $co;                                       # Get the control dword
-          my $b = $k+$tree->fcPresent;                                          # Present bit
-          my $B = $k+$tree->fcTreeBits;                                         # Tree bit
-          Bt $control, $b;                                                      # Present bit for this element
-          IfC
-          Then                                                                  # Found
-           {$tree->found->copy(1);                                              # Show as found
-            $tree->data->copy($d);                                              # Save found data as it is valid
-           },
-          Else                                                                  # Not found
-           {$tree->found->copy(0);                                              # Show as not found
-           };
-          Bt $control, $B;                                                      # Tree bit
-          IfC
-          Then                                                                  # Sub tree
-           {$tree->subTree->copy(1);
-           },
-          Else                                                                  # Not sub tree
-           {$tree->subTree->copy(0);
-           };
-          PopR;
+         {if ($tree->lowKeys == 1)                                              # The low keys are behaving just like normal keys
+           {my $F = zmm1;                                                       # Place first block in this zmm
+            $tree->firstFromMemory($F);                                         # Load first block
+            my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
+            my $d = dFromZ($F, $o);                                             # Get dword representing data
+            PushR my $control = r15;                                            # Copy of the control dword
+            Pextrd $control."d", xmm1, $co;                                     # Get the control dword
+            my $b = $k+$tree->fcPresent;                                        # Present bit
+            my $B = $k+$tree->fcTreeBits;                                       # Tree bit
+            Bt $control, $b;                                                    # Present bit for this element
+            IfC
+            Then                                                                # Found
+             {$tree->found->copy(1);                                            # Show as found
+              $tree->data->copy($d);                                            # Save found data as it is valid
+             },
+            Else                                                                # Not found
+             {$tree->found->copy(0);                                            # Show as not found
+             };
+            Bt $control, $B;                                                    # Tree bit
+            IfC
+            Then                                                                # Sub tree
+             {$tree->subTree->copy(1);
+             },
+            Else                                                                # Not sub tree
+             {$tree->subTree->copy(0);
+             };
+            PopR;
+           }
+          else                                                                  # The low keys are always present, not null and are not known to be represent sub trees
+           {my $F = zmm1;                                                       # Place first block in this zmm
+            $tree->firstFromMemory($F);                                         # Load first block
+            my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
+            dFromZ($F, $o, set=>$tree->data);                                   # Get dword representing data and place it in the indicated variable
+           }
           Jmp $end;                                                             # Successfully saved
          }
        }
@@ -11354,7 +11362,7 @@ if (!$homeTest) {                                                               
   ok stringMd5Sum($r) eq fileMd5Sum($0);                                        # Output contains this file
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TCreateArea #TArea::clear #TArea::outNL #TArea::copy #TArea::nl
   my $a = CreateArea;
   $a->q('aa');
@@ -18343,7 +18351,7 @@ Area     Size:     4096    Used:      128
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # First cache variables
   my $a = CreateArea;
   my $t = $a->CreateTree(lowKeys=>1);
@@ -18358,12 +18366,36 @@ if (1) {                                                                        
    {$t->find(K(key => $i)); $t->found->out; PrintOutString "  "; $t->data->outNL;
    }
   $t->put (K(key => 1), K(key => 1));                                           # 18
-# $t->find(K(key => 1));                                                        # 20
+  $t->find(K(key => 1));                                                        # 20
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1953;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
 found: .... .... .... ...1  data: .... .... .... ..11
 found: .... .... .... ...1  data: .... .... .... ..22
 found: .... .... .... ...1  data: .... .... .... ..33
+END
+ }
+
+latest:
+if (1) {                                                                        # First cache variables
+  my $a = CreateArea;
+  my $t = $a->CreateTree(lowKeys=>2);
+
+  my $N = 3;
+
+  for my $i(1..$N)
+   {$t->put(K(key => $i), K(key => eval "0x$i$i"));
+   }
+
+  for my $i(1..$N)
+   {$t->find(K(key => $i)); $t->data->outNL;
+   }
+# $t->put (K(key => 1), K(key => 1));                                           # 18
+  $t->find(K(key => 1));                                                        # 7
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1069;
+data: .... .... .... ..11
+data: .... .... .... ..22
+data: .... .... .... ..33
 END
  }
 
