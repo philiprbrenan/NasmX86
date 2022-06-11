@@ -6945,27 +6945,29 @@ sub Nasm::X86::Tree::put($$$)                                                   
        {my $k = $key->expr;                                                     # Key value
         if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
          {my $F = 1;                                                            # Place first block in this zmm
-          PushR my $control = r15;                                              # copy of the control dword
           $tree->firstFromMemory($F);                                           # Load first block
           my $p = $k * $tree->width + $tree->fcArray;                           # Save dword
           $data->dIntoZ($F, $p);                                                # Save dword
-          Pextrd $control."d", xmm1, $co;                                         # Get the control dword
-          my $b = $k+$tree->fcPresent;                                          # Present bit
-          my $B = $k+$tree->fcTreeBits;                                         # Tree bit
-          Bts $control, $b;
-          IfNc
-          Then                                                                  # Not previously present so increase length
-           {$tree->incSizeInFirst(zmm $F);                                      # Increment the size field in the first block of a tree when the first block is held in a zmm register.
-           };                                                                   # Putting the previous code inline will enable us to use a free register and thus avoid the PushR PopR
-          if (ref($data) =~ m(Tree)i)                                           # Tree
-           {Bts $control, $B;                                                   # Set tree bit
+          if ($tree->lowKeys == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+           {PushR my $control = r15;                                            # copy of the control dword
+            Pextrd $control."d", xmm1, $co;                                     # Get the control dword
+            my $b = $k+$tree->fcPresent;                                        # Present bit
+            my $B = $k+$tree->fcTreeBits;                                       # Tree bit
+            Bts $control, $b;
+            IfNc
+            Then                                                                # Not previously present so increase length
+             {$tree->incSizeInFirst(zmm $F);                                    # Increment the size field in the first block of a tree when the first block is held in a zmm register.
+             };                                                                 # Putting the previous code inline will enable us to use a free register and thus avoid the PushR PopR
+            if (ref($data) =~ m(Tree)i)                                         # Tree
+             {Bts $control, $B;                                                 # Set tree bit
+             }
+            else                                                                # Not a tree
+             {Btc $control, $B;                                                 # Clear tree bit
+             }
+            Pinsrd xmm1, $control."d", $co;                                     # Save control word
+            PopR;
            }
-          else                                                                  # Not a tree
-           {Btc $control, $B;                                                   # Clear tree bit
-           }
-          Pinsrd xmm1, $control."d", $co;                                       # Save control word
           $tree->firstIntoMemory($F);                                           # Save updated first block
-          PopR;
           Jmp $end;                                                             # Successfully saved
          }
        }
@@ -6974,29 +6976,31 @@ sub Nasm::X86::Tree::put($$$)                                                   
        {ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
         Then                                                                    # Less than the upper limit
          {my $F = 1;                                                            # Place first block in this zmm
-          PushR my $bit = r14, my $control = r15;                               # Copy of the control dword
           $tree->firstFromMemory($F);                                           # Load first block
           my $p = $key * $tree->width + $tree->fcArray;                         # Save dword
           $data->dIntoZ($F, $p);                                                # Save dword
-          Pextrd r15d, xmm1, $co;                                               # Get the control dword
-          my $b = $key+$tree->fcPresent;                                        # Present bit
-          my $B = $key+$tree->fcTreeBits;                                       # Tree bit
-          $b->setReg($bit);                                                     # Bit to set
-          Bts $control, $bit;                                                   # Set bit and place old value in carry
-          IfNc
-          Then                                                                  # Not previously present so increase length
-           {$tree->incSizeInFirst(zmm $F);                                      # Increment the size field in the first block of a tree when the first block is held in a zmm register.
-           };                                                                   # Putting the previous code inline will enable us to use a free register and thus avoid the PushR PopR
-          $B->setReg($bit);                                                     # Bit to set
-          if (ref($data) =~ m(Tree)i)                                           # Tree
-           {Bts $control, $bit;                                                 # Set tree bit
+          if ($tree->lowKeys == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+           {PushR my $bit = r14, my $control = r15;                             # Copy of the control dword
+            Pextrd $control."d", xmm1, $co;                                     # Get the control dword
+            my $b = $key+$tree->fcPresent;                                      # Present bit
+            my $B = $key+$tree->fcTreeBits;                                     # Tree bit
+            $b->setReg($bit);                                                   # Bit to set
+            Bts $control, $bit;                                                 # Set bit and place old value in carry
+            IfNc
+            Then                                                                # Not previously present so increase length
+             {$tree->incSizeInFirst(zmm $F);                                    # Increment the size field in the first block of a tree when the first block is held in a zmm register.
+             };                                                                 # Putting the previous code inline will enable us to use a free register and thus avoid the PushR PopR
+            $B->setReg($bit);                                                   # Bit to set
+            if (ref($data) =~ m(Tree)i)                                         # Tree
+             {Bts $control, $bit;                                               # Set tree bit
+             }
+            else                                                                # Not a tree
+             {Btc $control, $bit;                                               # Clear tree bit
+             }
+            Pinsrd xmm1, $control."d", $co;                                     # Save control word
+            PopR;
            }
-          else                                                                  # Not a tree
-           {Btc $control, $bit;                                                 # Clear tree bit
-           }
-          Pinsrd xmm1, r15d, $co;                                               # Save control word
           $tree->firstIntoMemory($F);                                           # Save updated first block
-          PopR;
           Jmp $end;                                                             # Successfully saved
          };
        }
