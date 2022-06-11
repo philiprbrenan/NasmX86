@@ -830,19 +830,20 @@ sub extractRegisterNumberFromMM($)                                              
 
 sub getBwdqFromMm($$$$%)                                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
  {my ($xyz, $size, $mm, $offset, %options) = @_;                                # Size of mm, size of get, mm register, offset in bytes either as a constant or as a variable, options
+  my $set = $options{set};                                                      # Optionally set this register rather than returning a variable
 
   my $n = extractRegisterNumberFromMM $mm;                                      # Register number or fail if not an mm register
   my $m = $xyz.'mm'.$n;                                                         # Full name of register
 
-  if (!ref($offset) and $offset == 0 and my $s = $options{set})                 # Use Pextr in this special circumstance - need to include other such
-   {my $d = dWordRegister $s;                                                   # Target a dword register
+  if (!ref($offset) and $offset == 0 and $set)                                  # Use Pextr in this special circumstance - need to include other such
+   {my $d = dWordRegister $set;                                                 # Target a dword register
     push @text, <<END;
 vpextr$size $d, xmm$n, 0
 END
     return;
    }
 
-  my $r = $options{set} // rdi;                                                 # Choose a work register
+  my $r = $set // rdi;                                                          # Choose a work register
 
   my $o;                                                                        # The offset into the mm register
   if (ref($offset))                                                             # The offset is being passed in a variable
@@ -856,13 +857,13 @@ END
   my $w = RegisterSize $m;                                                      # Size of mm register
   Vmovdqu32 "[rsp-$w]", $m;                                                     # Write below the stack
 
-  ClearRegisters rdi if $size !~ m(q|d);                                        # Clear the register if necessary
-  Mov  byteRegister(rdi), "[rsp+$o-$w]" if $size =~ m(b);                       # Load byte register from offset
-  Mov  wordRegister(rdi), "[rsp+$o-$w]" if $size =~ m(w);                       # Load word register from offset
-  Mov dWordRegister(rdi), "[rsp+$o-$w]" if $size =~ m(d);                       # Load double word register from offset
-  Mov rdi,                "[rsp+$o-$w]" if $size =~ m(q);                       # Load register from offset
+  ClearRegisters $r if $size !~ m(q|d);                                         # Clear the register if necessary
+  Mov  byteRegister($r), "[rsp+$o-$w]" if $size =~ m(b);                        # Load byte register from offset
+  Mov  wordRegister($r), "[rsp+$o-$w]" if $size =~ m(w);                        # Load word register from offset
+  Mov dWordRegister($r), "[rsp+$o-$w]" if $size =~ m(d);                        # Load double word register from offset
+  Mov rdi,               "[rsp+$o-$w]" if $size =~ m(q);                        # Load register from offset
 
-  V("$size at offset $offset in $m", rdi) unless $options{set};                 # Create variable unless a target register has been supplied
+  V("$size at offset $offset in $m", rdi) unless $set;                          # Create variable unless a target register has been supplied
  }
 
 sub bFromX($$)                                                                  # Get the byte from the numbered xmm register and return it in a variable.
