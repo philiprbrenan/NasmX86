@@ -10361,7 +10361,7 @@ END
 
   Start;                                                                        # Clear work areas for next assembly
 
-  if ($run and my $e = $eq)                                                     # Diff results against expected
+  if ($run and defined(my $e = $eq))                                             # Diff results against expected
    {my $g = readFile($debug ? $o2 : $o1);
        $e =~ s(\s+#.*?\n) (\n)gs;                                               # Remove comments so we can annotate listings
     s(Subroutine trace back.*) ()s for $e, $g;                                  # Remove any trace back because the location of the subroutine in memory will vary
@@ -18438,7 +18438,7 @@ data: .... .... .... ..33
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # First cache variables - variables, level 2
   my $a = CreateArea;
   my $t = $a->CreateTree(lowKeys=>2);
