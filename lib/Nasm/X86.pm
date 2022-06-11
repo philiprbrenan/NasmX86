@@ -10317,10 +10317,7 @@ END
       (map {numberWithCommas $_} $instructions,         $bytes,
                                  $instructionsExecuted, $totalBytesAssembled),
                                  $eTime, $aTime, $perlTime);
-   }
-
-  if ($run)                                                                     # Compare clocks
-   {if (my $i = $instructionsExecuted)
+    if (my $i = $instructions)
      {if (my $c = $clocks)
        {if ($i != $c)
          {my $l = $c - $i;
@@ -18359,7 +18356,7 @@ Area     Size:     4096    Used:      128
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # First cache variables - constants, level 1
   my $a = CreateArea;
   my $t = $a->CreateTree(lowKeys=>1);
@@ -18383,7 +18380,7 @@ found: .... .... .... ...1  data: .... .... .... ..33
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # First cache variables - variables, level 1
   my $a = CreateArea;
   my $t = $a->CreateTree(lowKeys=>1);
@@ -18407,7 +18404,7 @@ found: .... .... .... ...1  data: .... .... .... ..33
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # First cache variables - constants, level 2
   my $a = CreateArea;
   my $t = $a->CreateTree(lowKeys=>2);
@@ -18446,9 +18443,9 @@ if (1) {                                                                        
    {$t->find(K(key => $i)); $t->data->outNL;
    }
 # $t->put (K(key => 1), K(key => 1));                                           # 18
-# $t->find(K(key => 1));                                                        # 7
+  $t->find(K(key => 1));                                                        # 7
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>6299;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1156;
 data: .... .... .... ..11
 data: .... .... .... ..22
 data: .... .... .... ..33
