@@ -9489,7 +9489,7 @@ sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       
 sub Nasm::X86::Area::ParseUnisyn($$$)                                           # Parse a string of utf8 characters.
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
-  my $brackets    = $area->CreateTree(lowKeys=>1);                              # Bracket stack
+  my $brackets    = $area->CreateTree(lowKeys=> -e q(/home/phil/) ? 1 : 0);     # Bracket stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
   my $symbols     = $area->CreateTree;                                          # String tree of symbols encountered during the parse
 
