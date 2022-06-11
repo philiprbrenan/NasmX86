@@ -865,7 +865,7 @@ END
   Mov $r,                "[rsp+$o-$w]" if $size =~ m(q);                        # Load register from offset
 
   if ($setVar)                                                                  # Set the supplied variable
-   {$setVar->copy($r);
+   {$set->copy($r);
     return;
    }
 
