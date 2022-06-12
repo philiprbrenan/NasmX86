@@ -5520,6 +5520,9 @@ sub Nasm::X86::Yggdrasil::UniqueStrings        {K key => 0}                     
 sub Nasm::X86::Yggdrasil::SubroutineOffsets    {K key => 1}                     # Translates a string number into the offset of a subroutine in an area.
 sub Nasm::X86::Yggdrasil::SubroutineDefinitions{K key => 2}                     # Maps the unique string number for a subroutine name to the offset in the are that contains the length (as a dword) followed by the string content of the Perl data structure describing the subroutine in question.
 sub Nasm::X86::Yggdrasil::Unisyn::Alphabets    {K key => 3}                     # Unisyn alphabets.
+sub Nasm::X86::Yggdrasil::Unisyn::Open         {K key => 4}                     # Open bracket to close bracket
+sub Nasm::X86::Yggdrasil::Unisyn::Close        {K key => 5}                     # Close bracket to open bracket
+sub Nasm::X86::Yggdrasil::Unisyn::Transitions  {K key => 6}                     # Permissible transitions from alphabet to alphabet
 
 sub Nasm::X86::Area::yggdrasil($)                                               # Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
  {my ($area) = @_;                                                              # Area descriptor
@@ -9519,7 +9522,11 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
 
 sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           # Create and load the table of lexical transitions.
  {my ($area) = @_;                                                              # Area in which to create the table
+  my $y = $area->yggdrasil;                                                     # Yggdrasil
   my $t = $area->CreateTree;
+  $y->put(Nasm::X86::Yggdrasil::Unisyn::Transitions,  $t);                      # Locate transitions between alphabets
+
+
   my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
   my $A = Nasm::X86::Unisyn::Lex::Number::A;                                    # Ascii
   my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
@@ -9560,8 +9567,13 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
 
 sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        # Create and load the table of open to close bracket mappings.
  {my ($area) = @_;                                                              # Area in which to create the table
+  my $y = $area->yggdrasil;                                                     # Yggdrasil
   my $o = $area->CreateTree;                                                    # Open to close
   my $c = $area->CreateTree;                                                    # Close to open
+
+  $y->put(Nasm::X86::Yggdrasil::Unisyn::Open,  $o);                             # Locate open to close mapping
+  $y->put(Nasm::X86::Yggdrasil::Unisyn::Close, $c);                             # Locate close to open mapping
+
   my @b = Nasm::X86::Unisyn::Lex::Letter::b;                                    # Open
   my @B = Nasm::X86::Unisyn::Lex::Letter::B;                                    # Close
 
@@ -9579,7 +9591,7 @@ sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        
 
 sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
  {my ($a) = @_;                                                                 # Area in which to create the table
-  my $y = $a->yggdrasil;
+  my $y = $a->yggdrasil;                                                        # Yggdrasil
   my $t = $a->CreateTree;
 
   $y->put(Nasm::X86::Yggdrasil::Unisyn::Alphabets, $t);                         # Make the alphabets locate-able
