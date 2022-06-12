@@ -9628,12 +9628,29 @@ sub Nasm::X86::Unisyn::Lex::left     {3};                                       
 sub Nasm::X86::Unisyn::Lex::right    {4};                                       # Right operand.
 sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       # Symbol.
 
-sub Nasm::X86::Area::ParseUnisyn($$$)                                           # Parse a string of utf8 characters.
- {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
+sub Nasm::X86::Area::LoadParseTables($)                                         # Load parser tables into an area
+ {my ($area) = @_;                                                              # Area in which to create the tables
 
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
   my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
   my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
+
+  genHash("Nasm::X86::Area::Unisyn:ParserTables",
+    alphabets   => $alphabets,                                                  # Alphabetic classifications
+    closeOpen   => $closeOpen,                                                  # Close to open bracket matching
+    openClose   => $openClose,                                                  # Open to close bracket matching
+    transitions => $transitions,                                                # Permissible transitions
+  );
+ }
+
+sub Nasm::X86::Area::ParseUnisyn($$$)                                           # Parse a string of utf8 characters.
+ {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
+
+  my $tables      = $area->LoadParseTables;                                     # Load parser tables
+  my $alphabets   = $tables->alphabets;                                         # Create and load the table of alphabetic classifications
+  my $closeOpen   = $tables->closeOpen;                                         # Close top open bracket matching
+  my $openClose   = $tables->openClose;                                         # Open to close bracket matching
+  my $transitions = $tables->transitions;                                       # Create and load the table of lexical transitions.
 
   my $brackets    = $area->CreateTree; #(lowKeys => 1);                         # Bracket stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
