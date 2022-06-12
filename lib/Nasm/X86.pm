@@ -10452,7 +10452,7 @@ END
        "Clocks", "Bytes", "Total Clocks", "Total Bytes", "Run Time", "Assembler", "Perl")
       if $assembliesPerformed % 100 == 1;
 
-    say STDERR                                                                  # Rows
+    print STDERR                                                                  # Rows
       sprintf("%4s    %12s    %12s    %12s    %12s  %12.6f  %12.2f  %12.2f  at $file line $line",
       $label ? $label : sprintf("%4d", $assembliesPerformed),
       (map {numberWithUnderScores $_}
