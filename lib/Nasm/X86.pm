@@ -10444,12 +10444,13 @@ END
 
     my (undef, $file, $line) = caller();                                        # Line in caller
 
-    say STDERR sprintf("        %12s    %12s    %12s    %12s  %12s  %12s  %12s",# Header if necessary
+    say STDERR sprintf                                                          # Header if necessary
+      ("#         %12s    %12s    %12s    %12s  %12s  %12s  %12s",
        "Clocks", "Bytes", "Total Clocks", "Total Bytes", "Run Time", "Assembler", "Perl")
       if $assembliesPerformed % 100 == 1;
 
     print STDERR                                                                # Rows
-      sprintf("%4s    %12s    %12s    %12s    %12s  %12.6f  %12.2f  %12.2f  at $file line $line",
+      sprintf("# %4s    %12s    %12s    %12s    %12s  %12.6f  %12.2f  %12.2f  at $file line $line",
       $label ? $label : sprintf("%4d", $assembliesPerformed),
       (map {numberWithUnderScores $_}
         $instructions, $bytes, $instructionsExecuted, $totalBytesAssembled),
@@ -18723,7 +18724,8 @@ done_testing;
 
 if (1)                                                                          # Summary of processing
  {my $s = sprintf(<<END,
-# fails:%3d,     passes:%3d,    assemblies:%3d,    time: %.2fs,    bytes: %s,    clocks: %s
+
+# Fails:%3d,     passes:%3d,    assemblies:%3d,    time: %.2fs,    bytes: %s,    clocks: %s
 END
   $testsThatFailed,
   $testsThatPassed,
