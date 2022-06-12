@@ -10448,13 +10448,14 @@ END
        "Clocks", "Bytes", "Total Clocks", "Total Bytes", "Run Time", "Assembler", "Perl")
       if $assembliesPerformed % 100 == 1;
 
-    print STDERR                                                                  # Rows
+    print STDERR                                                                # Rows
       sprintf("%4s    %12s    %12s    %12s    %12s  %12.6f  %12.2f  %12.2f  at $file line $line",
       $label ? $label : sprintf("%4d", $assembliesPerformed),
       (map {numberWithUnderScores $_}
         $instructions, $bytes, $instructionsExecuted, $totalBytesAssembled),
         $eTime, $aTime, $perlTime);
-    if (my $i = $instructions)
+
+    if (my $i = $instructions)                                                  # Clocks
      {if ($mix and my $c = $clocks)
        {if ($i != $c)
          {my $l = $c - $i;
@@ -10463,15 +10464,17 @@ END
           my $g = - $l;
           my $L = numberWithUnderScores $l;
           my $G = numberWithUnderScores $g;
-          say STDERR "    Clocks were $C, but now $I, less $L"       if $l > 0;
-          say STDERR "    Clocks were $C, but now $I, greater by $G" if $g > 0;
+          print STDERR "   Clocks were $C, but now $I, less $L"       if $l > 0;
+          print STDERR "   Clocks were $C, but now $I, greater by $G" if $g > 0;
          }
        }
      }
    }
+  print STDERR "\n";
 
   if ($run and $debug == 0 and -e $o2)                                          # Print errors if not debugging
-   {say STDERR readBinaryFile($o2);
+   {my $s = readBinaryFile $o2;
+    say STDERR $s if $s =~ m(\S);
    }
 
   if ($run and $debug == 1)                                                     # Print files if soft debugging or error
