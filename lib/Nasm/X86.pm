@@ -10418,7 +10418,7 @@ END
        $o = qq($o -footprint)      if $foot;                                    # Emulator options - foot print
        $o = qq($o -debugtrace)     if $trace;                                   # Emulator options - tracing
        $o = qq($o -mix)            if $mix;                                     # Emulator options - mix histogram output
-       $o = qq($o -omix /dev/null) if $mix and onGitHub;                        # Dump mix output on Github
+#      $o = qq($o -omix /dev/null) if $mix and onGitHub;                        # Dump mix output on Github
 
 #say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
     if ($emulate && !hasAvx512 or $trace or $mix or $ptr or $foot)              # Command to execute program via the  emulator
