@@ -18726,7 +18726,7 @@ done_testing;
 
 if (1)                                                                          # Summary of processing
  {my $t = <<END,
-# Tests       Fails    Passes    Assemblies        Time            Bytes    Clocks
+#     Tests       Fails     Passes    Assemblies            Time           Bytes          Clocks
 END
   my $r = sprintf(<<END,
 # %8s        %5d     %6d    %10d        %8.2f    %12s    %12s
