@@ -17439,9 +17439,8 @@ sub ParseUnisyn($$$)                                                            
   unlink $f;
  };
 
-latest:;
+#latest:;
 ParseUnisyn '',                                        "\n",                    qq(\n\n);
-exit;
 ParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
 ParseUnisyn 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
 ParseUnisyn 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
