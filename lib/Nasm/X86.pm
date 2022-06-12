@@ -10428,7 +10428,7 @@ say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
      {return qq($o -- ./$execFile $err $out)
      }
 
-    qq(./$e $err $out);                                                         # Command to execute program without the emulator
+    qq(./$execFile $err $out);                                                  # Command to execute program without the emulator
    }->();
 
   my $eStart = time;
