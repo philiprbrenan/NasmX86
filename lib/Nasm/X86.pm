@@ -10470,16 +10470,15 @@ END
        }
      }
    }
-  print STDERR "\n";
+  print STDERR "\n";                                                            # Complete the execution detail line
 
-  if ($run and $debug == 0 and -e $o2)                                          # Print errors if not debugging
-   {my $s = readBinaryFile $o2;
-    say STDERR $s if $s =~ m(\S);
+  if ($run and $debug == 0 and -e $o2 and my $s = readBinaryFile $o2)           # Print only errors if not debugging
+   {print STDERR $s;
    }
 
   if ($run and $debug == 1)                                                     # Print files if soft debugging or error
-   {say STDERR readFile($o1) if -e $o1;
-    say STDERR readFile($o2) if -e $o2;
+   {print STDERR readFile($o1) if -e $o1;
+    print STDERR readFile($o2) if -e $o2;
    }
 
   sub{my $a = fixMixOutput; say STDERR $a if $mix >= 2}->() if $run and $mix;   # Fix mix output to show where code came from in the source file
