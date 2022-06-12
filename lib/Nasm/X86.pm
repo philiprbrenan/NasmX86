@@ -18543,7 +18543,7 @@ END
   my $a = CreateArea;                                                           # Area in which we will do the parse
 
   my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
-  my $p = $a->ParseUnisyn($A, $N-1);                                            # Parse the utf8 string minus the final new line and zero?
+  my $p = $a->ParseUnisyn($A, $N);                                               # Parse the utf8 string minus the final new line and zero?
 
   $p->tree->dumpParseTree($A);                                                  # Parse tree
 
