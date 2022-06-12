@@ -5208,8 +5208,8 @@ sub ReadArea($)                                                                 
   DescribeArea address => $address;                                             # Describe it as an area
  }
 
-sub loadAreaIntoThing($%)                                                       # Load an area into the current assembly and return a descriptor for it.
- {my ($file, %options) = @_;                                                    # File containing an are written out with write, options
+sub loadAreaIntoAssembly($)                                                     # Load an area into the current assembly and return a descriptor for it.
+ {my ($file) = @_;                                                              # File containing an area
   my  $areaFinish = Label;
   Jmp $areaFinish;                                                              # Jump over area
   my  $areaStart = SetLabel;
@@ -18052,7 +18052,7 @@ END
   is_deeply fileSize($f), 88512;
 
   if (3)                                                                        # Incorporate alphabets in an an assembly
-   {my $a = loadAreaIntoThing $f;
+   {my $a = loadAreaIntoAssembly $f;
     my $y = $a->yggdrasil;
     my $t = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Alphabets);
     $t->find(K key => 0x27e2);
