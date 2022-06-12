@@ -9615,12 +9615,11 @@ sub Nasm::X86::Unisyn::Lex::type     {2};                                       
 sub Nasm::X86::Unisyn::Lex::left     {3};                                       # Left operand.
 sub Nasm::X86::Unisyn::Lex::right    {4};                                       # Right operand.
 sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       # Symbol.
-# Block t3
-# fails:  0,     passes: 40,    assemblies: 40,    time: 85.31s,    bytes: 22_186_344,    execs: 0
+
 sub Nasm::X86::Area::ParseUnisyn($$$)                                           # Parse a string of utf8 characters.
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
   my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
-  my $brackets    = $area->CreateTree(lowKeys=> 1);                             # Bracket stack
+  my $brackets    = $area->CreateTree; #(lowKeys => 1);                            # Bracket stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
   my $symbols     = $area->CreateTree;                                          # String tree of symbols encountered during the parse
 
@@ -17437,7 +17436,7 @@ sub ParseUnisyn($$$)                                                            
   my $p = $a->ParseUnisyn($a8, $s8-2);                                          # Parse the utf8 string minus the final new line and zero?
 
   $p->tree->dumpParseTree($a8);
-  ok Assemble eq => $parse, avx512=>1;
+  ok Assemble eq => $parse, avx512=>1, mix=>1;
   say STDERR readFile($programOut) =~ s(\n) (\\n)gsr if -e $programOut;
   unlink $f;
  };
