@@ -10697,7 +10697,7 @@ use Test::Most;
 
 my %block = map {$_=>1} (@ARGV ? @ARGV : 1..4);                                 # Blocks of tests to execute
 #say STDERR "Tests: ", dump(\%block);
-unlink my $resultsFile = "zzzStatus.txt";                                       # File holding consolidated results of tests
+unlink my $resultFile = "zzzStatus.txt";                                        # File holding consolidated results of tests
 
 
 bail_on_fail unless onGitHub;
@@ -18731,7 +18731,7 @@ END
   my $r = sprintf(<<END,
 # %8s        %5d     %6d    %10d        %8.2f    %12s    %12s
 END
-  join('', sort keys %blocks),
+  join('', sort keys %block),
   $testsThatFailed,
   $testsThatPassed,
   $assembliesPerformed,
