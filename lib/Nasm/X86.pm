@@ -10445,7 +10445,7 @@ END
     my (undef, $file, $line) = caller();                                        # Line in caller
 
     say STDERR sprintf                                                          # Header if necessary
-      ("#         %12s    %12s    %12s    %12s  %12s  %12s  %12s",
+      ("# Test    %12s    %12s    %12s    %12s  %12s  %12s  %12s",
        "Clocks", "Bytes", "Total Clocks", "Total Bytes", "Run Time", "Assembler", "Perl")
       if $assembliesPerformed % 100 == 1;
 
@@ -18726,7 +18726,7 @@ done_testing;
 
 if (1)                                                                          # Summary of processing
  {my $t = <<END,
-#     Tests       Fails     Passes    Assemblies            Time           Bytes          Clocks
+#    Block        Fails     Passes    Assemblies            Time           Bytes          Clocks
 END
   my $r = sprintf(<<END,
 # %8s        %5d     %6d    %10d        %8.2f    %12s    %12s
