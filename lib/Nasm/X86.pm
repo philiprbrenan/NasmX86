@@ -10423,6 +10423,7 @@ END
 
     my $e = $execFile;                                                          # Executable file name - this is the thing we are going to run by itself or on the emulator
 
+say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
     if ($emulate && !hasAvx512 or $trace or $mix or $ptr or $foot)              # Command to execute program via the  emulator
      {return qq($o -- ./$e $err $out)
      }
