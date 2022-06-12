@@ -9960,7 +9960,7 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
      };                                                                         # Else not required - we are continuing in the same lexical item
 
     $position->copy($position + $size);                                         # Point to next character to be parsed
-    If $position > $s8,
+    If $position >= $s8,
     Then                                                                        # We have reached the end of the input
      {$next->find(K finish => Nasm::X86::Unisyn::Lex::Number::F);               # Check that we can locate the final state from the last symbol encountered
       If $next->found > 0,
@@ -17378,7 +17378,7 @@ DDDD22
 END
  }
 
-#latest:    #### Parse
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
@@ -17386,7 +17386,7 @@ if (1) {                                                                        
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $parse = $a->ParseUnisyn($a8, $s8-2);                                      # Parse the utf8 string minus the final new line and zero?
+  my $parse = $a->ParseUnisyn($a8, $s8-1);                                      # Parse the utf8 string minus the final new line
 
   $parse->char    ->outNL;                                                      # Print results
   $parse->fail    ->outNL;
@@ -17394,9 +17394,6 @@ if (1) {                                                                        
   $parse->match   ->outNL;
   $parse->reason  ->outNL;
   $parse->tree->dumpParseTree($a8);
-
-#              Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
-#   1       1_369_790         644_032       1_369_790         644_032      0.594831          1.25          0.00  normal trees
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1_369_790;
 parseChar: .... .... ...1 D5D8
@@ -17416,7 +17413,28 @@ parseReason: .... .... .... ....
 ._._𝗘
 END
   unlink $f;
-confess if $homeTest;
+ }
+
+#latest:
+if (1) {                                                                        # Parse a Unisyn expression
+  my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $p = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
+  $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
+
+  ok Assemble eq => <<END, avx512=>1;
+＝
+._𝗔
+._𝐈𝐅
+._._✕
+._._._【
+._._._._＋
+._._._._._𝗕
+._._._._._𝗖
+._._._𝗗
+._._𝗘
+END
  }
 
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
@@ -17429,12 +17447,12 @@ sub ParseUnisyn($$$)                                                            
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $p = $a->ParseUnisyn($a8, $s8-2);                                          # Parse the utf8 string minus the final new line and zero?
+  my $p = $a->ParseUnisyn($a8, $s8-1);                                          # Parse the utf8 string minus the final new line
 
   $p->tree->dumpParseTree($a8);
   ok Assemble eq => $parse, avx512=>1, mix=>1;
 
-  if (-e $programOut and $homeTest)
+  if (-e $programOut and $homeTest)                                             # Print parse tree
    {say STDERR readFile($programOut) =~ s(\n) (\\n)gsr
    }
 
@@ -17729,7 +17747,7 @@ if (1)
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $p = $a->ParseUnisyn($a8, $s8-2);                                          # Parse the utf8 string minus the final new line and zero?
+  my $p = $a->ParseUnisyn($a8, $s8-1);                                          # Parse the utf8 string minus the final new line
 
   $p->tree->dumpParseTree($a8);
   ok Assemble eq => <<END, avx512=>1, mix=>0;
