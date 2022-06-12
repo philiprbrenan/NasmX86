@@ -17433,7 +17433,11 @@ sub ParseUnisyn($$$)                                                            
 
   $p->tree->dumpParseTree($a8);
   ok Assemble eq => $parse, avx512=>1, mix=>1;
-  say STDERR readFile($programOut) =~ s(\n) (\\n)gsr if -e $programOut;
+
+  if (-e $programOut and $homeTest)
+   {say STDERR readFile($programOut) =~ s(\n) (\\n)gsr
+   }
+
   unlink $f;
  };
 
