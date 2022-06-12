@@ -13307,7 +13307,7 @@ if (1) {                                                                        
    });
   PrintOutNL;
 
-  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512 => 0;
 𝝰𝝱𝝲𝝳𝝴𝝵𝝶𝝷𝝸𝝹𝝺𝝻𝝼𝝽𝝾𝝿
 END
  }
@@ -13461,7 +13461,7 @@ if (1) {                                                                        
   $t->inner->value->outInDecNL;
   $T->value->outInDecNL;
   $T->inner->value->outInDecNL;
-  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 42
 21
 var: 42
@@ -15189,7 +15189,7 @@ if (1) {                                                                        
     $t->printInOrder("A");
    });
 
-  ok Assemble eq => <<END, avx512=>1,  trace=>2, mix=>1;
+  ok Assemble eq => <<END, avx512=>1;
 A  32:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
 A  32:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
 A  32:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
