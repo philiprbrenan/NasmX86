@@ -41,7 +41,7 @@ child [process](https://en.wikipedia.org/wiki/Process_management_(computing)) cr
 area.
 
 
-Other notable features provided by this [module](https://en.wikipedia.org/wiki/Modular_programming) are a parser for B<Unisyn> a
+Other notable features provided by this [module](https://en.wikipedia.org/wiki/Modular_programming) are a parser for **Unisyn** a
 generic, universal, [utf8](https://en.wikipedia.org/wiki/UTF-8) based syntax for constructing programming languages
 that can make extensive use of the operators and alphabets provide by the [Unicode](https://en.wikipedia.org/wiki/Unicode) standard.
 
@@ -296,7 +296,7 @@ END
 ```
 
 ## Create a 6/13 multi way [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) in an area using SIMD instructions from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Create a multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) as in L<Tree::Multi> using B<Avx512> instructions then iterate through the [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) each time an element is deleted:
+Create a 6/13 multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) using **Avx512** instructions then iterate through the [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) each time an element is deleted:
 
 ```
   my $a = CreateArea;
