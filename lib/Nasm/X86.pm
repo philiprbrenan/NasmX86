@@ -10697,6 +10697,8 @@ use Test::Most;
 
 my %block = map {$_=>1} (@ARGV ? @ARGV : 1..4);                                 # Blocks of tests to execute
 #say STDERR "Tests: ", dump(\%block);
+unlink my $resultsFile = "zzzStatus.txt";                                       # File holding consolidated results of tests
+
 
 bail_on_fail unless onGitHub;
 
@@ -18723,18 +18725,24 @@ done_testing;
 #unlink $_ for qw(sde-footprint.txt sde-log.txt);
 
 if (1)                                                                          # Summary of processing
- {my $s = sprintf(<<END,
-
-# Fails:%3d,     passes:%3d,    assemblies:%3d,    time: %.2fs,    bytes: %s,    clocks: %s
+ {my $t = <<END,
+# Tests       Fails    Passes    Assemblies        Time            Bytes    Clocks
 END
+  my $r = sprintf(<<END,
+# %8s        %5d     %6d    %10d        %8.2f    %12s    %12s
+END
+  join('', sort keys %blocks),
   $testsThatFailed,
   $testsThatPassed,
   $assembliesPerformed,
   time - $start,
   numberWithUnderScores(totalBytesAssembled),
   numberWithUnderScores($instructionsExecuted));
-  owf(q(zzzStatus.txt), $s);
-  say STDERR $s;
+
+  appendFile $resultFile, $t unless -e $resultFile;                             # Start the result file with the title line
+  appendFile $resultFile, $r;                                                   # Result from this test
+
+  say STDERR "\n$t$r";
   exit(1) if $testsThatFailed;                                                  # Show failure on gitHub
  }
 
