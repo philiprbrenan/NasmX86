@@ -17441,6 +17441,7 @@ sub ParseUnisyn($$$)                                                            
   unlink $f;
  };
 
+#latest:;
 ParseUnisyn '',                                        "\n",                    qq(\n\n);
 ParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
 ParseUnisyn 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
@@ -18662,7 +18663,7 @@ data: .... .... .... ..33
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        # First cache variables - variables, level 2
   my $a = CreateArea;
   my $t = $a->CreateTree(lowKeys=>2);
@@ -18700,7 +18701,7 @@ done_testing;
 
 if (1)                                                                          # Summary of processing
  {my $s = sprintf(<<END,
-# fails:%3d,     passes:%3d,    assemblies:%3d,    time: %.2fs,    bytes: %s,    execs: %s
+# fails:%3d,     passes:%3d,    assemblies:%3d,    time: %.2fs,    bytes: %s,    clocks: %s
 END
   $testsThatFailed,
   $testsThatPassed,
