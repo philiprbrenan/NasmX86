@@ -10401,7 +10401,6 @@ END
       : qq($a -felf64 -g  && ld $I $L -o $e $objectFile && chmod 744 $e);
 
     qx($cmd);
-#say STDERR $cmd; exit;
     confess "Assembly failed $?" if $?;                                         # Stop if assembly failed
    }
 
@@ -10420,7 +10419,6 @@ END
        $o = qq($o -mix)            if $mix;                                     # Emulator options - mix histogram output
 #      $o = qq($o -omix /dev/null) if $mix and onGitHub;                        # Dump mix output on Github
 
-#say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
     if ($emulate && !hasAvx512 or $trace or $mix or $ptr or $foot)              # Command to execute program via the  emulator
      {return qq($o -- ./$execFile $err $out)
      }
@@ -10430,7 +10428,7 @@ END
 
   my $eStart = time;
 
-  lll $exec;
+  #lll $exec;
   qx($exec) if $run;                                                            # Run unless suppressed by user or library
 
   my $er     = $?;                                                              # Execution result
