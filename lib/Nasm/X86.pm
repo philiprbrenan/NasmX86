@@ -10433,7 +10433,7 @@ say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
 
   my $eStart = time;
 
-#lll $exec;
+  lll $exec;
   qx($exec) if $run;                                                            # Run unless suppressed by user or library
 
   my $er     = $?;                                                              # Execution result
