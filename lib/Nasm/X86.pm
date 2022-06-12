@@ -10469,8 +10469,8 @@ END
          }
        }
      }
+    print STDERR "\n";                                                          # Complete the execution detail line
    }
-  print STDERR "\n";                                                            # Complete the execution detail line
 
   if ($run and $debug == 0 and -e $o2 and my $s = readBinaryFile $o2)           # Print only errors if not debugging
    {print STDERR $s;
