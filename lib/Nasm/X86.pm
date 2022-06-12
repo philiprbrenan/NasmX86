@@ -10274,6 +10274,8 @@ sub Assemble(%)                                                                 
   my $ptr        = delete $options{ptr};                                        # Pointer check required
   my $trace      = delete $options{trace}  //0;                                 # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
 
+say STDERR dump($trace, $mix, $ptr, $foot);
+
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid keys
 
   my $execFile   = $keep // q(z);                                               # Executable file
@@ -10379,6 +10381,7 @@ without running it, or use the option(2) to run without the emulator:
 END
     $emulate = 0;
    }
+say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
 
   if (my @emulatorFiles = searchDirectoryTreesForMatchingFiles(qw(. .txt)))     # Remove prior emulator output files
    {for my $f(@emulatorFiles)
@@ -10421,11 +10424,8 @@ END
        $o = qq($o -mix)            if $mix;                                     # Emulator options - mix histogram output
        $o = qq($o -omix /dev/null) if $mix and onGitHub;                        # Dump mix output on Github
 
-    my $e = $execFile;                                                          # Executable file name - this is the thing we are going to run by itself or on the emulator
-
-say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
     if ($emulate && !hasAvx512 or $trace or $mix or $ptr or $foot)              # Command to execute program via the  emulator
-     {return qq($o -- ./$e $err $out)
+     {return qq($o -- ./$execFile $err $out)
      }
 
     qq(./$e $err $out);                                                         # Command to execute program without the emulator
