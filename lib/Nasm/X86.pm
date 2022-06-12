@@ -10274,7 +10274,7 @@ sub Assemble(%)                                                                 
   my $ptr        = delete $options{ptr};                                        # Pointer check required
   my $trace      = delete $options{trace}  //0;                                 # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
 
-say STDERR dump($trace, $mix, $ptr, $foot);
+cluck "AAAA";
 
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid keys
 
@@ -10381,7 +10381,6 @@ without running it, or use the option(2) to run without the emulator:
 END
     $emulate = 0;
    }
-say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
 
   if (my @emulatorFiles = searchDirectoryTreesForMatchingFiles(qw(. .txt)))     # Remove prior emulator output files
    {for my $f(@emulatorFiles)
@@ -10424,6 +10423,7 @@ say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
        $o = qq($o -mix)            if $mix;                                     # Emulator options - mix histogram output
        $o = qq($o -omix /dev/null) if $mix and onGitHub;                        # Dump mix output on Github
 
+say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
     if ($emulate && !hasAvx512 or $trace or $mix or $ptr or $foot)              # Command to execute program via the  emulator
      {return qq($o -- ./$execFile $err $out)
      }
@@ -17442,8 +17442,9 @@ sub ParseUnisyn($$$)                                                            
   unlink $f;
  };
 
-#latest:;
+latest:;
 ParseUnisyn '',                                        "\n",                    qq(\n\n);
+exit;
 ParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
 ParseUnisyn 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
 ParseUnisyn 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
