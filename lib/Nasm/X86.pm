@@ -10450,7 +10450,7 @@ END
       if $assembliesPerformed % 100 == 1;
 
     print STDERR                                                                # Rows
-      sprintf("# %4s    %12s    %12s    %12s    %12s  %12.6f  %12.2f  %12.2f  at $file line $line",
+      sprintf("# %4s    %12s    %12s    %12s    %12s  %12.4f  %12.2f  %12.2f  at $file line $line",
       $label ? $label : sprintf("%4d", $assembliesPerformed),
       (map {numberWithUnderScores $_}
         $instructions, $bytes, $instructionsExecuted, $totalBytesAssembled),
