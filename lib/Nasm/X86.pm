@@ -10461,8 +10461,10 @@ END
           my $C = numberWithUnderScores $c;
           my $I = numberWithUnderScores $i;
           my $g = - $l;
-          say STDERR "Clocks was $C, but now $I, less $l"       if $l > 0;
-          say STDERR "Clocks was $C, but now $I, greater by $g" if $g > 0;
+          my $L = numberWithUnderScores $l;
+          my $G = numberWithUnderScores $g;
+          say STDERR "    Clocks were $C, but now $I, less $L"       if $l > 0;
+          say STDERR "    Clocks were $C, but now $I, greater by $G" if $g > 0;
          }
        }
      }
