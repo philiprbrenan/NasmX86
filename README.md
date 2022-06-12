@@ -72,6 +72,30 @@ generated Assembler [program](https://en.wikipedia.org/wiki/Computer_program) wi
 failing [code](https://en.wikipedia.org/wiki/Computer_program). 
 ![Trace back](http://prb.appaapps.com/TraceBack.png)
 
+## Parse a Unisyn expression from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Parse a Unisyn expression to create a [parse](https://en.wikipedia.org/wiki/Parsing) [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)): 
+```
+
+
+  my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $p = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
+  $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
+
+  ok Assemble eq => <<END, avx512=>1;
+＝
+._𝗔
+._𝐈𝐅
+._._✕
+._._._【
+._._._._＋
+._._._._._𝗕
+._._._._._𝗖
+._._._𝗗
+._._𝗘
+END
+```
 
 ## Print some [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers:
