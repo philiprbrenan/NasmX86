@@ -10273,9 +10273,6 @@ sub Assemble(%)                                                                 
   my $mix        = delete $options{mix};                                        # Create mix output and fix with line number locations in source
   my $ptr        = delete $options{ptr};                                        # Pointer check required
   my $trace      = delete $options{trace}  //0;                                 # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
-
-cluck "AAAA";
-
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid keys
 
   my $execFile   = $keep // q(z);                                               # Executable file
@@ -10423,7 +10420,7 @@ END
        $o = qq($o -mix)            if $mix;                                     # Emulator options - mix histogram output
        $o = qq($o -omix /dev/null) if $mix and onGitHub;                        # Dump mix output on Github
 
-say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
+#say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
     if ($emulate && !hasAvx512 or $trace or $mix or $ptr or $foot)              # Command to execute program via the  emulator
      {return qq($o -- ./$execFile $err $out)
      }
@@ -10433,7 +10430,7 @@ say STDERR dump($emulate, hasAvx512, $trace, $mix, $ptr, $foot);
 
   my $eStart = time;
 
-  lll $exec;
+# lll $exec;
   qx($exec) if $run;                                                            # Run unless suppressed by user or library
 
   my $er     = $?;                                                              # Execution result
