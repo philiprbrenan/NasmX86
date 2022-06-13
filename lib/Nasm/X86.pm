@@ -18769,7 +18769,7 @@ if (1) {                                                                        
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
   my $p = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
-# $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
+  $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
 # my $q = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
 
 # Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
