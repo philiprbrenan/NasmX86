@@ -1,4 +1,4 @@
-#!/usr/bin/perl -I/home/phil/perl/cpan/DataTableText/lib/ -I. -I/home/phil/perl/cpan/AsmC/lib/
+#!/usr/bin/perl -I/home/phil/perl/cpan/DataTableText/lib/ -I. -Ilib/ -I/home/phil/perl/cpan/AsmC/lib/
 #-------------------------------------------------------------------------------
 # Generate X86 assembler code using Perl as a macro pre-processor.
 # Philip R Brenan at appaapps dot com, Appa Apps Ltd Inc., 2021
