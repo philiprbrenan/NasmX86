@@ -1530,7 +1530,7 @@ sub Subroutine(&%)                                                              
     %rodata           = ();                                                     # New set of read only elements
     %rodatasSaved     = %rodatas;                                               # Current set of read only strings
     %rodatas          = ();                                                     # New set of read only strings
-    $LibraryMode = 1;                                                           # Please do not try to create a library while creating another library - create them one after the other.
+    $LibraryMode      = 1;                                                      # Please do not try to create a library while creating another library - create them one after the other.
    }
 
   $name or confess "Name required for subroutine, use name=>";
@@ -10118,9 +10118,11 @@ my $lastAsmFinishTime;                                                          
 sub Start()                                                                     # Initialize the assembler.
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
   @PushR = @extern = @link = @VariableStack = %loadAreaIntoAssembly = ();
-# @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});               # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
+
+  $DebugMode = 0;
+  $Labels    = 0;
+  $TraceMode = 0;
   SubroutineStartStack;                                                         # Number of variables at each lexical level
-  $Labels = 0;
   $lastAsmFinishTime = time;                                                    # The last time we finished an assembly
  }
 
@@ -11870,14 +11872,13 @@ END
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Area::checkYggdrasilCreated #TNasm::X86::Area::yggdrasil
-$TraceMode = 1;
   my $A = CreateArea;
   my $t = $A->checkYggdrasilCreated;
      $t->found->outNL;
   my $y = $A->yggdrasil;
   my $T = $A->checkYggdrasilCreated;
      $T->found->outNL;
-  ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>1;
+  ok Assemble debug => 0, eq => <<END, avx512=>1;
 found: .... .... .... ....
 found: .... .... .... ...1
 END
