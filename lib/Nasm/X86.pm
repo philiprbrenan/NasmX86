@@ -9648,7 +9648,7 @@ sub Nasm::X86::Unisyn::LoadParseTables()                                        
 
   if (!-e $f)                                                                   # Create the parser table file if not already present
    {my $c = <<'END';                                                            # Generate missing parser tables
-#!/usr/bin/perl -I../../lib
+#!/usr/bin/perl -I../../lib -Ilib/
 use Nasm::X86 qw(:all);
 
 my $area = CreateArea;                                                          # Area in which to create the tables
