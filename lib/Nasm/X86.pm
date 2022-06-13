@@ -9666,7 +9666,7 @@ END
 
     confess "Run separately with tests shielded"                                # Check that the tests are shielded
       unless readFile($0) =~ m(\n__DATA__);
-    qx(perl $p);
+    qx(cat $p; perl $p);
    }
 
   my $area        = loadAreaIntoAssembly $f;                                    # Load the parser table area directly into the assembly
