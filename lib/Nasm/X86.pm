@@ -61,6 +61,7 @@ my %RegisterContaining;                                                         
 my @GeneralPurposeRegisters = qw(rax rbx rcx rdx rsi rdi), map {"r$_"} 8..15;   # General purpose registers
 my $bitsInByte;                                                                 # The number of bits in a byte
 my @declarations;                                                               # Register and instruction declarations
+my %loadAreaIntoAssembly;                                                       # Areas already loaded by file name
 
 BEGIN{
   $bitsInByte  = 8;                                                             # The number of bits in a byte
@@ -5210,8 +5211,16 @@ sub ReadArea($)                                                                 
 
 sub loadAreaIntoAssembly($)                                                     # Load an area into the current assembly and return a descriptor for it.
  {my ($file) = @_;                                                              # File containing an area
-  my  $areaFinish = Label;
+
+  if (my $l = $loadAreaIntoAssembly{$file})                                     # Check for a pre existing area
+   {return DescribeArea address => V area=>$l;                                  # Describe area
+   }
+
+  my  $areaFinish = $loadAreaIntoAssembly{$file} = Label;                       # Label at start of area
   Jmp $areaFinish;                                                              # Jump over area
+  push @text, <<END;
+  align 16
+END
   my  $areaStart = SetLabel;
   Incbin qq("$file");                                                           # Include area as a binary file
   SetLabel $areaFinish;
@@ -5697,7 +5706,7 @@ sub Nasm::X86::Area::read($@)                                                   
  }
 
 sub Nasm::X86::Area::write($$)                                                  # Write the content of the specified area to a file specified by a zero terminated string.
- {my ($area, $file) = @_;                                                       # Area descriptor, variable addressing file name
+ {my ($area, $file) = @_;                                                       # Area descriptor, variable addressing zero terminated file name
   @_ == 2 or confess "Two parameters";
 
   my $s = Subroutine
@@ -5935,6 +5944,10 @@ sub Nasm::X86::Tree::copyDescriptor($$)                                         
 sub Nasm::X86::Tree::down($)                                                    # Use the current B<find> result held in B<data> to position on the referenced subtree at the next level down.
  {my ($tree) = @_;                                                              # Tree descriptor which has just completed a successful find
   @_ == 1 or confess "One parameter";
+  If $tree->data == 0,
+  Then
+   {PrintErrTraceBack "Invalid sub tree offset";
+   };
   $tree->first->copy($tree->data);                                              # The next sub tree down is addressed by the B<data> field of the tree descriptor
   $tree                                                                         # Return original descriptor
  }
@@ -9524,8 +9537,6 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
  {my ($area) = @_;                                                              # Area in which to create the table
   my $y = $area->yggdrasil;                                                     # Yggdrasil
   my $t = $area->CreateTree;
-  $y->put(Nasm::X86::Yggdrasil::Unisyn::Transitions,  $t);                      # Locate transitions between alphabets
-
 
   my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
   my $A = Nasm::X86::Unisyn::Lex::Number::A;                                    # Ascii
@@ -9554,7 +9565,9 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
     $v => [$a,         $B, $d, $e, $F,     $q, $s    ],
   );
 
-  my $T   = $area->CreateTree;                                                  # Tree of trees
+  my $T = $area->CreateTree;                                                    # Tree of transition trees
+  $y->put(Nasm::X86::Yggdrasil::Unisyn::Transitions,  $T);                      # Locate transitions between alphabets
+
   for my $x(sort keys %x)                                                       # Each source lexical item
    {my @y = $x{$x}->@*;
     my $t = $area->CreateTree;                                                  # A tree containing each target lexical item for the source item
@@ -9628,12 +9641,41 @@ sub Nasm::X86::Unisyn::Lex::left     {3};                                       
 sub Nasm::X86::Unisyn::Lex::right    {4};                                       # Right operand.
 sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       # Symbol.
 
-sub Nasm::X86::Area::LoadParseTables()                                          # Load parser tables into an area
- {my $area        = CreateArea;                                                 # Area in which to create the tables
+sub Nasm::X86::Unisyn::LoadParseTablesFromFile{"zzzParserTablesArea.data"}      # Load parser tables from a file
 
-  my ($openClose, $closeOpen) = Nasm::X86::Unisyn::Lex::OpenClose $area;        # Open to close bracket matching
-  my $alphabets   = Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;       # Create and load the table of alphabetic classifications
-  my $transitions = Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;       # Create and load the table of lexical transitions.
+sub Nasm::X86::Unisyn::LoadParseTables()                                        # Load parser tables into an area
+ {my $f = Nasm::X86::Unisyn::LoadParseTablesFromFile;                           # File containing area containing parser tables
+
+  if (!-e $f)                                                                   # Create the parser table file if not already present
+   {my $c = <<'END';                                                            # Generate missing parser tables
+#!/usr/bin/perl -I../../lib
+use Nasm::X86 qw(:all);
+
+my $area = CreateArea;                                                          # Area in which to create the tables
+
+Nasm::X86::Unisyn::Lex::OpenClose              $area;                           # Open to close bracket matching
+Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;                           # Create and load the table of lexical transitions.
+Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;                           # Create and load the table of alphabetic classifications
+
+$area->write(K(file => Rutf8 "XXXX"));                                          # Write area to named file
+Assemble;
+END
+    $c =~ s(XXXX) ($f);                                                         # Insert file name
+    my $p = setFileExtension $f, q(pl);                                         # Perl file name
+    owf $p, $c;                                                                 # Write Perl code to create parser tables file
+
+    confess "Run separately with tests shielded"                                # Check that the tests are shielded
+      unless readFile($0) =~ m(\n__DATA__);
+    qx(perl $p);
+   }
+
+  my $area        = loadAreaIntoAssembly $f;                                    # Load the parser table area directly into the assembly
+  my $y           = $area->yggdrasil;
+
+  my $alphabets   = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Alphabets);   # Alphabets
+  my $openClose   = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Open);        # Open to close brackets
+  my $closeOpen   = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Close);       # Close to open brackets
+  my $transitions = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Transitions); # Transitions
 
   genHash("Nasm::X86::Area::Unisyn::ParserTables",
     area        => $area,                                                       # Area containing parser tables
@@ -9647,7 +9689,7 @@ sub Nasm::X86::Area::LoadParseTables()                                          
 sub Nasm::X86::Area::ParseUnisyn($$$)                                           # Parse a string of utf8 characters.
  {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
 
-  my $tables      = Nasm::X86::Area::LoadParseTables;                           # Load parser tables
+  my $tables      = Nasm::X86::Unisyn::LoadParseTables;                         # Load parser tables
   my $alphabets   = $tables->alphabets;                                         # Create and load the table of alphabetic classifications
   my $closeOpen   = $tables->closeOpen;                                         # Close top open bracket matching
   my $openClose   = $tables->openClose;                                         # Open to close bracket matching
@@ -9658,7 +9700,7 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
   my $symbols     = $area->CreateTree;                                          # String tree of symbols encountered during the parse
 
   my $position    = V pos => 0;                                                 # Position in input string
-  my $last        = V last => Nasm::X86::Unisyn::Lex::Number::S;                # Last lexical type
+  my $last        = V last => Nasm::X86::Unisyn::Lex::Number::S;                # Last lexical type starting on ths start symbol
   my $next        = $transitions->cloneDescriptor;                              # Clone the transitions table so we can step down it without losing the original table
      $next->find($last);                                                        # Locate the current classification
      $next->down;                                                               # Tree of possible transitions on lexical type
@@ -9964,10 +10006,10 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
     Then                                                                        # Statement separator is always one character wide as more would be pointless
      {$change->copy(1);                                                         # Changing because we are on a different lexical item
      };
-
     If $change > 0,                                                             # Check the transition from the previous item
     Then                                                                        # Change of current lexical item
      {$next->find($alphabets->data);                                            # Locate next lexical item in the tree of possible transitions for the last lexical item
+
       If $next->found > 0,
       Then                                                                      # The transition on this lexical type was a valid transition
        {$next->copyDescriptor($transitions);                                    # Restart at the top of the transitions tree
@@ -10076,7 +10118,7 @@ my $lastAsmFinishTime;                                                          
 
 sub Start()                                                                     # Initialize the assembler.
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
-  @PushR = @extern = @link = @VariableStack = ();
+  @PushR = @extern = @link = @VariableStack = %loadAreaIntoAssembly = ();
 # @RegistersAvailable = ({map {$_=>1} @GeneralPurposeRegisters});               # A stack of hashes of registers that are currently free and this can be used without pushing and popping them.
   SubroutineStartStack;                                                         # Number of variables at each lexical level
   $Labels = 0;
@@ -10206,8 +10248,9 @@ sub lineNumbersToSubNamesFromSource                                             
   %l
  }
 
-sub locateRunTimeErrorInDebugTraceOutput                                        # Locate the traceback of the last known good position in the trace file before the error occurred.
- {unlink $traceBack;                                                            # Traceback file
+sub locateRunTimeErrorInDebugTraceOutput($)                                     # Locate the traceback of the last known good position in the trace file before the error occurred.
+ {my ($trace) = @_;                                                             # Trace mode
+  unlink $traceBack;                                                            # Traceback file
   return '' unless -e $sdeTraceOut;                                             # Need a trace file to get a traceback
   my @a = readFile $sdeTraceOut;                                                # Read trace file
   my $s = 0;                                                                    # Parse state
@@ -10237,6 +10280,7 @@ sub locateRunTimeErrorInDebugTraceOutput                                        
   push @t, "_" x 80;
   my $t = join "\n", @t;
   owf($traceBack, $t);                                                          # Place into a well known file
+  say STDERR $t;
   $t
  }
 
@@ -10461,7 +10505,7 @@ END
   my $eStart = time;
 
   #lll $exec;
-  qx($exec) if $run;                                                            # Run unless suppressed by user or library
+  qx(timeout 30s $exec) if $run;                                                # Run unless suppressed by user or library
 
   my $er     = $?;                                                              # Execution result
   my $eTime  = time - $eStart;
@@ -10517,8 +10561,7 @@ END
   sub{my $a = fixMixOutput; say STDERR $a if $mix >= 2}->() if $run and $mix;   # Fix mix output to show where code came from in the source file
 
   if ($run and $trace)                                                          # Locate last execution point
-   {my $a = locateRunTimeErrorInDebugTraceOutput;
-    say STDERR $a if $trace >= 2;
+   {locateRunTimeErrorInDebugTraceOutput($trace);
    }
 
   unlink $objectFile unless $library;                                           # Delete files
@@ -10576,15 +10619,14 @@ sub totalBytesAssembled                                                         
 #-------------------------------------------------------------------------------
 
 if (0)                                                                          # Print exports
- {my @e = (@declarations);
+ {my %e =  map {$_=>1} @declarations;
   for my $a(readFile $0)
-   {next unless $a =~ m(\Asub);
-    next if     $a =~ m(#P);
-    if ($a =~ m(\s+(.*?)\())
-     {push @e, $1;
-     }
+   {next unless $a =~ m(\Asub.*#);                                              # Must be a sub and not a sub forward declaration
+    next if     $a =~ m(::);                                                    # Must be a high level sub
+    next if     $a =~ m(#P);                                                    # Must not be private
+    $a =~ m(\s+(.*?)\() ?  $e{$1}++ : 0;                                        # Save sub name
    }
-  say STDERR q/@EXPORT_OK    = qw(/.join(' ', sort @e).q/);/;
+  say STDERR q/@EXPORT_OK    = qw(/.join(' ', sort keys %e).q/);/;
   exit;
  }
 
@@ -10594,8 +10636,8 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 
 @ISA          = qw(Exporter);
 @EXPORT       = qw();
-@EXPORT_OK    = qw(Add Align All8Structure AllocateMemory And AndBlock Andn Assemble Block Bswap Bt Btc Btr Bts Bzhi Call CallC CheckIfMaskRegisterNumber CheckIfMaskRegisterNumber CheckMaskRegister CheckMaskRegisterNumber CheckMaskRegisterNumber ChooseRegisters ClassifyInRange ClassifyWithInRange ClassifyWithInRangeAndSaveOffset ClassifyWithInRangeAndSaveWordOffset ClearMemory ClearRegisters ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmp Comment Comment CommentWithTraceBack ConvertUtf8ToUtf32 CopyMemory Cpuid CreateArea CreateLibrary DComment DComment Db Dd Dec DescribeArea Div Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNs IfNz IfS IfZ Imul Imul3 Inc InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadRegFromMm LoadZmm Loop Lzcnt Mov Movd Movdqa Mulpd Nasm::X86::Area::CreateTree Nasm::X86::Area::allocZmmBlock Nasm::X86::Area::allocate Nasm::X86::Area::append Nasm::X86::Area::char Nasm::X86::Area::clear Nasm::X86::Area::dump Nasm::X86::Area::free Nasm::X86::Area::freeChainSpace Nasm::X86::Area::m Nasm::X86::Area::makeReadOnly Nasm::X86::Area::makeWriteable Nasm::X86::Area::nl Nasm::X86::Area::out Nasm::X86::Area::outNL Nasm::X86::Area::q Nasm::X86::Area::ql Nasm::X86::Area::read Nasm::X86::Area::size Nasm::X86::Area::used Nasm::X86::Area::write Nasm::X86::Area::z Nasm::X86::Structure::field Nasm::X86::StructureField::addr Nasm::X86::Sub::V Nasm::X86::Sub::call Nasm::X86::Sub::dispatch Nasm::X86::Sub::dispatchV Nasm::X86::Sub::via Nasm::X86::Subroutine::mapStructureVariables Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame Nasm::X86::Tree::append Nasm::X86::Tree::by Nasm::X86::Tree::clear Nasm::X86::Tree::clone Nasm::X86::Tree::delete Nasm::X86::Tree::depth Nasm::X86::Tree::dump Nasm::X86::Tree::find Nasm::X86::Tree::findFirst Nasm::X86::Tree::findLast Nasm::X86::Tree::findNext Nasm::X86::Tree::findPrev Nasm::X86::Tree::findShortString Nasm::X86::Tree::free Nasm::X86::Tree::get Nasm::X86::Tree::insertShortString Nasm::X86::Tree::outAsUtf8 Nasm::X86::Tree::outAsUtf8NL Nasm::X86::Tree::pop Nasm::X86::Tree::printInOrder Nasm::X86::Tree::put Nasm::X86::Tree::reverse Nasm::X86::Tree::size Nasm::X86::Tree::substring Nasm::X86::Tree::yb Nasm::X86::Variable::add Nasm::X86::Variable::address Nasm::X86::Variable::allocateMemory Nasm::X86::Variable::and Nasm::X86::Variable::arithmetic Nasm::X86::Variable::assign Nasm::X86::Variable::bFromZ Nasm::X86::Variable::bIntoX Nasm::X86::Variable::bIntoZ Nasm::X86::Variable::boolean Nasm::X86::Variable::booleanC Nasm::X86::Variable::booleanZF Nasm::X86::Variable::call Nasm::X86::Variable::clearBit Nasm::X86::Variable::clearMaskBit Nasm::X86::Variable::clearMemory Nasm::X86::Variable::clone Nasm::X86::Variable::copy Nasm::X86::Variable::copyMemory Nasm::X86::Variable::copyRef Nasm::X86::Variable::copyZF Nasm::X86::Variable::copyZFInverted Nasm::X86::Variable::d Nasm::X86::Variable::dFromPointInZ Nasm::X86::Variable::dFromZ Nasm::X86::Variable::dIntoPointInZ Nasm::X86::Variable::dIntoX Nasm::X86::Variable::dIntoZ Nasm::X86::Variable::debug Nasm::X86::Variable::dec Nasm::X86::Variable::divide Nasm::X86::Variable::division Nasm::X86::Variable::eq Nasm::X86::Variable::equals Nasm::X86::Variable::err Nasm::X86::Variable::errCString Nasm::X86::Variable::errCStringNL Nasm::X86::Variable::errInDec Nasm::X86::Variable::errInDecNL Nasm::X86::Variable::errNL Nasm::X86::Variable::errRightInBin Nasm::X86::Variable::errRightInBinNL Nasm::X86::Variable::errRightInDec Nasm::X86::Variable::errRightInDecNL Nasm::X86::Variable::errRightInHex Nasm::X86::Variable::errRightInHexNL Nasm::X86::Variable::errSpaces Nasm::X86::Variable::for Nasm::X86::Variable::freeMemory Nasm::X86::Variable::ge Nasm::X86::Variable::getConst Nasm::X86::Variable::getReg Nasm::X86::Variable::gt Nasm::X86::Variable::inc Nasm::X86::Variable::incDec Nasm::X86::Variable::isRef Nasm::X86::Variable::le Nasm::X86::Variable::loadZmm Nasm::X86::Variable::lt Nasm::X86::Variable::max Nasm::X86::Variable::min Nasm::X86::Variable::minusAssign Nasm::X86::Variable::mod Nasm::X86::Variable::ne Nasm::X86::Variable::not Nasm::X86::Variable::or Nasm::X86::Variable::out Nasm::X86::Variable::outCString Nasm::X86::Variable::outCStringNL Nasm::X86::Variable::outInDec Nasm::X86::Variable::outInDecNL Nasm::X86::Variable::outNL Nasm::X86::Variable::outRightInBin Nasm::X86::Variable::outRightInBinNL Nasm::X86::Variable::outRightInDec Nasm::X86::Variable::outRightInDecNL Nasm::X86::Variable::outRightInHex Nasm::X86::Variable::outRightInHexNL Nasm::X86::Variable::outSpaces Nasm::X86::Variable::plusAssign Nasm::X86::Variable::printErrMemoryInHexNL Nasm::X86::Variable::printMemoryInHexNL Nasm::X86::Variable::printOutMemoryInHexNL Nasm::X86::Variable::putBwdqIntoMm Nasm::X86::Variable::putWIntoZmm Nasm::X86::Variable::qFromZ Nasm::X86::Variable::qIntoX Nasm::X86::Variable::qIntoZ Nasm::X86::Variable::rightInBin Nasm::X86::Variable::rightInDec Nasm::X86::Variable::rightInHex Nasm::X86::Variable::setBit Nasm::X86::Variable::setMask Nasm::X86::Variable::setMaskBit Nasm::X86::Variable::setMaskFirst Nasm::X86::Variable::setReg Nasm::X86::Variable::setZmm Nasm::X86::Variable::shiftLeft Nasm::X86::Variable::shiftRight Nasm::X86::Variable::spaces Nasm::X86::Variable::str Nasm::X86::Variable::sub Nasm::X86::Variable::times Nasm::X86::Variable::wFromZ Nasm::X86::Variable::wIntoX Nasm::X86::Library::load Neg Not OnSegv OpenRead OpenWrite Or OrBlock Pass Pextrb Pextrd Pextrq Pextrw Pinsrb Pinsrd Pinsrq Pinsrw Pop PopR PopR PopRR Popcnt Popfq PrintCString PrintCStringNL PrintErrNL PrintErrOneRegisterInHex PrintErrOneRegisterInHexNL PrintErrRaxInHex PrintErrRaxInHexNL PrintErrRaxRightInDec PrintErrRaxRightInDecNL PrintErrRax_InHex PrintErrRax_InHexNL PrintErrRegisterInHex PrintErrRegisterInHex PrintErrRightInBin PrintErrRightInBinNL PrintErrRightInHex PrintErrRightInHexNL PrintErrSpace PrintErrString PrintErrStringNL PrintErrStringNL PrintErrTraceBack PrintMemory PrintMemoryInHex PrintMemory_InHex PrintNL PrintOneRegisterInHex PrintOutNL PrintOutOneRegisterInHex PrintOutOneRegisterInHexNL PrintOutRaxInHex PrintOutRaxInHexNL PrintOutRaxRightInDec PrintOutRaxRightInDecNL PrintOutRax_InHex PrintOutRax_InHexNL PrintOutRegisterInHex PrintOutRegisterInHex PrintOutRightInBin PrintOutRightInBinNL PrintOutRightInHex PrintOutRightInHexNL PrintOutSpace PrintOutString PrintOutStringNL PrintOutStringNL PrintOutTraceBack PrintRaxAsChar PrintRaxAsText PrintRaxInDec PrintRaxInHex PrintRaxRightInDec PrintRax_InHex PrintRegisterInHex PrintRightInBin PrintRightInHex PrintSpace PrintString PrintString PrintStringNL PrintTraceBack Pslldq Psrldq Push PushR PushRR Pushfq R RComment RComment Rb Rd Rdtsc ReadChar ReadFile ReadInteger ReadLine ReadTimeStampCounter RegisterSize RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstFourExceptRaxAndRdi RestoreFirstSeven RestoreFirstSevenExceptRax RestoreFirstSevenExceptRaxAndRdi Ret Rq Rs Rutf8 Rw Sal Sar SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength StringLength Structure Sub Subroutine Subroutine SubroutineStartStack Syscall Syscall Test Then Tzcnt V Vaddd Vaddpd Valignb Valignd Valignq Valignw Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetman
-tps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpaddb Vpaddd Vpaddq Vpaddw Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmovb2m Vpmovd2m Vpmovm2b Vpmovm2d Vpmovm2q Vpmovm2w Vpmovq2m Vpmovw2m Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bFromX bFromZ bRegFromZmm bRegIntoZmm bh bl bp bpl bx byteRegister ch checkZmmRegister cl copyStructureMinusVariables createBitNumberFromAlternatingPattern cs cx dFromX dFromZ dWordRegister dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp executeFileViaBash fs getBwdqFromMm gs k0 k1 k2 k3 k4 k5 k6 k7 mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 qFromX qFromZ r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx registerNameFromNumber rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 unlinkFile wFromX wFromZ wRegFromZmm wRegIntoZmm wordRegister xmm xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9 zmmM zmmMZ);%EXPORT_TAGS  = (all => [@EXPORT, @EXPORT_OK]);
+@EXPORT_OK    = qw(Add Align AllocateMemory And AndBlock Andn Assemble Block Bsf Bsr Bswap Bt Btc Btr Bts Bzhi Call CallC CheckIfMaskRegisterNumber CheckMaskRegister CheckMaskRegisterNumber ChooseRegisters ClassifyInRange ClassifyWithInRange ClassifyWithInRangeAndSaveOffset ClassifyWithInRangeAndSaveWordOffset ClearMemory ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmp Comment CommentWithTraceBack ConvertUtf8ToUtf32 CopyMemory CopyMemory4K CopyMemory64 Cpuid CreateArea DComment Db Dd Dec DescribeArea Div Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNs IfNz IfS IfZ Imul Imul3 Inc Incbin Include InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadRegFromMm LoadZmm Loop Lzcnt Mov Movd Movdqa Movq Movw Mulpd Neg Not OnSegv OpenRead OpenWrite Or OrBlock Pass Pdep Pext Pextrb Pextrd Pextrq Pextrw Pinsrb Pinsrd Pinsrq Pinsrw Pop PopR Popcnt Popfq PrintCString PrintCStringNL PrintErrNL PrintErrOneRegisterInHex PrintErrOneRegisterInHexNL PrintErrRaxInHex PrintErrRaxInHexNL PrintErrRaxRightInDec PrintErrRaxRightInDecNL PrintErrRax_InHex PrintErrRax_InHexNL PrintErrRegisterInHex PrintErrRightInBin PrintErrRightInBinNL PrintErrRightInHex PrintErrRightInHexNL PrintErrSpace PrintErrString PrintErrStringNL PrintErrTraceBack PrintMemory PrintMemoryInHex PrintMemory_InHex PrintNL PrintOneRegisterInHex PrintOutNL PrintOutOneRegisterInHex PrintOutOneRegisterInHexNL PrintOutRaxInHex PrintOutRaxInHexNL PrintOutRaxRightInDec PrintOutRaxRightInDecNL PrintOutRax_InHex PrintOutRax_InHexNL PrintOutRegisterInHex PrintOutRightInBin PrintOutRightInBinNL PrintOutRightInHex PrintOutRightInHexNL PrintOutSpace PrintOutString PrintOutStringNL PrintOutTraceBack PrintRaxAsChar PrintRaxAsText PrintRaxInDec PrintRaxInHex PrintRaxRightInDec PrintRax_InHex PrintRegisterInHex PrintRightInBin PrintRightInHex PrintSpace PrintString PrintStringNL PrintTraceBack Pslldq Psrldq Push Pushfq R RComment Rb Rd Rdtsc ReadArea ReadChar ReadFile ReadInteger ReadLine ReadTimeStampCounter RegisterSize RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstSeven RestoreFirstSevenExceptRax Ret Rq Rs Rutf8 Rw Sal Sar SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength Sub Subroutine Syscall Test Then Tzcnt V Vaddd Vaddpd Valignb Valignd Valignq Valignw Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetmantps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpaddb Vpaddd Vpaddq Vpaddw Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpgatherqd Vpgatherqq Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmovb2m Vpmovd2m Vpmovm2b Vpmovm2d Vpmovm2q Vpmovm2w Vpmovq2m Vpmovw2m Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bFromX bFromZ bRegFromZmm bRegIntoZmm bh bl bp bpl bx byteRegister ch checkZmmRegister cl constantString copyStructureMinusVariables countComments createBitNumberFromAlternatingPattern cs cx dFromPointInZ dFromX dFromZ dWordRegister dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp executeFileViaBash extractRegisterNumberFromMM fs getBwdqFromMm gs ifAnd ifOr k0 k1 k2 k3 k4 k5 k6 k7 loadAreaIntoAssembly mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 opposingJump qFromX qFromZ r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx registerNameFromNumber rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 unlinkFile uptoNTimes wFromX wFromZ wRegFromZmm wRegIntoZmm wordRegister xmm xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9 zmmM zmmMZ);
+%EXPORT_TAGS  = (all=>[@EXPORT, @EXPORT_OK]);
 
 # podDocumentation
 =pod
@@ -17454,28 +17496,6 @@ END
   unlink $f;
  }
 
-#latest:
-if (1) {                                                                        # Parse a Unisyn expression
-  my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $p = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
-  $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
-
-  ok Assemble eq => <<END, avx512=>1;
-＝
-._𝗔
-._𝐈𝐅
-._._✕
-._._._【
-._._._._＋
-._._._._._𝗕
-._._._._._𝗖
-._._._𝗗
-._._𝗘
-END
- }
-
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
 
 sub ParseUnisyn($$$)                                                            #P Test the parse of a unisyn expression.
@@ -18582,7 +18602,7 @@ END
   my $a = CreateArea;                                                           # Area in which we will do the parse
 
   my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
-  my $p = $a->ParseUnisyn($A, $N);                                               # Parse the utf8 string minus the final new line and zero?
+  my $p = $a->ParseUnisyn($A, $N);                                              # Parse the utf8 string minus the final new line and zero?
 
   $p->tree->dumpParseTree($A);                                                  # Parse tree
 
@@ -18720,7 +18740,7 @@ data: .... .... .... ..33
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # First cache variables - variables, level 2
   my $a = CreateArea;
   my $t = $a->CreateTree(lowKeys=>2);
@@ -18741,6 +18761,29 @@ if (1) {                                                                        
 data: .... .... .... ..11
 data: .... .... .... ..22
 data: .... .... .... ..33
+END
+ }
+
+latest:
+if (1) {                                                                        # Parse a Unisyn expression
+  my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $p = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
+  $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
+# my $q = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>79_419;
+＝
+._𝗔
+._𝐈𝐅
+._._✕
+._._._【
+._._._._＋
+._._._._._𝗕
+._._._._._𝗖
+._._._𝗗
+._._𝗘
 END
  }
 
