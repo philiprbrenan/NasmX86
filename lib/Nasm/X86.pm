@@ -10505,7 +10505,7 @@ END
   my $eStart = time;
 
   #lll $exec;
-  qx(timeout 30s $exec) if $run;                                                # Run unless suppressed by user or library
+  qx(timeout 60s $exec) if $run;                                                # Run unless suppressed by user or library
 
   my $er     = $?;                                                              # Execution result
   my $eTime  = time - $eStart;
