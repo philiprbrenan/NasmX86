@@ -18769,10 +18769,13 @@ if (1) {                                                                        
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
   my $p = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
-  $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
+# $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
 # my $q = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>79_419;
+# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#    1          74_624         631_464          74_624         631_464        0.4000          3.44          0.00
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>74_624;
 ＝
 ._𝗔
 ._𝐈𝐅
