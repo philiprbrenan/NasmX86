@@ -9648,7 +9648,6 @@ sub Nasm::X86::Unisyn::LoadParseTables()                                        
 
   if (!-e $f)                                                                   # Create the parser table file if not already present
    {my $c = <<'END';                                                            # Generate missing parser tables
-#!/usr/bin/perl -I../../lib -Ilib/
 use Nasm::X86 qw(:all);
 
 my $area = CreateArea;                                                          # Area in which to create the tables
@@ -9666,7 +9665,7 @@ END
 
     confess "Run separately with tests shielded"                                # Check that the tests are shielded
       unless readFile($0) =~ m(\n__DATA__);
-    qx(cat $p; perl $p);
+    qx(cat $p; perl -I../../lib/ -Ilib/ $p);
    }
 
   my $area        = loadAreaIntoAssembly $f;                                    # Load the parser table area directly into the assembly
