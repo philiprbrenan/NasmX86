@@ -1325,7 +1325,7 @@ sub ForIn(&$$$$)                                                                
 
 sub uptoNTimes(&$$)                                                             # Execute a block of code up to a constant number of times controlled by the named register.
  {my ($code, $register, $limit) = @_;                                           # Block of code, register controlling loop, constant limit
-  confess "Limit must be a positive inter constant"                             # Check for a specific limit
+  confess "Limit must be a positive integer constant"                           # Check for a specific limit
     unless $limit =~ m(\A\d+\Z) and $limit > 0;
 
   Mov $register, $limit;                                                        # Set the limit
@@ -2055,7 +2055,17 @@ sub PrintRaxInHex($;$)                                                          
   $end //= 7;                                                                   # Default end byte
 
   my $s = Subroutine
-   {SaveFirstFour;                                                              # Rax is a parameter
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $success = Label;                                                        # End of subroutine
+    Cmp rax, 0;
+    IfEq                                                                        # Rax is zero - special case
+    Then
+     {PrintString($channel, ".... .... .... ...0");
+      Jmp $success;
+     };
+
+    SaveFirstFour;                                                              # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
     Mov rdi, 2;                                                                 # Length of a byte in hex
 
@@ -2071,6 +2081,8 @@ sub PrintRaxInHex($;$)                                                          
       PrintString($channel, ' ') if $i % 2 and $i < 7;
      }
     RestoreFirstFour;
+
+    SetLabel $success;
    } name => "PrintOutRaxInHexOn-$channel-$end";
 
   $s->call;
@@ -10769,7 +10781,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10771 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10783 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18767,7 +18779,7 @@ data: .... .... .... ..33
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # Parse a Unisyn expression
   my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
 
@@ -18790,6 +18802,107 @@ if (1) {                                                                        
 ._._._._._𝗖
 ._._._𝗗
 ._._𝗘
+END
+ }
+
+latest:
+if (1) {                                                                        # Binary search
+
+  my $s = Subroutine
+   {my $array = r15, my $high = r14, my $search = r13;                          # Sorted array to search, array length, dword to search for
+
+    my $low = rsi, my $mid = rax, my $loop = rcx;                               # Work registers with answer in rax
+
+    Mov $low, 0;                                                                # Index of first element of array
+
+    uptoNTimes                                                                  # Search a reasonable number of times
+     {my ($end, $start) = @_;                                                   # End, start label
+      Mov $mid, $low;                                                           # Find new mid point
+      Add $mid, $high;                                                          # Sum of high and low
+      Shr $mid, 1;                                                              # Average of high and low is the new mid point.
+
+      Cmp dWordRegister($search), "[$array+$mid*4]";                            # Compare current element of array with search
+      Je $end;                                                                  # Found
+
+      IfGt                                                                      # Search argument is higher so move up
+      Then
+       {Inc $mid;                                                               # Move up
+        Cmp $mid, $high;
+        IfGe
+        Then                                                                    # Beyond upper limit
+         {Mov $mid, -1;                                                         # Show not found
+          Jmp $end;                                                             # Finished
+         };
+        Mov $low, $mid;                                                         # New lower limit
+       },
+      Else                                                                      # Search argument is lower so move down
+       {Dec $mid;                                                               # Move down
+        Cmp $mid, $low;
+        IfLt
+        Then                                                                    # Beyond lower limit
+         {Mov $mid, -1;
+          Jmp $end;
+         };
+        Mov $high, $mid;                                                        # New upper limit limit
+       };
+     } $loop, 999;                                                              # Enough to search all the particles in the universe if they could be ordered by some means
+   } name=>"binarySearchD";
+
+  if (1)                                                                        # Test find
+   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
+    Mov r14, 8;                                                                 # Size of array
+    Mov r13, 6;                                                                 # Value to search for
+    $s->call;
+    PrintOutRegisterInHex rax;
+   }
+
+  if (1)                                                                        # Test miss
+   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
+    Mov r14, 8;                                                                 # Size of array
+    Mov r13, 5;                                                                 # Value to search for
+    $s->call;
+    PrintOutRegisterInHex rax;
+   }
+
+  if (1)                                                                        # Test low
+   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
+    Mov r14, 8;                                                                 # Size of array
+    Mov r13, 2;                                                                 # Value to search for
+    $s->call;
+    PrintOutRegisterInHex rax;
+   }
+
+  if (1)                                                                        # Test lower
+   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
+    Mov r14, 8;                                                                 # Size of array
+    Mov r13, -1;                                                                # Value to search for
+    $s->call;
+    PrintOutRegisterInHex rax;
+   }
+
+  if (1)                                                                        # Test high
+   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
+    Mov r14, 8;                                                                 # Size of array
+    Mov r13, 16;                                                                # Value to search for
+    $s->call;
+    PrintOutRegisterInHex rax;
+   }
+
+  if (1)                                                                        # Test higher
+   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
+    Mov r14, 8;                                                                 # Size of array
+    Mov r13, 17;                                                                # Value to search for
+    $s->call;
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
+   rax: .... .... .... ...2
+   rax: FFFF FFFF FFFF FFFF
+   rax: .... .... .... ...0
+   rax: FFFF FFFF FFFF FFFF
+   rax: .... .... .... ...7
+   rax: FFFF FFFF FFFF FFFF
 END
  }
 
