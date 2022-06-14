@@ -10753,7 +10753,7 @@ under the same terms as Perl itself.
 sub test                                                                        # Run any shielded tests if testing while preventing Test::More from complaining when we are not testing.
  {binmode($_, ":utf8") for *STDOUT, *STDERR;
   my $source = readFile $0;                                                     # Source code for this module
-  return if $source =~ m(\n__DATA__);                                          # Return if the tests are not shielded - they will be executed inline
+  return if $source =~ m(\n#__DATA__);                                          # Return if the tests are not shielded - they will be executed inline
 
   my ($s, $t) = split /__DATA__\n/, $source, 2;                                 # Split source into actual module and tests
   my $l       = split /\n/, $s;                                                 # Lines in module source minus tests
@@ -10766,8 +10766,7 @@ sub test                                                                        
 test unless caller;                                                             # Run shielded tests if called from the command line
 
 1;
-# podDocumentation
-__DATA__
+# podDocumentation__DATA__
 use Time::HiRes qw(time);
 use Test::Most;
 
