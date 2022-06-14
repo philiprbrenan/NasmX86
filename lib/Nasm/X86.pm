@@ -10750,18 +10750,20 @@ under the same terms as Perl itself.
 
 # Tests and documentation
 
-sub test
- {my $p = __PACKAGE__;
-  binmode($_, ":utf8") for *STDOUT, *STDERR;
-  return if eval "eof(${p}::DATA)";
-  my $s = eval "join('', <${p}::DATA>)";
-  $@ and die $@;
-  eval $s;
+sub test                                                                        # Run any shielded tests if testing while preventing Test::More from complaining when we are not testing.
+ {binmode($_, ":utf8") for *STDOUT, *STDERR;
+  my $source = readFile $0;                                                     # Source code for this module
+  return if $source =~ m(\n__DATA__);                                          # Return if the tests are not shielded - they will be executed inline
+
+  my ($s, $t) = split /__DATA__\n/, $source, 2;                                 # Split source into actual module and tests
+  my $l       = split /\n/, $s;                                                 # Lines in module source minus tests
+  $l += 2;
+  eval qq(# line $l $0\n$t);                                                    # Set line numbers and file for tests
   $@ and die $@;
   1
  }
 
-test unless caller;
+test unless caller;                                                             # Run shielded tests if called from the command line
 
 1;
 # podDocumentation
@@ -13478,8 +13480,8 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TSubroutine2
-  package InnerStructure
+if (1) {                                                                        #TSubroutine
+  package InnerStructure                                                        # Test passing structures into a subroutine
    {use Data::Table::Text qw(:all);
     sub new($)                                                                  # Create a new structure
      {my ($value) = @_;                                                         # Value for structure variable
