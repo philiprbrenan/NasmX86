@@ -10766,7 +10766,8 @@ sub test                                                                        
 test unless caller;                                                             # Run shielded tests if called from the command line
 
 1;
-# podDocumentation__DATA__
+# podDocumentation
+__DATA__
 use Time::HiRes qw(time);
 use Test::Most;
 
