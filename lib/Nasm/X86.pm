@@ -9744,10 +9744,10 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
 
     my $l = $position - $startPos;                                              # Length of previous item
     $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $l);                        # Record length of previous item in its describing tree
-#    my $m = $area->treeFromString($a8+$startPos, $l);                           # Create a tree string from the symbol in the parsing area as an easy way of loading the tree of strings - it would be better to have a version that loaded a string tree directly from memory
-#    my $s = $symbols->putString($m);                                            # The symbol number for the last lexical item
-#    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
-#    $m->free;                                                                   # Free the tree acting as a string now that its content has been incorporated into the tree of strings - a source of inefficiency
+    my $m = $area->treeFromString($a8+$startPos, $l);                           # Create a tree string from the symbol in the parsing area as an easy way of loading the tree of strings - it would be better to have a version that loaded a string tree directly from memory
+    my $s = $symbols->putString($m);                                            # The symbol number for the last lexical item
+    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
+    $m->free;                                                                   # Free the tree acting as a string now that its content has been incorporated into the tree of strings - a source of inefficiency
    };
 
   my $new = sub                                                                 # Create a new lexical item
@@ -10753,8 +10753,7 @@ under the same terms as Perl itself.
 sub test                                                                        # Run tests with correct line numbers
  {binmode($_, ":utf8") for *STDOUT, *STDERR;
   my $source = readFile $0;                                                     # Source code for this module
-  my $split  = qr(\n#__DATA__);                                                 # Split point
-  return if $source =~ m($split);                                               # Return if the tests are not shielded - they will be executed inline
+  return if $source =~ m(\n#__DATA__);                                          # Return if the tests are not shielded - they will be executed inline
 
   my ($s, $t) = split /__DATA__\n/, $source, 2;                                 # Split source into actual module and tests
   my $l       = split /\n/, $s;                                                 # Lines in module source minus tests
@@ -10770,7 +10769,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10772 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10771 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
