@@ -10770,4 +10770,8063 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 3 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10772 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+use Time::HiRes qw(time);
+use Test::Most;
+
+my %block = map {$_=>1} (@ARGV ? @ARGV : 1..4);                                 # Blocks of tests to execute
+#say STDERR "Tests: ", dump(\%block);
+unlink my $resultFile = "zzzStatus.txt";                                        # File holding consolidated results of tests
+
+
+bail_on_fail unless onGitHub;
+
+my $localTest = ((caller(1))[0]//'Nasm::X86') eq "Nasm::X86";                   # Local testing mode
+my $homeTest  = -e q(/home/phil/);                                              # Testing on a local machine
+
+Test::More->builder->output("/dev/null") if $localTest;                         # Reduce number of confirmation messages during testing
+
+if ($^O =~ m(bsd|linux|cygwin)i)                                                # Supported systems
+ {if (confirmHasCommandLineCommand(q(nasm)) and LocateIntelEmulator){}          # Network assembler and Intel Software Development emulator
+  else
+   {plan skip_all => qq(Nasm or Intel 64 emulator not available);
+   }
+ }
+else
+ {plan skip_all => qq(Not supported on: $^O);
+ }
+
+my $start = time;                                                               # Tests
+
+eval {goto latest} unless onGitHub;                                             # Latest test if visible and testing locally
+
+goto block2 unless $block{1};                                                   # First block of tests - general purpose
+
+#latest:
+if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
+  PrintOutStringNL "Hello World";
+  PrintOutStringNL "Hello\nWorld";
+  PrintErrStringNL "Hello World";
+
+  ok Assemble debug => 0, eq => <<END, avx512=>0, label=>'t1';
+Hello World
+Hello
+World
+END
+ }
+
+#latest:
+if (1) {                                                                        #TPrintOutRaxInHexNL #TVmovdqu64
+  my $s = Rb(0..255);
+
+  Vmovdqu64 xmm1, "[$s]";
+  PrintOutRegisterInHex xmm1;
+  PrintOutRegisterInHex xmm1;
+
+  Vmovdqu64 ymm1, "[$s]";
+  PrintOutRegisterInHex ymm1;
+  PrintOutRegisterInHex ymm1;
+
+  Vmovdqu64 zmm1, "[$s]";
+  PrintOutRegisterInHex zmm1;
+  PrintOutRegisterInHex zmm1;
+
+  ok Assemble avx512=>1, debug=>0, eq =><<END;
+  xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  zmm1: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+END
+ }
+
+#latest:;
+if (1)
+ {Mov rax, 1;
+  Push rax;
+  Mov rax, rsp;
+  Vpaddq zmm31, zmm31, "[rax]{1to8}";
+  Vpaddd zmm30, zmm30, "[rax]{1to16}";
+  Mov rax, 2;
+  Vpbroadcastq zmm29, rax;
+  PrintOutRegisterInHex 29..31;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1;
+ zmm29: .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2 + .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2
+ zmm30: .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1 + .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1
+ zmm31: .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1 + .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1
+END
+ }
+
+#latest:
+if (1) {                                                                        #TVpgatherqq
+  Mov rax, 0xCC;
+  Kmovq k1, rax;
+  my ($s, $l) = constantString("1234567"x8);
+  $s->setReg(rax);
+  Vpgatherqq zmmM(1, 1), "[rax+zmm0]";                                          # Target register must be different from source register
+  PrintOutRegisterInHex zmm1, k1;
+  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
+  zmm1: 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ....  .... .... .... .... + 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ....  .... .... .... ....
+    k1: .... .... .... ....
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TMov #TComment #TRs #TPrintOutMemory #TExit
+  Comment "Print a string from memory";
+  my $s = "Hello World";
+  Mov rax, Rs($s);
+  Mov rdi, length $s;
+  PrintOutMemory;
+  Exit(0);
+
+  ok Assemble(avx512=>0) =~ m(Hello World);
+ }
+
+#latest:;
+if (1) {                                                                        #TPrintOutMemoryNL #TStringLength
+  my $s = Rs("Hello World\n\nHello Skye");
+  my $l = StringLength(my $t = V string => $s);
+  $t->setReg(rax);
+  $l->setReg(rdi);
+  PrintOutMemoryNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+Hello World
+
+Hello Skye
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TPrintOutRaxInHex #TPrintOutNL #TPrintOutString
+  Mov rax, 0x666;
+  PrintOutRaxRightInDec K width => 8;
+  PrintOutNL;
+
+  ok Assemble(avx512=>0, eq=><<END);
+    1638
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TPrintOutRaxInHex #TPrintOutNL #TPrintOutString
+  my $q = Rs('abababab');
+  Mov(rax, "[$q]");
+  PrintOutString "rax: ";
+  PrintOutRaxInHex;
+  PrintOutNL;
+  Xor rax, rax;
+  PrintOutString "rax: ";
+  PrintOutRaxInHex;
+  PrintOutNL;
+
+  ok Assemble(avx512=>0, eq=><<END)
+rax: 6261 6261 6261 6261
+rax: .... .... .... ....
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TPrintOutRegistersInHex #TRs
+  my $q = Rs('abababab');
+  Mov r10, 0x10;
+  Mov r11, 0x11;
+  Mov r12, 0x12;
+  Mov r13, 0x13;
+  Mov r14, 0x14;
+  Mov r15, 0x15;
+  Mov  r8, 0x08;
+  Mov  r9, 0x09;
+  Mov rax, 1;
+  Mov rbx, 2;
+  Mov rcx, 3;
+  Mov rdi, 4;
+  Mov rdx, 5;
+  Mov rsi, 6;
+  PrintOutRegistersInHex;
+
+  my $r = Assemble(avx512=>0, eq=><<END, debug=>0);
+rfl: .... .... .... .2.2
+r10: .... .... .... ..10
+r11: .... .... .... .2.6
+r12: .... .... .... ..12
+r13: .... .... .... ..13
+r14: .... .... .... ..14
+r15: .... .... .... ..15
+ r8: .... .... .... ...8
+ r9: .... .... .... ...9
+rax: .... .... .... ...1
+rbx: .... .... .... ...2
+rcx: .... .... ..40 1922
+rdi: .... .... .... ...4
+rdx: .... .... .... ...5
+rsi: .... .... .... ...6
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TDs TRs
+  my $q = Rs('a'..'z');
+  Mov rax, Ds('0'x64);                                                          # Output area
+  Vmovdqu32(xmm0, "[$q]");                                                      # Load
+  Vprolq   (xmm0,   xmm0, 32);                                                  # Rotate double words in quad words
+  Vmovdqu32("[rax]", xmm0);                                                     # Save
+  Mov rdi, 16;
+  PrintOutMemoryNL;
+
+  ok Assemble(avx512=>1, eq=><<END)
+efghabcdmnopijkl
+END
+ }
+
+#latest:;
+if (1) {
+  my $q = Rs(('a'..'p')x2);
+  Mov rax, Ds('0'x64);
+  Vmovdqu32(ymm0, "[$q]");
+  Vprolq   (ymm0,   ymm0, 32);
+  Vmovdqu32("[rax]", ymm0);
+  Mov rdi, 32;
+  PrintOutMemoryNL;
+
+  ok Assemble(avx512=>1, eq=><<END)
+efghabcdmnopijklefghabcdmnopijkl
+END
+ }
+
+#latest:;
+if (1) {
+  my $q = Rs my $s = join '', ('a'..'p')x4;                                     # Sample string
+  Mov rax, Ds('0'x128);
+
+  Vmovdqu64 zmm0, "[$q]";                                                       # Load zmm0 with sample string
+  Vprolq    zmm1, zmm0, 32;                                                     # Rotate left 32 bits in lanes
+  Vmovdqu64 "[rax]", zmm1;                                                      # Save results
+
+  Mov rdi, length $s;                                                           # Print results
+  PrintOutMemoryNL;
+
+  is_deeply "$s\n", <<END;                                                      # Initial string
+abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnop
+END
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+efghabcdmnopijklefghabcdmnopijklefghabcdmnopijklefghabcdmnopijkl
+END
+ }
+
+#latest:
+if (1) {
+  my $q = Rb(0..255);
+  Vmovdqu8 xmm0, "[$q]";
+  Vmovdqu8 xmm1, "[$q+16]";
+  Vmovdqu8 xmm2, "[$q+32]";
+  Vmovdqu8 xmm3, "[$q+48]";
+  PrintOutRegisterInHex xmm0, xmm1,  xmm2, xmm3;
+
+  Vmovdqu8 ymm0, "[$q]";
+  Vmovdqu8 ymm1, "[$q+16]";
+  Vmovdqu8 ymm2, "[$q+32]";
+  Vmovdqu8 ymm3, "[$q+48]";
+  PrintOutRegisterInHex ymm0, ymm1, ymm2, ymm3;
+
+  Vmovdqu8 zmm0, "[$q]";
+  Vmovdqu8 zmm1, "[$q+16]";
+  Vmovdqu8 zmm2, "[$q+32]";
+  Vmovdqu8 zmm3, "[$q+48]";
+  PrintOutRegisterInHex zmm0, zmm1, zmm2, zmm3;
+
+  ok Assemble(avx512=>1, eq=><<END);
+  xmm0: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  xmm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  xmm2: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  xmm3: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
+  ymm0: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  ymm1: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  ymm2: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  ymm3: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  zmm1: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 + 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+  zmm2: 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150 - 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 + 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+  zmm3: 6F6E 6D6C 6B6A 6968  6766 6564 6362 6160 - 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150 + 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::copyZF #TNasm::X86::Variable::copyZFInverted
+  Mov r15, 1;
+  my $z = V(zf => undef);
+  Cmp r15, 1; $z->copyZF;         $z->outNL;
+  Cmp r15, 2; $z->copyZF;         $z->outNL;
+  Cmp r15, 1; $z->copyZFInverted; $z->outNL;
+  Cmp r15, 2; $z->copyZFInverted; $z->outNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+zf: .... .... .... ...1
+zf: .... .... .... ....
+zf: .... .... .... ....
+zf: .... .... .... ...1
+END
+ }
+
+#latest:
+if (1) {                                                                        #TPrintOutRightInHexNL
+  my $N = K number => 0x12345678;
+
+  for my $i(reverse 1..16)
+   {PrintOutRightInHexNL($N, K width => $i);
+   }
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>1);
+        12345678
+       12345678
+      12345678
+     12345678
+    12345678
+   12345678
+  12345678
+ 12345678
+12345678
+2345678
+345678
+45678
+5678
+678
+78
+8
+END
+ }
+
+#latest:
+if (1) {                                                                        #TPrintOutRightInBinNL
+  K(count => 64)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    PrintOutRightInBinNL K(number => 0x99), K(max => 64) - $index;
+   });
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+                                                        10011001
+                                                       10011001
+                                                      10011001
+                                                     10011001
+                                                    10011001
+                                                   10011001
+                                                  10011001
+                                                 10011001
+                                                10011001
+                                               10011001
+                                              10011001
+                                             10011001
+                                            10011001
+                                           10011001
+                                          10011001
+                                         10011001
+                                        10011001
+                                       10011001
+                                      10011001
+                                     10011001
+                                    10011001
+                                   10011001
+                                  10011001
+                                 10011001
+                                10011001
+                               10011001
+                              10011001
+                             10011001
+                            10011001
+                           10011001
+                          10011001
+                         10011001
+                        10011001
+                       10011001
+                      10011001
+                     10011001
+                    10011001
+                   10011001
+                  10011001
+                 10011001
+                10011001
+               10011001
+              10011001
+             10011001
+            10011001
+           10011001
+          10011001
+         10011001
+        10011001
+       10011001
+      10011001
+     10011001
+    10011001
+   10011001
+  10011001
+ 10011001
+10011001
+0011001
+011001
+11001
+1001
+001
+01
+1
+END
+ }
+
+#latest:;
+if (1)                                                                          #TOpenWrite #TPrintMemory #TCloseFile
+ {my $s = "zzzCreated.data";
+  my $f = Rs $s;
+  Mov rax, $f;
+  OpenWrite;
+  Mov r15, rax;
+  Mov rax, $f;
+  Mov rdi, length $s;
+  PrintMemory r15;
+  CloseFile;
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+END
+  ok -e $s;
+  unlink $s;
+ }
+
+#latest:
+if (1) {                                                                        #TAllocateMemory #TFreeMemory
+  my $N = K size => 2048;
+  my $q = Rs('a'..'p');
+  my $address = AllocateMemory $N;
+
+  Vmovdqu8 xmm0, "[$q]";
+  $address->setReg(rax);
+  Vmovdqu8 "[rax]", xmm0;
+  Mov rdi, 16;
+  PrintOutMemory;
+  PrintOutNL;
+
+  FreeMemory $address, $N;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+abcdefghijklmnop
+END
+ }
+
+#latest:
+if (1) {                                                                        #TconstantString
+  my ($t, $l) = constantString("Hello World");
+  $t->printOutMemoryNL($l);
+
+  ok Assemble eq => <<END, avx512=>1;
+Hello World
+END
+ }
+
+#latest:;
+if (1)                                                                          #TNasm::X86::Variable::at
+ {my $v = V var => 2;
+  Mov rax, $v->at;
+  PrintOutRegisterInHex rax;
+  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1;
+   rax: .... .... .... ...2
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::allocateMemory #TNasm::X86::Variable::freeMemory
+  my $N = K size => 2048;
+  my $q = Rs('a'..'p');
+  my $address = $N->allocateMemory;
+
+  Vmovdqu8 xmm0, "[$q]";
+  $address->setReg(rax);
+  Vmovdqu8 "[rax]", xmm0;
+  Mov rdi, 16;
+  PrintOutMemory;
+  PrintOutNL;
+
+  $address->freeMemory($N);
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+abcdefghijklmnop
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::outNL
+  my $a = V a => 0x1111;
+  $a->outNL('');
+  $a->outRightInBinNL(K width => 16);
+  $a->outRightInDecNL(K width => 16);
+  $a->outRightInHexNL(K width => 16);
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+.... .... .... 1111
+   1000100010001
+            4369
+            1111
+END
+ }
+
+#latest:
+if (1) {                                                                        #TReadTimeStampCounter
+  for(1..10)
+   {ReadTimeStampCounter;
+    PrintOutRegisterInHex rax;
+   }
+
+  my @s = split /\n/, Assemble(avx512=>0);
+  my @S = sort @s;
+  is_deeply \@s, \@S;
+ }
+
+#latest:
+if (1) {                                                                        #TIf
+  my $c = K(one => 1);
+  If ($c == 0,
+  Then
+   {PrintOutStringNL "1 == 0";
+   },
+  Else
+   {PrintOutStringNL "1 != 0";
+   });
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+1 != 0
+END
+ }
+
+if (1) {                                                                        #TIfNz
+  Mov rax, 0;
+  Test rax,rax;
+  IfNz
+  Then
+   {PrintOutRegisterInHex rax;
+   },
+  Else
+   {PrintOutRegisterInHex rbx;
+   };
+  Mov rax, 1;
+  Test rax,rax;
+  IfNz
+  Then
+   {PrintOutRegisterInHex rcx;
+   },
+  Else
+   {PrintOutRegisterInHex rdx;
+   };
+
+  ok Assemble(avx512=>0) =~ m(rbx.*rcx)s;
+ }
+
+if (1) {                                                                        #TFork #TGetPid #TGetPPid #TWaitPid
+  Fork;                                                                         # Fork
+
+  Test rax,rax;
+  IfNz                                                                          # Parent
+  Then
+   {Mov rbx, rax;
+    WaitPid;
+    GetPid;                                                                     # Pid of parent as seen in parent
+    Mov rcx,rax;
+    PrintOutRegisterInHex rax, rbx, rcx;
+   },
+  Else                                                                          # Child
+   {Mov r8,rax;
+    GetPid;                                                                     # Child pid as seen in child
+    Mov r9,rax;
+    GetPPid;                                                                    # Parent pid as seen in child
+    Mov r10,rax;
+    PrintOutRegisterInHex r8, r9, r10;
+   };
+
+  my $r = Assemble(avx512=>0);
+
+#    r8: 0000 0000 0000 0000   #1 Return from fork as seen by child
+#    r9: 0000 0000 0003 0C63   #2 Pid of child
+#   r10: 0000 0000 0003 0C60   #3 Pid of parent from child
+#   rax: 0000 0000 0003 0C63   #4 Return from fork as seen by parent
+#   rbx: 0000 0000 0003 0C63   #5 Wait for child pid result
+#   rcx: 0000 0000 0003 0C60   #6 Pid of parent
+
+  if ($r =~ m(r8:( 0000){4}.*r9:(.*)\s{5,}r10:(.*)\s{5,}rax:(.*)\s{5,}rbx:(.*)\s{5,}rcx:(.*)\s{2,})s)
+   {ok $2 eq $4;
+    ok $2 eq $5;
+    ok $3 eq $6;
+    ok $2 gt $6;
+   }
+ }
+
+if ($homeTest) {                                                                #TGetUid
+  GetUid;                                                                       # Userid
+  PrintOutRegisterInHex rax;
+
+  my $r = Assemble(avx512=>0);
+  ok $r =~ m(3E8);
+ }
+
+if (1) {                                                                        #TStatSize
+  Mov rax, Rs($0);                                                              # File to stat
+  StatSize;                                                                     # Stat the file
+  PrintOutRegisterInHex rax;
+
+  my $r = Assemble(avx512=>0) =~ s( ) ()gsr;
+  if ($r =~ m(rax:([0-9a-f]{16}))is)                                            # Compare file size obtained with that from fileSize()
+   {is_deeply $1, sprintf("%016X", fileSize($0));
+   }
+ }
+
+if (1) {                                                                        #TOpenRead #TCloseFile #TOpenWrite
+  Mov rax, Rs($0);                                                              # File to read
+  OpenRead;                                                                     # Open file
+  PrintOutRegisterInHex rax;
+  CloseFile;                                                                    # Close file
+  PrintOutRegisterInHex rax;
+
+  Mov rax, Rs(my $f = "zzzTemporaryFile.txt");                                  # File to write
+  OpenWrite;                                                                    # Open file
+  CloseFile;                                                                    # Close file
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+   rax: .... .... .... ...3
+   rax: .... .... .... ....
+END
+  ok -e $f;                                                                     # Created file
+  unlink $f;
+ }
+
+if (1) {                                                                        #TFor
+  For
+   {my ($start, $end, $next) = @_;
+    Cmp rax, 3;
+    Jge $end;
+    PrintOutRegisterInHex rax;
+   } rax, 16, 1;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+   rax: .... .... .... ....
+   rax: .... .... .... ...1
+   rax: .... .... .... ...2
+END
+ }
+
+if (1) {                                                                        #TAndBlock #TFail
+  Mov rax, 1; Mov rdx, 2;
+  AndBlock
+   {my ($fail, $end, $start) = @_;
+    Cmp rax, 1;
+    Jne $fail;
+    Cmp rdx, 2;
+    Jne $fail;
+    PrintOutStringNL "Pass";
+   }
+  Fail
+   {my ($end, $fail, $start) = @_;
+    PrintOutStringNL "Fail";
+   };
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+Pass
+END
+ }
+
+if (1) {                                                                        #TOrBlock #TPass
+  Mov rax, 1;
+  OrBlock
+   {my ($pass, $end, $start) = @_;
+    Cmp rax, 1;
+    Je  $pass;
+    Cmp rax, 2;
+    Je  $pass;
+    PrintOutStringNL "Fail";
+   }
+  Pass
+   {my ($end, $pass, $start) = @_;
+    PrintOutStringNL "Pass";
+   };
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+Pass
+END
+ }
+
+if (1) {                                                                        #TPrintOutRaxInReverseInHex #TPrintOutMemoryInHex
+  Mov rax, 0x07654321;
+  Shl rax, 32;
+  Or  rax, 0x07654321;
+  PushR rax;
+
+  PrintOutRaxInHex;
+  PrintOutNL;
+  PrintOutRaxInReverseInHex;
+  PrintOutNL;
+
+  Mov rax, rsp;
+  Mov rdi, 8;
+  PrintOutMemoryInHex;
+  PrintOutNL;
+  PopR rax;
+
+  Mov rax, 4096;
+  PushR rax;
+  Mov rax, rsp;
+  Mov rdi, 8;
+  PrintOutMemoryInHex;
+  PrintOutNL;
+  PopR rax;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+.765 4321 .765 4321
+2143 65.7 2143 65.7
+2143 65.7 2143 65.7
+..10 .... .... ....
+END
+ }
+
+if (1) {                                                                        #TPushR #TPopR
+  Mov rax, 0x11111111;
+  Mov rbx, 0x22222222;
+  PushR my @save = (rax, rbx);
+  Mov rax, 0x33333333;
+  PopR;
+  PrintOutRegisterInHex rax;
+  PrintOutRegisterInHex rbx;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+   rax: .... .... 1111 1111
+   rbx: .... .... 2222 2222
+END
+ }
+
+#latest:
+if (1) {                                                                        #TPushR #TPopR
+  LoadZmm(17, 0x10..0x50);
+  PrintOutRegisterInHex zmm17;
+  Mov r14, 2; Mov r15, 3;
+  PrintOutRegisterInHex r14, r15;
+  PushR 14, 15, 16..31;
+  LoadZmm(17, 0x20..0x70);
+  PrintOutRegisterInHex zmm17;
+  Mov r14, 22; Mov r15, 33;
+  PopR;
+  PrintOutRegisterInHex zmm17;
+  PrintOutRegisterInHex r14, r15;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
+ zmm17: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 + 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+   r14: .... .... .... ...2
+   r15: .... .... .... ...3
+ zmm17: 5F5E 5D5C 5B5A 5958  5756 5554 5352 5150 - 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 + 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
+ zmm17: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 + 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
+   r14: .... .... .... ...2
+   r15: .... .... .... ...3
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TClearMemory
+  K(loop => 8+1)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $index->setReg(15);
+    Push r15;
+   });
+
+  Mov rax, rsp;
+  Mov rdi, 8*9;
+  PrintOutMemory_InHexNL;
+  ClearMemory(V(address => rax), K(size => 8*9));
+  PrintOutMemory_InHexNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+.8__ ____ ____ ____  .7__ ____ ____ ____  .6__ ____ ____ ____  .5__ ____ ____ ____  .4__ ____ ____ ____  .3__ ____ ____ ____  .2__ ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____
+____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TAllocateMemory #TFreeMemory #TClearMemory
+  my $N = K size => 4096;                                                       # Size of the initial allocation which should be one or more pages
+
+  my $A = AllocateMemory $N;
+
+  ClearMemory($A, $N);
+
+  $A->setReg(rax);
+  Mov rdi, 128;
+  PrintOutMemory_InHexNL;
+
+  FreeMemory $A, $N;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:;
+if (1) {
+  Mov rax, 0x44332211;
+  PrintOutRegisterInHex rax;
+
+  my $s = Subroutine
+   {PrintOutRegisterInHex rax;
+    Inc rax;
+    PrintOutRegisterInHex rax;
+   } name => "printIncPrint";
+
+  $s->call;
+
+  PrintOutRegisterInHex rax;
+
+  my $r = Assemble(avx512=>0, eq=><<END);
+   rax: .... .... 4433 2211
+   rax: .... .... 4433 2211
+   rax: .... .... 4433 2212
+   rax: .... .... 4433 2212
+END
+ }
+
+#latest:;
+if (!$homeTest) {                                                               #TReadFile #TPrintMemory
+  my $file = V(file => Rs $0);
+  my ($address, $size) = ReadFile $file;                                        # Read file into memory
+  $address->setReg(rax);                                                        # Address of file in memory
+  $size   ->setReg(rdi);                                                        # Length  of file in memory
+  PrintOutMemory;                                                               # Print contents of memory to stdout
+
+  my $r = Assemble(avx512=>0);                                                  # Assemble and execute
+  ok stringMd5Sum($r) eq fileMd5Sum($0);                                        # Output contains this file
+ }
+
+#latest:;
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::outNL #TArea::copy #TArea::nl
+  my $a = CreateArea;
+  $a->q('aa');
+  $a->outNL;
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+aa
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  $T->dump("AA");
+  $T->put(K(key=>0), $t);
+  $T->dump("BB");
+
+  ok Assemble eq => <<END, avx512=>1;
+AA
+- empty
+BB
+At:   C0                    length:    1,  data:  100,  nodes:  140,  first:   80, root, leaf,  trees:             1
+  Index:    0
+  Keys :    0
+  Data :   0*
+- empty
+end
+END
+}
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Area::print
+  my $a = CreateArea;
+  my $z = $a->allocZmmBlock;
+  LoadZmm 31, (ord('a')) x 64;
+  $a->putZmmBlock($z, 31);
+  $a->printOut($z, K length => 3);
+
+  ok Assemble eq => <<END, avx512=>1;
+aaa
+END
+ }
+
+#latest:
+if (1) {                                                                        #TArea::dump
+  my $a = CreateArea;
+  my $b = CreateArea;
+  $a->q("aaaa");
+  $a->dump("aaaaa");
+  $b->q("bbbb");
+  $b->dump("bbbb");
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+aaaaa
+Area     Size:     4096    Used:       68
+.... .... .... .... | __10 ____ ____ ____  44__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 6161 6161 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+bbbb
+Area     Size:     4096    Used:       68
+.... .... .... .... | __10 ____ ____ ____  44__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 6262 6262 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::copy #TArea::nl
+  my $a = CreateArea;
+  my $b = CreateArea;
+  $a->q('aa');
+  $b->q('bb');
+  $a->out;
+  PrintOutNL;
+  $b->out;
+  PrintOutNL;
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+aa
+bb
+END
+ }
+
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::copy #TArea::nl
+  my $a = CreateArea;
+  my $b = CreateArea;
+  $a->q('aa');
+  $a->q('AA');
+  $a->out;
+  PrintOutNL;
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+aaAA
+END
+ }
+
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::copy #TArea::nl
+  my $a = CreateArea;
+  my $b = CreateArea;
+  $a->q('aa');
+  $b->q('bb');
+  $a->q('AA');
+  $b->q('BB');
+  $a->q('aa');
+  $b->q('bb');
+  $a->out;
+  $b->out;
+  PrintOutNL;
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+aaAAaabbBBbb
+END
+ }
+
+#latest:
+if (1) {                                                                        #TCreateArea #TArea::length  #TArea::clear #TArea::out #TArea::copy #TArea::nl
+  my $a = CreateArea;
+  $a->q('ab');
+  my $b = CreateArea;
+  $b->append($a);
+  $b->append($a);
+  $a->append($b);
+  $b->append($a);
+  $a->append($b);
+  $b->append($a);
+  $b->append($a);
+  $b->append($a);
+  $b->append($a);
+
+
+  $a->out;   PrintOutNL;
+  $b->out;   PrintOutNL;
+  my $sa = $a->used; $sa->outNL;
+  my $sb = $b->used; $sb->outNL;
+  $a->clear;
+  my $sA = $a->used; $sA->outNL;
+  my $sB = $b->used; $sB->outNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+abababababababab
+ababababababababababababababababababababababababababababababababababababab
+area used up: .... .... .... ..10
+area used up: .... .... .... ..4A
+area used up: .... .... .... ....
+area used up: .... .... .... ..4A
+END
+ }
+
+
+if (1) {                                                                        # Mask register instructions #TClearRegisters
+  Mov rax,1;
+  Kmovq k0,  rax;
+  Kaddb k0,  k0, k0;
+  Kaddb k0,  k0, k0;
+  Kaddb k0,  k0, k0;
+  Kmovq rax, k0;
+  PushR k0;
+  ClearRegisters k0;
+  Kmovq k1, k0;
+  PopR  k0;
+  PrintOutRegisterInHex k0;
+  PrintOutRegisterInHex k1;
+
+  ok Assemble(avx512 => 1, eq => <<END)
+    k0: .... .... .... ...8
+    k1: .... .... .... ....
+END
+ }
+
+if (1) {                                                                        # Count leading zeros
+  Mov   rax, 8;                                                                 # Append a constant to the area
+  Lzcnt rax, rax;                                                               # New line
+  PrintOutRegisterInHex rax;
+
+  Mov   rax, 8;                                                                 # Append a constant to the area
+  Tzcnt rax, rax;                                                               # New line
+  PrintOutRegisterInHex rax;
+
+  ok Assemble(avx512 => 1, eq => <<END)
+   rax: .... .... .... ..3C
+   rax: .... .... .... ...3
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TArea::nl
+  my $s = CreateArea;
+  $s->q("A");
+  $s->nl;
+  $s->q("B");
+  $s->out;
+  PrintOutNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+A
+B
+END
+ }
+
+#latest:;
+if (!$homeTest) {                                                               # Print this file - slow -  #TArea::read #TArea::z #TArea::q
+  my $s = CreateArea;                                                           # Create a string
+  $s->read(K file => Rs($0));
+  $s->out;
+
+  my $r = Assemble;
+  is_deeply stringMd5Sum($r), fileMd5Sum($0);                                   # Output contains this file
+ }
+
+#latest:;
+if (1) {                                                                        # Print rdi in hex into an area #TGetPidInHex
+  GetPidInHex;
+  Mov r15, rax;
+
+  GetPidInHex;
+  Cmp r15, rax;
+  IfEq Then {PrintOutStringNL "Same"}, Else {PrintOutStringNL "Diff"};
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+Same
+END
+ }
+
+#latest:;
+if (0 and $homeTest) {                                                          # Execute the content of an area #TexecuteFileViaBash #TArea::write #TArea::out #TunlinkFile #TArea::ql
+  my $s = CreateArea;                                                           # Create a string
+  $s->ql(<<END);                                                                # Write code to execute
+#!/usr/bin/bash
+whoami
+END
+  $s->write         (my $f = V('file', Rs("zzz.sh")));                          # Write code to a file
+  executeFileViaBash($f);                                                       # Execute the file
+  unlinkFile        ($f);                                                       # Delete the file
+
+  my $u = qx(whoami); chomp($u);
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+phil
+END
+ }
+
+#latest:;
+if (!hasAvx512) {                                                               # Make an area readonly - but we need the emulator to test this
+  my $s = CreateArea;                                                           # Create an area
+  $s->q("Hello");                                                               # Write code to area
+  $s->makeReadOnly;                                                             # Make area read only
+  $s->q(" World");                                                              # Try to write to area
+
+  ok Assemble(debug=>2, ptr=>1) =~ m(SDE ERROR: DEREFERENCING BAD MEMORY POINTER.*mov byte ptr .rax.rdx.1., r8b);
+ }
+
+#latest:;
+if (1) {                                                                        # Make a read only area writable  #TArea::makeReadOnly #TArea::makeWriteable
+  my $s = CreateArea;                                                           # Create an area
+  $s->q("Hello");                                                               # Write data to area
+  $s->makeReadOnly;                                                             # Make area read only - tested above
+  $s->makeWriteable;                                                            # Make area writable again
+  $s->q(" World");                                                              # Try to write to area
+  $s->outNL;
+
+  ok Assemble(avx512=>0, eq => <<END);
+Hello World
+END
+ }
+
+#latest:;
+if (1) {                                                                        # Allocate some space in area #TArea::allocate
+  my $s = CreateArea;                                                           # Create an area
+  my $o1 = $s->allocate(K size => 0x20);                                        # Allocate space wanted
+  my $o2 = $s->allocate(K size => 0x30);
+  my $o3 = $s->allocate(K size => 0x10);
+  $o1->outNL;
+  $o2->outNL;
+  $o3->outNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+offset: .... .... .... ..40
+offset: .... .... .... ..60
+offset: .... .... .... ..90
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Area::checkYggdrasilCreated #TNasm::X86::Area::yggdrasil
+  my $A = CreateArea;
+  my $t = $A->checkYggdrasilCreated;
+     $t->found->outNL;
+  my $y = $A->yggdrasil;
+  my $T = $A->checkYggdrasilCreated;
+     $T->found->outNL;
+  ok Assemble debug => 0, eq => <<END, avx512=>1;
+found: .... .... .... ....
+found: .... .... .... ...1
+END
+ }
+
+# It is one of the happiest characteristics of this glorious country that official utterances are invariably regarded as unanswerable
+
+#latest:;
+if (1) {                                                                        #TPrintOutZF #TSetZF #TClearZF #TIfC #TIfNc #TIfZ #IfNz
+  SetZF;
+  PrintOutZF;
+  ClearZF;
+  PrintOutZF;
+  SetZF;
+  PrintOutZF;
+  SetZF;
+  PrintOutZF;
+  ClearZF;
+  PrintOutZF;
+
+  SetZF;
+  IfZ  Then {PrintOutStringNL "Zero"},     Else {PrintOutStringNL "NOT zero"};
+  ClearZF;
+  IfNz Then {PrintOutStringNL "NOT zero"}, Else {PrintOutStringNL "Zero"};
+
+  Mov r15, 5;
+  Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+  Shr r15, 1; IfC  Then {PrintOutStringNL "Carry"}   , Else {PrintOutStringNL "NO carry"};
+  Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+  Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+ZF=1
+ZF=0
+ZF=1
+ZF=1
+ZF=0
+Zero
+NOT zero
+Carry
+NO carry
+Carry
+NO carry
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TSetLabel #TRegisterSize #TSaveFirstFour #TSaveFirstSeven #TRestoreFirstFour #TRestoreFirstSeven #TRestoreFirstFourExceptRax #TRestoreFirstSevenExceptRax #TRestoreFirstFourExceptRaxAndRdi #TRestoreFirstSevenExceptRaxAndRdi #TReverseBytesInRax
+  Mov rax, 1;
+  Mov rdi, 1;
+  SaveFirstFour;
+  Mov rax, 2;
+  Mov rdi, 2;
+  SaveFirstSeven;
+  Mov rax, 3;
+  Mov rdi, 4;
+  PrintOutRegisterInHex rax, rdi;
+  RestoreFirstSeven;
+  PrintOutRegisterInHex rax, rdi;
+  RestoreFirstFour;
+  PrintOutRegisterInHex rax, rdi;
+
+  SaveFirstFour;
+  Mov rax, 2;
+  Mov rdi, 2;
+  SaveFirstSeven;
+  Mov rax, 3;
+  Mov rdi, 4;
+  PrintOutRegisterInHex rax, rdi;
+  RestoreFirstSevenExceptRax;
+  PrintOutRegisterInHex rax, rdi;
+  RestoreFirstFourExceptRax;
+  PrintOutRegisterInHex rax, rdi;
+
+  SaveFirstFour;
+  Mov rax, 2;
+  Mov rdi, 2;
+  SaveFirstSeven;
+  Mov rax, 3;
+  Mov rdi, 4;
+  PrintOutRegisterInHex rax, rdi;
+
+  Bswap rax;
+  PrintOutRegisterInHex rax;
+
+  my $l = Label;
+  Jmp $l;
+  SetLabel $l;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...4
+   rax: .... .... .... ...2
+   rdi: .... .... .... ...2
+   rax: .... .... .... ...1
+   rdi: .... .... .... ...1
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...4
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...2
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...1
+   rax: .... .... .... ...3
+   rdi: .... .... .... ...4
+   rax: .3.. .... .... ....
+END
+
+  ok 8 == RegisterSize rax;
+ }
+
+#latest:
+if (1) {                                                                        #TRb #TRd #TRq #TRw #TDb #TDd #TDq #TDw #TCopyMemory
+  my $s = Rb 0; Rb 1; Rw 2; Rd 3;  Rq 4;
+  my $t = Db 0; Db 1; Dw 2; Dd 3;  Dq 4;
+
+  Vmovdqu8 xmm0, "[$s]";
+  Vmovdqu8 xmm1, "[$t]";
+  PrintOutRegisterInHex xmm0;
+  PrintOutRegisterInHex xmm1;
+  Sub rsp, 16;
+
+  Mov rax, rsp;                                                                 # Copy memory, the target is addressed by rax, the length is in rdi, the source is addressed by rsi
+  Mov rdi, 16;
+  Mov rsi, $s;
+  CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
+  PrintOutMemory_InHexNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  xmm0: .... .... .... ...4  .... ...3 ...2 .1..
+  xmm1: .... .... .... ...4  .... ...3 ...2 .1..
+__.1 .2__ .3__ ____  .4__ ____ ____ ____
+END
+ }
+
+#latest:
+if (1) {
+  my ($s, $l) =                                                                 #TCopyMemory64
+    constantString('0123456789abcdef'x64);
+  my $t = $l->allocateMemory;
+  my $N = K blocks => 2;
+  CopyMemory64($s, $t, $N);
+  $t->printOutMemoryNL($N*16);
+  ok Assemble eq => <<END, avx512=>1;
+0123456789abcdef0123456789abcdef
+END
+ }
+
+#latest:
+if (1) {
+  my $a = V(a => 1);
+  my $b = V(b => 2);
+  my $c = $a + $b;
+  Mov r15, 22;
+  $a->getReg(r15);
+  $b->copy($a);
+  $b = $b + 1;
+  $b->setReg(14);
+  $a->outNL;
+  $b->outNL;
+  $c->outNL;
+  PrintOutRegisterInHex r14, r15;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+a: .... .... .... ..16
+(b add 1): .... .... .... ..17
+(a add b): .... .... .... ...3
+   r14: .... .... .... ..17
+   r15: .... .... .... ..16
+END
+ }
+
+#latest:
+if (1) {                                                                        #TV #TK #TG #TNasm::X86::Variable::copy
+  my $s = Subroutine
+   {my ($p) = @_;
+    $$p{v}->copy($$p{v} + $$p{k} + $$p{g} + 1);
+   } name => 'add', parameters=>[qw(v k g)];
+
+  my $v = V(v => 1);
+  my $k = K(k => 2);
+  my $g = V(g => 3);
+  $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
+  $v->outNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+v: .... .... .... ...7
+END
+ }
+
+#latest:
+if (1) {                                                                        #TV #TK #TG #TNasm::X86::Variable::copy
+  my $g = V g => 0;
+  my $s = Subroutine
+   {my ($p) = @_;
+    $$p{g}->copy(K value => 1);
+   } name => 'ref2', parameters=>[qw(g)];
+
+  my $t = Subroutine
+   {my ($p) = @_;
+    $s->call(parameters=>{g=>$$p{g}});
+   } name => 'ref', parameters=>[qw(g)];
+
+  $t->call(parameters=>{g=>$g});
+  $g->outNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+g: .... .... .... ...1
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TIf #TThen #TElse
+  my $a = K(key => 1);
+  If $a > 0,
+  Then {Mov rax, 1},
+  Else {Mov rax, 2};
+  PrintOutRegisterInHex rax;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... ...1
+END
+ }
+
+#latest:
+if (1) {                                                                        #TSubroutine
+  my $g = V g => 3;
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    my $g = $$p{g};
+    $g->copy($g - 1);
+    $g->outNL;
+    If $g > 0,
+    Then
+     {$sub->call(parameters=>{g => $g});
+     };
+   } parameters=>[qw(g)], name => 'ref';
+
+  $s->call(parameters=>{g => $g});
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+g: .... .... .... ...2
+g: .... .... .... ...1
+g: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TPrintOutTraceBack
+  my $d = V depth => 3;                                                         # Create a variable on the stack
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine descriptor
+    $$p{depth}->outNL;
+    my $d = $$p{depth}->copy($$p{depth} - 1);                                   # Modify the variable referenced by the parameter
+
+    If $d > 0,
+    Then
+     {$sub->call(parameters => {depth => $d});                                  # Recurse
+     };
+
+   } parameters =>[qw(depth)], name => 'ref';
+
+  $s->call(parameters=>{depth => $d});
+
+  $d->outNL;
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+depth: .... .... .... ...3
+depth: .... .... .... ...2
+depth: .... .... .... ...1
+depth: .... .... .... ....
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TAllocateMemory #TPrintOutMemoryInHexNL #TCopyMemory
+  my $N = 256;
+  my $s = Rb 0..$N-1;
+  my $a = AllocateMemory K size => $N;
+  CopyMemory(V(source => $s), $a, K(size => $N));
+
+  my $b = AllocateMemory K size => $N;
+  CopyMemory($a, $b, K size => $N);
+
+  $b->setReg(rax);
+  Mov rdi, $N;
+  PrintOutMemory_InHexNL;
+
+  ok Assemble(debug=>0, eq => <<END, avx512=>0);
+__.1 .2.3 .4.5 .6.7  .8.9 .A.B .C.D .E.F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
+END
+ }
+
+if (1) {                                                                        # Variable length shift
+  Mov rax, -1;
+  Mov cl, 30;
+  Shl rax, cl;
+  Kmovq k0, rax;
+  PrintOutRegisterInHex k0;
+
+  ok Assemble(avx512=>1, eq=><<END);
+    k0: FFFF FFFF C0.. ....
+END
+ }
+
+#latest:;
+if (1) {                                                                        # Expand
+  ClearRegisters rax;
+  Bts rax, 14;
+  Not rax;
+  PrintOutRegisterInHex rax;
+  Kmovq k1, rax;
+  PrintOutRegisterInHex k1;
+
+  Mov rax, 1;
+  Vpbroadcastb zmm0, rax;
+  PrintOutRegisterInHex zmm0;
+
+  Vpexpandd "zmm1{k1}", zmm0;
+  PrintOutRegisterInHex zmm1;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+   rax: FFFF FFFF FFFF BFFF
+    k1: FFFF FFFF FFFF BFFF
+  zmm0: .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 + .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
+  zmm1: .1.1 .1.1 .... ....  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 + .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
+END
+ }
+
+#latest:;
+if (1) {
+  my $P = "2F";                                                                 # Value to test for
+  my $l = Rb 0;  Rb $_ for 1..RegisterSize zmm0;                                # The numbers 0..63
+  Vmovdqu8 zmm0, "[$l]";                                                        # Load data to test
+  PrintOutRegisterInHex zmm0;
+  PrintOutRegisterInHex zmm0;
+
+  Mov rax, "0x$P";                                                              # Broadcast the value to be tested
+  Vpbroadcastb zmm1, rax;
+  PrintOutRegisterInHex zmm1;
+
+  for my $c(0..7)                                                               # Each possible test
+   {my $m = "k$c";
+    Vpcmpub $m, zmm1, zmm0, $c;
+    PrintOutRegisterInHex $m;
+   }
+
+  Kmovq rax, k0;                                                                # Count the number of trailing zeros in k0
+  Tzcnt rax, rax;
+
+  PrintOutRegisterInHex rax;
+
+  ok Assemble(avx512=>1, eq=><<END);
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+  zmm1: 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F - 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F + 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F - 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F
+    k0: .... 80.. .... ....
+    k1: FFFF .... .... ....
+    k2: FFFF 80.. .... ....
+    k3: .... .... .... ....
+    k4: FFFF 7FFF FFFF FFFF
+    k5: .... FFFF FFFF FFFF
+    k6: .... 7FFF FFFF FFFF
+    k7: FFFF FFFF FFFF FFFF
+   rax: .... .... .... ..2F
+END
+#   0 eq    1 lt    2 le    4 ne    5 ge    6 gt   comparisons
+ }
+
+#latest:;
+if (1) {
+  my $P = "2F";                                                                 # Value to test for
+  my $l = Rb 0;  Rb $_ for 1..RegisterSize zmm0;                                # The numbers 0..63
+  Vmovdqu8 zmm0, "[$l]";                                                        # Load data to test
+
+  Mov rax, "0x$P";                                                              # Broadcast the value to be tested
+  Vpbroadcastb zmm1, rax;
+
+  for my $c(0..7)                                                               # Each possible test
+   {my $m = "k$c";
+    Vpcmpub $m, zmm1, zmm0, $c;
+   }
+
+  Kmovq rax, k0;                                                                # Count the number of trailing zeros in k0
+  Tzcnt rax, rax;
+  PrintOutRegisterInHex rax;
+
+  Kmovq rax, k0;                                                                # Count the number of leading zeros in k0
+  Lzcnt rax, rax;
+  PrintOutRegisterInHex rax;
+
+  ok Assemble(avx512=>1, eq=><<END);
+   rax: .... .... .... ..2F
+   rax: .... .... .... ..10
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TStringLength
+  StringLength(V string => Rs("abcd"))->outNL;
+  Assemble(debug => 0, eq => <<END, avx512=>0);
+size: .... .... .... ...4
+END
+ }
+
+#latest:;
+if (0) {                                                                        # Hash a string #THash
+  Mov rax, "[rbp+24]";                                                          # Address of string as parameter
+  StringLength(V string => rax)->setReg(rdi);                                   # Length of string to hash
+  Hash();                                                                       # Hash string
+
+  PrintOutRegisterInHex r15;
+
+  my $e = Assemble keep => 'hash';                                              # Assemble to the specified file name
+  say STDERR qx($e "");
+  say STDERR qx($e "a");
+  ok qx($e "")  =~ m(r15: 0000 3F80 0000 3F80);                                 # Test well known hashes
+  ok qx($e "a") =~ m(r15: 0000 3F80 C000 45B2);
+
+  if (0)                                                                        # Hash various strings
+   {my %r; my %f; my $count = 0;
+    my $N = RegisterSize zmm0;
+
+    if (1)                                                                      # Fixed blocks
+     {for my $l(qw(a ab abc abcd), 'a a', 'a  a')
+       {for my $i(1..$N)
+         {my $t = $l x $i;
+          last if $N < length $t;
+          my $s = substr($t.(' ' x $N), 0, $N);
+          next if $f{$s}++;
+          my $r = qx($e "$s");
+          say STDERR "$count  $r";
+          if ($r =~ m(^.*r15:\s*(.*)$)m)
+           {push $r{$1}->@*, $s;
+            ++$count;
+           }
+         }
+       }
+     }
+
+    if (1)                                                                      # Variable blocks
+     {for my $l(qw(a ab abc abcd), '', 'a a', 'a  a')
+       {for my $i(1..$N)
+         {my $t = $l x $i;
+          next if $f{$t}++;
+          my $r = qx($e "$t");
+          say STDERR "$count  $r";
+          if ($r =~ m(^.*r15:\s*(.*)$)m)
+           {push $r{$1}->@*, $t;
+            ++$count;
+           }
+         }
+       }
+     }
+    for my $r(keys %r)
+     {delete $r{$r} if $r{$r}->@* < 2;
+     }
+
+    say STDERR dump(\%r);
+    say STDERR "Keys hashed: ", $count;
+    confess "Duplicates : ",  scalar keys(%r);
+   }
+
+  unlink 'hash';
+ }
+
+if (1) {                                                                        #TIfEq #TIfNe #TIfLe #TIfLt #TIfGe #TIfGt
+  my $cmp = sub
+   {my ($a, $b) = @_;
+
+    for my $op(qw(eq ne lt le gt ge))
+     {Mov rax, $a;
+      Cmp rax, $b;
+      my $Op = ucfirst $op;
+      eval qq(If$Op Then {PrintOutStringNL("$a $op $b")}, Else {PrintOutStringNL("$a NOT $op $b")});
+      $@ and confess $@;
+     }
+   };
+  &$cmp(1,1);
+  &$cmp(1,2);
+  &$cmp(3,2);
+  Assemble(debug => 0, eq => <<END, avx512=>0);
+1 eq 1
+1 NOT ne 1
+1 NOT lt 1
+1 le 1
+1 NOT gt 1
+1 ge 1
+1 NOT eq 2
+1 ne 2
+1 lt 2
+1 le 2
+1 NOT gt 2
+1 NOT ge 2
+3 NOT eq 2
+3 ne 2
+3 NOT lt 2
+3 NOT le 2
+3 gt 2
+3 ge 2
+END
+ }
+
+if (1) {                                                                        #TSetMaskRegister
+  Mov rax, 8;
+  Mov rsi, -1;
+  Inc rsi; SetMaskRegister(0, rax, rsi); PrintOutRegisterInHex k0;
+  Inc rsi; SetMaskRegister(1, rax, rsi); PrintOutRegisterInHex k1;
+  Inc rsi; SetMaskRegister(2, rax, rsi); PrintOutRegisterInHex k2;
+  Inc rsi; SetMaskRegister(3, rax, rsi); PrintOutRegisterInHex k3;
+  Inc rsi; SetMaskRegister(4, rax, rsi); PrintOutRegisterInHex k4;
+  Inc rsi; SetMaskRegister(5, rax, rsi); PrintOutRegisterInHex k5;
+  Inc rsi; SetMaskRegister(6, rax, rsi); PrintOutRegisterInHex k6;
+  Inc rsi; SetMaskRegister(7, rax, rsi); PrintOutRegisterInHex k7;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+    k0: .... .... .... ....
+    k1: .... .... .... .1..
+    k2: .... .... .... .3..
+    k3: .... .... .... .7..
+    k4: .... .... .... .F..
+    k5: .... .... .... 1F..
+    k6: .... .... .... 3F..
+    k7: .... .... .... 7F..
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Variable::dump  #TNasm::X86::Variable::print #TThen #TElse #TV #TK
+  my $a = V(a => 3);  $a->outNL;
+  my $b = K(b => 2);  $b->outNL;
+  my $c = $a +  $b; $c->outNL;
+  my $d = $c -  $a; $d->outNL;
+  my $g = $a *  $b; $g->outNL;
+  my $h = $g /  $b; $h->outNL;
+  my $i = $a %  $b; $i->outNL;
+
+  If ($a == 3,
+  Then
+   {PrintOutStringNL "a == 3"
+   },
+  Else
+   {PrintOutStringNL "a != 3"
+   });
+
+  ++$a; $a->outNL;
+  --$a; $a->outNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+a: .... .... .... ...3
+b: .... .... .... ...2
+(a add b): .... .... .... ...5
+((a add b) sub a): .... .... .... ...2
+(a times b): .... .... .... ...6
+((a times b) / b): .... .... .... ...3
+(a % b): .... .... .... ...1
+a == 3
+a: .... .... .... ...4
+a: .... .... .... ...3
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Variable::for
+  V(limit => 10)->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $i->outNL;
+   });
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+index: .... .... .... ....
+index: .... .... .... ...1
+index: .... .... .... ...2
+index: .... .... .... ...3
+index: .... .... .... ...4
+index: .... .... .... ...5
+index: .... .... .... ...6
+index: .... .... .... ...7
+index: .... .... .... ...8
+index: .... .... .... ...9
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Variable::min #TNasm::X86::Variable::max
+  my $a = V("a", 1);
+  my $b = V("b", 2);
+  my $c = $a->min($b);
+  my $d = $a->max($b);
+  $a->outNL;
+  $b->outNL;
+  $c->outNL;
+  $d->outNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+a: .... .... .... ...1
+b: .... .... .... ...2
+min: .... .... .... ...1
+max: .... .... .... ...2
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Variable::setMask
+  my $start  = V("Start",  7);
+  my $length = V("Length", 3);
+  $start->setMask($length, k7);
+  PrintOutRegisterInHex k7;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+    k7: .... .... .... .380
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Variable::setZmm
+  my $s = Rb(0..128);
+  my $source = V(Source=> $s);
+
+  if (1)                                                                        # First block
+   {$source->setZmm(0, K(key => 7), K length => 3);
+   }
+
+  if (1)                                                                        # Second block
+   {$source->setZmm(0, K(key => 33), K key => 12);
+   }
+
+  PrintOutRegisterInHex zmm0;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  zmm0: .... .... .... ....  .... .... .... .... - .... ...B .A.9 .8.7  .6.5 .4.3 .2.1 .... + .... .... .... ....  .... .... .... .... - .... .... .... .2.1  .... .... .... ....
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TLoadZmm #Tzmm
+  LoadZmm 0, 0..63;
+  PrintOutRegisterInHex zmm 0;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TgetDFromZmm #TNasm::X86::Variable::dIntoZ
+  my $s = Rb(0..8);
+  my $c = V("Content",   "[$s]");
+     $c->bIntoZ     (0, 4);
+     $c->putWIntoZmm(0, 6);
+     $c->dIntoZ(0, 10);
+     $c->qIntoZ(0, 16);
+  PrintOutRegisterInHex zmm0;
+  bFromZ(zmm0, 12)->outNL;
+  wFromZ(zmm0, 12)->outNL;
+  dFromZ(zmm0, 12)->outNL;
+  qFromZ(zmm0, 12)->outNL;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  zmm0: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .7.6 .5.4 .3.2 .1.. - .... .3.2 .1.. ....  .1.. .... .... ....
+b at offset 12 in zmm0: .... .... .... ...2
+w at offset 12 in zmm0: .... .... .... .3.2
+d at offset 12 in zmm0: .... .... .... .3.2
+q at offset 12 in zmm0: .3.2 .1.. .... .3.2
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Subroutine::call
+
+ my $h = genHash("AAAA",
+   a => V(a =>  1),
+   b => V(b =>  2),
+   c => V(c =>  3),
+   d => V(d =>  4),
+   e => V(e =>  5),
+   f => V(f =>  6),
+   g => V(g =>  7),
+   h => V(h =>  8),
+   i => V(i =>  9),
+   j => V(j => 10),
+   k => V(k => 11),
+   l => V(l => 12));
+
+ my $i = genHash("AAAA",
+   a => V(a => 0x011),
+   b => V(b => 0x022),
+   c => V(c => 0x033),
+   d => V(d => 0x044),
+   e => V(e => 0x055),
+   f => V(f => 0x066),
+   g => V(g => 0x077),
+   h => V(h => 0x088),
+   i => V(i => 0x099),
+   j => V(j => 0x111),
+   k => V(k => 0x222),
+   l => V(l => 0x333));
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    my $h = $$s{h};
+    my $a = $$p{a};
+    $$h{a}->outNL;
+    $$h{b}->outNL;
+    $$h{c}->outNL;
+    $$h{d}->outNL;
+    $$h{e}->outNL;
+    $$h{f}->outNL;
+    $$h{g}->outNL;
+    $$h{h}->outNL;
+    $$h{i}->outNL;
+    $$h{j}->outNL;
+    $$h{k}->outNL;
+    $$h{l}->outNL;
+    $$p{b}->outNL;
+   } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
+
+  $s->call(structures => {h => $i}, parameters=>{a=>V(key => 1), b=>V(key => 0x111)});
+  $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
+
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>9151, label => 'aa';
+a: .... .... .... ..11
+b: .... .... .... ..22
+c: .... .... .... ..33
+d: .... .... .... ..44
+e: .... .... .... ..55
+f: .... .... .... ..66
+g: .... .... .... ..77
+h: .... .... .... ..88
+i: .... .... .... ..99
+j: .... .... .... .111
+k: .... .... .... .222
+l: .... .... .... .333
+b: .... .... .... .111
+a: .... .... .... ...1
+b: .... .... .... ...2
+c: .... .... .... ...3
+d: .... .... .... ...4
+e: .... .... .... ...5
+f: .... .... .... ...6
+g: .... .... .... ...7
+h: .... .... .... ...8
+i: .... .... .... ...9
+j: .... .... .... ...A
+k: .... .... .... ...B
+l: .... .... .... ...C
+b: .... .... .... .222
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Subroutine::call
+
+ my $h = genHash("AAAA",
+   a => V(a =>  1),
+   b => V(b =>  2),
+   c => V(c =>  3),
+   d => V(d =>  4),
+   e => V(e =>  5),
+   f => V(f =>  6),
+   g => V(g =>  7),
+   h => V(h =>  8),
+   i => V(i =>  9),
+   j => V(j => 10),
+   k => V(k => 11),
+   l => V(l => 12));
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    my $h = $$s{h};
+    my $a = $$p{a};
+    $$h{a}->outNL;
+    $$h{b}->outNL;
+    $$h{c}->outNL;
+    $$h{d}->outNL;
+    $$h{e}->outNL;
+    $$h{f}->outNL;
+    $$h{g}->outNL;
+    $$h{h}->outNL;
+    $$h{i}->outNL;
+    $$h{j}->outNL;
+    $$h{k}->outNL;
+    $$h{l}->outNL;
+    If $a > 0,
+    Then
+     {$sub->call(structures => {h => $h}, parameters=>{a=>V(key => 0), b=>V(key => 0x111)});
+     };
+   } name => "s", structures => {h => $h}, parameters=>[qw(a b)];
+
+  $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
+
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>17609, label => 'aaa';
+a: .... .... .... ...1
+b: .... .... .... ...2
+c: .... .... .... ...3
+d: .... .... .... ...4
+e: .... .... .... ...5
+f: .... .... .... ...6
+g: .... .... .... ...7
+h: .... .... .... ...8
+i: .... .... .... ...9
+j: .... .... .... ...A
+k: .... .... .... ...B
+l: .... .... .... ...C
+a: .... .... .... ...1
+b: .... .... .... ...2
+c: .... .... .... ...3
+d: .... .... .... ...4
+e: .... .... .... ...5
+f: .... .... .... ...6
+g: .... .... .... ...7
+h: .... .... .... ...8
+i: .... .... .... ...9
+j: .... .... .... ...A
+k: .... .... .... ...B
+l: .... .... .... ...C
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Area::used #TNasm::X86::Area::clear #TNasm::X86::Area::size  #TNasm::X86::Area::free
+  my $a = CreateArea;
+
+  $a->q("a" x 255);
+  $a->used->outNL;
+  $a->size->outNL;
+  $a->dump('A');
+  $a->clear;
+  $a->used->outNL;
+  $a->size->outNL;
+  $a->dump('B');
+
+  $a->q("a" x 4095);
+  $a->used->outNL;
+  $a->size->outNL;
+  $a->dump('C');
+  $a->clear;
+  $a->used->outNL;
+  $a->size->outNL;
+  $a->dump('D');
+
+  $a->free;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+area used up: .... .... .... ..FF
+size of area: .... .... .... 10..
+A
+Area     Size:     4096    Used:      319
+.... .... .... .... | __10 ____ ____ ____  3F.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+.... .... .... ..80 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+.... .... .... ..C0 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+area used up: .... .... .... ....
+size of area: .... .... .... 10..
+B
+Area     Size:     4096    Used:       64
+.... .... .... .... | __10 ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+.... .... .... ..80 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+.... .... .... ..C0 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+area used up: .... .... .... .FFF
+size of area: .... .... .... 20..
+C
+Area     Size:     8192    Used:     4159
+.... .... .... .... | __20 ____ ____ ____  3F10 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+.... .... .... ..80 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+.... .... .... ..C0 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+area used up: .... .... .... ....
+size of area: .... .... .... 20..
+D
+Area     Size:     8192    Used:       64
+.... .... .... .... | __20 ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+.... .... .... ..80 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+.... .... .... ..C0 | 6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161  6161 6161 6161 6161
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Variable::setMask
+  my $z = V('zero', 0);
+  my $o = V('one',  1);
+  my $t = V('two',  2);
+  $z->setMask($o,       k7); PrintOutRegisterInHex k7;
+  $z->setMask($t,       k6); PrintOutRegisterInHex k6;
+  $z->setMask($o+$t,    k5); PrintOutRegisterInHex k5;
+  $o->setMask($o,       k4); PrintOutRegisterInHex k4;
+  $o->setMask($t,       k3); PrintOutRegisterInHex k3;
+  $o->setMask($o+$t,    k2); PrintOutRegisterInHex k2;
+
+  $t->setMask($o,       k1); PrintOutRegisterInHex k1;
+  $t->setMask($t,       k0); PrintOutRegisterInHex k0;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+    k7: .... .... .... ...1
+    k6: .... .... .... ...3
+    k5: .... .... .... ...7
+    k4: .... .... .... ...2
+    k3: .... .... .... ...6
+    k2: .... .... .... ...E
+    k1: .... .... .... ...4
+    k0: .... .... .... ...C
+END
+ }
+
+#latest:
+if (1) {                                                                        #TExtern #TLink #TCallC
+  my $format = Rs "Hello %s\n";
+  my $data   = Rs "World";
+
+  Extern qw(printf exit malloc strcpy); Link 'c';
+
+  CallC 'malloc', length($format)+1;
+  Mov r15, rax;
+  CallC 'strcpy', r15, $format;
+  CallC 'printf', r15, $data;
+  CallC 'exit', 0;
+
+  ok Assemble avx512=>0, eq => <<END;
+Hello World
+END
+ }
+
+#latest:
+if (1) {
+  my $a = Rb((reverse 0..16)x16);
+  my $b = Rb((        0..16)x16);
+  Mov rax, $a;  Vmovdqu8 zmm0, "[rax]";
+  Mov rax, $b;  Vmovdqu8 zmm1, "[rax]";
+  Vpcmpeqb k0, zmm0, zmm1;
+
+  Kmovq rax, k0; Popcnt rax, rax;
+  PrintOutRegisterInHex zmm0, zmm1, k0, rax;
+
+  ok Assemble avx512=>1, eq => <<END;
+  zmm0: .4.5 .6.7 .8.9 .A.B  .C.D .E.F 10.. .1.2 - .3.4 .5.6 .7.8 .9.A  .B.C .D.E .F10 ...1 + .2.3 .4.5 .6.7 .8.9  .A.B .C.D .E.F 10.. - .1.2 .3.4 .5.6 .7.8  .9.A .B.C .D.E .F10
+  zmm1: .C.B .A.9 .8.7 .6.5  .4.3 .2.1 ..10 .F.E - .D.C .B.A .9.8 .7.6  .5.4 .3.2 .1.. 10.F + .E.D .C.B .A.9 .8.7  .6.5 .4.3 .2.1 ..10 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
+    k0: .8.. .4.. .2.. .1..
+   rax: .... .... .... ...4
+END
+ }
+
+#latest:
+if (1) {                                                                        #TConvertUtf8ToUtf32
+  my ($out, $size, $fail);
+
+  my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
+  my $chars = V(chars => $Chars);
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+0;                        # Dollar               UTF-8 Encoding: 0x24                UTF-32 Encoding: 0x00000024
+  $out->out('out1 : ');
+  $size->outNL(' size : ');
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+1;                        # Cents                UTF-8 Encoding: 0xC2 0xA2           UTF-32 Encoding: 0x000000a2
+  $out->out('out2 : ');     $size->outNL(' size : ');
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+3;                        # Alpha                UTF-8 Encoding: 0xC9 0x91           UTF-32 Encoding: 0x00000251
+  $out->out('out3 : ');     $size->outNL(' size : ');
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+5;                        # Euro                 UTF-8 Encoding: 0xE2 0x82 0xAC      UTF-32 Encoding: 0x000020AC
+  $out->out('out4 : ');     $size->outNL(' size : ');
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $chars+8;                        # Gothic Letter Hwair  UTF-8 Encoding  0xF0 0x90 0x8D 0x88 UTF-32 Encoding: 0x00010348
+  $out->out('out5 : ');     $size->outNL(' size : ');
+
+  my $statement = qq(𝖺\n 𝑎𝑠𝑠𝑖𝑔𝑛 【【𝖻 𝐩𝐥𝐮𝐬 𝖼】】\nAAAAAAAA);                        # A sample sentence to parse
+
+  my $s = K(statement => Rutf8($statement));
+  my $l = StringLength $s;
+
+  my $address = AllocateMemory $l;                                              # Allocate enough memory for a copy of the string
+  CopyMemory($s, $address, $l);
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address;
+  $out->out('outA : ');     $size->outNL(' size : ');
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+4;
+  $out->out('outB : ');     $size->outNL(' size : ');
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+5;
+  $out->out('outC : ');     $size->outNL(' size : ');
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+30;
+  $out->out('outD : ');     $size->outNL(' size : ');
+
+ ($out, $size, $fail) = GetNextUtf8CharAsUtf32 $address+35;
+  $out->out('outE : ');     $size->outNL(' size : ');
+
+  $address->printOutMemoryInHexNL($l);
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+out1 : .... .... .... ..24 size : .... .... .... ...1
+out2 : .... .... .... ..A2 size : .... .... .... ...2
+out3 : .... .... .... .251 size : .... .... .... ...2
+out4 : .... .... .... 20AC size : .... .... .... ...3
+out5 : .... .... ...1 .348 size : .... .... .... ...4
+outA : .... .... ...1 D5BA size : .... .... .... ...4
+outB : .... .... .... ...A size : .... .... .... ...1
+outC : .... .... .... ..20 size : .... .... .... ...1
+outD : .... .... .... ..20 size : .... .... .... ...1
+outE : .... .... .... ..10 size : .... .... .... ...2
+F09D 96BA .A20 F09D  918E F09D 91A0 F09D  91A0 F09D 9196 F09D  9194 F09D 919B 20E3  8090 E380 90F0 9D96  BB20 F09D 90A9 F09D  90A5 F09D 90AE F09D  90AC 20F0 9D96 BCE3  8091 E380 91.A 4141  4141 4141 4141 ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TLoadBitsIntoMaskRegister
+  for (0..7)
+   {ClearRegisters "k$_";
+    K($_,$_)->setMaskBit("k$_");
+    PrintOutRegisterInHex "k$_";
+   }
+
+  ClearRegisters k7;
+  LoadBitsIntoMaskRegister(7, '1010', -4, +4, -2, +2, -1, +1, -1, +1);
+  PrintOutRegisterInHex "k7";
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+    k0: .... .... .... ...1
+    k1: .... .... .... ...2
+    k2: .... .... .... ...4
+    k3: .... .... .... ...8
+    k4: .... .... .... ..10
+    k5: .... .... .... ..20
+    k6: .... .... .... ..40
+    k7: .... .... .... ..80
+    k7: .... .... ...A .F35
+END
+ }
+
+#latest:
+if (1) {                                                                        #TInsertZeroIntoRegisterAtPoint #TInsertOneIntoRegisterAtPoint
+  Mov r15, 0x100;                                                               # Given a register with a single one in it indicating the desired position,
+  Mov r14, 0xFFDC;                                                              # Insert a zero into the register at that position shifting the bits above that position up left one to make space for the new zero.
+  Mov r13, 0xF03F;
+  PrintOutRegisterInHex         r14, r15;
+  InsertZeroIntoRegisterAtPoint r15, r14;
+  PrintOutRegisterInHex r14;
+  Or r14, r15;                                                                  # Replace the inserted zero with a one
+  PrintOutRegisterInHex r14;
+  InsertOneIntoRegisterAtPoint r15, r13;
+  PrintOutRegisterInHex r13;
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+   r14: .... .... .... FFDC
+   r15: .... .... .... .1..
+   r14: .... .... ...1 FEDC
+   r14: .... .... ...1 FFDC
+   r13: .... .... ...1 E13F
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::setOrClearTreeBits
+  my $b = CreateArea;
+  my $t = $b->CreateTree;
+
+  Mov r15, 8;
+  $t->setTreeBit  (31, r15); PrintOutRegisterInHex 31;
+  $t->isTree      (31, r15); PrintOutZF;
+
+  Mov r15, 16;
+  $t->isTree      (31, r15); PrintOutZF;
+  $t->setTreeBit  (31, r15); PrintOutRegisterInHex 31;
+  $t->clearTreeBit(31, r15); PrintOutRegisterInHex 31;
+  $t->isTree      (31, r15); PrintOutZF;
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+ zmm31: .... .... ...8 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ZF=0
+ZF=1
+ zmm31: .... .... ..18 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ zmm31: .... .... ...8 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ZF=0
+END
+ }
+
+#latest:
+if (1) {                                                                        # Print empty tree
+  my $b = CreateArea;
+  my $t = $b->CreateTree;
+  $t->dump("AAAA");
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+AAAA
+- empty
+END
+ }
+
+#latest:
+if (0) {                                                                        # An example of using sigaction in x86 and x64 assembler code.  Linux on x86 requires not only a signal handler but a signal trampoline.  The following code shows how to set up a signal and its associated trampoline using sigaction or rt_sigaction.
+  my $end   = Label;
+  Jmp $end;                                                                     # Jump over subroutine definition
+  my $start = SetLabel;
+  Enter 0, 0;                                                                   # Inline code of signal handler
+  Mov r15, rbp;                                                                 # Preserve the new stack frame
+  Mov rbp, "[rbp]";                                                             # Restore our last stack frame
+  PrintOutTraceBack '';                                                         # Print our trace back
+  Mov rbp, r15;                                                                 # Restore supplied stack frame
+  Exit(0);                                                                      # Exit so we do not trampoline. Exit with code zero to show that the program is functioning correctly, else L<Assemble> will report an error.
+  Leave;
+  Ret;
+  SetLabel $end;
+
+  Mov r15, 0;                                                                   # Push sufficient zeros onto the stack to make a struct sigaction as described in: https://www.man7.org/linux/man-pages/man2/sigaction.2.html
+  Push r15 for 1..16;
+
+  Mov r15, $start;                                                              # Actual signal handler
+  Mov "[rsp]", r15;                                                             # Show as signal handler
+  Mov "[rsp+0x10]", r15;                                                        # Add as trampoline as well - which is fine because we exit in the handler so this will never be called
+  Mov r15, 0x4000000;                                                           # Mask to show we have a trampoline which is, apparently, required on x86
+  Mov "[rsp+0x8]", r15;                                                         # Confirm we have a trampoline
+
+  Mov rax, 13;                                                                  # Sigaction from "kill -l"
+  Mov rdi, 11;                                                                  # Confirmed SIGSEGV = 11 from kill -l and tracing with sde64
+  Mov rsi, rsp;                                                                 # Sigaction structure on stack
+  Mov rdx, 0;                                                                   # Confirmed by trace
+  Mov r10, 8;                                                                   # Found by tracing "signal.c" with sde64 it is the width of the signal set and mask. "signal.c" is reproduced below.
+  Syscall;
+  Add rsp, 128;
+
+  my $s = Subroutine                                                            # Subroutine that will cause an error to occur to force a trace back to be printed
+   {Mov r15, 0;
+    Mov r15, "[r15]";                                                           # Try to read an unmapped memory location
+   } [qw(in)], name => 'sub that causes a segv';                                # The name that will appear in the trace back
+
+  $s->call(K(in, 42));
+
+  ok Assemble(debug => 0, keep2 => 'signal', avx512=>0, eq => <<END, avx512=>0);# Cannot use the emulator because it does not understand signals
+
+Subroutine trace back, depth:  1
+0000 0000 0000 002A    sub that causes a segv
+
+END
+
+# /var/isde/sde64 -mix -ptr-check -debugtrace -- ./signal
+##include <stdlib.h>
+##include <stdio.h>
+##include <signal.h>
+##include <string.h>
+##include <unistd.h>
+#
+#void handle_sigint(int sig)
+# {exit(sig);
+# }
+#
+#int main(void)
+# {struct sigaction s;
+#  memset(&s, 0, sizeof(s));
+#  s.sa_sigaction = (void *)handle_sigint;
+#
+#  long a = 0xabcdef;
+#  sigaction(SIGSEGV, &s, 0);
+#  long *c = 0; *c = a;
+# }
+#
+# gcc -finput-charset=UTF-8 -fmax-errors=7 -rdynamic -Wall -Wextra -Wno-unused-function -o signal signal.c  && /var/isde/sde64 -mix -ptr-check -debugtrace  -- ./signal; echo $?;
+ }
+
+#latest:
+if (0) {                                                                        #TOnSegv
+  OnSegv();                                                                     # Request a trace back followed by exit on a segv signal.
+
+  my $t = Subroutine                                                            # Subroutine that will cause an error to occur to force a trace back to be printed
+   {Mov r15, 0;
+    Mov r15, "[r15]";                                                           # Try to read an unmapped memory location
+   } [qw(in)], name => 'sub that causes a segv';                                # The name that will appear in the trace back
+
+  $t->call(K(in, 42));
+
+  ok Assemble(debug => 0, keep2 => 'signal', avx512=>0, eq => <<END, avx512=>0);# Cannot use the emulator because it does not understand signals
+
+Subroutine trace back, depth:  1
+0000 0000 0000 002A    sub that causes a segv
+
+END
+ }
+
+#latest:
+if (1) {                                                                        # R11 being disturbed by syscall 1
+  Push 0x0a61;                                                                  # A followed by new line on the stack
+  Mov  rax, rsp;
+  Mov  rdx, 2;                                                                  # Length of string
+  Mov  rsi, rsp;                                                                # Address of string
+  Mov  rax, 1;                                                                  # Write
+  Mov  rdi, 1;                                                                  # File descriptor
+  Syscall;
+  Pushfq;
+  Pop rax;
+  PrintOutRegisterInHex rax, r11;
+  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+a
+   rax: .... .... .... .2.2
+   r11: .... .... .... .2.2
+END
+ }
+
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::outCStringNL
+  my $s = Rutf8 '𝝰𝝱𝝲𝝳';
+  V(address => $s)->outCStringNL;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+𝝰𝝱𝝲𝝳
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::printOutMemoryInHexNL
+  my $u = Rd(ord('𝝰'), ord('𝝱'), ord('𝝲'), ord('𝝳'));
+  Mov rax, $u;
+  my $address = V address=>rax;
+  $address->printOutMemoryInHexNL(K size => 16);
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+70D7 .1.. 71D7 .1..  72D7 .1.. 73D7 .1..
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::printOutMemoryInHexNL
+  my $v = V var => 2;
+
+  If  $v == 0, Then {Mov rax, 0},
+  Ef {$v == 1} Then {Mov rax, 1},
+  Ef {$v == 2} Then {Mov rax, 2},
+               Else {Mov rax, 3};
+  PrintOutRegisterInHex rax;
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+   rax: .... .... .... ...2
+END
+ }
+
+#latest:
+if (1) {                                                                        #TloadRegFromMm #TsaveRegIntoMm
+  Mov rax, 1; SaveRegIntoMm(zmm0, 0, rax);
+  Mov rax, 2; SaveRegIntoMm(zmm0, 1, rax);
+  Mov rax, 3; SaveRegIntoMm(zmm0, 2, rax);
+  Mov rax, 4; SaveRegIntoMm(zmm0, 3, rax);
+
+  LoadRegFromMm(zmm0, 0, r15);
+  LoadRegFromMm(zmm0, 1, r14);
+  LoadRegFromMm(zmm0, 2, r13);
+  LoadRegFromMm(zmm0, 3, r12);
+
+  PrintOutRegisterInHex ymm0, r15, r14, r13, r12;
+  ok Assemble(debug => 0, trace => 1, eq => <<END, avx512=>1);
+  ymm0: .... .... .... ...4  .... .... .... ...3 - .... .... .... ...2  .... .... .... ...1
+   r15: .... .... .... ...1
+   r14: .... .... .... ...2
+   r13: .... .... .... ...3
+   r12: .... .... .... ...4
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::Variable::copy  #TNasm::Variable::copyRef
+  my $a = V('a', 1);
+  my $r = R('r')->copyRef($a);
+  my $R = R('R')->copyRef($r);
+
+  $a->outNL;
+  $r->outNL;
+  $R->outNL;
+
+  $a->copy(2);
+
+  $a->outNL;
+  $r->outNL;
+  $R->outNL;
+
+  $r->copy(3);
+
+  $a->outNL;
+  $r->outNL;
+  $R->outNL;
+
+  $R->copy(4);
+
+  $a->outNL;
+  $r->outNL;
+  $R->outNL;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+a: .... .... .... ...1
+r: .... .... .... ...1
+R: .... .... .... ...1
+a: .... .... .... ...2
+r: .... .... .... ...2
+R: .... .... .... ...2
+a: .... .... .... ...3
+r: .... .... .... ...3
+R: .... .... .... ...3
+a: .... .... .... ...4
+r: .... .... .... ...4
+R: .... .... .... ...4
+END
+ }
+
+#latest:
+if (1) {                                                                        # Register expressions in parameter lists
+  my $s = Subroutine
+   {my ($p) = @_;
+    $$p{p}->outNL;
+   } parameters=>[qw(p)], name => 'test';
+
+  $s->call(parameters=>{p => K key => 221});
+  $s->call(parameters=>{p => V key => 222});
+  Mov r15, 0xcc;
+  $s->call(parameters=>{p => V(key => r15)});
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+p: .... .... .... ..DD
+p: .... .... .... ..DE
+p: .... .... .... ..CC
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::clone
+  my $a = V('a', 1);
+  my $b = $a->clone('a');
+
+  $_->outNL for $a, $b;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+a: .... .... .... ...1
+a: .... .... .... ...1
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::ClassifyWithInRangeAndSaveWordOffset Nasm::X86::Variable::loadZmm
+  my $l = V('low',   Rd(2, 7, (0) x 14));
+  my $h = V('high' , Rd(3, 9, (0) x 14));
+  my $o = V('off',   Rd(2, 5, (0) x 14));
+  my $u = V('utf32', Dd(2, 3, 7, 8, 9, (0) x 11));
+
+
+  $l->loadZmm(0);
+  $h->loadZmm(1);
+  $o->loadZmm(2);
+
+  ClassifyWithInRangeAndSaveWordOffset($u, V('size', 5), V('classification', 7));
+  $u->loadZmm(3);
+
+  PrintOutRegisterInHex zmm 0..3;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>1);
+  zmm0: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... ...7 .... ...2
+  zmm1: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... ...9 .... ...3
+  zmm2: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... ...5 .... ...2
+  zmm3: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .7.. ...4 - .7.. ...3 .7.. ...2  .7.. ...1 .7.. ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TPrintOutRaxInDecNL #TPrintOutRaxRightInDec
+  my $w = V width => 12;
+
+  Mov rax, 0;
+  PrintOutRaxRightInDecNL $w;
+
+  Mov rax, 0x2a;
+  PrintOutRaxRightInDecNL $w;
+
+  Mov rax, 1;
+  PrintOutRaxRightInDecNL $w;
+
+  Mov rax, 255;
+  PrintOutRaxRightInDecNL $w;
+
+  Mov rax, 123456;
+  PrintOutRaxRightInDecNL $w;
+
+  Mov rax, 1234567890;
+  PrintOutRaxRightInDecNL $w;
+
+  Mov rax, 0x2;
+  Shl rax, 16;
+  Mov rdx, 0xdfdc;
+  Or rax, rdx;
+  Shl rax, 16;
+  Mov rdx, 0x1c35;
+  Or rax, rdx;
+  PrintOutRaxRightInDecNL $w;
+
+# 1C BE99 1A14
+  Mov rax, 0x1c;
+  Shl rax, 16;
+  Mov rdx, 0xbe99;
+  Or rax, rdx;
+  Shl rax, 16;
+  Mov rdx, 0x1a14;
+  Or rax, rdx;
+  PrintOutRaxInDecNL;
+
+# 2 EE33 3961
+  Mov rax, 0x2;
+  Shl rax, 16;
+  Mov rdx, 0xee33;
+  Or rax, rdx;
+  Shl rax, 16;
+  Mov rdx, 0x3961;
+  Or rax, rdx;
+  PrintOutRaxRightInDecNL $w;
+
+  ok Assemble avx512=>0, eq => <<END;
+           0
+          42
+           1
+         255
+      123456
+  1234567890
+ 12345678901
+123456789012
+ 12586269025
+END
+ }
+
+#latest:
+if (1) {                                                                        #TreadChar #TPrintOutRaxAsChar
+  my $e = q(readChar);
+
+  ForEver
+   {my ($start, $end) = @_;
+    ReadChar;
+    Cmp rax, 0xa;
+    Jle $end;
+    PrintOutRaxAsChar;
+    PrintOutRaxAsChar;
+   };
+  PrintOutNL;
+
+  Assemble keep => $e;
+
+  is_deeply qx(echo "ABCDCBA" | ./$e), <<END;
+AABBCCDDCCBBAA
+END
+  unlink $e;
+ }
+
+#latest:
+if (1) {                                                                        #TPrintOutRaxAsTextNL
+  my $t = Rs('abcdefghi');
+  Mov rax, $t;
+  Mov rax, "[rax]";
+  PrintOutRaxAsTextNL;
+  ok Assemble eq => <<END, avx512=>0;
+abcdefgh
+END
+}
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::outCStringNL #TNasm::X86::Variable::outInDecNL;
+  my $e = q(parameters);
+
+  (V string => "[rbp+8]")->outInDecNL;
+  (V string => "[rbp+16]")->outCStringNL;
+  (V string => "[rbp+24]")->outCStringNL;
+  (V string => "[rbp+32]")->outCStringNL;
+  (V string => "[rbp+40]")->outCStringNL;
+  (V string => "[rbp+48]")->outInDecNL;
+
+  (V string => "[rbp+8]")->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $index->setReg(rax);
+    Inc rax;
+    PrintOutRaxInDec;
+    Inc rax;
+    PrintOutString " : ";
+    Shl rax, 3;
+    (V string => "[rbp+rax]")->outCStringNL;
+   });
+
+  Assemble keep => $e;
+
+  is_deeply scalar(qx(./$e AaAaAaAaAa BbCcDdEe 123456789)), <<END;
+string: 4
+./parameters
+AaAaAaAaAa
+BbCcDdEe
+123456789
+string: 0
+1 : ./parameters
+2 : AaAaAaAaAa
+3 : BbCcDdEe
+4 : 123456789
+END
+
+  unlink $e;
+ }
+
+#latest:
+if (1) {                                                                        #TPrintOutRaxAsTextNL
+  V( loop => 16)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $index->setReg(rax);
+    Add rax, 0xb0;   Shl rax, 16;
+    Mov  ax, 0x9d9d; Shl rax, 8;
+    Mov  al, 0xf0;
+    PrintOutRaxAsText;
+   });
+  PrintOutNL;
+
+  ok Assemble eq => <<END, avx512 => 0;
+𝝰𝝱𝝲𝝳𝝴𝝵𝝶𝝷𝝸𝝹𝝺𝝻𝝼𝝽𝝾𝝿
+END
+ }
+
+#latest:
+if (1) {                                                                        #TPrintOutRaxRightInDec #TPrintOutRaxRightInDecNL
+  Mov rax, 0x2a;
+  PrintOutRaxRightInDec   V width=> 4;
+  Shl rax, 1;
+  PrintOutRaxRightInDecNL V width=> 6;
+
+  ok Assemble eq => <<END, avx512=>0;
+  42    84
+END
+ }
+
+#latest:
+if (1) {                                                                        # Fibonacci numbers
+  my $N = 11;                                                                   # The number of Fibonacci numbers to generate
+  Mov r13, 0;                                                                   # First  Fibonacci number
+  Mov r14, 1;                                                                   # Second Fibonacci
+  PrintOutStringNL " i   Fibonacci";                                            # The title of the piece
+
+  V(N => $N)->for(sub                                                           # Generate each Fibonacci number by adding the two previous ones together
+   {my ($index, $start, $next, $end) = @_;
+    $index->outRightInDec(V(width => 2));                                       # Index
+    Mov rax, r13;
+    PrintOutRaxRightInDecNL V width => 12;                                      # Fibonacci number at this index
+
+    Mov r15, r14;                                                               # Next number is the sum of the two previous ones
+    Add r15, r13;
+
+    Mov r13, r14;                                                               # Move up
+    Mov r14, r15;
+   });
+
+  ok Assemble eq => <<END, avx512=>0;
+ i   Fibonacci
+ 0           0
+ 1           1
+ 2           1
+ 3           2
+ 4           3
+ 5           5
+ 6           8
+ 7          13
+ 8          21
+ 9          34
+10          55
+END
+ }
+
+#latest:
+if (1) {                                                                        #TReadLine
+  my $e = q(readLine);
+  my $f = writeTempFile("hello\nworld\n");
+
+  ReadLine;
+  PrintOutRaxAsTextNL;
+  ReadLine;
+  PrintOutRaxAsTextNL;
+
+  Assemble keep => $e;
+
+  is_deeply scalar(qx(./$e < $f)), <<END;
+hello
+world
+END
+  unlink $f;
+}
+
+#latest:
+if (1) {                                                                        #TReadInteger
+  my $e = q(readInteger);
+  my $f = writeTempFile("11\n22\n");
+
+  ReadInteger;
+  Shl rax, 1;
+  PrintOutRaxInDecNL;
+  ReadInteger;
+  Shl rax, 1;
+  PrintOutRaxInDecNL;
+
+  Assemble keep => $e;
+
+  is_deeply scalar(qx(./$e < $f)), <<END;
+22
+44
+END
+
+  unlink $e, $f;
+ }
+
+#latest:
+if (1) {                                                                        #TSubroutine
+  package InnerStructure                                                        # Test passing structures into a subroutine
+   {use Data::Table::Text qw(:all);
+    sub new($)                                                                  # Create a new structure
+     {my ($value) = @_;                                                         # Value for structure variable
+      describe(value => Nasm::X86::V(var => $value))
+     };
+    sub describe(%)                                                             # Describe the components of a structure
+     {my (%options) = @_;                                                       # Options
+      genHash(__PACKAGE__,
+        value => $options{value},
+       );
+     }
+   }
+
+  package OuterStructure
+   {use Data::Table::Text qw(:all);
+    sub new($$)                                                                 # Create a new structure
+     {my ($valueOuter, $valueInner) = @_;                                       # Value for structure variable
+      describe
+       (value => Nasm::X86::V(var => $valueOuter),
+        inner => InnerStructure::new($valueInner),
+       )
+     };
+    sub describe(%)                                                             # Describe the components of a structure
+     {my (%options) = @_;                                                       # Options
+      genHash(__PACKAGE__,
+        value => $options{value},
+        inner => $options{inner},
+       );
+     }
+   }
+
+  my $t = OuterStructure::new(42, 4);
+
+  my $s = Subroutine
+   {my ($parameters, $structures, $sub) = @_;                                   # Variable parameters, structure variables, structure copies, subroutine description
+
+    $$structures{test}->value->setReg(rax);
+    Mov r15, 84;
+    $$structures{test}->value->getReg(r15);
+    Mov r15, 8;
+    $$structures{test}->inner->value->getReg(r15);
+
+    $$parameters{p}->setReg(rdx);
+   } parameters=>[qw(p)], structures => {test => $t}, name => 'test';
+
+  my $T = OuterStructure::new(42, 4);
+  my $V = V parameter => 21;
+
+  $s->call(parameters=>{p => $V}, structures=>{test => $T});
+
+  PrintOutRaxInDecNL;
+  Mov rax, rdx;
+  PrintOutRaxInDecNL;
+  $t->value->outInDecNL;
+  $t->inner->value->outInDecNL;
+  $T->value->outInDecNL;
+  $T->inner->value->outInDecNL;
+  ok Assemble eq => <<END, avx512=>0;
+42
+21
+var: 42
+var: 4
+var: 84
+var: 8
+END
+ }
+
+#latest:
+if (1) {
+  my $s = Subroutine                                                            #TSubroutine2
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    $$s{var}->setReg(rax);
+    Dec rax;
+    $$s{var}->getReg(rax);
+   } structures => {var => my $v = V var => 42}, name => 'test';
+
+  $v->outNL;
+
+  $s->call(structures => {var => my $V = V var => 2});
+  $V->outNL;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+var: .... .... .... ..2A
+var: .... .... .... ...1
+END
+ }
+
+#latest:
+if (1) {
+  my $N = 256;
+  my $t = V struct => 33;
+
+  my $s = Subroutine                                                            #TSubroutine
+   {my ($p, $s, $sub) = @_;                                                     # Variable parameters, structure variables, structure copies, subroutine description
+    SaveFirstFour;
+    my $v = V var => 0;
+    $v->copy($$p{i});
+    $$p{o}->copy($v);
+    $$p{O}->copy($$s{struct});
+    $$s{struct}->copy($$s{struct} + 1);
+
+    my $M = AllocateMemory K size => $N;                                        # Allocate memory and save its location in a variable
+    $$p{M}->copy($M);
+    $M->setReg(rax);
+    Mov "qword[rax]", -1;
+    FreeMemory $M, K size => $N;                                                # Free memory
+    RestoreFirstFour;
+   } structures => {struct => $t}, parameters => [qw(i o O M)], name => 'test';
+
+  $s->call(parameters => {i => (my $i = K i => 22),
+                          o => (my $o = V o =>  0),
+                          O => (my $O = V O =>  0),
+                          M => (my $M = V M =>  0)},
+           structures => {struct => $t});
+  $i->outInDecNL;
+  $o->outInDecNL;
+  $O->outInDecNL;
+  $t->outInDecNL;
+
+  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+i: 22
+o: 22
+O: 33
+struct: 34
+END
+ }
+
+block2: goto block3 unless $block{2};                                           # Second block of tests - trees
+
+#latest:
+if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
+  my $newRight = K newRight => 0x9119;                                          # Offset of new right block
+  my $tree = DescribeTree(length => 3);                                         # Test with a narrow tree
+  my ($RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 23..31;                    # Zmm names
+  my $transfer = r8;
+
+  for my $test(0..13)                                                           # Test each key position
+   {PrintOutStringNL "Test $test";
+
+    K(PK => Rd(map {($_<<28) +0x9999999} 1..15, 0))->loadZmm($PK);
+    K(PD => Rd(map {($_<<28) +0x7777777} 1..15, 0))->loadZmm($PD);
+    K(PN => Rd(map {($_<<28) +0x8888888} 1..15, 0))->loadZmm($PN);
+
+    K(LK => Rd(map {($_<<28) +0x6666666} $test..15, 0..($test-1)))->loadZmm($LK);
+    K(LD => Rd(map {($_<<28) +0x4444444} $test..15, 0..($test-1)))->loadZmm($LD);
+    K(LN => Rd(map {($_<<28) +0x5555555} 0..15))->loadZmm($LN);
+
+    K(RK => Rd(map {($_<<28) +0x3333333} 0..15))->loadZmm($RK);
+    K(RD => Rd(map {($_<<28) +0x1111111} 0..15))->loadZmm($RD);
+    K(RN => Rd(map {($_<<28) +0x2222222} 0..15))->loadZmm($RN);
+
+    Mov $transfer, 0;                                                           # Test set of tree bits
+    wRegIntoZmm $transfer, $PK, $tree->treeBits;
+
+    Mov $transfer, 1;                                                           # Test set of parent length
+    wRegIntoZmm $transfer, $PK, $tree->lengthOffset;
+
+    Mov $transfer, 0b11011101;                                                  # Test set of tree bits in node being split
+    wRegIntoZmm $transfer, $LK, $tree->treeBits;
+
+    $tree->splitNotRoot($newRight, reverse 23..31);
+
+    PrintOutStringNL "Parent";
+    PrintOutRegisterInHex zmm reverse 29..31;
+
+    PrintOutStringNL "Left";
+    PrintOutRegisterInHex zmm reverse 26..28;
+
+    PrintOutStringNL "Right";
+    PrintOutRegisterInHex zmm reverse 23..25;
+   }
+
+  ok Assemble eq => <<END, avx512=>1, , label=>'t2';
+Test 0
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  6666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  6444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: F666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  5666 6666 4666 6666 - 3666 6666 2666 6666  1666 6666 .666 6666
+ zmm27: F444 4444 E444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  5444 4444 4444 4444 - 3444 4444 2444 4444  1444 4444 .444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  C666 6666 B666 6666 - A666 6666 9666 6666  8666 6666 7666 6666
+ zmm24: F111 1111 E444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  C444 4444 B444 4444 - A444 4444 9444 4444  8444 4444 7444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 1
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  7666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  7444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: .666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  6666 6666 5666 6666 - 4666 6666 3666 6666  2666 6666 1666 6666
+ zmm27: .444 4444 F444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  6444 4444 5444 4444 - 4444 4444 3444 4444  2444 4444 1444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  D666 6666 C666 6666 - B666 6666 A666 6666  9666 6666 8666 6666
+ zmm24: F111 1111 F444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  D444 4444 C444 4444 - B444 4444 A444 4444  9444 4444 8444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 2
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  8666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  8444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: 1666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  7666 6666 6666 6666 - 5666 6666 4666 6666  3666 6666 2666 6666
+ zmm27: 1444 4444 .444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  7444 4444 6444 4444 - 5444 4444 4444 4444  3444 4444 2444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  E666 6666 D666 6666 - C666 6666 B666 6666  A666 6666 9666 6666
+ zmm24: F111 1111 .444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  E444 4444 D444 4444 - C444 4444 B444 4444  A444 4444 9444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 3
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  9666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  9444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: 2666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  8666 6666 7666 6666 - 6666 6666 5666 6666  4666 6666 3666 6666
+ zmm27: 2444 4444 1444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  8444 4444 7444 4444 - 6444 4444 5444 4444  4444 4444 3444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  F666 6666 E666 6666 - D666 6666 C666 6666  B666 6666 A666 6666
+ zmm24: F111 1111 1444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  F444 4444 E444 4444 - D444 4444 C444 4444  B444 4444 A444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 4
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  A666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  A444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: 3666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  9666 6666 8666 6666 - 7666 6666 6666 6666  5666 6666 4666 6666
+ zmm27: 3444 4444 2444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  9444 4444 8444 4444 - 7444 4444 6444 4444  5444 4444 4444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .666 6666 F666 6666 - E666 6666 D666 6666  C666 6666 B666 6666
+ zmm24: F111 1111 2444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .444 4444 F444 4444 - E444 4444 D444 4444  C444 4444 B444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 5
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  B666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  B444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: 4666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  A666 6666 9666 6666 - 8666 6666 7666 6666  6666 6666 5666 6666
+ zmm27: 4444 4444 3444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  A444 4444 9444 4444 - 8444 4444 7444 4444  6444 4444 5444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  1666 6666 .666 6666 - F666 6666 E666 6666  D666 6666 C666 6666
+ zmm24: F111 1111 3444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  1444 4444 .444 4444 - F444 4444 E444 4444  D444 4444 C444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 6
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  C666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  C444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: 5666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  B666 6666 A666 6666 - 9666 6666 8666 6666  7666 6666 6666 6666
+ zmm27: 5444 4444 4444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  B444 4444 A444 4444 - 9444 4444 8444 4444  7444 4444 6444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  2666 6666 1666 6666 - .666 6666 F666 6666  E666 6666 D666 6666
+ zmm24: F111 1111 4444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  2444 4444 1444 4444 - .444 4444 F444 4444  E444 4444 D444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 7
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  D666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  D444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: 6666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  C666 6666 B666 6666 - A666 6666 9666 6666  8666 6666 7666 6666
+ zmm27: 6444 4444 5444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  C444 4444 B444 4444 - A444 4444 9444 4444  8444 4444 7444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  3666 6666 2666 6666 - 1666 6666 .666 6666  F666 6666 E666 6666
+ zmm24: F111 1111 5444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  3444 4444 2444 4444 - 1444 4444 .444 4444  F444 4444 E444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 8
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  E666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  E444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: 7666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  D666 6666 C666 6666 - B666 6666 A666 6666  9666 6666 8666 6666
+ zmm27: 7444 4444 6444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  D444 4444 C444 4444 - B444 4444 A444 4444  9444 4444 8444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  4666 6666 3666 6666 - 2666 6666 1666 6666  .666 6666 F666 6666
+ zmm24: F111 1111 6444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  4444 4444 3444 4444 - 2444 4444 1444 4444  .444 4444 F444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 9
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  F666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  F444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: 8666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  E666 6666 D666 6666 - C666 6666 B666 6666  A666 6666 9666 6666
+ zmm27: 8444 4444 7444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  E444 4444 D444 4444 - C444 4444 B444 4444  A444 4444 9444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  5666 6666 4666 6666 - 3666 6666 2666 6666  1666 6666 .666 6666
+ zmm24: F111 1111 7444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  5444 4444 4444 4444 - 3444 4444 2444 4444  1444 4444 .444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 10
+Parent
+ zmm31: .999 9999 ...1 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  1999 9999 .666 6666
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  1777 7777 .444 4444
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 2888 8888  .... 9119 1888 8888
+Left
+ zmm28: 9666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  F666 6666 E666 6666 - D666 6666 C666 6666  B666 6666 A666 6666
+ zmm27: 9444 4444 8444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  F444 4444 E444 4444 - D444 4444 C444 4444  B444 4444 A444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  6666 6666 5666 6666 - 4666 6666 3666 6666  2666 6666 1666 6666
+ zmm24: F111 1111 8444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  6444 4444 5444 4444 - 4444 4444 3444 4444  2444 4444 1444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 11
+Parent
+ zmm31: .999 9999 ...1 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  1999 9999 1666 6666
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  1777 7777 1444 4444
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 2888 8888  .... 9119 1888 8888
+Left
+ zmm28: A666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .666 6666 F666 6666 - E666 6666 D666 6666  C666 6666 B666 6666
+ zmm27: A444 4444 9444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .444 4444 F444 4444 - E444 4444 D444 4444  C444 4444 B444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  7666 6666 6666 6666 - 5666 6666 4666 6666  3666 6666 2666 6666
+ zmm24: F111 1111 9444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  7444 4444 6444 4444 - 5444 4444 4444 4444  3444 4444 2444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 12
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  2666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  2444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: B666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  1666 6666 .666 6666 - F666 6666 E666 6666  D666 6666 C666 6666
+ zmm27: B444 4444 A444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  1444 4444 .444 4444 - F444 4444 E444 4444  D444 4444 C444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  8666 6666 7666 6666 - 6666 6666 5666 6666  4666 6666 3666 6666
+ zmm24: F111 1111 A444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  8444 4444 7444 4444 - 6444 4444 5444 4444  4444 4444 3444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+Test 13
+Parent
+ zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  3666 6666 1999 9999
+ zmm30: .777 7777 F777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  3444 4444 1777 7777
+ zmm29: .888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 .... 9119  2888 8888 1888 8888
+Left
+ zmm28: C666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  2666 6666 1666 6666 - .666 6666 F666 6666  E666 6666 D666 6666
+ zmm27: C444 4444 B444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  2444 4444 1444 4444 - .444 4444 F444 4444  E444 4444 D444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  9666 6666 8666 6666 - 7666 6666 6666 6666  5666 6666 4666 6666
+ zmm24: F111 1111 B444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  9444 4444 8444 4444 - 7444 4444 6444 4444  5444 4444 4444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+END
+ }
+
+#latest:
+if (1) {                                                                        # Split a root node held in zmm28..zmm26 into a parent in zmm31..zmm29 and a right node held in zmm25..zmm23
+  my $transfer = r8;
+  my $tree      = DescribeTree(length => 7);                                    # Tree definition
+
+  Mov $transfer, 0b11011101;                                                    # Test set of tree bits
+  wRegIntoZmm $transfer, zmm1, $tree->treeBits;
+  PrintOutRegisterInHex zmm1;
+
+  Mov $transfer, 0b11011101;                                                    # Test set of tree bits
+  wRegIntoZmm $transfer, 31, $tree->treeBits;
+  PrintOutRegisterInHex 31;
+
+  ok Assemble eq => <<END, avx512=>1;
+  zmm1: .... .... ..DD ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ zmm31: .... .... ..DD ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        # Split a root node held in zmm28..zmm26 into a parent in zmm31..zmm29 and a right node held in zmm25..zmm23
+  my $newLeft   = K newLeft  => 0x9119;                                         # Offset of new left  block
+  my $newRight  = K newRight => 0x9229;                                         # Offset of new right block
+  my $tree      = DescribeTree(length => 7);                                    # Tree definition
+
+  my $transfer  = r8;                                                           # Transfer register
+  my ($RN, $RD, $RK, $LN, $LD, $LK, $PN, $PD, $PK) = 23..31;                    # Zmm names
+
+  K(PK => Rd(map {($_<<28) +0x9999999} 0..15))->loadZmm($PK);
+  K(PD => Rd(map {($_<<28) +0x7777777} 0..15))->loadZmm($PD);
+  K(PN => Rd(map {($_<<28) +0x8888888} 0..15))->loadZmm($PN);
+
+  K(LK => Rd(map {($_<<28) +0x6666666} 0..15))->loadZmm($LK);
+  K(LD => Rd(map {($_<<28) +0x4444444} 0..15))->loadZmm($LD);
+  K(LN => Rd(map {($_<<28) +0x5555555} 0..15))->loadZmm($LN);
+
+  K(RK => Rd(map {($_<<28) +0x3333333} 0..15))->loadZmm($RK);
+  K(RD => Rd(map {($_<<28) +0x1111111} 0..15))->loadZmm($RD);
+  K(RN => Rd(map {($_<<28) +0x2222222} 0..15))->loadZmm($RN);
+
+  Mov $transfer, 0b11011101;                                                    # Test set of tree bits
+  wRegIntoZmm $transfer, $LK, $tree->treeBits;
+
+  Mov $transfer, 7;                                                             # Test set of length in left keys
+  wRegIntoZmm $transfer, $LK, $tree->lengthOffset;
+  PrintOutStringNL "Initial Parent";
+  PrintOutRegisterInHex zmm reverse 29..31;
+
+  PrintOutStringNL "Initial Left";
+  PrintOutRegisterInHex zmm reverse 26..28;
+
+  PrintOutStringNL "Initial Right";
+  PrintOutRegisterInHex zmm reverse 23..25;
+
+  $tree->splitRoot($newLeft, $newRight, reverse 23..31);
+
+  PrintOutStringNL "Final Parent";
+  PrintOutRegisterInHex zmm reverse 29..31;
+
+  PrintOutStringNL "Final Left";
+  PrintOutRegisterInHex zmm reverse 26..28;
+
+  PrintOutStringNL "Final Right";
+  PrintOutRegisterInHex zmm reverse 23..25;
+
+  ok Assemble eq => <<END, avx512=>1;
+Initial Parent
+ zmm31: F999 9999 E999 9999  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  1999 9999 .999 9999
+ zmm30: F777 7777 E777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  1777 7777 .777 7777
+ zmm29: F888 8888 E888 8888  D888 8888 C888 8888 - B888 8888 A888 8888  9888 8888 8888 8888 + 7888 8888 6888 8888  5888 8888 4888 8888 - 3888 8888 2888 8888  1888 8888 .888 8888
+Initial Left
+ zmm28: F666 6666 ..DD ...7  D666 6666 C666 6666 - B666 6666 A666 6666  9666 6666 8666 6666 + 7666 6666 6666 6666  5666 6666 4666 6666 - 3666 6666 2666 6666  1666 6666 .666 6666
+ zmm27: F444 4444 E444 4444  D444 4444 C444 4444 - B444 4444 A444 4444  9444 4444 8444 4444 + 7444 4444 6444 4444  5444 4444 4444 4444 - 3444 4444 2444 4444  1444 4444 .444 4444
+ zmm26: F555 5555 E555 5555  D555 5555 C555 5555 - B555 5555 A555 5555  9555 5555 8555 5555 + 7555 5555 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Initial Right
+ zmm25: F333 3333 E333 3333  D333 3333 C333 3333 - B333 3333 A333 3333  9333 3333 8333 3333 + 7333 3333 6333 3333  5333 3333 4333 3333 - 3333 3333 2333 3333  1333 3333 .333 3333
+ zmm24: F111 1111 E111 1111  D111 1111 C111 1111 - B111 1111 A111 1111  9111 1111 8111 1111 + 7111 1111 6111 1111  5111 1111 4111 1111 - 3111 1111 2111 1111  1111 1111 .111 1111
+ zmm23: F222 2222 E222 2222  D222 2222 C222 2222 - B222 2222 A222 2222  9222 2222 8222 2222 + 7222 2222 6222 2222  5222 2222 4222 2222 - 3222 2222 2222 2222  1222 2222 .222 2222
+Final Parent
+ zmm31: F999 9999 ...1 ...1  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... 6666 6666
+ zmm30: F777 7777 E777 7777  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... 6444 4444
+ zmm29: F888 8888 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... 9229 .... 9119
+Final Left
+ zmm28: F666 6666 ..1D ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  5666 6666 4666 6666 - 3666 6666 2666 6666  1666 6666 .666 6666
+ zmm27: F444 4444 E444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  5444 4444 4444 4444 - 3444 4444 2444 4444  1444 4444 .444 4444
+ zmm26: F555 5555 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... 6555 5555  5555 5555 4555 5555 - 3555 5555 2555 5555  1555 5555 .555 5555
+Final Right
+ zmm25: F333 3333 ...1 ...6  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  C666 6666 B666 6666 - A666 6666 9666 6666  8666 6666 7666 6666
+ zmm24: F111 1111 E444 4444  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  C444 4444 B444 4444 - A444 4444 9444 4444  8444 4444 7444 4444
+ zmm23: F222 2222 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... D555 5555  C555 5555 B555 5555 - A555 5555 9555 5555  8555 5555 7555 5555
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::setTree  #TNasm::X86::Tree::clearTree #TNasm::X86::Tree::insertZeroIntoTreeBits #TNasm::X86::Tree::insertOneIntoTreeBits #TNasm::X86::Tree::getTreeBits #TNasm::X86::Tree::setTreeBits #TNasm::X86::Tree::isTree
+
+  my $t = DescribeTree;
+  Mov r8, 0b100; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+  Mov r8, 0b010; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+  Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
+  Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
+
+                                                     $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+  Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+  Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+
+  $t->getTreeBits(31, r8);
+  V(TreeBits => r8)->outRightInHexNL(K width => 4);
+  PrintOutRegisterInHex 31;
+
+  Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+  Shl r8, 1; $t->isTree(31, r8); PrintOutZF;
+
+  Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
+
+  ok Assemble eq => <<END, avx512=>1;
+ zmm31: .... .... ...4 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ zmm31: .... .... ...6 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ zmm31: .... .... ...7 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ zmm31: .... .... ...5 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+             101
+            1001
+           10011
+  13
+ zmm31: .... .... ..13 ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ZF=0
+ZF=0
+ZF=1
+ZF=1
+ZF=0
+ZF=1
+ZF=1
+ZF=1
+ZF=1
+ZF=1
+ZF=1
+ZF=1
+ZF=1
+ZF=1
+ZF=1
+ZF=1
+ zmm31: .... .... 3FFF ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->put (K(key => 2), K(data => 0x22));
+  $t->find(K key => 2);
+  $t->found->outNL;
+  $t->data ->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+found: .... .... .... ...1
+data: .... .... .... ..22
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put (K(key=>2), K(data=>0x22));
+  $t->put (K(key=>1), K(data=>0x11));
+  $t->find(K key => 1);
+  $t->found->outNL;
+  $t->data ->outNL;
+  $t->find(K key => 2);
+  $t->found->outNL;
+  $t->data ->outNL;
+  $t->find(K key => 3);
+  $t->found->outNL;
+  $t->data ->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+found: .... .... .... ...1
+data: .... .... .... ..11
+found: .... .... .... ...2
+data: .... .... .... ..22
+found: .... .... .... ....
+data: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put   (K(key => 1), K(key => 0x11));
+  $t->delete(K key => 1);
+  $t->size->outNL;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
+size of tree: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::allocBlock #TNasm::X86::Tree::putBlock #TNasm::X86::Tree::getBlock #TNasm::X86::Tree::root
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $b = $t->allocBlock(31, 30, 29);
+  K(data => 0x33)->dIntoZ(31, 4);
+  $t->lengthIntoKeys(31, K length =>0x9);
+  $t->putBlock($b, 31, 30, 29);
+  $t->getBlock($b, 25, 24, 23);
+  PrintOutRegisterInHex 25;
+  $t->lengthFromKeys(25)->outNL;
+
+
+  $t->firstFromMemory(28);
+  $t->incSizeInFirst (28);
+  $t->rootIntoFirst  (28, K value => 0x2222);
+  $t->root           (28, K value => 0x2222);  PrintOutZF;
+  $t->root           (28, K value => 0x2221);  PrintOutZF;
+  $t->root           (28, K value => 0x2222);  PrintOutZF;
+  $t->firstIntoMemory(28);
+
+  $t->first->outNL;
+  $b->outNL;
+  $a->dump("1111");
+  PrintOutRegisterInHex 31, 30, 29, 28;
+
+  If $t->leafFromNodes(29) > 0, Then {PrintOutStringNL "29 Leaf"}, Else {PrintOutStringNL "29 Branch"};
+  If $t->leafFromNodes(28) > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
+
+
+  ok Assemble eq => <<END, avx512=>1;
+ zmm25: .... ..C0 .... ...9  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... ..33 .... ....
+b at offset 56 in zmm25: .... .... .... ...9
+ZF=1
+ZF=0
+ZF=1
+first: .... .... .... ..40
+address: .... .... .... ..80
+1111
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 2222 ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ 33__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .9__ ____ C0__ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+ zmm31: .... ..C0 .... ...9  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... ..33 .... ....
+ zmm30: .... .1.. .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ zmm29: .... ..40 .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+ zmm28: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ...1  .... .... .... 2222
+29 Leaf
+28 Branch
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::indexEq
+  my $tree = DescribeTree(length => 7);
+
+  my $K = 31;
+
+  K(K => Rd(0..15))->loadZmm($K);
+  $tree->lengthIntoKeys($K, K length => 13);
+
+  K(loop => 16)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $f = $tree->indexEq ($index, $K);
+    $index->outRightInDec(K width =>  2);
+    $f    ->outRightInBin(K width => 14);
+    PrintOutStringNL " |"
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+ 0             1 |
+ 1            10 |
+ 2           100 |
+ 3          1000 |
+ 4         10000 |
+ 5        100000 |
+ 6       1000000 |
+ 7      10000000 |
+ 8     100000000 |
+ 9    1000000000 |
+10   10000000000 |
+11  100000000000 |
+12 1000000000000 |
+13               |
+14               |
+15               |
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::insertionPoint
+  my $tree = DescribeTree(length => 7);
+
+  my $K = 31;
+
+  K(K => Rd(map {2*$_} 1..16))->loadZmm($K);
+  $tree->lengthIntoKeys($K, K length => 13);
+
+  K(loop => 32)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $f = $tree->insertionPoint($index, $K);
+    $index->outRightInDec(K width =>  2);
+    $f    ->outRightInBin(K width => 16);
+    PrintOutStringNL " |"
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+ 0               1 |
+ 1               1 |
+ 2              10 |
+ 3              10 |
+ 4             100 |
+ 5             100 |
+ 6            1000 |
+ 7            1000 |
+ 8           10000 |
+ 9           10000 |
+10          100000 |
+11          100000 |
+12         1000000 |
+13         1000000 |
+14        10000000 |
+15        10000000 |
+16       100000000 |
+17       100000000 |
+18      1000000000 |
+19      1000000000 |
+20     10000000000 |
+21     10000000000 |
+22    100000000000 |
+23    100000000000 |
+24   1000000000000 |
+25   1000000000000 |
+26  10000000000000 |
+27  10000000000000 |
+28  10000000000000 |
+29  10000000000000 |
+30  10000000000000 |
+31  10000000000000 |
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::dFromPointInZ
+  my $tree = DescribeTree(length => 7);
+
+  my $K = 31;
+
+  K(K => Rd(0..15))->loadZmm($K);
+
+  PrintOutRegisterInHex zmm $K;
+  K( offset => 1 << 5)->dFromPointInZ($K)->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+ zmm31: .... ...F .... ...E  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+d: .... .... .... ...5
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::indexEq
+  my $tree = DescribeTree();
+  $tree->maskForFullKeyArea(7);                                                 # Mask for full key area
+  PrintOutRegisterInHex k7;
+  $tree->maskForFullNodesArea(7);                                               # Mask for full nodes area
+  PrintOutRegisterInHex k7;
+  ok Assemble eq => <<END, avx512=>1;
+    k7: .... .... .... 3FFF
+    k7: .... .... .... 7FFF
+END
+ }
+
+#latest:
+if (1) {                                                                        # Perform the insertion
+  my $tree = DescribeTree();
+
+  my $F = 31; my $K  = 30; my $D = 29;
+  my $IK = K insert  => 0x44;
+  my $ID = K insert  => 0x55;
+  my $tb = K treebit => 1;                                                      # Value to insert, tree bit to insert
+
+  K(K => Rd(0..15))->loadZmm($_) for $F, $K, $D;                                # First, keys, data
+  $tree->lengthIntoKeys($K, K length => 5);                                     # Set a length
+  Mov rdi, 0x3FF0;                                                              # Initial tree bits
+  $tree->setTreeBits(31, rdi);                                                  # Save tree bits
+
+  my $point = K point => 1<<3;                                                  # Show insertion point
+
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex $F, $K, $D;
+
+  $tree->insertKeyDataTreeIntoLeaf($point, $F, $K, $D, $IK, $ID, K subTree => 1);
+
+  PrintOutStringNL "Inserted";
+  PrintOutRegisterInHex $F, $K, $D;
+
+  $tree->overWriteKeyDataTreeInLeaf($point, $K, $D, $ID, $IK, K subTree => 0);
+
+  PrintOutStringNL "Overwritten";
+  PrintOutRegisterInHex $F, $K, $D;
+
+  ok Assemble eq => <<END, avx512=>1;                                           # Once we know the insertion point we can add the key/data/subTree triple, increase the length and update the tree bits
+Start
+ zmm31: .... ...F 3FF0 ...E  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...F .... ...5  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm29: .... ...F .... ...E  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+Inserted
+ zmm31: .... ...F 3FF0 ...E  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...3  .... ...1 .... ....
+ zmm30: .... ...F ...8 ...6  .... ...C .... ...B - .... ...A .... ...9  .... ...8 .... ...7 + .... ...6 .... ...5  .... ...4 .... ...3 - .... ..44 .... ...2  .... ...1 .... ....
+ zmm29: .... ...F .... ...E  .... ...C .... ...B - .... ...A .... ...9  .... ...8 .... ...7 + .... ...6 .... ...5  .... ...4 .... ...3 - .... ..55 .... ...2  .... ...1 .... ....
+Overwritten
+ zmm31: .... ...F 3FF0 ...E  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...3  .... ...1 .... ....
+ zmm30: .... ...F .... ...6  .... ...C .... ...B - .... ...A .... ...9  .... ...8 .... ...7 + .... ...6 .... ...5  .... ...4 .... ...3 - .... ..55 .... ...2  .... ...1 .... ....
+ zmm29: .... ...F .... ...E  .... ...C .... ...B - .... ...A .... ...9  .... ...8 .... ...7 + .... ...6 .... ...5  .... ...4 .... ...3 - .... ..44 .... ...2  .... ...1 .... ....
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $a->dump("0000", K depth => 6);
+  $t->dump("0000");
+
+  $t->put(K(key=>1), K(data=>0x11));
+  $a->dump("1111", K depth => 6);
+  $t->dump("1111");
+
+  $t->put(K(key=>2), K(data=>0x22));
+  $a->dump("2222", K depth => 6);
+  $t->dump("2222");
+
+  $t->put(K(key=>3), K(data=>0x33));
+  $a->dump("3333", K depth => 6);
+  $t->dump("3333");
+
+  $t->splitNode(K offset => 0x80);
+  $a->dump("4444", K depth => 11);
+  $t->dump("4444");
+
+  ok Assemble eq => <<END, avx512=>1;
+0000
+Area     Size:     4096    Used:      128
+.... .... .... .... | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+0000
+- empty
+1111
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .1__ ____ C0__ ____
+.... .... .... ..C0 | 11__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+1111
+At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0
+  Keys :    1
+  Data :   17
+end
+2222
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .2__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | .1__ ____ .2__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .2__ ____ C0__ ____
+.... .... .... ..C0 | 11__ ____ 22__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+2222
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    1    2
+  Data :   17   34
+end
+3333
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .3__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | .1__ ____ .2__ ____  .3__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .3__ ____ C0__ ____
+.... .... .... ..C0 | 11__ ____ 22__ ____  33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+3333
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    3
+  Data :   17   34   51
+end
+4444
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .3__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | .1__ ____ .2__ ____  .3__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .3__ ____ C0__ ____
+.... .... .... ..C0 | 11__ ____ 22__ ____  33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .180 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .240 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .280 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+4444
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    3
+  Data :   17   34   51
+end
+END
+ }
+
+#latest:;
+if (1)
+ {my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->put(K(key => 1), K(key => 1));
+  ok Assemble eq=><<END, avx512=>1, trace=>1, mix=> 1;
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::put
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $a->dump("4444", K depth => 11);
+  $t->dump("4444");
+
+  ok Assemble eq => <<END, avx512=>1;
+4444
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .4__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .4__ ____ C0__ ____
+.... .... .... ..C0 | 11__ ____ 22__ ____  33__ ____ 44__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .180 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .240 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .280 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+4444
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :   17   34   51   68
+end
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::put
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>5), K(data=>0x55));
+  $a->dump("5555",   K depth => 11);
+
+  ok Assemble eq => <<END, avx512=>1;
+5555
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .5__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  .5__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .5__ ____ C0__ ____
+.... .... .... ..C0 | 11__ ____ 22__ ____  33__ ____ 44__ ____  55__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .180 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .240 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .280 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::put
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>5), K(data=>0x55));
+  $t->put(K(key=>6), K(data=>0x66));
+  $a->dump("6666",   K depth => 14);
+
+  ok Assemble eq => <<END, avx512=>1;
+6666
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .6__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  .5__ ____ .6__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .6__ ____ C0__ ____
+.... .... .... ..C0 | 11__ ____ 22__ ____  33__ ____ 44__ ____  55__ ____ 66__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .180 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .240 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .280 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .3.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::put
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>5), K(data=>0x55));
+  $t->put(K(key=>6), K(data=>0x66));
+  $t->put(K(key=>7), K(data=>0x77));
+  $a->dump("7777",   K depth => 14);
+
+  ok Assemble eq => <<END, avx512=>1;
+7777
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .7__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  .5__ ____ .6__ ____  .7__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .7__ ____ C0__ ____
+.... .... .... ..C0 | 11__ ____ 22__ ____  33__ ____ 44__ ____  55__ ____ 66__ ____  77__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .180 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .240 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .280 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .3.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->dump("2222");
+
+  ok Assemble eq => <<END, avx512=>1;
+2222
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    1    2
+  Data :   17   34
+end
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::put
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>5), K(data=>0x55));
+  $t->put(K(key=>6), K(data=>0x66));
+  $t->put(K(key=>7), K(data=>0x77));
+  $t->put(K(key=>8), K(data=>0x88));
+  $t->dump("8888");
+
+  ok Assemble eq => <<END, avx512=>1;
+8888
+At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5    6    7
+  Keys :    1    2    3    4    5    6    7    8
+  Data :   17   34   51   68   85  102  119  136
+end
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key=>8), K(data=>0x88));
+  $t->put(K(key=>7), K(data=>0x77));
+  $t->put(K(key=>6), K(data=>0x66));
+  $t->put(K(key=>5), K(data=>0x55));
+  $t->put(K(key=>4), K(data=>0x44));
+  $t->put(K(key=>3), K(data=>0x33));
+  $t->put(K(key=>2), K(data=>0x22));
+  $t->put(K(key=>1), K(data=>0x11));
+  $t->dump("8888");
+
+  ok Assemble eq => <<END, avx512=>1;
+8888
+At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5    6    7
+  Keys :    1    2    3    4    5    6    7    8
+  Data :   17   34   51   68   85  102  119  136
+end
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::put #TNasm::X86::Tree::find
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K count => 128;
+
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $l = $N-$index;
+    $t->put($l, $l * 2);
+    my $h = $N+$index;
+    $t->put($h, $h * 2);
+   });
+  $t->put(K(zero=>0), K(zero=>0));
+  $t->printInOrder("AAAA");
+
+  PrintOutStringNL 'Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512';
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $i = $index;
+    my $j = $i * 2;
+    my $k = $j * 2;
+    my $l = $k * 2;
+    my $m = $l * 2;
+    my $n = $m * 2;
+    my $o = $n * 2;
+    my $p = $o * 2;
+    my $q = $p * 2;
+    $t->find($i); $i->outRightInDec(K width => 4); $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($j);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($k);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($l);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($m);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($n);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($o);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($p);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
+    $t->find($q);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDecNL(K width => 8);
+   });
+
+   ok Assemble eq => <<END, avx512=>1;
+AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512
+   0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0
+   1      10      80       2     100      80       4   10000      80       800000000      80      16      10     200      32      10    1940      64  100000    11C0     128      10     C80     256               0       0
+   2     100      80       4   10000      80       800000000      80      16      10     200      32      10    1940      64  100000    11C0     128      10     C80     256               0       0               0       0
+   3    1000      80       6 1000000      80      12     100    1DC0      24       1    1AC0      48    1000    14C0      96     100     8C0     192       1    1100     384               0       0               0       0
+   4   10000      80       800000000      80      16      10     200      32      10    1940      64  100000    11C0     128      10     C80     256               0       0               0       0               0       0
+   5  100000      80      10       1    1DC0      20    1000    1C40      40     100    1640      80       1     D40     160    1000     800     320               0       0               0       0               0       0
+   6 1000000      80      12     100    1DC0      24       1    1AC0      48    1000    14C0      96     100     8C0     192       1    1100     384               0       0               0       0               0       0
+   710000000      80      14   10000    1DC0      28   10000    1AC0      56   10000    1340     112   10000     5C0     224   10000    17C0     448               0       0               0       0               0       0
+   800000000      80      16      10     200      32      10    1940      64  100000    11C0     128      10     C80     256               0       0               0       0               0       0               0       0
+   9       1     200      18      10    1C40      36  100000    1940      7200000000     200     144      10     500     288               0       0               0       0               0       0               0       0
+  10       1    1DC0      20    1000    1C40      40     100    1640      80       1     D40     160    1000     800     320               0       0               0       0               0       0               0       0
+  11      10    1DC0      22  100000    1C40      44  100000     200      88      10     A40     176  100000     B00     352               0       0               0       0               0       0               0       0
+  12     100    1DC0      24       1    1AC0      48    1000    14C0      96     100     8C0     192       1    1100     384               0       0               0       0               0       0               0       0
+  13    1000    1DC0      26     100    1AC0      52       1    1340     104    1000     740     208     100    1400     416               0       0               0       0               0       0               0       0
+  14   10000    1DC0      28   10000    1AC0      56   10000    1340     112   10000     5C0     224   10000    17C0     448               0       0               0       0               0       0               0       0
+  15  100000    1DC0      30    1000     200      60      10    11C0     120  100000     440     24000000000    1880     480               0       0               0       0               0       0               0       0
+  16      10     200      32      10    1940      64  100000    11C0     128      10     C80     256               0       0               0       0               0       0               0       0               0       0
+  17       1    1C40      34    1000    1940      68     100    1040     136       1     380     272               0       0               0       0               0       0               0       0               0       0
+  18      10    1C40      36  100000    1940      7200000000     200     144      10     500     288               0       0               0       0               0       0               0       0               0       0
+  19     100    1C40      38       1    1640      76    1000     EC0     152     100     680     304               0       0               0       0               0       0               0       0               0       0
+  20    1000    1C40      40     100    1640      80       1     D40     160    1000     800     320               0       0               0       0               0       0               0       0               0       0
+  21   10000    1C40      42   10000    1640      84   10000     D40     168   10000     980     336               0       0               0       0               0       0               0       0               0       0
+  22  100000    1C40      44  100000     200      88      10     A40     176  100000     B00     352               0       0               0       0               0       0               0       0               0       0
+  23     100     200      46      10    14C0      92  100000     A40     184       1    1880     368               0       0               0       0               0       0               0       0               0       0
+  24       1    1AC0      48    1000    14C0      96     100     8C0     192       1    1100     384               0       0               0       0               0       0               0       0               0       0
+  25      10    1AC0      50  100000    14C0     100     100    1700     200      10    1280     400               0       0               0       0               0       0               0       0               0       0
+  26     100    1AC0      52       1    1340     104    1000     740     208     100    1400     416               0       0               0       0               0       0               0       0               0       0
+  27    1000    1AC0      54     100    1340     108       1     5C0     216    1000    1580     432               0       0               0       0               0       0               0       0               0       0
+  28   10000    1AC0      56   10000    1340     112   10000     5C0     224   10000    17C0     448               0       0               0       0               0       0               0       0               0       0
+  29  100000    1AC0      5810000000     200     116      10     440     232  100000    1A00     464               0       0               0       0               0       0               0       0               0       0
+  30    1000     200      60      10    11C0     120  100000     440     24000000000    1880     480               0       0               0       0               0       0               0       0               0       0
+  31       1    1940      62    1000    11C0     124     100     2C0     248       1    1E80     496               0       0               0       0               0       0               0       0               0       0
+  32      10    1940      64  100000    11C0     128      10     C80     256               0       0               0       0               0       0               0       0               0       0               0       0
+  33     100    1940      66       1    1040     132    1000     140     264               0       0               0       0               0       0               0       0               0       0               0       0
+  34    1000    1940      68     100    1040     136       1     380     272               0       0               0       0               0       0               0       0               0       0               0       0
+  35   10000    1940      70   10000    1040     140   10000     380     280               0       0               0       0               0       0               0       0               0       0               0       0
+  36  100000    1940      7200000000     200     144      10     500     288               0       0               0       0               0       0               0       0               0       0               0       0
+  37   10000     200      74      10     EC0     148  100000     500     296               0       0               0       0               0       0               0       0               0       0               0       0
+  38       1    1640      76    1000     EC0     152     100     680     304               0       0               0       0               0       0               0       0               0       0               0       0
+  39      10    1640      78  100000     EC0     156    1000     BC0     312               0       0               0       0               0       0               0       0               0       0               0       0
+  40     100    1640      80       1     D40     160    1000     800     320               0       0               0       0               0       0               0       0               0       0               0       0
+  41    1000    1640      82     100     D40     164       1     980     328               0       0               0       0               0       0               0       0               0       0               0       0
+  42   10000    1640      84   10000     D40     168   10000     980     336               0       0               0       0               0       0               0       0               0       0               0       0
+  43  100000    1640      86       1    1700     172      10     B00     344               0       0               0       0               0       0               0       0               0       0               0       0
+  44  100000     200      88      10     A40     176  100000     B00     352               0       0               0       0               0       0               0       0               0       0               0       0
+  45       1    14C0      90    1000     A40     180     100     E00     360               0       0               0       0               0       0               0       0               0       0               0       0
+  46      10    14C0      92  100000     A40     184       1    1880     368               0       0               0       0               0       0               0       0               0       0               0       0
+  47     100    14C0      94       1     8C0     188    1000     F80     376               0       0               0       0               0       0               0       0               0       0               0       0
+  48    1000    14C0      96     100     8C0     192       1    1100     384               0       0               0       0               0       0               0       0               0       0               0       0
+  49   10000    14C0      98   10000     8C0     196   10000    1100     392               0       0               0       0               0       0               0       0               0       0               0       0
+  50  100000    14C0     100     100    1700     200      10    1280     400               0       0               0       0               0       0               0       0               0       0               0       0
+  51 1000000     200     102      10     740     204  100000    1280     408               0       0               0       0               0       0               0       0               0       0               0       0
+  52       1    1340     104    1000     740     208     100    1400     416               0       0               0       0               0       0               0       0               0       0               0       0
+  53      10    1340     106  100000     740     212   10000    1880     424               0       0               0       0               0       0               0       0               0       0               0       0
+  54     100    1340     108       1     5C0     216    1000    1580     432               0       0               0       0               0       0               0       0               0       0               0       0
+  55    1000    1340     110     100     5C0     220       1    17C0     440               0       0               0       0               0       0               0       0               0       0               0       0
+  56   10000    1340     112   10000     5C0     224   10000    17C0     448               0       0               0       0               0       0               0       0               0       0               0       0
+  57  100000    1340     114   10000    1700     228      10    1A00     456               0       0               0       0               0       0               0       0               0       0               0       0
+  5810000000     200     116      10     440     232  100000    1A00     464               0       0               0       0               0       0               0       0               0       0               0       0
+  59       1    11C0     118    1000     440     236     100    1B80     472               0       0               0       0               0       0               0       0               0       0               0       0
+  60      10    11C0     120  100000     440     24000000000    1880     480               0       0               0       0               0       0               0       0               0       0               0       0
+  61     100    11C0     122       1     2C0     244    1000    1D00     488               0       0               0       0               0       0               0       0               0       0               0       0
+  62    1000    11C0     124     100     2C0     248       1    1E80     496               0       0               0       0               0       0               0       0               0       0               0       0
+  63   10000    11C0     126   10000     2C0     252   10000    1E80     504               0       0               0       0               0       0               0       0               0       0               0       0
+  64  100000    11C0     128      10     C80     256               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  6500000000     200     130      10     140     260               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  66       1    1040     132    1000     140     264               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  67      10    1040     134  100000     140     268               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  68     100    1040     136       1     380     272               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  69    1000    1040     138     100     380     276               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  70   10000    1040     140   10000     380     280               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  71  100000    1040     142      10     BC0     284               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  7200000000     200     144      10     500     288               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  73       1     EC0     146    1000     500     292               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  74      10     EC0     148  100000     500     296               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  75     100     EC0     150       1     680     300               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  76    1000     EC0     152     100     680     304               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  77   10000     EC0     154   10000     680     308               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  78  100000     EC0     156    1000     BC0     312               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  79       1     C80     158      10     800     316               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  80       1     D40     160    1000     800     320               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  81      10     D40     162  100000     800     324               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  82     100     D40     164       1     980     328               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  83    1000     D40     166     100     980     332               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  84   10000     D40     168   10000     980     336               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  85  100000     D40     170  100000     BC0     340               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  86       1    1700     172      10     B00     344               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  87       1     A40     174    1000     B00     348               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  88      10     A40     176  100000     B00     352               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  89     100     A40     178       1     E00     356               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  90    1000     A40     180     100     E00     360               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  91   10000     A40     182   10000     E00     364               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  92  100000     A40     184       1    1880     368               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  93      10    1700     186      10     F80     372               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  94       1     8C0     188    1000     F80     376               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  95      10     8C0     190  100000     F80     380               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  96     100     8C0     192       1    1100     384               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  97    1000     8C0     194     100    1100     388               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  98   10000     8C0     196   10000    1100     392               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+  99  100000     8C0     198     100    1880     396               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 100     100    1700     200      10    1280     400               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 101       1     740     202    1000    1280     404               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 102      10     740     204  100000    1280     408               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 103     100     740     206       1    1400     412               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 104    1000     740     208     100    1400     416               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 105   10000     740     210   10000    1400     420               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 106  100000     740     212   10000    1880     424               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 107    1000    1700     214      10    1580     428               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 108       1     5C0     216    1000    1580     432               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 109      10     5C0     218  100000    1580     436               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 110     100     5C0     220       1    17C0     440               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 111    1000     5C0     222     100    17C0     444               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 112   10000     5C0     224   10000    17C0     448               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 113  100000     5C0     226 1000000    1880     452               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 114   10000    1700     228      10    1A00     456               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 115       1     440     230    1000    1A00     460               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 116      10     440     232  100000    1A00     464               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 117     100     440     234       1    1B80     468               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 118    1000     440     236     100    1B80     472               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 119   10000     440     238   10000    1B80     476               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 120  100000     440     24000000000    1880     480               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 121  100000    1700     242      10    1D00     484               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 122       1     2C0     244    1000    1D00     488               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 123      10     2C0     246  100000    1D00     492               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 124     100     2C0     248       1    1E80     496               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 125    1000     2C0     250     100    1E80     500               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 126   10000     2C0     252   10000    1E80     504               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+ 127  100000     2C0     254 1000000    1E80     508               0       0               0       0               0       0               0       0               0       0               0       0               0       0
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::printInOrder
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K count => 128;
+
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $l0 = ($N-$index) / 2;
+    my $l1 = ($N+$index) / 2;
+    my $h0 =  $N-$index;
+    my $h1 =  $N+$index;
+    $t->put($l0, $l0 * 2);
+    $t->put($h1, $h1 * 2);
+    $t->put($l1, $l1 * 2);
+    $t->put($h0, $h0 * 2);
+   });
+  $t->printInOrder("AAAA");
+
+  ok Assemble eq => <<END, avx512=>1;
+AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K count => 128;
+
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $l00 = ($N-$index) / 4;
+    my $l01 = ($N+$index) / 4;
+    my $h00 =  $N-$index  / 2;
+    my $h01 =  $N+$index  / 2;
+    my $l10 = ($N-$index) / 4 * 3;
+    my $l11 = ($N+$index) / 4 * 3;
+    my $h10 =  $N-$index ;
+    my $h11 =  $N+$index ;
+    $t->put($l00, $l00 * 2);
+    $t->put($h01, $h01 * 2);
+    $t->put($l01, $l01 * 2);
+    $t->put($h00, $h00 * 2);
+    $t->put($l10, $l10 * 2);
+    $t->put($h11, $h11 * 2);
+    $t->put($l11, $l11 * 2);
+    $t->put($h10, $h10 * 2);
+   });
+  $t->printInOrder("AAAA");
+
+  ok Assemble eq => <<END, avx512=>1;
+AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+END
+ }
+
+#latest:
+if (1) {
+  my $N = 13;
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  my ($K, $D) = (31, 30);
+
+  K(K => Rd( 1..16))->loadZmm($K);
+  K(D => Rd(17..32))->loadZmm($D);
+
+  $t->lengthIntoKeys($K, K length => $t->length);
+
+  Mov r15, 0b11001100110011;
+  $t->setTreeBits($K, r15);
+
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex $K, $D;
+
+  K(loop => $N)->for(sub
+   {my ($index) = @_;                                                           # Parameters
+    $t->deleteFirstKeyAndData($K, $D);
+
+    PrintOutNL;
+    $index->outNL;
+    PrintOutNL;
+    PrintOutRegisterInHex $K, $D;
+    PrintOutNL;
+    $t->key    ->out("k: ", "   "); $t->data->out("d: ", "   ");
+    $t->subTree->out("s: ", "   "); $t->found->outNL;
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+Start
+ zmm31: .... ..10 3333 ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19 + .... ..18 .... ..17  .... ..16 .... ..15 - .... ..14 .... ..13  .... ..12 .... ..11
+
+index: .... .... .... ....
+
+ zmm31: .... ..10 1999 ...C  .... ...E .... ...D - .... ...D .... ...C  .... ...B .... ...A + .... ...9 .... ...8  .... ...7 .... ...6 - .... ...5 .... ...4  .... ...3 .... ...2
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1C  .... ..1B .... ..1A + .... ..19 .... ..18  .... ..17 .... ..16 - .... ..15 .... ..14  .... ..13 .... ..12
+
+k: .... .... .... ...1   d: .... .... .... ..11   s: .... .... .... ...1   found: .... .... .... ...1
+
+index: .... .... .... ...1
+
+ zmm31: .... ..10 .CCC ...B  .... ...E .... ...D - .... ...D .... ...D  .... ...C .... ...B + .... ...A .... ...9  .... ...8 .... ...7 - .... ...6 .... ...5  .... ...4 .... ...3
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1C .... ..1B + .... ..1A .... ..19  .... ..18 .... ..17 - .... ..16 .... ..15  .... ..14 .... ..13
+
+k: .... .... .... ...2   d: .... .... .... ..12   s: .... .... .... ...1   found: .... .... .... ...1
+
+index: .... .... .... ...2
+
+ zmm31: .... ..10 .666 ...A  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...C + .... ...B .... ...A  .... ...9 .... ...8 - .... ...7 .... ...6  .... ...5 .... ...4
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1C + .... ..1B .... ..1A  .... ..19 .... ..18 - .... ..17 .... ..16  .... ..15 .... ..14
+
+k: .... .... .... ...3   d: .... .... .... ..13   s: .... .... .... ....   found: .... .... .... ...1
+
+index: .... .... .... ...3
+
+ zmm31: .... ..10 .333 ...9  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...C .... ...B  .... ...A .... ...9 - .... ...8 .... ...7  .... ...6 .... ...5
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1C .... ..1B  .... ..1A .... ..19 - .... ..18 .... ..17  .... ..16 .... ..15
+
+k: .... .... .... ...4   d: .... .... .... ..14   s: .... .... .... ....   found: .... .... .... ...1
+
+index: .... .... .... ...4
+
+ zmm31: .... ..10 .199 ...8  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...D .... ...C  .... ...B .... ...A - .... ...9 .... ...8  .... ...7 .... ...6
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1D .... ..1C  .... ..1B .... ..1A - .... ..19 .... ..18  .... ..17 .... ..16
+
+k: .... .... .... ...5   d: .... .... .... ..15   s: .... .... .... ...1   found: .... .... .... ...1
+
+index: .... .... .... ...5
+
+ zmm31: .... ..10 ..CC ...7  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...D .... ...D  .... ...C .... ...B - .... ...A .... ...9  .... ...8 .... ...7
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1D .... ..1D  .... ..1C .... ..1B - .... ..1A .... ..19  .... ..18 .... ..17
+
+k: .... .... .... ...6   d: .... .... .... ..16   s: .... .... .... ...1   found: .... .... .... ...1
+
+index: .... .... .... ...6
+
+ zmm31: .... ..10 ..66 ...6  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...D .... ...D  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1D .... ..1D  .... ..1D .... ..1C - .... ..1B .... ..1A  .... ..19 .... ..18
+
+k: .... .... .... ...7   d: .... .... .... ..17   s: .... .... .... ....   found: .... .... .... ...1
+
+index: .... .... .... ...7
+
+ zmm31: .... ..10 ..33 ...5  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...D .... ...D  .... ...D .... ...D - .... ...C .... ...B  .... ...A .... ...9
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1D .... ..1D  .... ..1D .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19
+
+k: .... .... .... ...8   d: .... .... .... ..18   s: .... .... .... ....   found: .... .... .... ...1
+
+index: .... .... .... ...8
+
+ zmm31: .... ..10 ..19 ...4  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...D .... ...D  .... ...D .... ...D - .... ...D .... ...C  .... ...B .... ...A
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1D .... ..1D  .... ..1D .... ..1D - .... ..1D .... ..1C  .... ..1B .... ..1A
+
+k: .... .... .... ...9   d: .... .... .... ..19   s: .... .... .... ...1   found: .... .... .... ...1
+
+index: .... .... .... ...9
+
+ zmm31: .... ..10 ...C ...3  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...D .... ...D  .... ...D .... ...D - .... ...D .... ...D  .... ...C .... ...B
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1D .... ..1D  .... ..1D .... ..1D - .... ..1D .... ..1D  .... ..1C .... ..1B
+
+k: .... .... .... ...A   d: .... .... .... ..1A   s: .... .... .... ...1   found: .... .... .... ...1
+
+index: .... .... .... ...A
+
+ zmm31: .... ..10 ...6 ...2  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...D .... ...D  .... ...D .... ...D - .... ...D .... ...D  .... ...D .... ...C
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1D .... ..1D  .... ..1D .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1C
+
+k: .... .... .... ...B   d: .... .... .... ..1B   s: .... .... .... ....   found: .... .... .... ...1
+
+index: .... .... .... ...B
+
+ zmm31: .... ..10 ...3 ...1  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...D .... ...D  .... ...D .... ...D - .... ...D .... ...D  .... ...D .... ...D
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1D .... ..1D  .... ..1D .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D
+
+k: .... .... .... ...C   d: .... .... .... ..1C   s: .... .... .... ....   found: .... .... .... ...1
+
+index: .... .... .... ...C
+
+ zmm31: .... ..10 ...1 ....  .... ...E .... ...D - .... ...D .... ...D  .... ...D .... ...D + .... ...D .... ...D  .... ...D .... ...D - .... ...D .... ...D  .... ...D .... ...D
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D + .... ..1D .... ..1D  .... ..1D .... ..1D - .... ..1D .... ..1D  .... ..1D .... ..1D
+
+k: .... .... .... ...D   d: .... .... .... ..1D   s: .... .... .... ...1   found: .... .... .... ...1
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::shiftLeft #TNasm::X86::Variable::shiftRight
+  K(loop=>16)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+   (K(one => 1)     << $index)->outRightInBinNL(K width => 16);
+   (K(one => 1<<15) >> $index)->outRightInBinNL(K width => 16);
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+               1
+1000000000000000
+              10
+ 100000000000000
+             100
+  10000000000000
+            1000
+   1000000000000
+           10000
+    100000000000
+          100000
+     10000000000
+         1000000
+      1000000000
+        10000000
+       100000000
+       100000000
+        10000000
+      1000000000
+         1000000
+     10000000000
+          100000
+    100000000000
+           10000
+   1000000000000
+            1000
+  10000000000000
+             100
+ 100000000000000
+              10
+1000000000000000
+               1
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::firstNode #TNasm::X86::Tree::lastNode
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  my ($K, $D, $N) = (31, 30, 29);
+
+  K(K => Rd( 1..16))->loadZmm($K);
+  K(K => Rd( 1..16))->loadZmm($N);
+
+  $t->lengthIntoKeys($K, K length => $t->length);
+
+  PrintOutRegisterInHex 31, 29;
+  my $f = $t->firstNode($K, $D, $N);
+  my $l = $t-> lastNode($K, $D, $N);
+  $f->outNL;
+  $l->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+ zmm31: .... ..10 .... ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm29: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+d at offset 0 in zmm29: .... .... .... ...1
+d at offset (b at offset 56 in zmm31 times 4) in zmm29: .... .... .... ...E
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::firstNode #TNasm::X86::Tree::lastNode
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  my ($K, $D, $N) = (31, 30, 29);
+
+  K(K => Rd( 1..16))->loadZmm($K);
+  K(K => Rd( 1..16))->loadZmm($N);
+
+  $t->lengthIntoKeys($K, K length => $t->length);
+
+  PrintOutRegisterInHex 31, 29;
+  my $f = $t->firstNode($K, $D, $N);
+  my $l = $t-> lastNode($K, $D, $N);
+  $f->outNL;
+  $l->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+ zmm31: .... ..10 .... ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm29: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+d at offset 0 in zmm29: .... .... .... ...1
+d at offset (b at offset 56 in zmm31 times 4) in zmm29: .... .... .... ...E
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::replace
+  my ($K, $D) = (31, 30);
+
+  K(K => Rd(reverse 1..16))->loadZmm($K);
+  K(K => Rd(reverse 1..16))->loadZmm($D);
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex $K, $D;
+
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  K(loop => 14)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+
+    $t->key    ->copy($index);
+    $t->data   ->copy($index * 2);
+    $t->subTree->copy($index % 2);
+
+    $t->replace(K(one=>1)<<$index, $K, $D);
+
+    $index->outNL;
+    PrintOutRegisterInHex $K, $D;
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+Start
+ zmm31: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...E  .... ...F .... ..10
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...E  .... ...F .... ..10
+index: .... .... .... ....
+ zmm31: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...E  .... ...F .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...E  .... ...F .... ....
+index: .... .... .... ...1
+ zmm31: .... ...1 ...2 ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...E  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...E  .... ...2 .... ....
+index: .... .... .... ...2
+ zmm31: .... ...1 ...2 ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...4  .... ...2 .... ....
+index: .... .... .... ...3
+ zmm31: .... ...1 ...A ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...4
+ zmm31: .... ...1 ...A ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...5
+ zmm31: .... ...1 ..2A ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...6
+ zmm31: .... ...1 ..2A ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...C  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...7
+ zmm31: .... ...1 ..AA ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...E .... ...C  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...8
+ zmm31: .... ...1 ..AA ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ..10 + .... ...E .... ...C  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...9
+ zmm31: .... ...1 .2AA ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ..12 .... ..10 + .... ...E .... ...C  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...A
+ zmm31: .... ...1 .2AA ...2  .... ...3 .... ...4 - .... ...5 .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ..14  .... ..12 .... ..10 + .... ...E .... ...C  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...B
+ zmm31: .... ...1 .AAA ...2  .... ...3 .... ...4 - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ..16 .... ..14  .... ..12 .... ..10 + .... ...E .... ...C  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...C
+ zmm31: .... ...1 .AAA ...2  .... ...3 .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ...3 .... ..18 - .... ..16 .... ..14  .... ..12 .... ..10 + .... ...E .... ...C  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+index: .... .... .... ...D
+ zmm31: .... ...1 2AAA ...2  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
+ zmm30: .... ...1 .... ...2  .... ..1A .... ..18 - .... ..16 .... ..14  .... ..12 .... ..10 + .... ...E .... ...C  .... ...A .... ...8 - .... ...6 .... ...4  .... ...2 .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::extractFirst
+  my ($K, $D, $N) = (31, 30, 29);
+
+  K(K => Rd( 1..16))       ->loadZmm($K);
+  K(K => Rd( 1..16))       ->loadZmm($D);
+  K(K => Rd(map {0} 1..16))->loadZmm($N);
+
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  my $p = K(one => 1) << K three => 3;
+  Mov r15, 0xAAAA;
+  $t->setTreeBits($K, r15);
+
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex 31, 30, 29;
+
+  K(n=>4)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+
+    $t->extractFirst($K, $D, $N);
+
+    PrintOutStringNL "-------------";
+    $index->outNL;
+    PrintOutRegisterInHex 31, 30, 29;
+
+    $t->data->outNL;
+    $t->subTree->outNL;
+    $t->lengthFromKeys($K)->outNL;
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+Start
+ zmm31: .... ..10 2AAA ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+-------------
+index: .... .... .... ....
+ zmm31: .... ..10 1555 ...E  .... ...E .... ...E - .... ...D .... ...C  .... ...B .... ...A + .... ...9 .... ...8  .... ...7 .... ...6 - .... ...5 .... ...4  .... ...3 .... ...2
+ zmm30: .... ..10 .... ...F  .... ...E .... ...E - .... ...D .... ...C  .... ...B .... ...A + .... ...9 .... ...8  .... ...7 .... ...6 - .... ...5 .... ...4  .... ...3 .... ...2
+ zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+data: .... .... .... ...1
+subTree: .... .... .... ....
+b at offset 56 in zmm31: .... .... .... ...E
+-------------
+index: .... .... .... ...1
+ zmm31: .... ..10 .AAA ...D  .... ...E .... ...E - .... ...E .... ...D  .... ...C .... ...B + .... ...A .... ...9  .... ...8 .... ...7 - .... ...6 .... ...5  .... ...4 .... ...3
+ zmm30: .... ..10 .... ...F  .... ...E .... ...E - .... ...E .... ...D  .... ...C .... ...B + .... ...A .... ...9  .... ...8 .... ...7 - .... ...6 .... ...5  .... ...4 .... ...3
+ zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+data: .... .... .... ...2
+subTree: .... .... .... ...1
+b at offset 56 in zmm31: .... .... .... ...D
+-------------
+index: .... .... .... ...2
+ zmm31: .... ..10 .555 ...C  .... ...E .... ...E - .... ...E .... ...E  .... ...D .... ...C + .... ...B .... ...A  .... ...9 .... ...8 - .... ...7 .... ...6  .... ...5 .... ...4
+ zmm30: .... ..10 .... ...F  .... ...E .... ...E - .... ...E .... ...E  .... ...D .... ...C + .... ...B .... ...A  .... ...9 .... ...8 - .... ...7 .... ...6  .... ...5 .... ...4
+ zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+data: .... .... .... ...3
+subTree: .... .... .... ....
+b at offset 56 in zmm31: .... .... .... ...C
+-------------
+index: .... .... .... ...3
+ zmm31: .... ..10 .2AA ...B  .... ...E .... ...E - .... ...E .... ...E  .... ...E .... ...D + .... ...C .... ...B  .... ...A .... ...9 - .... ...8 .... ...7  .... ...6 .... ...5
+ zmm30: .... ..10 .... ...F  .... ...E .... ...E - .... ...E .... ...E  .... ...E .... ...D + .... ...C .... ...B  .... ...A .... ...9 - .... ...8 .... ...7  .... ...6 .... ...5
+ zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+data: .... .... .... ...4
+subTree: .... .... .... ...1
+b at offset 56 in zmm31: .... .... .... ...B
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::extract
+  my ($K, $D, $N) = (31, 30, 29);
+
+  K(K => Rd( 1..16))->loadZmm($K);
+  K(K => Rd( 1..16))->loadZmm($D);
+  K(K => Rd(map {0} 1..16))->loadZmm($N);
+
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  my $p = K(one => 1) << K three => 3;
+  Mov r15, 0xAAAA;
+  $t->setTreeBits($K, r15);
+
+  PrintOutStringNL "Start";
+  PrintOutRegisterInHex 31, 30, 29;
+
+  $t->extract($p, $K, $D, $N);
+
+  PrintOutStringNL "Finish";
+  PrintOutRegisterInHex 31, 30, 29;
+
+  ok Assemble eq => <<END, avx512=>1;
+Start
+ zmm31: .... ..10 2AAA ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+Finish
+ zmm31: .... ..10 2AAA ...E  .... ...E .... ...E - .... ...D .... ...C  .... ...B .... ...A + .... ...9 .... ...8  .... ...7 .... ...6 - .... ...5 .... ...3  .... ...2 .... ...1
+ zmm30: .... ..10 .... ...F  .... ...E .... ...E - .... ...D .... ...C  .... ...B .... ...A + .... ...9 .... ...8  .... ...7 .... ...6 - .... ...5 .... ...3  .... ...2 .... ...1
+ zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::nextNode #TNasm::X86::Tree::prevNode
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  K(loop => 66)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $t->put($index, 2 * $index);
+   });
+  $t->getBlock(K(offset=>0x200), 31, 30, 29);
+  $t->nextNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
+  $t->prevNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
+
+  ok Assemble eq => <<END, avx512=>1;
+500
+380
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::findFirst
+  my $N = K(key => 32);
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $t->put($i, $i);
+   });
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $t->put($N + $i, $N + $i);
+    $t->findFirst;
+
+    If $t->key != $i,
+    Then
+     {PrintOutTraceBack "Reverse queue first failed at: "; $i->outNL;
+     };
+    $t->delete($i);
+    If $t->size != $N,
+    Then
+     {PrintOutTraceBack "Reverse queue size failed at: "; $i->outNL;
+     };
+    $t->printInOrder("A");
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+A  32:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
+A  32:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
+A  32:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
+A  32:    4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+A  32:    5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24
+A  32:    6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25
+A  32:    7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26
+A  32:    8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27
+A  32:    9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28
+A  32:    A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29
+A  32:    B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A
+A  32:    C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B
+A  32:    D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C
+A  32:    E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D
+A  32:    F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E
+A  32:   10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F
+A  32:   11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30
+A  32:   12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31
+A  32:   13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32
+A  32:   14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33
+A  32:   15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34
+A  32:   16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35
+A  32:   17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36
+A  32:   18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37
+A  32:   19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38
+A  32:   1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39
+A  32:   1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A
+A  32:   1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B
+A  32:   1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C
+A  32:   1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D
+A  32:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
+A  32:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F
+END
+ }
+
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::findLast
+  my $N = K(key => 32);
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $t->put($N + $i, $N + $i);
+   });
+
+  $N->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $t->put($N - $i, $N - $i);
+    $t->findLast;
+    $t->delete($t->key);
+    If $t->size != $N - 1,
+    Then
+     {PrintOutTraceBack "Queued size failed at: "; $i->outNL;
+     };
+    $t->printInOrder("A");
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+A  31:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
+A  31:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D
+A  31:   1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C
+A  31:   1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B
+A  31:   1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A
+A  31:   1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39
+A  31:   1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38
+A  31:   19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37
+A  31:   18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36
+A  31:   17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35
+A  31:   16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34
+A  31:   15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33
+A  31:   14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32
+A  31:   13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31
+A  31:   12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30
+A  31:   11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F
+A  31:   10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E
+A  31:    F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D
+A  31:    E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C
+A  31:    D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B
+A  31:    C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A
+A  31:    B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29
+A  31:    A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28
+A  31:    9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27
+A  31:    8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26
+A  31:    7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25
+A  31:    6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24
+A  31:    5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+A  31:    4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
+A  31:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
+A  31:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
+A  31:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END, avx512=>1;
+   4
+4
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :    1    2    3    4
+end
+   3
+X
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    3
+  Data :    1    2    3
+end
+X   3:    1   2   3
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $i20 = V  k => 20; $t->put($i20, $i20);
+  my $i30 = V  k => 30; $t->put($i30, $i30);
+  my $i40 = V  k => 40; $t->put($i40, $i40);
+  my $i10 = V  k => 10; $t->put($i10, $i10);
+  my $i31 = V  k => 31; $t->put($i31, $i31);
+  my $i32 = V  k => 32; $t->put($i32, $i32);
+  my $i33 = V  k => 33; $t->put($i33, $i33);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("33"); $t->delete($i33);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("40"); $t->delete($i40);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END, avx512=>1;
+   7
+33
+At:   80                    length:    7,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5    6
+  Keys :    A   14   1E   1F   20   21   28
+  Data :   10   20   30   31   32   33   40
+end
+   6
+40
+At:   80                    length:    6,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5
+  Keys :    A   14   1E   1F   20   28
+  Data :   10   20   30   31   32   40
+end
+   5
+X
+At:   80                    length:    5,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4
+  Keys :    A   14   1E   1F   20
+  Data :   10   20   30   31   32
+end
+X   5:    A  14  1E  1F  20
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $i1 = V  k =>  0; $t->put($i1, $i1);
+  my $i2 = V  k => 11; $t->put($i2, $i2);
+  my $i3 = V  k => 13; $t->put($i3, $i3);
+  my $i4 = V  k => 15; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);
+  $t->dump("1");
+  $a->dump("AAA", K blocks => 12);
+  $t->delete($i2);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END, avx512=>1;
+   4
+1
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    0    B    D    F
+  Data :    0   11   13   15
+end
+AAA
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .4__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ .B__ ____  .D__ ____ .F__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .4__ ____ C0__ ____
+.... .... .... ..C0 | ____ ____ .B__ ____  .D__ ____ .F__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .180 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .240 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .280 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   3
+X
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    0    D    F
+  Data :    0   13   15
+end
+X   3:    0   D   F
+END
+ }
+
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $a->dump("AAA", K blocks => 12); $t->delete($i1);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END, avx512=>1;
+   4
+1
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :    1    2    3    4
+end
+AAA
+Area     Size:     4096    Used:      320
+.... .... .... .... | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  .4__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .4__ ____ C0__ ____
+.... .... .... ..C0 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.1 ____
+.... .... .... .1.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .180 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .240 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .280 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+   3
+X
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    2    3    4
+  Data :    2    3    4
+end
+X   3:    2   3   4
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i2);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END, avx512=>1;
+   4
+2
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :    1    2    3    4
+end
+   3
+X
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    3    4
+  Data :    1    3    4
+end
+X   3:    1   3   4
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i3);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END, avx512=>1;
+   4
+3
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :    1    2    3    4
+end
+   3
+X
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    4
+  Data :    1    2    4
+end
+X   3:    1   2   4
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+
+  ok Assemble eq => <<END, avx512=>1;
+   4
+4
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :    1    2    3    4
+end
+   3
+X
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    3
+  Data :    1    2    3
+end
+X   3:    1   2   3
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("0"); $t->delete($i2);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i3);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i1);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("1");
+
+  ok Assemble eq => <<END, avx512=>1;
+   4
+0
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :    1    2    3    4
+end
+   3
+2
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    3    4
+  Data :    1    3    4
+end
+   2
+3
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    1    4
+  Data :    1    4
+end
+   1
+4
+At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0
+  Keys :    1
+  Data :    1
+end
+   0
+1
+- empty
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->put(   K(k=>1), K(d=>11));
+  $t->put(   K(k=>2), K(d=>22));
+  $t->put(   K(k=>3), K(d=>33));
+  $t->delete(K k=>1);  $t->dump("1");
+  $t->delete(K k=>3);  $t->dump("3");
+  $t->delete(K k=>2);  $t->dump("2");
+  ok Assemble eq => <<END, avx512=>1;
+1
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    2    3
+  Data :   22   33
+end
+3
+At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0
+  Keys :    2
+  Data :   22
+end
+2
+- empty
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->put(   K(k=>1), K(d=>11));
+  $t->put(   K(k=>2), K(d=>22));
+  $t->put(   K(k=>3), K(d=>33));
+  $t->put(   K(k=>4), K(d=>44));
+  $t->dump("0");
+  $t->delete(K k=>1);
+  $t->dump("1");
+  $t->delete(K k=>2);
+  $t->dump("2");
+  $t->delete(K k=>3);
+  $t->dump("3");
+  $t->delete(K k=>4);
+  $t->dump("4");
+  ok Assemble eq => <<END, avx512=>1;
+0
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :   11   22   33   44
+end
+1
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    2    3    4
+  Data :   22   33   44
+end
+2
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    3    4
+  Data :   33   44
+end
+3
+At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0
+  Keys :    4
+  Data :   44
+end
+4
+- empty
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->put(   K(k=>1), K(d=>11));
+  $t->put(   K(k=>2), K(d=>22));
+  $t->put(   K(k=>3), K(d=>33));
+  $t->put(   K(k=>4), K(d=>44));
+  $t->dump("0");
+  $t->delete(K k=>3);
+  $t->dump("3");
+  $t->delete(K k=>4);
+  $t->dump("4");
+  $t->delete(K k=>2);
+  $t->dump("2");
+  $t->delete(K k=>1);
+  $t->dump("1");
+  ok Assemble eq => <<END, avx512=>1;
+0
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    1    2    3    4
+  Data :   11   22   33   44
+end
+3
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    4
+  Data :   11   22   44
+end
+4
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    1    2
+  Data :   11   22
+end
+2
+At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0
+  Keys :    1
+  Data :   11
+end
+1
+- empty
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $i1 = V  k => 1; $t->put($i1, $i1);
+  my $i2 = V  k => 2; $t->put($i2, $i2);
+  my $i3 = V  k => 3; $t->put($i3, $i3);
+  my $i4 = V  k => 4; $t->put($i4, $i4);
+  my $i5 = V  k => 5; $t->put($i5, $i5);
+  my $i6 = V  k => 6; $t->put($i6, $i6);
+  my $i7 = V  k => 7; $t->put($i7, $i7);
+  my $i8 = V  k => 8; $t->put($i8, $i8);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $t->delete($i1);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i2);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i3);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("5"); $t->delete($i5);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("6"); $t->delete($i6);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("7"); $t->delete($i7);
+  $t->size->outRightInDecNL(K width => 4);  $t->dump("8"); $t->delete($i8);
+  $t->size->outRightInDecNL(K width => 4);
+  $t->dump("X");
+
+  ok Assemble eq => <<END, avx512=>1;
+   8
+1
+At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5    6    7
+  Keys :    1    2    3    4    5    6    7    8
+  Data :    1    2    3    4    5    6    7    8
+end
+   7
+2
+At:   80                    length:    7,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5    6
+  Keys :    2    3    4    5    6    7    8
+  Data :    2    3    4    5    6    7    8
+end
+   6
+3
+At:   80                    length:    6,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4    5
+  Keys :    3    4    5    6    7    8
+  Data :    3    4    5    6    7    8
+end
+   5
+4
+At:   80                    length:    5,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3    4
+  Keys :    4    5    6    7    8
+  Data :    4    5    6    7    8
+end
+   4
+5
+At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2    3
+  Keys :    5    6    7    8
+  Data :    5    6    7    8
+end
+   3
+6
+At:   80                    length:    3,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1    2
+  Keys :    6    7    8
+  Data :    6    7    8
+end
+   2
+7
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    7    8
+  Data :    7    8
+end
+   1
+8
+At:   80                    length:    1,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0
+  Keys :    8
+  Data :    8
+end
+   0
+X
+- empty
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 20;
+  $N->for(sub                                                                   # Load tree
+   {my ($i) = @_;
+    $t->put($i, $i);
+   });
+  $t->size->outNL;        $t->printInOrder("AA");
+  $t->delete(K k =>  0);  $t->printInOrder(" 0");
+  $t->delete(K k =>  9);  $t->printInOrder(" 9");
+  $t->delete(K k =>  1);  $t->printInOrder(" 1");
+  $t->delete(K k =>  8);  $t->printInOrder(" 8");
+  $t->delete(K k =>  2);  $t->printInOrder(" 2");
+  $t->delete(K k =>  7);  $t->printInOrder(" 7");
+  $t->delete(K k =>  3);  $t->printInOrder(" 3");
+  $t->delete(K k =>  6);  $t->printInOrder(" 6");
+  $t->delete(K k =>  4);  $t->printInOrder(" 4");
+  $t->delete(K k =>  5);  $t->printInOrder(" 5");
+  $t->delete(K k => 10);  $t->printInOrder("10");
+  $t->delete(K k => 19);  $t->printInOrder("19");
+  $t->delete(K k => 11);  $t->printInOrder("11");
+  $t->delete(K k => 18);  $t->printInOrder("18");
+  $t->delete(K k => 12);  $t->printInOrder("12");
+  $t->delete(K k => 17);  $t->printInOrder("17");
+  $t->delete(K k => 13);  $t->printInOrder("13");
+  $t->delete(K k => 16);  $t->printInOrder("16");
+  $t->delete(K k => 14);  $t->printInOrder("14");
+  $t->delete(K k => 15);  $t->printInOrder("15");
+
+  ok Assemble eq => <<END, avx512=>1;
+size of tree: .... .... .... ..14
+AA  20:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
+ 0  19:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
+ 9  18:    1   2   3   4   5   6   7   8   A   B   C   D   E   F  10  11  12  13
+ 1  17:    2   3   4   5   6   7   8   A   B   C   D   E   F  10  11  12  13
+ 8  16:    2   3   4   5   6   7   A   B   C   D   E   F  10  11  12  13
+ 2  15:    3   4   5   6   7   A   B   C   D   E   F  10  11  12  13
+ 7  14:    3   4   5   6   A   B   C   D   E   F  10  11  12  13
+ 3  13:    4   5   6   A   B   C   D   E   F  10  11  12  13
+ 6  12:    4   5   A   B   C   D   E   F  10  11  12  13
+ 4  11:    5   A   B   C   D   E   F  10  11  12  13
+ 5  10:    A   B   C   D   E   F  10  11  12  13
+10   9:    B   C   D   E   F  10  11  12  13
+19   8:    B   C   D   E   F  10  11  12
+11   7:    C   D   E   F  10  11  12
+18   6:    C   D   E   F  10  11
+12   5:    D   E   F  10  11
+17   4:    D   E   F  10
+13   3:    E   F  10
+16   2:    E   F
+14   1:    F
+15- empty
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, $i);
+   });
+  $t->printInOrder(" 0"); $t->delete(K k =>  0);
+  $t->printInOrder(" 2"); $t->delete(K k =>  2);
+  $t->printInOrder(" 4"); $t->delete(K k =>  4);
+  $t->printInOrder(" 6"); $t->delete(K k =>  6);
+  $t->printInOrder(" 8"); $t->delete(K k =>  8);
+  $t->printInOrder("10"); $t->delete(K k => 10);
+  $t->printInOrder("12"); $t->delete(K k => 12);
+  $t->printInOrder("14"); $t->delete(K k => 14);
+  $t->printInOrder(" 1"); $t->delete(K k =>  1);
+  $t->printInOrder(" 3"); $t->delete(K k =>  3);
+  $t->printInOrder(" 5"); $t->delete(K k =>  5);
+  $t->printInOrder(" 7"); $t->delete(K k =>  7);
+  $t->printInOrder(" 9"); $t->delete(K k =>  9);
+  $t->printInOrder("11"); $t->delete(K k => 11);
+  $t->printInOrder("13"); $t->delete(K k => 13);
+  $t->printInOrder("15"); $t->delete(K k => 15);
+  $t->printInOrder("XX");
+
+  ok Assemble eq => <<END, avx512=>1;
+ 0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 2  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 4  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
+ 6  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
+ 8  12:    1   3   5   7   8   9   A   B   C   D   E   F
+10  11:    1   3   5   7   9   A   B   C   D   E   F
+12  10:    1   3   5   7   9   B   C   D   E   F
+14   9:    1   3   5   7   9   B   D   E   F
+ 1   8:    1   3   5   7   9   B   D   F
+ 3   7:    3   5   7   9   B   D   F
+ 5   6:    5   7   9   B   D   F
+ 7   5:    7   9   B   D   F
+ 9   4:    9   B   D   F
+11   3:    B   D   F
+13   2:    D   F
+15   1:    F
+XX- empty
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K max => 8;
+
+  $N->for(sub                                                                   # Load tree
+   {my ($i) = @_;
+    $t->put(         $i,     2 *        $i);
+    $t->put(2 * $N - $i - 1, 2 * ($N -  $i));
+   });
+#  $t->printInOrder("Full");
+
+  ($N-1)->for(sub                                                               # Delete elements
+   {my ($i) = @_;
+    my $n1 = ($N + $i)->clone("1111"); my $n2 = ($N - $i - 1)->clone("2222");
+
+    $n1->outNL;
+    $t->delete($n1);
+    $t->printInOrder("1111");
+
+    $n2->outNL;
+    $t->delete($n2);
+    $t->printInOrder("2222");
+   });
+  $t->dump("Two:");
+  $t->size->outRightInDecNL(K width => 4);
+
+  ok Assemble eq => <<END, avx512=>1;
+1111: .... .... .... ...8
+1111  15:    0   1   2   3   4   5   6   7   9   A   B   C   D   E   F
+2222: .... .... .... ...7
+2222  14:    0   1   2   3   4   5   6   9   A   B   C   D   E   F
+1111: .... .... .... ...9
+1111  13:    0   1   2   3   4   5   6   A   B   C   D   E   F
+2222: .... .... .... ...6
+2222  12:    0   1   2   3   4   5   A   B   C   D   E   F
+1111: .... .... .... ...A
+1111  11:    0   1   2   3   4   5   B   C   D   E   F
+2222: .... .... .... ...5
+2222  10:    0   1   2   3   4   B   C   D   E   F
+1111: .... .... .... ...B
+1111   9:    0   1   2   3   4   C   D   E   F
+2222: .... .... .... ...4
+2222   8:    0   1   2   3   C   D   E   F
+1111: .... .... .... ...C
+1111   7:    0   1   2   3   D   E   F
+2222: .... .... .... ...3
+2222   6:    0   1   2   D   E   F
+1111: .... .... .... ...D
+1111   5:    0   1   2   E   F
+2222: .... .... .... ...2
+2222   4:    0   1   E   F
+1111: .... .... .... ...E
+1111   3:    0   1   F
+2222: .... .... .... ...1
+2222   2:    0   F
+Two:
+At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
+  Index:    0    1
+  Keys :    0    F
+  Data :    0   16
+end
+   2
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K max => 100;
+
+  $N->for(sub                                                                   # Load tree
+   {my ($index, $start, $next, $end) = @_;
+    $t->put($index, 2 * $index);
+    If $t->size != $index + 1,
+    Then
+     {PrintOutStringNL "SSSS"; $index->outNL; Exit(0);
+     };
+   });
+
+  $N->for(sub                                                                   # Check elements
+   {my ($i) = @_;
+    $t->find($i);
+    If $t->found == 0,
+    Then
+     {PrintOutStringNL "AAAA"; $i->outNL; Exit(0);
+     };
+   });
+
+  $N->for(sub                                                                   # Delete elements
+   {my ($i) = @_;
+    $t->delete($i);
+
+    If $t->size != $N - $i - 1,
+    Then
+     {PrintOutStringNL "TTTT"; $i->outNL; Exit(0);
+     };
+
+    $N->for(sub                                                                 # Check elements
+     {my ($j) = @_;
+      $t->find($j);
+      If $t->found == 0,
+      Then
+       {If $j > $i,
+        Then
+         {PrintOutStringNL "BBBBB"; $j->outNL; Exit(0);                         # Not deleted yet so it should be findable
+         };
+       },
+      Else
+       {If $j <= $i,
+        Then
+         {PrintOutStringNL "CCCCC"; $j->outNL; Exit(0);                         # Deleted so should not be findable
+         };
+       };
+     });
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, $i);
+   });
+  ($N/2)->for(sub
+   {my ($i) = @_;
+    $t->printInOrder("AAAA");
+    $t->delete($i * 2);
+   });
+  ($N/2)->for(sub
+   {my ($i) = @_;
+    $t->printInOrder("BBBB");
+    $t->delete($i * 2 + 1);
+   });
+  $t->printInOrder("CCCC");
+
+  ok Assemble eq => <<END, avx512=>1;
+AAAA  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+AAAA  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+AAAA  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
+AAAA  13:    1   3   5   6   7   8   9   A   B   C   D   E   F
+AAAA  12:    1   3   5   7   8   9   A   B   C   D   E   F
+AAAA  11:    1   3   5   7   9   A   B   C   D   E   F
+AAAA  10:    1   3   5   7   9   B   C   D   E   F
+AAAA   9:    1   3   5   7   9   B   D   E   F
+BBBB   8:    1   3   5   7   9   B   D   F
+BBBB   7:    3   5   7   9   B   D   F
+BBBB   6:    5   7   9   B   D   F
+BBBB   5:    7   9   B   D   F
+BBBB   4:    9   B   D   F
+BBBB   3:    B   D   F
+BBBB   2:    D   F
+BBBB   1:    F
+CCCC- empty
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::delete
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 36;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, $i);
+   });
+  $t->delete(K 1 =>  0); $t->printInOrder(" 0");
+  $t->delete(K 1 =>  5); $t->printInOrder(" 5");
+  $t->delete(K 1 => 10); $t->printInOrder("10");
+  $t->delete(K 1 => 15); $t->printInOrder("15");
+  $t->delete(K 1 => 20); $t->printInOrder("20");
+  $t->delete(K 1 => 25); $t->printInOrder("25");
+  $t->delete(K 1 => 30); $t->printInOrder("30");
+  $t->delete(K 1 => 35); $t->printInOrder("35");
+
+  $t->delete(K 1 =>  1); $t->printInOrder(" 1");
+  $t->delete(K 1 =>  6); $t->printInOrder(" 6");
+  $t->delete(K 1 => 11); $t->printInOrder("11");
+  $t->delete(K 1 => 16); $t->printInOrder("16");
+  $t->delete(K 1 => 21); $t->printInOrder("21");
+  $t->delete(K 1 => 26); $t->printInOrder("26");
+  $t->delete(K 1 => 31); $t->printInOrder("31");
+
+  $t->delete(K 1 =>  2); $t->printInOrder(" 2");
+  $t->delete(K 1 =>  7); $t->printInOrder(" 7");
+  $t->delete(K 1 => 12); $t->printInOrder("12");
+  $t->delete(K 1 => 17); $t->printInOrder("17");
+  $t->delete(K 1 => 22); $t->printInOrder("22");
+  $t->delete(K 1 => 27); $t->printInOrder("27");
+  $t->delete(K 1 => 32); $t->printInOrder("32");
+
+  $t->delete(K 1 =>  3); $t->printInOrder(" 3");
+  $t->delete(K 1 =>  8); $t->printInOrder(" 8");
+  $t->delete(K 1 => 13); $t->printInOrder("13");
+  $t->delete(K 1 => 18); $t->printInOrder("18");
+  $t->delete(K 1 => 23); $t->printInOrder("23");
+  $t->delete(K 1 => 28); $t->printInOrder("28");
+  $t->delete(K 1 => 33); $t->printInOrder("33");
+
+  $t->delete(K 1 =>  4); $t->printInOrder(" 4");
+  $t->delete(K 1 =>  9); $t->printInOrder(" 9");
+  $t->delete(K 1 => 14); $t->printInOrder("14");
+  $t->delete(K 1 => 19); $t->printInOrder("19");
+  $t->delete(K 1 => 24); $t->printInOrder("24");
+  $t->delete(K 1 => 29); $t->printInOrder("29");
+  $t->delete(K 1 => 34); $t->printInOrder("34");
+
+  ok Assemble eq => <<END, avx512=>1;
+ 0  35:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+ 5  34:    1   2   3   4   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+10  33:    1   2   3   4   6   7   8   9   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+15  32:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+20  31:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
+25  30:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1E  1F  20  21  22  23
+30  29:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22  23
+35  28:    1   2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+ 1  27:    2   3   4   6   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+ 6  26:    2   3   4   7   8   9   B   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+11  25:    2   3   4   7   8   9   C   D   E  10  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+16  24:    2   3   4   7   8   9   C   D   E  11  12  13  15  16  17  18  1A  1B  1C  1D  1F  20  21  22
+21  23:    2   3   4   7   8   9   C   D   E  11  12  13  16  17  18  1A  1B  1C  1D  1F  20  21  22
+26  22:    2   3   4   7   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  1F  20  21  22
+31  21:    2   3   4   7   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+ 2  20:    3   4   7   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+ 7  19:    3   4   8   9   C   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+12  18:    3   4   8   9   D   E  11  12  13  16  17  18  1B  1C  1D  20  21  22
+17  17:    3   4   8   9   D   E  12  13  16  17  18  1B  1C  1D  20  21  22
+22  16:    3   4   8   9   D   E  12  13  17  18  1B  1C  1D  20  21  22
+27  15:    3   4   8   9   D   E  12  13  17  18  1C  1D  20  21  22
+32  14:    3   4   8   9   D   E  12  13  17  18  1C  1D  21  22
+ 3  13:    4   8   9   D   E  12  13  17  18  1C  1D  21  22
+ 8  12:    4   9   D   E  12  13  17  18  1C  1D  21  22
+13  11:    4   9   E  12  13  17  18  1C  1D  21  22
+18  10:    4   9   E  13  17  18  1C  1D  21  22
+23   9:    4   9   E  13  18  1C  1D  21  22
+28   8:    4   9   E  13  18  1D  21  22
+33   7:    4   9   E  13  18  1D  22
+ 4   6:    9   E  13  18  1D  22
+ 9   5:    E  13  18  1D  22
+14   4:   13  18  1D  22
+19   3:   18  1D  22
+24   2:   1D  22
+29   1:   22
+34- empty
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::findNext
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 8;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put(2*$i, 2*$i);
+   });
+
+  (2*$N)->for(sub
+   {my ($i) = @_;
+    $i->outRightInDec(K(key => 4)); PrintOutString " -> ";
+    $t->findNext($i);
+    $t->found->out("f: ", " ");
+    If $t->found > 0, Then {$t->key->out};
+    PrintOutStringNL '.';
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+   0 -> f: .... .... .... ...2 key: .... .... .... ...2.
+   1 -> f: .... .... .... ...2 key: .... .... .... ...2.
+   2 -> f: .... .... .... ...4 key: .... .... .... ...4.
+   3 -> f: .... .... .... ...4 key: .... .... .... ...4.
+   4 -> f: .... .... .... ...8 key: .... .... .... ...6.
+   5 -> f: .... .... .... ...8 key: .... .... .... ...6.
+   6 -> f: .... .... .... ..10 key: .... .... .... ...8.
+   7 -> f: .... .... .... ..10 key: .... .... .... ...8.
+   8 -> f: .... .... .... ..20 key: .... .... .... ...A.
+   9 -> f: .... .... .... ..20 key: .... .... .... ...A.
+  10 -> f: .... .... .... ..40 key: .... .... .... ...C.
+  11 -> f: .... .... .... ..40 key: .... .... .... ...C.
+  12 -> f: .... .... .... ..80 key: .... .... .... ...E.
+  13 -> f: .... .... .... ..80 key: .... .... .... ...E.
+  14 -> f: .... .... .... .... .
+  15 -> f: .... .... .... .... .
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::findPrev
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 8;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put(2*$i, 2*$i);
+   });
+
+  (2*$N)->for(sub
+   {my ($i) = @_;
+    $i->outRightInDec(K(key => 4)); PrintOutString " -> ";
+    $t->findPrev($i);
+    $t->found->out("f: ", " ");
+    If $t->found > 0, Then {$t->key->out};
+    PrintOutStringNL '.';
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+   0 -> f: .... .... .... .... .
+   1 -> f: .... .... .... ...1 key: .... .... .... .....
+   2 -> f: .... .... .... ...1 key: .... .... .... .....
+   3 -> f: .... .... .... ...2 key: .... .... .... ...2.
+   4 -> f: .... .... .... ...2 key: .... .... .... ...2.
+   5 -> f: .... .... .... ...4 key: .... .... .... ...4.
+   6 -> f: .... .... .... ...4 key: .... .... .... ...4.
+   7 -> f: .... .... .... ...8 key: .... .... .... ...6.
+   8 -> f: .... .... .... ...8 key: .... .... .... ...6.
+   9 -> f: .... .... .... ..10 key: .... .... .... ...8.
+  10 -> f: .... .... .... ..10 key: .... .... .... ...8.
+  11 -> f: .... .... .... ..20 key: .... .... .... ...A.
+  12 -> f: .... .... .... ..20 key: .... .... .... ...A.
+  13 -> f: .... .... .... ..40 key: .... .... .... ...C.
+  14 -> f: .... .... .... ..40 key: .... .... .... ...C.
+  15 -> f: .... .... .... ..80 key: .... .... .... ...E.
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::put #TNasm::X86::Tree::size
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->put(K(key => 1), V(key => 1));  $t->size->outNL;
+  $t->put(K(key => 2), K(key => 2));  $t->size->outNL;
+  $t->put(V(key => 2), V(key => 2));  $t->size->outNL;
+
+  $t->put(K(key => 3), K(key => 3));  $t->size->outNL;
+  $t->put(V(key => 3), V(key => 3));  $t->size->outNL;
+
+  $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
+  $t->put(K(key => 4), K(key => 4));  $t->size->outNL;
+
+  $t->put(K(key => 5), K(key => 5));  $t->size->outNL;
+  $t->put(V(key => 5), V(key => 5));  $t->size->outNL;
+
+  $t->put(K(key => 6), K(key => 5));  $t->size->outNL;
+  $t->put(V(key => 6), V(key => 5));  $t->size->outNL;
+
+  $t->put(K(key => 7), K(key => 7));  $t->size->outNL;
+  $t->put(V(key => 7), V(key => 7));  $t->size->outNL;
+
+  $t->put(K(key => 8), K(key => 8));  $t->size->outNL;
+  $t->put(V(key => 8), V(key => 8));  $t->size->outNL;
+
+  $t->put(K(key => 9), K(key => 9));  $t->size->outNL;
+  $t->put(V(key => 9), V(key => 9));  $t->size->outNL;
+
+  $t->put(K(key => 10), K(key => 10));  $t->size->outNL;
+  $t->put(V(key => 10), V(key => 10));  $t->size->outNL;
+
+  $t->put(K(key => 11), K(key => 11));  $t->size->outNL;
+  $t->put(V(key => 11), V(key => 11));  $t->size->outNL;
+
+  $t->put(K(key => 12), K(key => 12));  $t->size->outNL;
+  $t->put(V(key => 12), V(key => 12));  $t->size->outNL;
+
+  $t->put(K(key => 13), K(key => 13));  $t->size->outNL;
+  $t->put(V(key => 13), V(key => 13));  $t->size->outNL;
+
+  $t->put(K(key => 14), K(key => 14));  $t->size->outNL;
+  $t->put(V(key => 14), V(key => 14));  $t->size->outNL;
+
+  $t->put(K(key => 15), K(key => 15));  $t->size->outNL;
+  $t->put(V(key => 15), V(key => 15));  $t->size->outNL;
+
+ $t->put(K(key => 4), K(key => 4));
+
+ $t->dump8xx("AAA");
+
+  ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>0, mix => 1, clocks=>18177;
+size of tree: .... .... .... ...1
+size of tree: .... .... .... ...2
+size of tree: .... .... .... ...2
+size of tree: .... .... .... ...3
+size of tree: .... .... .... ...3
+size of tree: .... .... .... ...4
+size of tree: .... .... .... ...4
+size of tree: .... .... .... ...5
+size of tree: .... .... .... ...5
+size of tree: .... .... .... ...6
+size of tree: .... .... .... ...6
+size of tree: .... .... .... ...7
+size of tree: .... .... .... ...7
+size of tree: .... .... .... ...8
+size of tree: .... .... .... ...8
+size of tree: .... .... .... ...9
+size of tree: .... .... .... ...9
+size of tree: .... .... .... ...A
+size of tree: .... .... .... ...A
+size of tree: .... .... .... ...B
+size of tree: .... .... .... ...B
+size of tree: .... .... .... ...C
+size of tree: .... .... .... ...C
+size of tree: .... .... .... ...D
+size of tree: .... .... .... ...D
+size of tree: .... .... .... ...E
+size of tree: .... .... .... ...E
+size of tree: .... .... .... ...F
+size of tree: .... .... .... ...F
+AAA
+Tree: .... .... .... ..40
+At:      200                                                                                length:        1,  data:      240,  nodes:      280,  first:       40, root, parent
+  Index:        0
+  Keys :        7
+  Data :        7
+  Nodes:       80      140
+    At:       80                                                                            length:        6,  data:       C0,  nodes:      100,  first:       40,  up:      200, leaf
+      Index:        0        1        2        3        4        5
+      Keys :        1        2        3        4        5        6
+      Data :        1        2        3        4        5        5
+    end
+    At:      140                                                                            length:        8,  data:      180,  nodes:      1C0,  first:       40,  up:      200, leaf
+      Index:        0        1        2        3        4        5        6        7
+      Keys :        8        9        A        B        C        D        E        F
+      Data :        8        9        A        B        C        D        E        F
+    end
+end
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::by
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, 2 * $i);
+   });
+
+  $t->by(sub
+   {my ($tree, $start, $next, $end) = @_;
+    $tree->key->out("");  $tree->data->outNL(" ");
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+.... .... .... .... .... .... .... ....
+.... .... .... ...1 .... .... .... ...2
+.... .... .... ...2 .... .... .... ...4
+.... .... .... ...3 .... .... .... ...6
+.... .... .... ...4 .... .... .... ...8
+.... .... .... ...5 .... .... .... ...A
+.... .... .... ...6 .... .... .... ...C
+.... .... .... ...7 .... .... .... ...E
+.... .... .... ...8 .... .... .... ..10
+.... .... .... ...9 .... .... .... ..12
+.... .... .... ...A .... .... .... ..14
+.... .... .... ...B .... .... .... ..16
+.... .... .... ...C .... .... .... ..18
+.... .... .... ...D .... .... .... ..1A
+.... .... .... ...E .... .... .... ..1C
+.... .... .... ...F .... .... .... ..1E
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::yb
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, 2* $i);
+   });
+
+  $t->yb(sub
+   {my ($tree, $start, $prev, $end) = @_;
+    $tree->key->out("");  $tree->data->outNL(" ");
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+.... .... .... ...F .... .... .... ..1E
+.... .... .... ...E .... .... .... ..1C
+.... .... .... ...D .... .... .... ..1A
+.... .... .... ...C .... .... .... ..18
+.... .... .... ...B .... .... .... ..16
+.... .... .... ...A .... .... .... ..14
+.... .... .... ...9 .... .... .... ..12
+.... .... .... ...8 .... .... .... ..10
+.... .... .... ...7 .... .... .... ...E
+.... .... .... ...6 .... .... .... ...C
+.... .... .... ...5 .... .... .... ...A
+.... .... .... ...4 .... .... .... ...8
+.... .... .... ...3 .... .... .... ...6
+.... .... .... ...2 .... .... .... ...4
+.... .... .... ...1 .... .... .... ...2
+.... .... .... .... .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->push($i);
+   });
+
+  $t->peek(K key => 1)->data ->outNL;
+  $t->peek(K key => 2)->data ->outNL;
+  $t->peek(K key => 3)->found->outNL;
+  $t->peek(2 * $N    )->found->outNL;
+
+  $t->size->outNL;
+  $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+
+  $N->for(sub
+   {my ($i) = @_;
+    $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+   });
+  $t->pop; $t->found->outNL("f: ");
+
+  ok Assemble eq => <<END, avx512=>1, mix => 1, clocks => 29_852;
+data: .... .... .... ...F
+data: .... .... .... ...E
+found: .... .... .... ..40
+found: .... .... .... ....
+size of tree: .... .... .... ..10
+f: .... .... .... ...2 i: .... .... .... ...8 data: .... .... .... ...8
+f: .... .... .... ...1 i: .... .... .... ...F data: .... .... .... ...F
+f: .... .... .... ...1 i: .... .... .... ...E data: .... .... .... ...E
+f: .... .... .... ...1 i: .... .... .... ...D data: .... .... .... ...D
+f: .... .... .... ...1 i: .... .... .... ...C data: .... .... .... ...C
+f: .... .... .... ...1 i: .... .... .... ...B data: .... .... .... ...B
+f: .... .... .... ...1 i: .... .... .... ...A data: .... .... .... ...A
+f: .... .... .... ...1 i: .... .... .... ...9 data: .... .... .... ...9
+f: .... .... .... ...1 i: .... .... .... ...8 data: .... .... .... ...8
+f: .... .... .... ...1 i: .... .... .... ...7 data: .... .... .... ...7
+f: .... .... .... ...1 i: .... .... .... ...6 data: .... .... .... ...6
+f: .... .... .... ...1 i: .... .... .... ...5 data: .... .... .... ...5
+f: .... .... .... ...1 i: .... .... .... ...4 data: .... .... .... ...4
+f: .... .... .... ...1 i: .... .... .... ...3 data: .... .... .... ...3
+f: .... .... .... ...1 i: .... .... .... ...2 data: .... .... .... ...2
+f: .... .... .... ...1 i: .... .... .... ...1 data: .... .... .... ...1
+f: .... .... .... ...1 i: .... .... .... .... data: .... .... .... ....
+f: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->push($i);
+   });
+
+  $t->peek(K key => 1)->data ->outNL;
+  $t->peek(K key => 2)->data ->outNL;
+  $t->peek(K key => 3)->found->outNL;
+  $t->peek(2 * $N    )->found->outNL;
+
+  $t->size->outNL;
+  $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+
+  $N->for(sub
+   {my ($i) = @_;
+    $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+   });
+  $t->pop; $t->found->outNL("f: ");
+
+  ok Assemble eq => <<END, avx512=>1, mix => 1, clocks => 29_852;
+data: .... .... .... ...F
+data: .... .... .... ...E
+found: .... .... .... ..40
+found: .... .... .... ....
+size of tree: .... .... .... ..10
+f: .... .... .... ...2 i: .... .... .... ...8 data: .... .... .... ...8
+f: .... .... .... ...1 i: .... .... .... ...F data: .... .... .... ...F
+f: .... .... .... ...1 i: .... .... .... ...E data: .... .... .... ...E
+f: .... .... .... ...1 i: .... .... .... ...D data: .... .... .... ...D
+f: .... .... .... ...1 i: .... .... .... ...C data: .... .... .... ...C
+f: .... .... .... ...1 i: .... .... .... ...B data: .... .... .... ...B
+f: .... .... .... ...1 i: .... .... .... ...A data: .... .... .... ...A
+f: .... .... .... ...1 i: .... .... .... ...9 data: .... .... .... ...9
+f: .... .... .... ...1 i: .... .... .... ...8 data: .... .... .... ...8
+f: .... .... .... ...1 i: .... .... .... ...7 data: .... .... .... ...7
+f: .... .... .... ...1 i: .... .... .... ...6 data: .... .... .... ...6
+f: .... .... .... ...1 i: .... .... .... ...5 data: .... .... .... ...5
+f: .... .... .... ...1 i: .... .... .... ...4 data: .... .... .... ...4
+f: .... .... .... ...1 i: .... .... .... ...3 data: .... .... .... ...3
+f: .... .... .... ...1 i: .... .... .... ...2 data: .... .... .... ...2
+f: .... .... .... ...1 i: .... .... .... ...1 data: .... .... .... ...1
+f: .... .... .... ...1 i: .... .... .... .... data: .... .... .... ....
+f: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
+  my $a = CreateArea;
+  my $t = $a->CreateTree(lowKeys=>1);
+  my $N = K loop => 16;
+  $N->for(sub
+   {my ($i) = @_;
+    $t->push($i);
+   });
+
+  $N->for(sub
+   {my ($i) = @_;
+    $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+   });
+  $t->pop; $t->found->outNL("f: ");
+
+  ok Assemble eq => <<END, avx512=>1, mix => 1, clocks => 20_485;
+f: .... .... .... ...1 i: .... .... .... ...F data: .... .... .... ...F
+f: .... .... .... ...1 i: .... .... .... ...E data: .... .... .... ...E
+f: .... .... .... ...1 i: .... .... .... ...D data: .... .... .... ...D
+f: .... .... .... ...1 i: .... .... .... ...C data: .... .... .... ...C
+f: .... .... .... ...1 i: .... .... .... ...B data: .... .... .... ...B
+f: .... .... .... ...1 i: .... .... .... ...A data: .... .... .... ...A
+f: .... .... .... ...1 i: .... .... .... ...9 data: .... .... .... ...9
+f: .... .... .... ...1 i: .... .... .... ...8 data: .... .... .... ...8
+f: .... .... .... ...1 i: .... .... .... ...7 data: .... .... .... ...7
+f: .... .... .... ...1 i: .... .... .... ...6 data: .... .... .... ...6
+f: .... .... .... ...1 i: .... .... .... ...5 data: .... .... .... ...5
+f: .... .... .... ...1 i: .... .... .... ...4 data: .... .... .... ...4
+f: .... .... .... ...1 i: .... .... .... ...3 data: .... .... .... ...3
+f: .... .... .... ...1 i: .... .... .... ...2 data: .... .... .... ...2
+f: .... .... .... ...1 i: .... .... .... ...1 data: .... .... .... ...1
+f: .... .... .... ...1 i: .... .... .... .... data: .... .... .... ....
+f: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::clear #TNasm::X86::Tree::free #TNasm::X86::Area::freeChainSpace  #TNasm::X86::Area::clear
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K loop => 16;
+
+  $N->for(sub {my ($i) = @_; $t->push($i+1)});
+  $t->size->out("t: ", " ");
+  $a->used->out("u: ", " ");
+  $a->freeChainSpace->out("f: ", " ");
+  $a->size->outNL;
+  $t->clear;
+  $t->size->out("t: ", " ");
+  $a->used->out("u: ", " ");
+  $a->freeChainSpace->out("f: ", " ");
+  $a->size->outNL;
+
+  $N->for(sub {my ($i) = @_; $t->push($i+1)});
+  $t->size->out("t: ", " ");
+  $a->used->out("u: ", " ");
+  $a->freeChainSpace->out("f: ", " ");
+  $a->size->outNL;
+  $t->clear;
+  $t->size->out("t: ", " ");
+  $a->used->out("u: ", " ");
+  $a->freeChainSpace->out("f: ", " ");
+  $a->size->outNL;
+
+  $N->for(sub {my ($i) = @_; $t->push($i+1)});
+  $t->free;
+  $a->used->out("Clear tree:            u: ");
+  $a->freeChainSpace->out(" f: ", " ");
+  $a->size->outNL;
+
+  $a->clear;
+  $a->used->out("Clear area:            u: ");
+  $a->freeChainSpace->out(" f: ", " ");
+  $a->size->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... .... size of area: .... .... .... 10..
+t: .... .... .... .... u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
+t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... .... size of area: .... .... .... 10..
+t: .... .... .... .... u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
+Clear tree:            u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
+Clear area:            u: .... .... .... .... f: .... .... .... .... size of area: .... .... .... 10..
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Area::allocZmmBlock #TNasm::X86::Area::freeZmmBlock #TNasm::X86::Area::getZmmBlock #TNasm::X86::Area::putZmmBlock #TNasm::X86::Area::clearZmmBlock #TNasm::X86::Area::dump
+  my $a = CreateArea;
+
+  my $m = $a->allocZmmBlock;
+  K(K => Rd(1..16))->loadZmm(31);
+
+  $a->putZmmBlock  ($m, 31);
+  $a->dump("A");
+
+  $a->getZmmBlock  ($m, 30);
+  $a->clearZmmBlock($m);
+  $a->getZmmBlock  ($m, 29);
+
+  $a->clearZmmBlock($m);
+  PrintOutRegisterInHex 31, 30, 29;
+
+  ok Assemble eq => <<END, avx512=>1;
+A
+Area     Size:     4096    Used:      128
+.... .... .... .... | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  .5__ ____ .6__ ____  .7__ ____ .8__ ____  .9__ ____ .A__ ____  .B__ ____ .C__ ____  .D__ ____ .E__ ____  .F__ ____ 10__ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+ zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm29: .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... .... + .... .... .... ....  .... .... .... .... - .... .... .... ....  .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Area::allocZmmBlock #TNasm::X86::Area::freeZmmBlock #TNasm::X86::Area::getZmmBlock #TNasm::X86::Area::putZmmBlock  #TNasm::X86::Area::dump
+  my $a = CreateArea;
+
+  K(loop => 3)->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $i->outNL;
+    my $m1 = $a->allocZmmBlock;
+    my $m2 = $a->allocZmmBlock;
+
+    K(K => Rd(1..16))->loadZmm(31);
+    K(K => Rd(17..32))->loadZmm(30);
+    PrintOutRegisterInHex 31, 30;
+
+    $a->putZmmBlock($m1, 31);
+    $a->putZmmBlock($m2, 30);
+    $a->dump("A");
+
+    $a->getZmmBlock($m1, 30);
+    $a->getZmmBlock($m2, 31);
+    PrintOutRegisterInHex 31, 30;
+
+    $a->clearZmmBlock($m1);
+    $a->freeZmmBlock($m1);
+    $a->dump("B");
+
+    $a->freeZmmBlock($m2);
+    $a->dump("C");
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+index: .... .... .... ....
+ zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19 + .... ..18 .... ..17  .... ..16 .... ..15 - .... ..14 .... ..13  .... ..12 .... ..11
+A
+Area     Size:     4096    Used:      192
+.... .... .... .... | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  .5__ ____ .6__ ____  .7__ ____ .8__ ____  .9__ ____ .A__ ____  .B__ ____ .C__ ____  .D__ ____ .E__ ____  .F__ ____ 10__ ____
+.... .... .... ..80 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+ zmm31: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19 + .... ..18 .... ..17  .... ..16 .... ..15 - .... ..14 .... ..13  .... ..12 .... ..11
+ zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+B
+Area     Size:     4096    Used:      192
+.... .... .... .... | __10 ____ ____ ____  C0__ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+C
+Area     Size:     4096    Used:      192
+.... .... .... .... | __10 ____ ____ ____  C0__ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+index: .... .... .... ...1
+ zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19 + .... ..18 .... ..17  .... ..16 .... ..15 - .... ..14 .... ..13  .... ..12 .... ..11
+A
+Area     Size:     4096    Used:      192
+.... .... .... .... | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+.... .... .... ..80 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  .5__ ____ .6__ ____  .7__ ____ .8__ ____  .9__ ____ .A__ ____  .B__ ____ .C__ ____  .D__ ____ .E__ ____  .F__ ____ 10__ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+ zmm31: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19 + .... ..18 .... ..17  .... ..16 .... ..15 - .... ..14 .... ..13  .... ..12 .... ..11
+ zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+B
+Area     Size:     4096    Used:      192
+.... .... .... .... | __10 ____ ____ ____  C0__ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+C
+Area     Size:     4096    Used:      192
+.... .... .... .... | __10 ____ ____ ____  C0__ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+index: .... .... .... ...2
+ zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+ zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19 + .... ..18 .... ..17  .... ..16 .... ..15 - .... ..14 .... ..13  .... ..12 .... ..11
+A
+Area     Size:     4096    Used:      192
+.... .... .... .... | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | .1__ ____ .2__ ____  .3__ ____ .4__ ____  .5__ ____ .6__ ____  .7__ ____ .8__ ____  .9__ ____ .A__ ____  .B__ ____ .C__ ____  .D__ ____ .E__ ____  .F__ ____ 10__ ____
+.... .... .... ..80 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+ zmm31: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19 + .... ..18 .... ..17  .... ..16 .... ..15 - .... ..14 .... ..13  .... ..12 .... ..11
+ zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
+B
+Area     Size:     4096    Used:      192
+.... .... .... .... | __10 ____ ____ ____  C0__ ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | 11__ ____ 12__ ____  13__ ____ 14__ ____  15__ ____ 16__ ____  17__ ____ 18__ ____  19__ ____ 1A__ ____  1B__ ____ 1C__ ____  1D__ ____ 1E__ ____  1F__ ____ 20__ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+C
+Area     Size:     4096    Used:      192
+.... .... .... .... | __10 ____ ____ ____  C0__ ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | 40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:
+if (1) {                                                                        #Tconvert_rax_from_utf32_to_utf8
+# $ 	U+0024                 010 0100                00100100                     24
+# £ 	U+00A3 	          000 1010 0011                11000010 10100011            C2 A3
+# ह 	  U+0939    	0000 1001 0011 1001                11100000 10100100 10111001   E0 A4 B9
+# € 	U+20AC    	0010 0000 1010 1100                11100010 10000010 10101100   E2 82 AC
+# 한 	U+D55C     	1101 0101 0101 1100                11101101 10010101 10011100   ED 95 9C
+# 𐍈   	U+10348 	0 0001 0000 0011 0100 1000 	11110000 10010000 10001101 10001000   F0 90 8D 88
+  Mov rax, 0x40;                                                                # 0x40
+  convert_rax_from_utf32_to_utf8;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, 0x03b1;                                                              # 0xCE 0xB1
+  convert_rax_from_utf32_to_utf8;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, 0x20ac;                                                              # 0xE2 0x82 0xAC;
+  convert_rax_from_utf32_to_utf8;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, 0x10348;                                                             # 0xf0 0x90 0x8d 0x88
+  convert_rax_from_utf32_to_utf8;
+  PrintOutRegisterInHex rax;
+
+  ok Assemble eq => <<END, avx512=>1;
+   rax: .... .... .... ..40
+   rax: .... .... .... B1CE
+   rax: .... .... ..AC 82E2
+   rax: .... .... 888D 90F0
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->push(K alpha => 0x03b1);
+  $t->push(K beta  => 0x03b2);
+  $t->push(K gamma => 0x03b3);
+  $t->push(K delta => 0x03b4);
+
+  $t->outAsUtf8NL;
+
+  $t->append($t);
+  $t->outAsUtf8NL;
+
+  $t->append($t);
+  $t->outAsUtf8NL;
+
+  my $T = $t->substring(K(key => 4), K(key => 8));
+  $T->outAsUtf8NL;
+
+  my $r = $T->reverse;
+  $r->outAsUtf8NL;
+
+  ok Assemble eq => <<END, avx512=>1;
+αβγδ
+αβγδαβγδ
+αβγδαβγδαβγδαβγδ
+αβγδ
+δγβα
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::appendAscii #TNasm::X86::Tree::outAsUtf8NL
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $b = Rb(0x41..0x51);
+  $t->appendAscii(K(address=> $b), K(size => 1));
+  $t->outAsUtf8NL;
+  ok Assemble eq => <<END, avx512=>1;
+A
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::push
+  my $b = Rb(0x41..0x51);
+  my $a = CreateArea;
+  my $T;
+  for my $i(1..8)
+   {my $t = $a->CreateTree;
+    $t->appendAscii(K(address=> $b), K(size => 1));
+    $t->push($T) if $T;
+    $T = $t;
+   }
+
+  $T->dump8xx("T");
+  ok Assemble eq => <<END, avx512=>1, trace=>0;
+T
+Tree: .... .... .... .740
+At:      780                                                                                length:        2,  data:      7C0,  nodes:      800,  first:      740, root, leaf,  trees:            10
+  Index:        0        1
+  Keys :        0        1
+  Data :       41      64*
+   Tree:      640
+     At:      680                                                                           length:        2,  data:      6C0,  nodes:      700,  first:      640, root, leaf,  trees:            10
+       Index:        0        1
+       Keys :        0        1
+       Data :       41      54*
+        Tree:      540
+          At:      580                                                                      length:        2,  data:      5C0,  nodes:      600,  first:      540, root, leaf,  trees:            10
+            Index:        0        1
+            Keys :        0        1
+            Data :       41      44*
+             Tree:      440
+               At:      480                                                                 length:        2,  data:      4C0,  nodes:      500,  first:      440, root, leaf,  trees:            10
+                 Index:        0        1
+                 Keys :        0        1
+                 Data :       41      34*
+                  Tree:      340
+                    At:      380                                                            length:        2,  data:      3C0,  nodes:      400,  first:      340, root, leaf,  trees:            10
+                      Index:        0        1
+                      Keys :        0        1
+                      Data :       41      24*
+                       Tree:      240
+                         At:      280                                                       length:        2,  data:      2C0,  nodes:      300,  first:      240, root, leaf,  trees:            10
+                           Index:        0        1
+                           Keys :        0        1
+                           Data :       41      14*
+                            Tree:      140
+                              At:      180                                                  length:        2,  data:      1C0,  nodes:      200,  first:      140, root, leaf,  trees:            10
+                                Index:        0        1
+                                Keys :        0        1
+                                Data :       41       4*
+                                 Tree:       40
+                                   At:       80                                             length:        1,  data:       C0,  nodes:      100,  first:       40, root, leaf
+                                     Index:        0
+                                     Keys :        0
+                                     Data :       41
+                                   end
+                              end
+                         end
+                    end
+               end
+          end
+     end
+end
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+  my $a = CreateArea;
+  my $p = $a->CreateTree;
+  my $q = $a->CreateTree;
+  my $r = $a->CreateTree;
+  my $s = $a->CreateTree;
+  my $t = $a->CreateTree;
+
+  $s->push(K char => ord $_) for split //, 'abc1';
+  $r->push(K char => ord $_) for split //, 'abd2';
+  $q->push(K char => ord $_) for split //, 'abe3';
+  $p +=    K(char => ord $_) for split //, 'abf4';
+
+  $t->putString($s);   $t->putString($s);   $t->putString($s);                  # Removing or duplicating these columsn should have no effect
+  $t->putString($r);   $t->putString($r);   $t->putString($r);
+  $t->putString($q);   $t->putString($q);   $t->putString($q);
+  $t->putString($p);   $t->putString($p);   $t->putString($p);
+  $t->dump8xx('t = abcd');
+
+  $t->find(K key => 0x61);
+  for my $f(qw(found key data subTree offset))
+   {$t->{$f}->outNL(sprintf("%-8s", $f));
+   }
+
+  $t->getString($s); $t->found->outNL("found:  ");
+  $s--;
+  my $f = $t->getString($s); $f->found->outNL("found:  "); $f->data->outNL("data:   ");
+  $s->pop;
+  my $F = $t->getString($s); $F->found->outNL("found:  "); $F->data->outNL("data:   ");
+
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
+t = abcd
+Tree: .... .... .... .140
+At:      4C0                                                                                length:        1,  data:      500,  nodes:      540,  first:      140, root, leaf,  trees:             1
+  Index:        0
+  Keys :       61
+  Data :      48*
+   Tree:      480
+     At:      5C0                                                                           length:        1,  data:      600,  nodes:      640,  first:      480, root, leaf,  trees:             1
+       Index:        0
+       Keys :       62
+       Data :      58*
+        Tree:      580
+          At:      6C0                                                                      length:        4,  data:      700,  nodes:      740,  first:      580, root, leaf,  trees:          1111
+            Index:        0        1        2        3
+            Keys :       63       64       65       66
+            Data :      68*      88*      9C*      B0*
+             Tree:      680
+               At:      7C0                                                                 length:        1,  data:      800,  nodes:      840,  first:      680, root, leaf,  trees:             1
+                 Index:        0
+                 Keys :       31
+                 Data :      78*
+                  Tree:      780
+- empty
+               end
+             Tree:      880
+               At:      900                                                                 length:        1,  data:      940,  nodes:      980,  first:      880, root, leaf,  trees:             1
+                 Index:        0
+                 Keys :       32
+                 Data :      8C*
+                  Tree:      8C0
+- empty
+               end
+             Tree:      9C0
+               At:      A40                                                                 length:        1,  data:      A80,  nodes:      AC0,  first:      9C0, root, leaf,  trees:             1
+                 Index:        0
+                 Keys :       33
+                 Data :      A0*
+                  Tree:      A00
+- empty
+               end
+             Tree:      B00
+               At:      B80                                                                 length:        1,  data:      BC0,  nodes:      C00,  first:      B00, root, leaf,  trees:             1
+                 Index:        0
+                 Keys :       34
+                 Data :      B4*
+                  Tree:      B40
+- empty
+               end
+          end
+     end
+end
+found   .... .... .... ...1
+key     .... .... .... ..61
+data    .... .... .... .480
+subTree .... .... .... ...1
+offset  .... .... .... .4C0
+found:  .... .... .... ...1
+found:  .... .... .... ...1
+data:   .... .... .... .680
+found:  .... .... .... ...1
+data:   .... .... .... .580
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::popSubTree
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  $T->push(K key => 1);
+  $t->push($T);
+  $t->dump8xx('AA');
+  my $s = $t->popSubTree;
+  $t->dump8xx('BB');
+  $s->dump8xx('CC');
+  ok Assemble eq => <<END, avx512=>1;
+AA
+Tree: .... .... .... ..40
+At:      180                                                                                length:        1,  data:      1C0,  nodes:      200,  first:       40, root, leaf,  trees:             1
+  Index:        0
+  Keys :        0
+  Data :       8*
+   Tree:       80
+     At:       C0                                                                           length:        1,  data:      100,  nodes:      140,  first:       80, root, leaf
+       Index:        0
+       Keys :        0
+       Data :        1
+     end
+end
+BB
+- empty
+CC
+Tree: .... .... .... ..80
+At:       C0                                                                                length:        1,  data:      100,  nodes:      140,  first:       80, root, leaf
+  Index:        0
+  Keys :        0
+  Data :        1
+end
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::union #TNasm::X86::Tree::intersection
+  my $a = CreateArea;
+  my $r = $a->CreateTree;
+  my $s = $a->CreateTree;
+  my $t = $a->CreateTree;
+
+  $r->put(K(key => 1), K(data => 1));
+  $r->put(K(key => 2), K(data => 2));
+
+  $s->put(K(key => 1), K(data => 1));
+  $s->put(K(key => 3), K(data => 3));
+
+  $t->push($r);
+  $t->push($s);
+
+  my $u = $t->union;
+  $t->dump('input 1 2  1 3');
+  $u->dump('union 1 2    3');
+
+  my $i = $t->intersection;
+  $i->dump('intersection 1');
+
+  ok Assemble eq => <<END, avx512=>1;
+input 1 2  1 3
+At:  280                    length:    2,  data:  2C0,  nodes:  300,  first:   C0, root, leaf,  trees:            11
+  Index:    0    1
+  Keys :    0    1
+  Data :  10*  1C*
+     At:  100               length:    2,  data:  140,  nodes:  180,  first:   40, root, leaf
+       Index:    0    1
+       Keys :    1    2
+       Data :    1    2
+     end
+     At:  1C0               length:    2,  data:  200,  nodes:  240,  first:   80, root, leaf
+       Index:    0    1
+       Keys :    1    3
+       Data :    1    3
+     end
+end
+union 1 2    3
+At:  380                    length:    3,  data:  3C0,  nodes:  400,  first:  340, root, leaf
+  Index:    0    1    2
+  Keys :    1    2    3
+  Data :    1    2    3
+end
+intersection 1
+At:  480                    length:    1,  data:  4C0,  nodes:  500,  first:  440, root, leaf
+  Index:    0
+  Keys :    1
+  Data :    1
+end
+END
+ }
+
+#latest:
+if (1) {
+  my $t = Subroutine                                                            #TSubroutine
+   {my ($p, $s, $sub) = @_;
+    PrintOutStringNL "TTTT";
+    $$p{p}->outNL;
+   } parameters=>[qw(p)], name=>"t";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    PrintOutStringNL "SSS";
+    $$p{p}->outNL;
+   } parameters=>[qw(p)], name=>"s";
+
+  $s->call(parameters => {p => V(p => 1)});
+  $t->call(parameters => {p => V(p => 2)});
+
+  $s->call(parameters => {p => V(p => 3)}, override=>K call => $t->start);
+  $s->call(parameters => {p => V(p => 4)}, override=>K call => $s->start);
+  $s->call(parameters => {p => V(p => 5)});
+
+  ok Assemble eq => <<END, avx512=>1;
+SSS
+p: .... .... .... ...1
+TTTT
+p: .... .... .... ...2
+TTTT
+p: .... .... .... ...3
+SSS
+p: .... .... .... ...4
+SSS
+p: .... .... .... ...5
+END
+ }
+
+#latest:
+if (1) {
+  my $a = V(a => 0);
+  my $b = $a;
+  $a->outNL;
+  $b++;
+  $a->outNL;
+  $b--;
+  $a->outNL;
+  ok Assemble eq => <<END;
+a: .... .... .... ....
+a: .... .... .... ...1
+a: .... .... .... ....
+END
+ }
+
+#latest:
+if (1) {
+          V(a => 2);
+          V(a => 1);
+  my $a = V(a => 0)->address;
+  ($a+ 0)->dereference->outNL;
+  ($a+ 8)->dereference->outNL;
+  ($a+16)->dereference->outNL;
+  ($a+16)->update(K key => 3);
+  ($a+16)->dereference->outNL;
+  ok Assemble eq => <<END;
+deref (addr a add 0): .... .... .... ....
+deref (addr a add 8): .... .... .... ...1
+deref (addr a add 16): .... .... .... ...2
+deref (addr a add 16): .... .... .... ...3
+END
+ }
+
+# Early version of library - the later version fixed the problem of not including code used to build the library in the library by defining a specific scope for the code to be placed in the library - namely the scope of the containing subroutine.
+##D1 Library                                                                     # Create a library and call the methods contained in it.
+#
+#sub CreateLibrary(%)                                                            # Create a library.
+# {my (%library) = @_;                                                           # Library definition
+#
+#  $library{subroutines} or confess "Subroutines required";
+#  $library{file}        or confess "Subroutines file name required";
+#
+#  my @s = $library{subroutines}->@*;
+#
+#  Mov rax, scalar @s;
+#  Ret;
+#  my @l = map {my $l = Label; Mov rax, $l; $l} @s;                              # Vector of subroutine addresses
+#
+#  my @c = map {&$_} @s;                                                         # Call the subroutines provided to write their code into the program and return the details of the subroutine so written
+#
+#  for my $c(keys @c)                                                            # Write the entry point of each routine
+#   {my $e = $c[$c]->start;
+#    push @text, <<END;
+#$l[$c] equ $e
+#END
+#   }
+#
+#  unlink my $f = $library{file};                                                # The name of the file containing the library
+#
+#  Assemble library => $f;                                                       # Create the library file
+#
+#  $library{address} = undef;                                                    # Address of the library once it has been loaded
+#  $library{size}    = undef;                                                    # Size of the library in bytes
+#  $library{meta}    = \@c;                                                      # Array describing each subroutine in the order they are held in the library
+#  $library{name}{$c[$_]{name}} = $c[$_] for keys @c;                            # Subroutine description by name
+#
+#  genHash "Nasm::X86::Library", %library
+# }
+#
+#sub Nasm::X86::Library::load($)                                                 # Load a library and return the addresses of its subroutines as variables.
+# {my ($library) = @_;                                                           # Description of library to load
+#
+#  my @offsets = sub                                                             # Examine library at run time
+#   {my $c = readBinaryFile $$library{file};
+#    my (undef, $n) = unpack "SQ", $c;
+#    my @v = unpack "SQC(SQ)[$n]", $c;
+#    map {$_ > 2 && $_ % 2 == 0 ? ($v[$_]) : () } keys @v
+#   }->();
+#
+#  my @s = $$library{meta}->@*;
+#  $s[$_]{offset} = V(entry=>$offsets[$_]) for keys @s;                          # Variable offset of each subroutine
+#
+#  ($library->address, $library->size) = ReadFile $$library{file};               # Load library at run time
+# }
+#
+#sub Nasm::X86::Library::call($$%)                                               # Call a library routine
+# {my ($library, $name, %options) = @_;                                          # Description of library, method name, options - which includes parameters and structures
+#  @_ >= 2 or confess "Two or more parameters";
+#
+#  $library->name->{$name}->call(library => $library->address, %options);
+# }
+#
+##latest:
+#if (1) {                                                                        #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
+#  my $l = CreateLibrary
+#   (subroutines =>
+#     [sub
+#       {Subroutine
+#         {my ($p, $s, $sub) = @_;
+#          PrintOutStringNL "SSSS";
+#         } name=>"ssss";
+#       },
+#      sub
+#       {Subroutine
+#         {my ($p, $s, $sub) = @_;
+#          PrintOutStringNL "TTTT";
+#          $$p{p}->outNL;
+#         } name=>"tttt",  parameters=>[qw(p)];
+#       },
+#     ],
+#    file => q(library),
+#   );
+#
+#  my ($address, $size) = $l->load;
+#
+#  $l->call(q(ssss));
+#  $l->call(q(tttt), parameters=>{p => V key => 42});
+#
+#  ok Assemble eq => <<END, avx512=>0;
+#SSSS
+#TTTT
+#p: .... .... .... ..2A
+#END
+#  unlink $l->file;
+# }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Variable::dClassify
+  K(K => Rd(map {32 * $_     } 0..15))->loadZmm(29);
+  K(K => Rd(map {32 * $_ + 16} 0..15))->loadZmm(30);
+
+  V(classify => 20)->dClassify(29, 30)->outNL;
+  V(classify => 14)->dClassify(29, 30)->outNL;
+  V(classify => 40)->dClassify(29, 30)->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+point: .... .... .... ....
+point: .... .... .... ...1
+point: .... .... .... ...2
+END
+ }
+
+block3: goto block4 unless $block{3};                                           # Third block of tests - parsing
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitions
+  my $a = CreateArea;
+  my $t = Nasm::X86::Unisyn::Lex::PermissibleTransitions $a;
+  $t->size->outNL;
+  ok Assemble eq => <<END, avx512=>1, label=>'t3';
+size of tree: .... .... .... ...B
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitions
+  my $a = CreateArea;
+  my ($o, $c) = Nasm::X86::Unisyn::Lex::OpenClose($a);
+  $o->printInOrder('OC');
+  $c->printInOrder('CO');
+  ok Assemble eq => <<END, avx512=>1;
+OC  38: 2308230A23292768276A276C276E27702772277427E627E827EA27EC27EE2983298529872989298B298D298F299129932995299729FC2E283008300A3010301430163018301AFD3EFF08FF5F
+CO  38: 2309230B232A2769276B276D276F27712773277527E727E927EB27ED27EF298429862988298A298C298E2990299229942996299829FD2E293009300B3011301530173019301BFD3FFF09FF60
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::LoadAlphabets
+  my $a = CreateArea;
+  my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
+  $t->find(K alpha => ord('𝝰')); $t->found->outNL; $t->data ->outNL;
+  ok Assemble eq => <<END, avx512=>1;
+found: .... .... .... ...8
+data: .... .... .... ...6
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('va a= b( vb e+ vc B) e* vd dif ve');
+  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+  $s8->outNL;
+
+  my ($a32, $s32, $count, $fail) = ConvertUtf8ToUtf32 $a8, $s8;                 # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
+  $_->outNL for $s32, $count, $fail;
+
+  ok Assemble eq => <<END, avx512=>1;
+size: .... .... .... ..2C
+s32: .... .... .... ..B0
+count: .... .... .... ...D
+fail: .... .... .... ....
+END
+  unlink $f;
+ }
+
+#latest:
+if (1) {
+  my $a = K key => 1;
+  my $b = K key => 1;
+
+  ifOr [sub{$a==$a}, sub{$a==$a}],
+  Then
+   {PrintOutStringNL "AAAA11";
+   },
+  Else
+   {PrintOutStringNL "AAAA22";
+   };
+
+  ifOr [sub{$a==$a}, sub{$a!=$a}],
+  Then
+   {PrintOutStringNL "BBBB11";
+   },
+   Else
+   {PrintOutStringNL "BBBB22";
+   };
+
+  ifOr [sub{$a!=$a}, sub{$a==$a}],
+  Then
+   {PrintOutStringNL "CCCC11";
+   },
+   Else
+   {PrintOutStringNL "CCCC22";
+   };
+
+  ifOr [sub{$a!=$b}, sub{$a!=$b}],
+  Then
+   {PrintOutStringNL "DDDD11";
+   },
+   Else
+   {PrintOutStringNL "DDDD22";
+   };
+
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
+AAAA11
+BBBB11
+CCCC11
+DDDD22
+END
+ }
+
+#latest:                                                                        #TAND
+if (1) {
+  my $a = K key => 1;
+  my $b = K key => 1;
+
+  ifAnd [sub{$a==$a}, sub{$a==$a}],
+  Then
+   {PrintOutStringNL "AAAA11";
+   },
+  Else
+   {PrintOutStringNL "AAAA22";
+   };
+
+  ifAnd [sub{$a==$a}, sub{$a!=$a}],
+  Then
+   {PrintOutStringNL "BBBB11";
+   },
+   Else
+   {PrintOutStringNL "BBBB22";
+   };
+
+  ifAnd [sub{$a!=$a}, sub{$a==$a}],
+  Then
+   {PrintOutStringNL "CCCC11";
+   },
+   Else
+   {PrintOutStringNL "CCCC22";
+   };
+
+  ifAnd [sub{$a!=$b}, sub{$a!=$b}],
+  Then
+   {PrintOutStringNL "DDDD11";
+   },
+   Else
+   {PrintOutStringNL "DDDD22";
+   };
+
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
+AAAA11
+BBBB22
+CCCC22
+DDDD22
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('va a= b( vb e+ vc B) e* vd dif ve');
+  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $parse = $a->ParseUnisyn($a8, $s8-1);                                      # Parse the utf8 string minus the final new line
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->tree->dumpParseTree($a8);
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1_369_790;
+parseChar: .... .... ...1 D5D8
+parseFail: .... .... .... ....
+pos: .... .... .... ..2B
+parseMatch: .... .... .... ....
+parseReason: .... .... .... ....
+＝
+._𝗔
+._𝐈𝐅
+._._✕
+._._._【
+._._._._＋
+._._._._._𝗕
+._._._._._𝗖
+._._._𝗗
+._._𝗘
+END
+  unlink $f;
+ }
+
+#D1 Awaiting Classification                                                     # Routines that have not yet been classified.
+
+sub ParseUnisyn($$$)                                                            #P Test the parse of a unisyn expression.
+ {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
+# say STDERR readFile($f);
+  is_deeply readFile($f), $text;
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $p = $a->ParseUnisyn($a8, $s8-1);                                          # Parse the utf8 string minus the final new line
+
+  $p->tree->dumpParseTree($a8);
+  ok Assemble eq => $parse, avx512=>1, mix=>1;
+
+  if (-e $programOut and $homeTest)                                             # Print parse tree
+   {say STDERR readFile($programOut) =~ s(\n) (\\n)gsr
+   }
+
+  unlink $f;
+ };
+
+#latest:;
+ParseUnisyn '',                                        "\n",                    qq(\n\n);
+ParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
+ParseUnisyn 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
+ParseUnisyn 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
+ParseUnisyn 'va a= vb e+ vc',                          "𝗔＝𝗕＋𝗖\n",               qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
+ParseUnisyn 'va a= vb e* vc',                          "𝗔＝𝗕✕𝗖\n",              qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
+ParseUnisyn 'b( B)',                                   "【】\n",                  qq(【\n);
+ParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】\n",                qq(【\n._⟦\n);
+ParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",              qq(【\n._⟦\n._._⟨\n);
+
+ParseUnisyn 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
+ParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
+ParseUnisyn 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",             qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
+ParseUnisyn 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",       qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
+ParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢\n",               qq();
+ParseUnisyn 'va s vb',                                 "𝗔⟢𝗕\n",                 qq(⟢\n._𝗔\n._𝗕\n);
+ParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
+ParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
+ParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖\n",               qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
+ParseUnisyn 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
+ParseUnisyn 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
+ParseUnisyn 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
+ParseUnisyn 'va dif vb delse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖\n",           qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
+ParseUnisyn 'va a= b1 vb e+ vc B1 e* vd dif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘\n",        qq(＝\n._𝗔\n._𝐈𝐅\n._._✕\n._._._⌊\n._._._._＋\n._._._._._𝗕\n._._._._._𝗖\n._._._𝗗\n._._𝗘\n);
+ParseUnisyn 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
+ParseUnisyn 'p11 va',                                  "𝑳𝗔\n",                  qq(𝑳\n._𝗔\n);
+ParseUnisyn 'va q11',                                  "𝗔𝙇\n",                  qq(𝙇\n._𝗔\n);
+ParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
+ParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
+ParseUnisyn 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
+ParseUnisyn 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝙇\n._._𝗕\n);
+ParseUnisyn 'va e+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇\n",              qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
+ParseUnisyn 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",           qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
+ParseUnisyn 'va e+ p11 vb q11 dif p21 b( vc e* vd B) q22 delse ve e* vf',
+            "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙\n",                                          qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._＋\n._._._𝗔\n._._._𝙇\n._._._._𝑳\n._._._._._𝗕\n._._𝙒\n._._._𝑽\n._._._._【\n._._._._._✕\n._._._._._._𝗖\n._._._._._._𝗗\n._✕\n._._𝗘\n._._𝗙\n);
+
+sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree.
+ {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
+  @_ == 2 or confess "Two parameters";
+
+  my $s = Subroutine                                                            # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $t      = $$s{tree};                                                     # Tree
+    my $source = $$p{source};                                                   # Source
+    my $depth  = $$p{depth};                                                    # Depth
+    my $area   = $t->area;                                                      # Area
+    If $depth < K(key => 99),
+    Then {                                                                      # Not in a recursive loop yet ?
+                  $t->find(K pos => Nasm::X86::Unisyn::Lex::length);
+    my $length   = $t->data->clone("Length");                                   # Length of input
+
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::position);
+    my $position = $t->data->clone("Position");                                 # Position in input
+
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::type);
+    my $type     = $t->data->clone("Type");                                     # Type of operator
+
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::left);
+    my $leftF    = $t->found->clone("Left");                                    # Left operand found
+    my $left     = $t->data ->clone('left');                                    # Left operand
+
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::right);
+    my $rightF   = $t->found->clone("Right");                                   # Right operand found
+    my $right    = $t->data ->clone('right');                                   # Right operand
+
+    If $length > 0,                                                             # Source text of lexical item
+    Then
+     {$depth->for(sub
+       {PrintOutString "._";
+       });
+      ($source + $position)->printOutMemoryNL($length);
+     };
+
+    If $leftF > 0,
+    Then                                                                        # There is a left sub tree
+     {$sub->call(structures => {tree  => $t->position($left)},
+                 parameters => {depth => $depth+1, source=> $source});
+     };
+
+    If $rightF > 0,
+    Then                                                                        # There is a right sub tree
+     {$sub->call(structures => {tree  => $t->position($right)},
+                 parameters => {depth => $depth+1, source=> $source});
+     };
+     };
+   } structures => {tree => $tree}, parameters=>[qw(depth source)],
+     name       => "Nasm::X86::Tree::dumpParseTree";
+
+# PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
+
+  If $tree->size == 0,                                                          # Empty tree
+  Then
+   {#PrintOutStringNL "- empty";
+   },
+  Else                                                                          # Print root node
+   {#PrintOutString ": ";
+    $s->call(structures => {tree  => $tree},
+             parameters => {depth => K(depth => 0), source=> $source});
+    #PrintOutNL;
+   };
+ }
+
+block4: goto blockX unless $block{4};                                           # Fourth block of tests - latest development
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TconstantString
+  my $a = CreateArea;
+  my ($s, $l) = constantString("1234567");
+  my $t = $a->treeFromString($s, $l);
+     $t->dump8xx("AA");
+
+     $t->push(my $v = K key => 0x99);
+     $t->dump8xx("BB");
+
+  my $T = $a->CreateTree;
+     $T->putString($t);
+     $T->dump8xx("CC");
+
+     $t->pop;
+  my $S = $T->getString($t);
+     $S->found->outNL;
+     $S->data ->outNL;
+  ok Assemble eq => <<END, avx512=>1, label=>'t4';
+AA
+Tree: .... .... .... ..40
+At:       80                                                                                length:        7,  data:       C0,  nodes:      100,  first:       40, root, leaf
+  Index:        0        1        2        3        4        5        6
+  Keys :        0        1        2        3        4        5        6
+  Data :       31       32       33       34       35       36       37
+end
+BB
+Tree: .... .... .... ..40
+At:       80                                                                                length:        8,  data:       C0,  nodes:      100,  first:       40, root, leaf
+  Index:        0        1        2        3        4        5        6        7
+  Keys :        0        1        2        3        4        5        6        7
+  Data :       31       32       33       34       35       36       37       99
+end
+CC
+Tree: .... .... .... .140
+At:      1C0                                                                                length:        1,  data:      200,  nodes:      240,  first:      140, root, leaf,  trees:             1
+  Index:        0
+  Keys :       31
+  Data :      18*
+   Tree:      180
+     At:      2C0                                                                           length:        1,  data:      300,  nodes:      340,  first:      180, root, leaf,  trees:             1
+       Index:        0
+       Keys :       32
+       Data :      28*
+        Tree:      280
+          At:      3C0                                                                      length:        1,  data:      400,  nodes:      440,  first:      280, root, leaf,  trees:             1
+            Index:        0
+            Keys :       33
+            Data :      38*
+             Tree:      380
+               At:      4C0                                                                 length:        1,  data:      500,  nodes:      540,  first:      380, root, leaf,  trees:             1
+                 Index:        0
+                 Keys :       34
+                 Data :      48*
+                  Tree:      480
+                    At:      5C0                                                            length:        1,  data:      600,  nodes:      640,  first:      480, root, leaf,  trees:             1
+                      Index:        0
+                      Keys :       35
+                      Data :      58*
+                       Tree:      580
+                         At:      6C0                                                       length:        1,  data:      700,  nodes:      740,  first:      580, root, leaf,  trees:             1
+                           Index:        0
+                           Keys :       36
+                           Data :      68*
+                            Tree:      680
+                              At:      7C0                                                  length:        1,  data:      800,  nodes:      840,  first:      680, root, leaf,  trees:             1
+                                Index:        0
+                                Keys :       37
+                                Data :      78*
+                                 Tree:      780
+                                   At:      8C0                                             length:        1,  data:      900,  nodes:      940,  first:      780, root, leaf,  trees:             1
+                                     Index:        0
+                                     Keys :       99
+                                     Data :      88*
+                                      Tree:      880
+- empty
+                                   end
+                              end
+                         end
+                    end
+               end
+          end
+     end
+end
+found: .... .... .... ...1
+data: .... .... .... .780
+END
+ }
+
+#latest:
+if (1) {                                                                        #TTraceMode
+  $TraceMode = 1;
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, "[rax]";
+  Mov rax, "[rax]";
+  Mov rax, "[rax]";
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+  Mov rax, Rq(0x22);
+
+  PrintOutRegisterInHex rax;
+  eval {Assemble avx512=>1, trace=>1, mix=>0};
+  ok readFile($traceBack) =~ m(TraceBack start:)s;
+ }
+
+#latest:
+if (1) {                                                                        #TTraceMode
+  $TraceMode = 1;                                                               # Enabling tracing
+
+  my $S = Subroutine                                                            # Load and print rax
+   {my ($p, $s, $sub) = @_;
+    Mov rax, "[rax]";
+    PrintOutRegisterInHex rax;
+    If $$p{fail} > 0,                                                           # Fail if requested
+    Then
+     {Mov rax, "[rax]";
+     };
+   } name => "s", parameters=>[qw(fail)], trace=>1;
+
+  my $T = Subroutine                                                            # Fail
+   {my ($p, $s, $sub) = @_;
+    Mov rax, Rq(0x22);
+    $S->call(parameters => {fail => K(zero=> 1)});
+   } name => "t";
+
+
+  Mov rax, Rq(0x11);
+  $S->call(parameters => {fail => K(zero=> 0)});                                # Call subroutine to be traced
+  $T->call;
+
+  Assemble eq=><<END, avx512=>1, trace=>1, mix=>0;
+   rax: .... .... .... ..11
+   rax: .... .... .... ..22
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Subroutine::inline
+  my $s = Subroutine                                                            # Load and print rax
+   {my ($p, $s, $sub) = @_;
+    $$p{ppp}->outNL;
+   } name => "s", parameters=>[qw(ppp)];
+
+  $s->call  (parameters => {ppp => V ppp => 0x99});                             # Call   378
+  $s->inline(parameters => {ppp => V ppp => 0xaa});                             # Inline 364
+
+  Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
+ppp: .... .... .... ..99
+ppp: .... .... .... ..AA
+END
+ }
+
+#   16,948,886  with 64 byte moves
+#   16,885,371  with 4K byte moves
+#       Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
+#   16,885,371       1,187,232      16,885,371       1,187,232      2.856018          2.15  splitNode called
+#   15,178,043       1,210,568      15,178,043       1,210,568      2.975869          2.08  splitNode in
+#   15,088,868       1,217,312      15,088,868       1,217,312      3.013716          2.10  splitNotRoot in
+#   14,994,473       1,245,784      14,994,473       1,245,784      2.674707          1.96  allocBlock in
+#   14,993,215       1,246,272      14,993,215       1,246,272      2.496290          1.93  overWriteKeyDataTreeInLeaf
+#   14,876,443       1,247,840      14,876,443       1,247,840      2.506694          1.83  insertKeyDataTreeIntoLeaf
+#   14,873,853       1,257,656      14,873,853       1,257,656      2.530187          1.91  splitRoot
+#   14,871,893       1,371,472      14,871,893       1,371,472      2.540378          4.41  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 17619
+#   14,505,119       1,264,408      14,505,119       1,264,408      2.846307          4.87  variable::copy constant
+#   14,506,287       1,154,376      14,506,287       1,154,376      2.903949          1.90  mergeOrSteal not inlined
+
+#latest:
+if (1)
+ {my $compose = 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s';
+  my $text    = "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n";
+  my $parse  = q(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
+
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
+  is_deeply readFile($f), $text;
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $p = $a->ParseUnisyn($a8, $s8-1);                                          # Parse the utf8 string minus the final new line
+
+  $p->tree->dumpParseTree($a8);
+  ok Assemble eq => <<END, avx512=>1, mix=>0;
+⟢
+._＝
+._._𝗔
+._._𝐈𝐅
+._._._𝗕
+._._._✕
+._._._._𝗖
+._._._._𝗗
+._＝
+._._𝝰
+._._𝐈𝐅
+._._._𝝱
+._._._✕
+._._._._𝝲
+._._._._𝝳
+END
+  unlink $f;
+ }
+
+#latest:
+if (1)
+ {my $a = CreateArea;
+  my $t = $a->CreateTree;
+  K(key => 100)->for(sub{my ($i) = @_; $t->put($i, $i)});
+  $t->size->outNL;
+  ok Assemble eq =><<END, avx512=>1, mix=>1;
+size of tree: .... .... .... ..64
+END
+ }
+
+#latest:;
+if (1)
+ {my $a = K(key => 11);
+  my $b = K(key => 22);
+
+  If $a > $b,
+  Then
+   {PrintOutStringNL "AAAA biggest";
+   },
+  Else
+   {PrintOutStringNL "BBBB biggest";
+   };
+
+  If $a < $b,
+  Then
+   {PrintOutStringNL "AAAA smallest";
+   },
+  Else
+   {PrintOutStringNL "BBBB smallest";
+   };
+
+  If $a != $b,
+  Then
+   {PrintOutStringNL "AAAA not equal to BBBB by not equal";
+   },
+  Else
+   {PrintOutStringNL "AAAA equals to BBBB by not equal";
+   };
+
+  If $a == $b,
+  Then
+   {PrintOutStringNL "AAAA equal to BBBB";
+   },
+  Else
+   {PrintOutStringNL "AAAA not equal to BBBB";
+   };
+
+  If $a == 11,
+  Then
+   {PrintOutStringNL "AAAA equal 11";
+   },
+  Else
+   {PrintOutStringNL "AAAA not equal 11";
+   };
+
+  If $a == 0,
+  Then
+   {PrintOutStringNL "AAAA equal zero";
+   },
+  Else
+   {PrintOutStringNL "AAAA not equal zero";
+   };
+
+  If $a > 0,
+  Then
+   {PrintOutStringNL "AAAA greater than zero by gt";
+   },
+  Else
+   {PrintOutStringNL "AAAA equal zero by gt";
+   };
+
+  my $c = K(key => 0);
+  If $c > 0,
+  Then
+   {PrintOutStringNL "CCCC greater than zero by gt";
+   },
+  Else
+   {PrintOutStringNL "CCCC equal zero by gt";
+   };
+
+  If $c == 0,
+  Then
+   {PrintOutStringNL "CCCC equal zero";
+   },
+  Else
+   {PrintOutStringNL "CCCC not equal zero";
+   };
+
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1;
+BBBB biggest
+AAAA smallest
+AAAA not equal to BBBB by not equal
+AAAA not equal to BBBB
+AAAA equal 11
+AAAA not equal zero
+AAAA greater than zero by gt
+CCCC equal zero by gt
+CCCC equal zero
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::put #TNasm::X86::Tree::find
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  my $N = K(key => 999);
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $t->put($index, $index);
+   });
+
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $t->find($index);
+   });
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>763430;
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::putString
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  $t->push(K key => 1);
+  $t->push(K key => 2);
+  $t->push(K key => 3);
+  $T->putString($t)->outNL;
+
+  K(key => 2)->for(sub
+   {$t->pop;
+    $t->pop;
+    $t->push(K key => 3);
+    $t->push(K key => 4);
+    $T->putString($t)->outNL;
+
+    $t->pop;
+    $t->pop;
+    $t->push(K key => 4);
+    $t->push(K key => 5);
+    $T->putString($t)->outNL;
+   });
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+first: .... .... .... .380
+first: .... .... .... .4C0
+first: .... .... .... .6..
+first: .... .... .... .4C0
+first: .... .... .... .6..
+END
+ }
+
+#latest:
+if (1) {                                                                        #T Nasm::X86::Tree::putStringFromMemory
+  my $A = CreateArea;
+  my $t = $A->CreateTree;
+
+  K(loop => 9)->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    my ($a, $l) = constantString("abcd");
+    $t->putStringFromMemory($a, $l)->outNL;
+    $A->makeReadOnly;
+    $t->getStringFromMemory($a, $l)->data->outNL;
+   });
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
+first: .... .... .... .380
+data: .... .... .... .380
+first: .... .... .... .380
+data: .... .... .... .380
+first: .... .... .... .380
+data: .... .... .... .380
+first: .... .... .... .380
+data: .... .... .... .380
+first: .... .... .... .380
+data: .... .... .... .380
+first: .... .... .... .380
+data: .... .... .... .380
+first: .... .... .... .380
+data: .... .... .... .380
+first: .... .... .... .380
+data: .... .... .... .380
+first: .... .... .... .380
+data: .... .... .... .380
+END
+ }
+
+#     Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
+#  2,623,415         177,952       2,623,415         177,952      0.429488          0.16
+#  2,611,013         177,952       2,611,013         177,952      0.398965          0.16  Improved allocZmmBlock
+#  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
+#  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
+#  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
+#  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
+#  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
+#  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
+#  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
+#  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
+#  2,181,550         187,664       2,181,550         187,664      0.361091          0.15  Improved parameter passing
+#  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
+#  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
+#  1,793,868         181,576       1,793,868         181,576      0.349532          0.15  k7 becomes k1 and so avoids the push
+#  1,792,946         181,336       1,792,946         181,336      0.358092          0.15  tree::allocBlock
+#  1,787,294         181,264       1,787,294         181,264      0.343509          0.15  Inc length in keys
+#  1,752,298         181,216       1,752,298         181,216      0.486707          0.16  dFromPointInZ
+#  1,680,124         180,952       1,680,124         180,952      0.333127          0.15  Index uses mask array not calculation
+#  1,658,167         180,976       1,658,167         180,976      0.331838          0.17  Index uses preloaded keys
+#  1,640,669         180,952       1,640,669         180,952      0.333896          0.16  Elided three instructions in put loop
+#  1,605,947         180,880       1,605,947         180,880      0.334369          0.14  search key preloaded into zmm
+#  1,597,198         192,760       1,597,525         192,760      0.387688          0.17  Optimized reloads out
+#  1,584,214         180,144       1,584,214         180,144      0.359084          0.16  Better inc/dec
+#  1,580,599         180,088       1,580,599         180,088      0.339057          0.15  Copy constant
+#  1,500,463         171,696       1,500,749         171,696      0.458875          0.16  Remove checks
+#  1,375,167         158,096       1,375,167         158,096      0.357263          0.16  Better boolean tests
+#  1,341,795         115,616       1,341,795         115,616      0.309691          0.16  Debug mode around all PrintErr
+#  1,317,737         128,024       1,317,926         128,024      0.353775          0.20  IndexXX eliminate lea
+#  1,326,635         127,648       1,326,635         127,648      0.316558          0.17  Changes to indexxx and related have pushed put up but improved find
+#  1,326,486         115,616       1,326,486         115,616      0.310844          0.15
+#  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
+#  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
+#  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
+
+#latest:;
+if (1) {
+  my $a = CreateArea;
+  my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
+  $t->size->outRightInDecNL(K width => 4);
+# $t->put(K(key => 0xffffff), K(key => 1));                                     # 364    347
+# $t->find(K key => 0xffffff);                                                  # 370 -> 129
+
+  my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
+  my %l = map {$_=>1} @l;                                                       # All the unique letters
+  my $l = @l;
+  $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, clocks=>1259700, trace=>0;
+$l
+END
+}
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Area::yggdrasil
+  my $f = q(zzzArea.data);
+
+  if (1)                                                                        # Create alphabets and write to a file
+   {my $a = CreateArea;
+    my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
+    $t->find(K key => 0x27e2);
+    $t->data->outNL;
+
+    $a->write(V file => Rs $f);
+    $a->free;
+   }
+
+  if (2)                                                                        # Load alphabets from a file
+   {my $a = ReadArea $f;
+    my $y = $a->yggdrasil;
+    my $t = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Alphabets);
+    $t->find(K key => 0x27e2);
+    $t->data->outNL;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+data: .... .... .... ...8
+data: .... .... .... ...8
+END
+  ok -e $f;
+  is_deeply fileSize($f), 88512;
+
+  if (3)                                                                        # Incorporate alphabets in an an assembly
+   {my $a = loadAreaIntoAssembly $f;
+    my $y = $a->yggdrasil;
+    my $t = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Alphabets);
+    $t->find(K key => 0x27e2);
+    $t->data->outNL;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+data: .... .... .... ...8
+END
+  unlink $f;
+ }
+
+sub Nasm::X86::Tree::put2($$$$)                                                 # Especially useful for Yggdrasil: puts a key into a tree if it is not already there and puts a sub tree under it into which the following key, data pair is place. In this regard it is very like putString() but without the overhead of building an intermediate tree and restricted to just two entries.
+ {my ($tree, $key1, $key2, $data) = @_;                                         # Tree, first key, second key, data
+  @_ == 4 or confess "Four parameters";
+
+  my $t = $tree->findSubTree($key1);                                            # First key1
+  If $t->found == 0,
+  Then
+   {my $T = $tree->area->CreateTree;
+    $t->first->copy($T->first);
+    $tree->put($key1, $t);
+   };
+
+  $t->put($key2, $data);
+ }
+
+sub Nasm::X86::Tree::get2($$$)                                                  # Especially useful for Yggdrasil: gets the data associated with the pair of keys used to place it with put2().  The data is returned in the tree found and data fields using the normal tree search paradigm.
+ {my ($tree, $key1, $key2) = @_;                                                # Tree, first key, second key
+  @_ == 3 or confess "Three parameters";
+
+  $tree->found->copy(0);                                                        # Assume we will not find the data using the two keys
+
+  my $t = $tree->findSubTree($key1);                                            # Find first key
+  If $t->found > 0,
+  Then                                                                          # First key found in first tree
+   {$t->find($key2);
+    $tree->found->copy($t->found);
+    $tree->data ->copy($t->data);
+   };
+
+  $tree
+ }
+
+sub Nasm::X86::Tree::putKeyString($$$$)                                         # Especially useful for Yggdrasil: puts a key into a tree if it is not already there then puts a string into the sub string tree and return the unique number for the string.
+ {my ($tree, $key, $address, $size) = @_;                                       # Tree, key, variable address of string in memory, variable size of string
+  @_ == 4 or confess "Four parameters";
+
+  my $t = $tree->findSubTree($key);                                             # Find the key
+  If $t->found == 0,
+  Then
+   {my $T = $tree->area->CreateTree;
+    $t->first->copy($T->first);
+    $tree->put($key, $t);
+   };
+
+  $t->putStringFromMemory($address, $size);                                     # Return the unique number that of this string in the located sub tree
+ }
+
+sub Nasm::X86::Tree::getKeyString($$$$)                                         # Especially useful for Yggdrasil: locates a string tree by key then locates a string in that string tree if both the key and the string exist.  Th result of the search is indicated in the found and data fields of the returned tree descriptor.
+ {my ($tree, $key, $address, $size) = @_;                                       # Tree, key, variable address of string in memory, variable size of string
+  @_ == 4 or confess "Four parameters";
+
+  my $t = $tree->findSubTree($key);                                             # Find the key
+  If $t->found == 1,
+  Then
+   {my $T = $t->getStringFromMemory($address, $size);
+    If $T->found > 0,
+    Then                                                                        # Found so copy the results into the returned tree
+     {$t->data->copy($T->data);
+      $t->first->copy($T->first);
+     }
+   };
+  $t                                                                            # Found field indicates whether the data field is valid
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Tree::put2 #TNasm::X86::Tree::get2
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $k1 = K key1 => 0x1;
+  my $k2 = K key2 => 0x22;
+  my $d  = K data => 0x333;
+
+  $t->put2($k1, $k2, $d);
+
+  $t->data->copy(0);
+  $t->get2($k1, $k2);
+  $t->found->outNL;
+  $t->data ->outNL;
+
+  $t->data->copy(0);
+  $t->get2($k2, $k1);
+  $t->found->outNL;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+found: .... .... .... ...1
+data: .... .... .... .333
+found: .... .... .... ....
+END
+ }
+
+#latest:;
+if (1) {                                                                        # Load a subroutine into an area and call it.
+  unlink my $f = q(zzzArea.data);
+  my $sub = "abcd";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+    $$p{a}->setReg(rax);
+    #$$p{a}->outNL;
+   } name => $sub, parameters=>[qw(a)];
+
+  my $t = Subroutine {} name => "t", parameters=>[qw(a)];
+
+  $s->call(parameters=>{a => K key => 1});
+  PrintOutRegisterInHex rax;
+
+  if (1)                                                                        # Create an area and load a subroutine into it
+   {my $a = CreateArea;
+    my $address = K address => $s->start;
+    my $size    = K size => "$$s{end}-$$s{start}";
+    my $off     = $a->appendMemory($address, $size);                            # Copy a subroutine into an area
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = constantString($sub);
+    my $n = $y->putKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    $y->put2(                Nasm::X86::Yggdrasil::SubroutineOffsets, $n, $off);# Record the offset of the subroutine under the unique string number
+
+    $a->write(V file => Rs $f);                                                 # Save the area
+    $a->free;
+   }
+
+  if (1)                                                                        # Read an area containing a subroutine into memory
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = constantString($sub);
+    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    my $address = $a->address + $o->data;
+
+    $t->call(parameters=>{a => K key => 0x9999}, override => $address);         # Call position independent code
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=>0, trace=>0;
+   rax: .... .... .... ...1
+   rax: .... .... .... 9999
+END
+  ok -e $f;
+#  is_deeply fileSize($f),  77 unless onGitHub;
+#  is_deeply fileSize($f), 173 if     onGitHub;
+
+  if (1)                                                                        # Read an area containing a subroutine into memory
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = constantString($sub);
+    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
+                          override => $a->address + $o->data);
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... 8888
+END
+
+  if (1)                                                                        # Load an area into a thing
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = constantString($sub);
+    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
+                          override => $a->address + $o->data);
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... 7777
+END
+  unlink $f;
+ }
+
+#latest:;
+if (1) {                                                                        # Subroutine of sub routines
+  unlink my $f = q(zzzArea.data);
+  my $sub = "abcd";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+
+    my $a = Subroutine
+     {my ($p, $s, $sub) = @_;
+      Mov rax, 0x111;
+     } name => 'a', parameters=>[qw(a)];
+
+    my $b = Subroutine
+     {my ($p, $s, $sub) = @_;
+      $$p{a}->setReg(rax);
+     } name => 'b', parameters=>[qw(a)];
+
+   } name => $sub, parameters=>[qw(a)], export => $f;
+
+  my $t = Subroutine {} name => "t", parameters=>[qw(a)];
+
+  if (1)                                                                        # Read an area containing a subroutine into memory
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = constantString(q(b));
+    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a        => K key => 0x9999},                         # Call position independent code
+                          override => $a->address + $y->data);
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0, count=>0;
+   rax: .... .... .... 9999
+END
+  ok -e $f;
+
+  if (1)                                                                        # Read an area containing a subroutine into memory
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = constantString(q(b));
+    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
+                          override => $a->address + $o->data);
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... 8888
+END
+
+  if (1)                                                                        # Load an area into a thing
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = constantString(q(a));
+    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
+                          override => $a->address + $o->data);
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... .111
+END
+
+  if (1)                                                                        # Load an area into a thing
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+
+    my $y = $a->yggdrasil;
+    my ($N, $L) = constantString(q(b));
+    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+
+    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
+                          override => $a->address + $o->data);
+    PrintOutRegisterInHex rax;
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+   rax: .... .... .... 7777
+END
+  unlink $f;
+ }
+
+sub Nasm::X86::Area::subroutineDefinition($$$)                                  # Get the definition of a subroutine from an area.
+ {my ($area, $file, $name) = @_;                                                # Area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
+  my $a = readBinaryFile $file;                                                 # Reload the area
+  my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
+  my $c = eval $b;                                                              # Convert to Perl data structure
+  confess "Cannot extract subroutine definition from file $file\n$@\n" if $@;   # Complain if the eval failed
+  $$c{a};                                                                       # Extract subroutine definition
+ }
+
+sub Nasm::X86::Area::sub($$$)                                                   # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
+ {my ($area, $string, $size) = @_;                                              # Area containing the subroutine, variable address of string, variable size of string
+  @_ == 3 or confess "Three parameters";
+
+  my $y = $area->yggdrasil;
+  my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings, $string, $size);# Make the string into a unique number
+  my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);  # Get the offset of the subroutine under the unique string number
+
+  $area->address + $o->data                                                     # Actual address - valid until the area moves.
+ }
+
+sub Nasm::X86::Area::subFromConstantString($$)                                  # Obtain the address of the subroutine held in an area from a constant string.
+ {my ($area, $string) = @_;                                                     # Area containing the subroutine, a constant string
+  @_ == 2 or confess "Two parameters";
+
+  $area->sub(constantString($string))                                           # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
+ }
+
+#latest:;
+if (1) {                                                                        # Subroutine of sub routines which calls a subroutines which returns data
+  unlink my $f = q(zzzArea.data);
+
+  my $s = Subroutine                                                            # The containing subroutine which will contain all the code written to the area
+   {my ($p, $s, $sub) = @_;
+
+    my $a = Subroutine                                                          # The contained routine that we wish to call
+     {my ($p, $s, $sub) = @_;
+      $$p{a}->setReg(rax);
+      PrintOutStringNL "AAAAA";
+      PrintOutRegisterInHex rax;
+     } name => "a", parameters=>[qw(a)];
+
+   } name => "abcd",  parameters=>[qw(a)], export => $f;
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Assemble the containing subroutine into an area and thence into a file.
+END
+
+  if (1)                                                                        # Read an area containing a subroutine into memory
+   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+    my $A = $a->subFromConstantString(q(a));                                    # Locate the address of the subroutine in the area as longas the area does not move
+
+    $a->subroutineDefinition($f, q(a))->                                        # Call position independent code at the specified address in the area after extracting the subroutine definition so that we can prepare the parameter list correctly.
+      call(parameters=>{a => K key => 0x8888}, override => $A);
+   }
+
+  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Call the routine and observe that it produces the expected result.
+AAAAA
+   rax: .... .... .... 8888
+END
+ }
+
+sub Nasm::X86::Tree::intersectionOfStringTrees($$)                              #P Find the intersection of two string trees. The result is a tree that maps the values of the first tree to those of the second tree whenever they have a string in common.  This is mapping because bot the keys and the data values are unique.
+ {my ($tree, $Tree) = @_;                                                       # First tree, second tree
+  @_ == 2 or confess "Two parameters";
+
+  my $result = $tree->area->CreateTree;                                         # The resulting mapping tree
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    my $t = $$s{tree};                                                          # First tree
+    my $T = $$s{Tree};                                                          # Second tree
+    my $r = $$s{result};                                                        # Result tree
+
+    $t->by(sub                                                                  # Elements of the current tree
+     {my ($s, $start, $next) = @_;
+      my $S = $T->findSubTree($s->key);
+      If $S->found > 0,
+      Then                                                                      # Found a matching sub tree
+       {$r->put($s->data, $S->data);
+        $sub->call(structures=>{tree=>$s->cloneAndDown, Tree=>$S, result=>$r});
+       };
+     });
+
+   } structures => {tree => $tree, Tree=>$tree, result=>$result},
+     name       => "Nasm::X86::Tree::intersectionOfStringTrees";
+
+  $s->call(structures=>{tree=>$tree, Tree=>$Tree, result=>$result});            # Start at the top of each input tree with an empty result so far
+
+  $result
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  for my $s(qw(a ab abc))
+   {$t->putStringFromMemory(constantString $s);
+   }
+
+  for my $s(qw(ab abc abd))
+   {$T->putStringFromMemory(constantString $s);
+   }
+
+  my $R = $t->intersectionOfStringTrees($T);
+
+  $R->dump('rr');
+
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
+rr
+At:  740                    length:    3,  data:  780,  nodes:  7C0,  first:  700, root, leaf
+  Index:    0    1    2
+  Keys :   C0  1C0  2C0
+  Data :  960 1216 1472
+end
+END
+ }
+
+sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators.
+ {my ($parse, $library, $intersection) = @_;                                    # Parse tree, library of operators, intersection of parse tree with library of operators
+  @_ == 3 or confess "Three parameters";
+
+  my $s = Subroutine                                                            # Print a tree
+   {my ($parameters, $structures, $sub) = @_;                                   # Parameters, structures, subroutine definition
+
+    my $t = $$structures{tree};                                                 # Parse tree
+    my $i = $$structures{intersection};                                         # Intersection
+    my $L = $$structures{library};                                              # Library
+
+    my $l = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::left);
+    my $r = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::right);
+    my $𝞃 = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::type);
+    my $S = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::symbol);
+
+    If $l->found > 0,
+    Then                                                                        # There is a left sub tree
+     {$sub->call(structures => {tree => $l, intersection => $i, library => $L});
+     };
+
+    if (1)                                                                      # Process the lexical type associated with this node of the parse tree.
+     {my $d = my $p = my $a = my $v = my $q = my $s = my $b = my $B = sub {};   # Default lexical item processors
+
+      my $A = sub                                                               # Ascii
+       {PrintOutStringNL "Ascii";
+       };
+
+      my $e = sub                                                               # Operator
+       {PrintOutStringNL "Operator";
+
+        my $y = $L->yggdrasil;                                                  # Yggdrasil for the parse tree area
+        my $o = $y->findSubTree(Nasm::X86::Yggdrasil::SubroutineOffsets);       # Offsets of subroutines in library
+        $i->find($S->data);                                                     # Unique string in library
+        $o->find($i->data);                                                     # Offset of routine
+
+        my $t = Subroutine {}                                                   # Subroutine definition
+          name       => "Nasm::X86::Unisyn::Operator:plus",
+          parameters => [qw()];
+
+        $t->call(override => $L->address + $o->data);
+       };
+                                                                                # Process lexical from parse tree
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$A};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::d), Then {&$d};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::p), Then {&$p};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::a), Then {&$a};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::v), Then {&$v};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::q), Then {&$q};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::s), Then {&$s};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::e), Then {&$e};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::b), Then {&$b};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::B), Then {&$B};
+     }
+
+    If $r->found > 0,
+    Then                                                                        # There is a right sub tree
+     {$sub->call(structures => {tree         => $r,
+                                intersection => $i,
+                                library      => $L});
+     };
+   } structures => {tree        => $parse->tree,
+                   intersection => $intersection,
+                   library      => $library},
+     name       => "Nasm::X86::Tree::traverseApplyingLibraryOperators";
+
+  $s->call(structures => {tree         => $parse->tree,
+                          intersection => $intersection,
+                          library      => $library});
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+  my $f = "zzzOperators.lib";
+
+  my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
+   {my ($p, $s, $sub) = @_;
+
+    my $add = Subroutine                                                        # The contained routine that we wish to call
+     {my ($p, $s, $sub) = @_;
+#      my $c = $$p{a} + $$p{b};
+#      $$p{c}->copy($c);
+      PrintOutStringNL "Add";
+     } name => "＋", parameters=>[qw(a b c)];
+
+   } name => "operators",  parameters=>[qw(a b c)], export => $f;
+
+  ok Assemble eq => <<END, avx512=>1;
+END
+
+
+  my $l = ReadArea $f;                                                          # Area containing subroutine library
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+
+  my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
+  my $p = $a->ParseUnisyn($A, $N);                                              # Parse the utf8 string minus the final new line and zero?
+
+  $p->tree->dumpParseTree($A);                                                  # Parse tree
+
+  my $y = $l->yggdrasil;                                                        # Yggdrasil for the parse tree area
+  my $u = $y->findSubTree(Nasm::X86::Yggdrasil::UniqueStrings);                 # Unique strings in area from parse
+  my $o = $y->findSubTree(Nasm::X86::Yggdrasil::SubroutineOffsets);             # Offsets of subroutines in library
+  my $i = $p->symbols->intersectionOfStringTrees($u);                           # Mapping between the number of a symbol to the number of a routine.  The library sub tree SubroutineOffsets located via Yggdrasil can be used to obtain the actual offset of the routine in the library.
+
+#  $i->dump8xx('ii');                                                           # Intersection of parse strings with library strings
+#  $o->dump8xx('oo');                                                           # Subroutine offsets
+  $p->traverseApplyingLibraryOperators($l, $i);                                 # Traverse a parse tree applying a library of operators
+
+  ok Assemble eq => <<END, avx512=>1;
+＋
+._1
+._2
+Ascii
+Operator
+Add
+Ascii
+END
+  unlink $f;
+ };
+
+
+#latest:
+if (1) {                                                                        # First cache constants
+  my $a = CreateArea;
+  my $t = $a->CreateTree(lowKeys=>1);
+
+  my $k = K key  => 1;
+  my $d = K data => 1;
+  $t->put($k, $d);
+  $a->dump('aa');
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+aa
+Area     Size:     4096    Used:      128
+.... .... .... .... | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  .1__ ____ .2__ ____  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:
+if (1) {                                                                        # First cache variables
+  my $a = CreateArea;
+  my $t = $a->CreateTree(lowKeys=>1);
+
+  my $k = V key  => 1;
+  my $d = V data => 1;
+  $t->put($k, $d);
+  $a->dump('aa');
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+aa
+Area     Size:     4096    Used:      128
+.... .... .... .... | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  .1__ ____ .2__ ____  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:
+if (1) {                                                                        # First cache variables - constants, level 1
+  my $a = CreateArea;
+  my $t = $a->CreateTree(lowKeys=>1);
+
+  my $N = 3;
+
+  for my $i(1..$N)
+   {$t->put(K(key => $i), K(key => eval "0x$i$i"));
+   }
+
+  for my $i(1..$N)
+   {$t->find(K(key => $i)); $t->found->out; PrintOutString "  "; $t->data->outNL;
+   }
+  $t->put (K(key => 1), K(key => 1));                                           # 18
+  $t->find(K(key => 1));                                                        # 20
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+found: .... .... .... ...1  data: .... .... .... ..11
+found: .... .... .... ...1  data: .... .... .... ..22
+found: .... .... .... ...1  data: .... .... .... ..33
+END
+ }
+
+#latest:
+if (1) {                                                                        # First cache variables - variables, level 1
+  my $a = CreateArea;
+  my $t = $a->CreateTree(lowKeys=>1);
+
+  my $N = 3;
+
+  for my $i(1..$N)
+   {$t->put(V(key => $i), V(key => eval "0x$i$i"));
+   }
+
+  for my $i(1..$N)
+   {$t->find(K(key => $i)); $t->found->out; PrintOutString "  "; $t->data->outNL;
+   }
+  $t->put (K(key => 1), K(key => 1));                                           # 18
+  $t->find(K(key => 1));                                                        # 20
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+found: .... .... .... ...1  data: .... .... .... ..11
+found: .... .... .... ...1  data: .... .... .... ..22
+found: .... .... .... ...1  data: .... .... .... ..33
+END
+ }
+
+#latest:
+if (1) {                                                                        # First cache variables - constants, level 2
+  my $a = CreateArea;
+  my $t = $a->CreateTree(lowKeys=>2);
+
+  my $N = 3;
+
+  for my $i(1..$N)
+   {$t->put(K(key => $i), K(key => eval "0x$i$i"));
+   }
+
+  for my $i(1..$N)
+   {$t->find(K(key => $i)); $t->data->outNL;
+   }
+# $t->put (K(key => 1), K(key => 1));                                           # 18
+  $t->find(K(key => 1));                                                        # 7
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1069;
+data: .... .... .... ..11
+data: .... .... .... ..22
+data: .... .... .... ..33
+END
+ }
+
+#latest:
+if (1) {                                                                        # First cache variables - variables, level 2
+  my $a = CreateArea;
+  my $t = $a->CreateTree(lowKeys=>2);
+
+  my $N = 3;
+
+  for my $i(1..$N)
+   {$t->put(V(key => $i), V(key => eval "0x$i$i"));
+   }
+
+  for my $i(1..$N)
+   {$t->find(K(key => $i)); $t->data->outNL;
+   }
+# $t->put (K(key => 1), K(key => 1));                                           # 11
+# $t->find(K(key => 1));                                                        # 7
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1066;
+data: .... .... .... ..11
+data: .... .... .... ..22
+data: .... .... .... ..33
+END
+ }
+
+latest:
+if (1) {                                                                        # Parse a Unisyn expression
+  my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $p = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
+  $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
+# my $q = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
+
+# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#    1          74_624         631_464          74_624         631_464        0.4000          3.44          0.00
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>74_624;
+＝
+._𝗔
+._𝐈𝐅
+._._✕
+._._._【
+._._._._＋
+._._._._._𝗕
+._._._._._𝗖
+._._._𝗗
+._._𝗘
+END
+ }
+
+latest:
+if (0) {                                                                        #TAssemble
+  ok Assemble eq => <<END, avx512=>1;
+END
+ }
+
+blockX:                                                                         # End of blocks of tests
+
+done_testing;
+
+#unlink $_ for qw(sde-footprint.txt sde-log.txt);
+
+if (1)                                                                          # Summary of processing
+ {my $t = <<END,
+#    Block        Fails     Passes    Assemblies            Time           Bytes          Clocks
+END
+  my $r = sprintf(<<END,
+# %8s        %5d     %6d    %10d        %8.2f    %12s    %12s
+END
+  join('', sort keys %block),
+  $testsThatFailed,
+  $testsThatPassed,
+  $assembliesPerformed,
+  time - $start,
+  numberWithUnderScores(totalBytesAssembled),
+  numberWithUnderScores($instructionsExecuted));
+
+  appendFile $resultFile, $t unless -e $resultFile;                             # Start the result file with the title line
+  appendFile $resultFile, $r;                                                   # Result from this test
+
+  say STDERR "\n$t$r";
+  exit(1) if $testsThatFailed;                                                  # Show failure on gitHub
+ }
+
+# podDocumentation
+# 91909 - Pilates of East Lake
