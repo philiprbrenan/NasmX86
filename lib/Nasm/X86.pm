@@ -10935,7 +10935,7 @@ if (1) {                                                                        
 
   ok Assemble(avx512=>0, eq=><<END)
 rax: 6261 6261 6261 6261
-rax: .... .... .... ...0
+rax: .... .... .... ....
 END
  }
 
@@ -11396,7 +11396,7 @@ if (1) {                                                                        
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
    rax: .... .... .... ...3
-   rax: .... .... .... ...0
+   rax: .... .... .... ....
 END
   ok -e $f;                                                                     # Created file
   unlink $f;
@@ -11411,7 +11411,7 @@ if (1) {                                                                        
    } rax, 16, 1;
 
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
-   rax: .... .... .... ...0
+   rax: .... .... .... ....
    rax: .... .... .... ...1
    rax: .... .... .... ...2
 END
