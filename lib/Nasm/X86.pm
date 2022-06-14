@@ -5819,12 +5819,13 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 #D2 Constructors                                                                # Construct a tree.
 
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
- {my (%options) = @_;                                                           # Tree description options
-  my $area      = delete $options{area};                                        # The area containing the tree
-  my $lowKeys   = delete $options{lowKeys};                                     # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
-  my $lowTree   = delete $options{lowTree};                                     # This tree is at the lowest level if true. As there are no sub trees hanging from this tree we may optimize put, find, delete to not process information required to describe sub trees.  This action has not been done yet except n the case of low key processing.
-  my $length    = delete $options{length};                                      # Maximum number of keys per node
-     $length    = 13;                                                           # Maximum number of keys per node
+ {my (%options)  = @_;                                                          # Tree description options
+  my $area       = delete $options{area};                                       # The area containing the tree
+  my $lowKeys    = delete $options{lowKeys};                                    # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
+  my $lowTree    = delete $options{lowTree};                                    # This tree is at the lowest level if true. As there are no sub trees hanging from this tree we may optimize put, find, delete to not process information required to describe sub trees.  This action has not been done yet except n the case of low key processing.
+  my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
+  my $length     = delete $options{length};                                     # Maximum number of keys per node
+     $length     = 13;                                                          # Maximum number of keys per node
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid keys
 
   my $b = RegisterSize 31;                                                      # Size of a block == size of a zmm register
@@ -6497,7 +6498,7 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
 #D2 Insert                                                                      # Insert a key into the tree.
 
 sub Nasm::X86::Tree::indexXX($$$$$%)                                            #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
- {my ($tree, $key, $K, $cmp, $inc, %options) = @_;                              # Tree definition, key to search for as a variable or a zmm, zmm containing keys, comparison from B<Vpcmp>, whether to increment the result by one, options
+ {my ($tree, $key, $K, $cmp, $inc, %options) = @_;                              # Tree definition, key to search for as a variable or a zmm containing a copy of the key to be searched for in each slot, zmm containing keys, comparison from B<Vpcmp>, whether to increment the result by one, options
   @_ >= 5 or confess "Five or more parameters";
 
   my $r = $options{set} // rsi;                                                 # Target register supplied or implied
@@ -9663,9 +9664,7 @@ END
     my $p = setFileExtension $f, q(pl);                                         # Perl file name
     owf $p, $c;                                                                 # Write Perl code to create parser tables file
 
-    confess "Run separately with tests shielded"                                # Check that the tests are shielded
-      unless readFile($0) =~ m(\n__DATA__);
-    qx(cat $p; perl -I../../lib/ -Ilib/ $p);
+    qx(cat $p; perl -Ilib/ $p);                                                 # The position of the library folder if not other wise installed
    }
 
   my $area        = loadAreaIntoAssembly $f;                                    # Load the parser table area directly into the assembly
@@ -9745,10 +9744,10 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
 
     my $l = $position - $startPos;                                              # Length of previous item
     $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $l);                        # Record length of previous item in its describing tree
-    my $m = $area->treeFromString($a8+$startPos, $l);                           # Create a tree string from the symbol in the parsing area as an easy way of loading the tree of strings - it would be better to have a version that loaded a string tree directly from memory
-    my $s = $symbols->putString($m);                                            # The symbol number for the last lexical item
-    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
-    $m->free;                                                                   # Free the tree acting as a string now that its content has been incorporated into the tree of strings - a source of inefficiency
+#    my $m = $area->treeFromString($a8+$startPos, $l);                           # Create a tree string from the symbol in the parsing area as an easy way of loading the tree of strings - it would be better to have a version that loaded a string tree directly from memory
+#    my $s = $symbols->putString($m);                                            # The symbol number for the last lexical item
+#    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
+#    $m->free;                                                                   # Free the tree acting as a string now that its content has been incorporated into the tree of strings - a source of inefficiency
    };
 
   my $new = sub                                                                 # Create a new lexical item
