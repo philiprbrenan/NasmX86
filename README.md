@@ -72,8 +72,8 @@ generated Assembler [program](https://en.wikipedia.org/wiki/Computer_program) wi
 failing [code](https://en.wikipedia.org/wiki/Computer_program). 
 ![Trace back](http://prb.appaapps.com/TraceBack.png)
 
-## Parse a Unisyn expression from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Parse a Unisyn expression to create a [parse](https://en.wikipedia.org/wiki/Parsing) [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)): 
+## Parse a Unisyn expression in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Parse a Unisyn expression to create a [parse](https://en.wikipedia.org/wiki/Parsing) [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
 
 
@@ -97,9 +97,8 @@ Parse a Unisyn expression to create a [parse](https://en.wikipedia.org/wiki/Pars
 END
 ```
 
-## Print some [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers:
-
+## Print some [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
   my $N = 11;                         # How many ?
   Mov r13, 0;                         # First  Fibonacci number
@@ -137,8 +136,118 @@ Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) n
 END
 ```
 
-# Read lines from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Read lines of up to 8 characters delimited by a new line character from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)): 
+## Binary search in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Search an [array](https://en.wikipedia.org/wiki/Dynamic_array) for a specified double [word](https://en.wikipedia.org/wiki/Doc_(computing)) using binary search in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+```
+sub BinarySearchD($$)                                                           # Search for an ordered array of double words addressed by r15, of length held in r14 for a double word held in r13 and call the $then routine with the index in rax if found else call the $else routine.
+ {my ($then, $else) = @_;                                                       # Routine to call on matchParameters
+
+  my $array = r15, my $length = r14, my $search = r13;                          # Sorted array to search, array length, dword to search for
+
+  my $low = rsi, my $high = rdi, my $loop = rcx, my $range = rdx, my $mid = rax;# Work registers modified by this routine
+  Mov $low,  0;                                                                 # Closed start of current range to search
+  Mov $high, $length;                                                           # Open end of current range to search
+
+  Cmp $high, 0;                                                                 # Check we have a none empty array to search
+  IfEq
+  Then                                                                          # Empty array
+   {Mov rax, -1;                                                                # Not found
+    &$else;
+   },
+  Else                                                                          # Search non empty array
+   {Dec $high;                                                                  # Closed end of current range
+
+    uptoNTimes                                                                  # Search a reasonable number of times
+     {my ($end, $start) = @_;                                                   # End, start label
+      Mov $mid, $low;                                                           # Find new mid point
+      Add $mid, $high;                                                          # Sum of high and low
+      Shr $mid, 1;                                                              # Average of high and low is the new mid point.
+
+      Cmp dWordRegister($search), "[$array+$mid*4]";                            # Compare current element of array with search
+      Pushfq;                                                                   # Save result of comparison
+      IfEq
+      Then                                                                      # Found
+       {Mov rax, $mid unless rax eq $mid;
+        &$then;
+        Jmp $end;
+       };
+
+      Mov $range, $high;                                                        # Size of remaining range
+      Sub $range, $low;
+      Cmp $range, 1;
+
+      IfLe
+      Then                                                                      # Less than three elements in final range
+       {Cmp dWordRegister($search), "[$array+$high*4]";                         # Compare high end of final range with search
+        IfEq
+        Then                                                                    # Found at high end of final range
+         {Mov rax, $high;
+          &$then;
+          Jmp $end;
+         };
+        Cmp dWordRegister($search), "[$array+$low*4]";                          # Compare low end of final range with search
+        IfEq
+        Then                                                                    # Found at low end of final range
+         {Mov rax, $low;
+          &$then;
+          Jmp $end;
+         };
+        Mov rax, -1;                                                            # Not found in final range
+        &$else;
+        Jmp $end;
+       };
+
+      Popfq;                                                                    # Restore results of comparison
+      IfGt                                                                      # Search argument is higher so move up
+      Then
+       {Mov $low, $mid;                                                         # New lower limit
+       },
+      Else                                                                      # Search argument is lower so move down
+       {Mov $high, $mid;                                                        # New upper limit limit
+       };
+     } $loop, 999;                                                              # Enough to search all the particles in the universe if they could be ordered by some means
+   };
+ }
+
+  for my $s(1..17)
+   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
+    Mov r14, 8;                                                                 # Size of array
+    Mov r13, $s;                                                                # Value to search for
+    PrintOutString sprintf "%2d:", $s;
+
+    BinarySearchD                                                               # Search
+    Then
+     {PrintOutString " <= "; PrintOutRaxInDec;  PrintOutNL;                     # Found
+     },
+    Else
+     {PrintOutNL;
+     };
+   }
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
+ 1:
+ 2: <= 0
+ 3:
+ 4: <= 1
+ 5:
+ 6: <= 2
+ 7:
+ 8: <= 3
+ 9:
+10: <= 4
+11:
+12: <= 5
+13:
+14: <= 6
+15:
+16: <= 7
+17:
+END
+```
+
+
+# Read lines from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Read lines of up to 8 characters delimited by a new line character from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
   my $e = q(readWord);
   my $f = writeTempFile("hello\nworld\n");
@@ -156,7 +265,7 @@ world
 END
 ```
 
-## Read integers in decimal from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Read integers in decimal from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Read integers from 0 to 2**32 from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal:
 
 ```
@@ -178,7 +287,7 @@ Read integers from 0 to 2**32 from [stdin](https://en.wikipedia.org/wiki/Standar
 END
 ```
 
-## Write [Unicode](https://en.wikipedia.org/wiki/Unicode) characters from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Write [Unicode](https://en.wikipedia.org/wiki/Unicode) characters in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Generate and write some [Unicode](https://en.wikipedia.org/wiki/Unicode) [utf8](https://en.wikipedia.org/wiki/UTF-8) characters:
 
 ```
@@ -197,10 +306,9 @@ Generate and write some [Unicode](https://en.wikipedia.org/wiki/Unicode) [utf8](
 END
 ```
 
-## Read a [file](https://en.wikipedia.org/wiki/Computer_file) and print it out from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Read a [file](https://en.wikipedia.org/wiki/Computer_file) and print it out in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 
-Read this file and print it out:
-
+Read this file and print it out in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
   use Nasm::X86 qw(:all);
 
@@ -213,9 +321,8 @@ Read this file and print it out:
   ok index($r, readFile($0)) > -1;  # Output contains this file
 ```
 
-## Print numbers in decimal from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Debug your [programs](https://en.wikipedia.org/wiki/Computer_program) quickly with powerful print statements:
-
+## Print numbers in decimal in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Debug your [programs](https://en.wikipedia.org/wiki/Computer_program) quickly with powerful print statements in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
   Mov rax, 0x2a;
   PrintOutRaxRightInDec   V width=> 4;
@@ -227,9 +334,8 @@ Debug your [programs](https://en.wikipedia.org/wiki/Computer_program) quickly wi
 END
 ```
 
-## Call functions in Libc from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Call **C** functions by naming them as external and including their library:
-
+## Call functions in Libc in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Call **C** functions by naming them as external and including their library in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
   my $format = Rs "Hello %s\n";
   my $data   = Rs "World";
@@ -247,7 +353,7 @@ Hello World
 END
 ```
 
-## Avx512 instructions from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+## Avx512 instructions in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Use [Advanced Vector Extensions](https://en.wikipedia.org/wiki/AVX-512) instructions to compare 64 bytes at a time using the 512 [bit](https://en.wikipedia.org/wiki/Bit) wide zmm registers from [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
   my $P = "2F";                                   # Value to test for
@@ -285,8 +391,8 @@ END
 ```
 
 
-## Create a library from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Create a [library](https://en.wikipedia.org/wiki/Library_(computing)) with three routines in it and save the [library](https://en.wikipedia.org/wiki/Library_(computing)) in a [file](https://en.wikipedia.org/wiki/Computer_file): 
+## Create a library in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Create a library with three routines in it and save the library in a [file](https://en.wikipedia.org/wiki/Computer_file) in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
   my $library = CreateLibrary          # Library definition
    (subroutines =>                     # Sub routines in libray
@@ -299,7 +405,7 @@ Create a [library](https://en.wikipedia.org/wiki/Library_(computing)) with three
 
 ```
 
-Reuse the [code](https://en.wikipedia.org/wiki/Computer_program) in the [library](https://en.wikipedia.org/wiki/Library_(computing)) in another [assembly](https://en.wikipedia.org/wiki/Assembly_language): 
+Reuse the [code](https://en.wikipedia.org/wiki/Computer_program) in the library in another [assembly](https://en.wikipedia.org/wiki/Assembly_language): 
 ```
   my ($dup, $inc, $put) = $library->load;  # Load the library into memory
 
@@ -319,9 +425,8 @@ END
   unlink $l;
 ```
 
-## Create a 6/13 multi way [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) in an area using SIMD instructions from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Create a 6/13 multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) using **Avx512** instructions then iterate through the [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) each time an element is deleted:
-
+## Create a 6/13 multi way [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) in an area using SIMD instructions in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+Create a 6/13 multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) using **Avx512** instructions then iterate through the [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) each time an element is deleted in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -368,10 +473,9 @@ Create a 6/13 multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure
 XX- empty
 END
 ```
-# Process management from [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
+# Process management in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Start a child [process](https://en.wikipedia.org/wiki/Process_management_(computing)) and wait for it, printing out the [process](https://en.wikipedia.org/wiki/Process_management_(computing)) identifiers of
-each [process](https://en.wikipedia.org/wiki/Process_management_(computing)) involved:
-
+each [process](https://en.wikipedia.org/wiki/Process_management_(computing)) involved in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 
   ```
   use Nasm::X86 qw(:all);
