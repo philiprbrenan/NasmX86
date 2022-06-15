@@ -18812,15 +18812,23 @@ if (1) {                                                                        
 END
  }
 
-latest:
-if (1) {                                                                        # Binary search
+sub BinarySearchD($$)                                                           # Search for an ordered array of double words addressed by r15, of length held in r14 for a double word held in r13 and call the $then routine with the index in rax if found else call the $else routine.
+ {my ($then, $else) = @_;                                                       # Routine to call on matchParameters
 
-  my $s = Subroutine
-   {my $array = r15, my $high = r14, my $search = r13;                          # Sorted array to search, array length, dword to search for
+  my $array = r15, my $length = r14, my $search = r13;                          # Sorted array to search, array length, dword to search for
 
-    my $low = rsi, my $mid = rax, my $loop = rcx;                               # Work registers with answer in rax
+  my $low = rsi, my $high = rdi, my $loop = rcx, my $range = rdx, my $mid = rax;# Work registers modified by this routine
+  Mov $low,  0;                                                                 # Closed start of current range to search
+  Mov $high, $length;                                                           # Open end of current range to search
 
-    Mov $low, 0;                                                                # Index of first element of array
+  Cmp $high, 0;                                                                 # Check we have a none empty array to search
+  IfEq
+  Then                                                                          # Empty array
+   {Mov rax, -1;                                                                # Not found
+    &$else;
+   },
+  Else                                                                          # Search non empty array
+   {Dec $high;                                                                  # Closed end of current range
 
     uptoNTimes                                                                  # Search a reasonable number of times
      {my ($end, $start) = @_;                                                   # End, start label
@@ -18829,87 +18837,102 @@ if (1) {                                                                        
       Shr $mid, 1;                                                              # Average of high and low is the new mid point.
 
       Cmp dWordRegister($search), "[$array+$mid*4]";                            # Compare current element of array with search
-      Je $end;                                                                  # Found
+      Pushfq;                                                                   # Save result of comparison
+      IfEq
+      Then                                                                      # Found
+       {Mov rax, $mid unless rax eq $mid;
+        &$then;
+        Jmp $end;
+       };
 
-      IfGt                                                                      # Search argument is higher so move up
-      Then
-       {Inc $mid;                                                               # Move up
-        Cmp $mid, $high;
-        IfGe
-        Then                                                                    # Beyond upper limit
-         {Mov $mid, -1;                                                         # Show not found
-          Jmp $end;                                                             # Finished
-         };
-        Mov $low, $mid;                                                         # New lower limit
-       },
-      Else                                                                      # Search argument is lower so move down
-       {Dec $mid;                                                               # Move down
-        Cmp $mid, $low;
-        IfLt
-        Then                                                                    # Beyond lower limit
-         {Mov $mid, -1;
+      Mov $range, $high;                                                        # Size of remaining range
+      Sub $range, $low;
+      Cmp $range, 1;
+
+      IfLe
+      Then                                                                      # Less than three elements in final range
+       {Cmp dWordRegister($search), "[$array+$high*4]";                         # Compare high end of final range with search
+        IfEq
+        Then                                                                    # Found at high end of final range
+         {Mov rax, $high;
+          &$then;
           Jmp $end;
          };
-        Mov $high, $mid;                                                        # New upper limit limit
+        Cmp dWordRegister($search), "[$array+$low*4]";                          # Compare low end of final range with search
+        IfEq
+        Then                                                                    # Found at low end of final range
+         {Mov rax, $low;
+          &$then;
+          Jmp $end;
+         };
+        Mov rax, -1;                                                            # Not found in final range
+        &$else;
+        Jmp $end;
+       };
+
+      Popfq;                                                                    # Restore results of comparison
+      IfGt                                                                      # Search argument is higher so move up
+      Then
+       {Mov $low, $mid;                                                         # New lower limit
+       },
+      Else                                                                      # Search argument is lower so move down
+       {Mov $high, $mid;                                                        # New upper limit limit
        };
      } $loop, 999;                                                              # Enough to search all the particles in the universe if they could be ordered by some means
-   } name=>"binarySearchD";
+   };
+ }
 
-  if (1)                                                                        # Test find
+latest:
+if (1) {                                                                        # Binary search on empty array
+  Mov r14, 0;                                                                   # Size of array
+  Mov r13, 1;                                                                   # Value to search for
+
+  BinarySearchD                                                                 # Search
+  Then
+   {PrintOutString "Found 1 at index:"; PrintOutRaxInDec;  PrintOutNL;          # Found
+   },
+  Else
+   {PrintOutString "Cannot find 1\n";                                           # Not found
+   };
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
+Cannot find 1
+END
+ }
+
+if (1) {                                                                        # Binary search on populated array
+  for my $s(1..17)
    {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
     Mov r14, 8;                                                                 # Size of array
-    Mov r13, 6;                                                                 # Value to search for
-    $s->call;
-    PrintOutRegisterInHex rax;
-   }
+    Mov r13, $s;                                                                # Value to search for
 
-  if (1)                                                                        # Test miss
-   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
-    Mov r14, 8;                                                                 # Size of array
-    Mov r13, 5;                                                                 # Value to search for
-    $s->call;
-    PrintOutRegisterInHex rax;
-   }
-
-  if (1)                                                                        # Test low
-   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
-    Mov r14, 8;                                                                 # Size of array
-    Mov r13, 2;                                                                 # Value to search for
-    $s->call;
-    PrintOutRegisterInHex rax;
-   }
-
-  if (1)                                                                        # Test lower
-   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
-    Mov r14, 8;                                                                 # Size of array
-    Mov r13, -1;                                                                # Value to search for
-    $s->call;
-    PrintOutRegisterInHex rax;
-   }
-
-  if (1)                                                                        # Test high
-   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
-    Mov r14, 8;                                                                 # Size of array
-    Mov r13, 16;                                                                # Value to search for
-    $s->call;
-    PrintOutRegisterInHex rax;
-   }
-
-  if (1)                                                                        # Test higher
-   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
-    Mov r14, 8;                                                                 # Size of array
-    Mov r13, 17;                                                                # Value to search for
-    $s->call;
-    PrintOutRegisterInHex rax;
+    BinarySearchD                                                               # Search
+    Then
+     {PrintOutString "Found $s at index:"; PrintOutRaxInDec;  PrintOutNL;       # Found
+     },
+    Else
+     {PrintOutString "Fail: $s\n";                                              # Not found
+     };
    }
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
-   rax: .... .... .... ...2
-   rax: .... .... .... ..-1
-   rax: .... .... .... ...0
-   rax: .... .... .... ..-1
-   rax: .... .... .... ...7
-   rax: .... .... .... ..-1
+Fail: 1
+Found 2 at index:0
+Fail: 3
+Found 4 at index:1
+Fail: 5
+Found 6 at index:2
+Fail: 7
+Found 8 at index:3
+Fail: 9
+Found 10 at index:4
+Fail: 11
+Found 12 at index:5
+Fail: 13
+Found 14 at index:6
+Fail: 15
+Found 16 at index:7
+Fail: 17
 END
  }
 
