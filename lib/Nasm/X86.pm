@@ -2064,6 +2064,12 @@ sub PrintRaxInHex($;$)                                                          
      {PrintString($channel, ".... .... .... ...0");
       Jmp $success;
      };
+    Cmp rax, -1;
+    IfEq                                                                        # Rax is minus one - special case
+    Then
+     {PrintString($channel, ".... .... .... ..-1");
+      Jmp $success;
+     };
 
     SaveFirstFour;                                                              # Rax is a parameter
     Mov rdx, rax;                                                               # Content to be printed
@@ -10781,7 +10787,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10783 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10789 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18899,11 +18905,11 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
    rax: .... .... .... ...2
-   rax: FFFF FFFF FFFF FFFF
+   rax: .... .... .... ..-1
    rax: .... .... .... ...0
-   rax: FFFF FFFF FFFF FFFF
+   rax: .... .... .... ..-1
    rax: .... .... .... ...7
-   rax: FFFF FFFF FFFF FFFF
+   rax: .... .... .... ..-1
 END
  }
 
