@@ -12262,7 +12262,7 @@ if (1) {
     k4: FFFF 7FFF FFFF FFFF
     k5: .... FFFF FFFF FFFF
     k6: .... 7FFF FFFF FFFF
-    k7: FFFF FFFF FFFF FFFF
+    k7: .... .... .... ..-1
    rax: .... .... .... ..2F
 END
 #   0 eq    1 lt    2 le    4 ne    5 ge    6 gt   comparisons
