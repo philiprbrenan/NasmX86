@@ -244,6 +244,10 @@ sub BinarySearchD($$)                                                           
 16: <= 7
 17:
 END
+
+# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#    1              42           3_280              42           3_280        0.1425          0.02          0.00
+#    2           2_240          41_336           2_282          44_616        0.1062          0.02          0.05
 ```
 
 
