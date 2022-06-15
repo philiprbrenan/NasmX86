@@ -18905,34 +18905,35 @@ if (1) {                                                                        
    {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
     Mov r14, 8;                                                                 # Size of array
     Mov r13, $s;                                                                # Value to search for
+    PrintOutString sprintf "%2d:", $s;
 
     BinarySearchD                                                               # Search
     Then
-     {PrintOutString "Found $s at index:"; PrintOutRaxInDec;  PrintOutNL;       # Found
+     {PrintOutString " <= "; PrintOutRaxInDec;  PrintOutNL;                     # Found
      },
     Else
-     {PrintOutString "Fail: $s\n";                                              # Not found
+     {PrintOutNL;
      };
    }
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
-Fail: 1
-Found 2 at index:0
-Fail: 3
-Found 4 at index:1
-Fail: 5
-Found 6 at index:2
-Fail: 7
-Found 8 at index:3
-Fail: 9
-Found 10 at index:4
-Fail: 11
-Found 12 at index:5
-Fail: 13
-Found 14 at index:6
-Fail: 15
-Found 16 at index:7
-Fail: 17
+ 1:
+ 2: <= 0
+ 3:
+ 4: <= 1
+ 5:
+ 6: <= 2
+ 7:
+ 8: <= 3
+ 9:
+10: <= 4
+11:
+12: <= 5
+13:
+14: <= 6
+15:
+16: <= 7
+17:
 END
  }
 
