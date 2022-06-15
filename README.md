@@ -139,7 +139,7 @@ END
 
 ## Binary search in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Search an [array](https://en.wikipedia.org/wiki/Dynamic_array) for a specified double [word](https://en.wikipedia.org/wiki/Doc_(computing)) using binary search in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
 sub BinarySearchD($$)                                                           # Search for an ordered array of double words addressed by r15, of length held in r14 for a double word held in r13 and call the $then routine with the index in rax if found else call the $else routine.
  {my ($then, $else) = @_;                                                       # Routine to call on matchParameters
 
