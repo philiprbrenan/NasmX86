@@ -75,7 +75,7 @@ failing [code](https://en.wikipedia.org/wiki/Computer_program).
 
 ## Parse a Unisyn expression in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Parse a Unisyn expression to create a [parse](https://en.wikipedia.org/wiki/Parsing) [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
 
 
   my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
@@ -100,7 +100,7 @@ END
 
 ## Print some [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
   my $N = 11;                         # How many ?
   Mov r13, 0;                         # First  Fibonacci number
   Mov r14, 1;                         # Second Fibonacci
@@ -253,7 +253,7 @@ END
 
 # Read lines from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Read lines of up to 8 characters delimited by a new line character from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
   my $e = q(readWord);
   my $f = writeTempFile("hello\nworld\n");
 
@@ -273,7 +273,7 @@ END
 ## Read integers in decimal from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Read integers from 0 to 2**32 from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal:
 
-```
+```perl
   my $e = q(readInteger);
   my $f = writeTempFile("11\n22\n");
 
@@ -295,7 +295,7 @@ END
 ## Write [Unicode](https://en.wikipedia.org/wiki/Unicode) characters in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Generate and write some [Unicode](https://en.wikipedia.org/wiki/Unicode) [utf8](https://en.wikipedia.org/wiki/UTF-8) characters:
 
-```
+```perl
   V( loop => 16)->for(sub
    {my ($index, $start, $next, $end) = @_;
     $index->setReg(rax);
@@ -314,7 +314,7 @@ END
 ## Read a [file](https://en.wikipedia.org/wiki/Computer_file) and print it out in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 
 Read this file and print it out in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
   use Nasm::X86 qw(:all);
 
   Mov rax, Rs($0);                  # File to read
@@ -328,7 +328,7 @@ Read this file and print it out in [assembly](https://en.wikipedia.org/wiki/Asse
 
 ## Print numbers in decimal in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Debug your [programs](https://en.wikipedia.org/wiki/Computer_program) quickly with powerful print statements in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
   Mov rax, 0x2a;
   PrintOutRaxRightInDec   V width=> 4;
   Shl rax, 1;
@@ -341,7 +341,7 @@ END
 
 ## Call functions in Libc in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Call **C** functions by naming them as external and including their library in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
   my $format = Rs "Hello %s\n";
   my $data   = Rs "World";
 
@@ -360,7 +360,7 @@ END
 
 ## Avx512 instructions in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Use [Advanced Vector Extensions](https://en.wikipedia.org/wiki/AVX-512) instructions to compare 64 bytes at a time using the 512 [bit](https://en.wikipedia.org/wiki/Bit) wide zmm registers from [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
   my $P = "2F";                                   # Value to test for
   my $l = Rb 0;  Rb $_ for 1..RegisterSize zmm0;  # The numbers 0..63
   Vmovdqu8 zmm0, "[$l]";                          # Load data to test
@@ -398,7 +398,7 @@ END
 
 ## Create a library in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Create a library with three routines in it and save the library in a [file](https://en.wikipedia.org/wiki/Computer_file) in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
   my $library = CreateLibrary          # Library definition
    (subroutines =>                     # Sub routines in libray
      {inc => sub {Inc rax},            # Increment rax
@@ -411,7 +411,7 @@ Create a library with three routines in it and save the library in a [file](http
 ```
 
 Reuse the [code](https://en.wikipedia.org/wiki/Computer_program) in the library in another [assembly](https://en.wikipedia.org/wiki/Assembly_language): 
-```
+```perl
   my ($dup, $inc, $put) = $library->load;  # Load the library into memory
 
   Mov rax, 1; &$put;
@@ -432,7 +432,7 @@ END
 
 ## Create a 6/13 multi way [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) in an area using SIMD instructions in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Create a 6/13 multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) using **Avx512** instructions then iterate through the [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) each time an element is deleted in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-```
+```perl
   my $a = CreateArea;
   my $t = $a->CreateTree;
   my $N = K loop => 16;
@@ -482,7 +482,7 @@ END
 Start a child [process](https://en.wikipedia.org/wiki/Process_management_(computing)) and wait for it, printing out the [process](https://en.wikipedia.org/wiki/Process_management_(computing)) identifiers of
 each [process](https://en.wikipedia.org/wiki/Process_management_(computing)) involved in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 
-  ```
+```perl
   use Nasm::X86 qw(:all);
 
   Fork;                          # Fork
