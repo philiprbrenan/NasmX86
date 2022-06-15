@@ -10945,7 +10945,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TPrintOutRegistersInHex #TRs
+if (0) {                                                                        #TPrintOutRegistersInHex #TRs
   my $q = Rs('abababab');
   Mov r10, 0x10;
   Mov r11, 0x11;
