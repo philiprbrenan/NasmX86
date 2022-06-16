@@ -13167,7 +13167,7 @@ if (1) {                                                                        
   LoadRegFromMm(zmm0, 3, r12);
 
   PrintOutRegisterInHex ymm0, r15, r14, r13, r12;
-  ok Assemble(debug => 0, trace => 1, eq => <<END, avx512=>1);
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
   ymm0: .... .... .... ...4  .... .... .... ...3 - .... .... .... ...2  .... .... .... ...1
    r15: .... .... .... ...1
    r14: .... .... .... ...2
