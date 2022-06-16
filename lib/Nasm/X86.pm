@@ -6555,9 +6555,9 @@ sub Nasm::X86::Tree::insertionPoint($$$%)                                       
   $tree->indexXX($key, $K, $Vpcmp->le, 1, %options);                            # Check for less than or equal keys
  }
 
-sub Nasm::X86::Tree::indexEqLt($$$$$)                                           #P Set the specified registers with the equals point and the insertion point for the specified key in the specified zmm.
- {my ($tree, $key, $K, $setEq, $setLt) = @_;                                    # Tree definition, variable key to search for or a zmm containing a copy of the key to be searched for in each slot, zmm to check, register to set with equals point, register to set with insertion point.
-  @_ == 5 or confess "Five parameters";
+sub Nasm::X86::Tree::indexEqLt($$$$$$)                                          #P Set the specified registers with the equals point and the insertion point for the specified key in the specified zmm.
+ {my ($tree, $key, $K, $W, $setEq, $setLt) = @_;                                # Tree definition, zmm containing a copy of the key to be searched for in each slot, zmm to check, work zmm register, register to set with equals point, register to set with insertion point.
+  @_ == 6 or confess "Six parameters";
 
   confess "Cannot use rdi as a target register" if $setEq =~ m(\Ardi\Z);        # Check the target registers against our work register
   confess "Cannot use rdi as a target register" if $setLt =~ m(\Ardi\Z);
@@ -6577,11 +6577,11 @@ sub Nasm::X86::Tree::indexEqLt($$$$$)                                           
 
   Vpcmpud k1, zmm($K, $Z), $Vpcmp->eq;                                          # Check for equality  point
   Vpcmpud k2, zmm($K, $Z), $Vpcmp->le;                                          # Check for insertion point
-  Kmovq rdi, k1;                                                                # Equality point
-  And   $setEq, rdi;                                                            # Matching keys in mask area
   Kmovq rdi, k2;                                                                # Insertion leading
   And   $setLt, rdi;                                                            # Matching keys in mask area
   Inc   $setLt;                                                                 # Insertion point
+  Kmovq rdi, k1;                                                                # Equality point
+  And   $setEq, rdi;                                                            # Matching keys in mask area setting flags for fast test
  }
 
 sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
@@ -7110,6 +7110,7 @@ sub Nasm::X86::Tree::find($$)                                                   
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $F = zmm1, my $K = zmm2, my $D = zmm3, my $N = zmm4, my $key = zmm5;     # We are boldly assuming that these registers are not being used independently
+    my $W = zmm6;
     PushR my $Q = r15, my $loop = r14, my $equals = r13, my $insert = r12;
 
     Block
@@ -7133,7 +7134,7 @@ sub Nasm::X86::Tree::find($$)                                                   
        {my (undef, $start) = @_;
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
-        $t->indexEqLt($key, $K, $equals, $insert);                              # The position of a key in a zmm equal to the specified key as a point in a variable.
+        $t->indexEqLt($key, $K, $W, $equals, $insert);                          # The position of a key in a zmm equal to the specified key as a point in a variable.
         IfNz                                                                    # Result mask is non zero so we must have found the key
         Then
          {dFromPointInZ $equals, $D, set=>rsi;                                  # Get the corresponding data
@@ -10815,7 +10816,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10817 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10818 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -14089,7 +14090,7 @@ data: .... .... .... ..11
 found: .... .... .... ...2
 data: .... .... .... ..22
 found: .... .... .... ...0
-data: .... .... .... ...0
+data: .... .... .... ..22
 END
  }
 
@@ -14162,7 +14163,7 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::indexEq
-  my $tree = DescribeTree(length => 7);
+  my $tree = DescribeTree;
 
   my $K = 31;
 
@@ -14194,6 +14195,50 @@ if (1) {                                                                        
 13               |
 14               |
 15               |
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::indexEqLt
+  my $tree = DescribeTree;
+
+  my $K = 31, my $W = 30, my $key = 29;
+
+  K(K => Rd(0..15))->loadZmm($K);
+  $tree->lengthIntoKeys($K, K length => 13);
+
+  K(loop => 16)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $index->setReg(rdi);
+    Vpbroadcastd zmm($key), edi;
+
+    $tree->indexEqLt ($key, $K, $W, r15, r14);
+    Pushfq;
+    my $f = V key => r15;
+    $index->outRightInDec(K width =>  2);
+    $f    ->outRightInBin(K width => 14);
+    PrintOutString   " ";
+    Popfq;
+    PrintOutZF;
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+ 0             1 ZF=0
+ 1            10 ZF=0
+ 2           100 ZF=0
+ 3          1000 ZF=0
+ 4         10000 ZF=0
+ 5        100000 ZF=0
+ 6       1000000 ZF=0
+ 7      10000000 ZF=0
+ 8     100000000 ZF=0
+ 9    1000000000 ZF=0
+10   10000000000 ZF=0
+11  100000000000 ZF=0
+12 1000000000000 ZF=0
+13               ZF=1
+14               ZF=1
+15               ZF=1
 END
  }
 
@@ -14247,6 +14292,65 @@ if (1) {                                                                        
 29  10000000000000 |
 30  10000000000000 |
 31  10000000000000 |
+END
+ }
+
+#latest:
+if (1) {
+  my $tree = DescribeTree;
+
+  my $K = 31, my $W = 30, my $key = 29;
+
+  K(K => Rd(map {2*$_} 1..16))->loadZmm($K);
+  $tree->lengthIntoKeys($K, K length => 13);
+
+  K(loop => 32)->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    $index->setReg(rdi);
+    Vpbroadcastd zmm($key), edi;
+    $tree->indexEqLt($index, $K, zmm30, r15, r14);
+    Pushfq;
+    my $f = V key => r14;
+    $index->outRightInDec(K width =>  2);
+    $f    ->outRightInBin(K width => 16);
+    PrintOutString   " ";
+    Popfq;
+    PrintOutZF;
+   });
+
+  ok Assemble eq => <<END, avx512=>1;
+ 0               1 ZF=1
+ 1               1 ZF=1
+ 2              10 ZF=0
+ 3              10 ZF=1
+ 4             100 ZF=0
+ 5             100 ZF=1
+ 6            1000 ZF=0
+ 7            1000 ZF=1
+ 8           10000 ZF=0
+ 9           10000 ZF=1
+10          100000 ZF=0
+11          100000 ZF=1
+12         1000000 ZF=0
+13         1000000 ZF=1
+14        10000000 ZF=0
+15        10000000 ZF=1
+16       100000000 ZF=0
+17       100000000 ZF=1
+18      1000000000 ZF=0
+19      1000000000 ZF=1
+20     10000000000 ZF=0
+21     10000000000 ZF=1
+22    100000000000 ZF=0
+23    100000000000 ZF=1
+24   1000000000000 ZF=0
+25   1000000000000 ZF=1
+26  10000000000000 ZF=0
+27  10000000000000 ZF=1
+28  10000000000000 ZF=1
+29  10000000000000 ZF=1
+30  10000000000000 ZF=1
+31  10000000000000 ZF=1
 END
  }
 
@@ -14630,6 +14734,40 @@ At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   4
   Keys :    1    2    3    4    5    6    7    8
   Data :   17   34   51   68   85  102  119  136
 end
+END
+ }
+
+latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K count => 14;
+
+  $N->for(sub
+   {my ($i) = @_;
+    $t->put($i, $i);
+   });
+
+  $N->for(sub
+   {my ($i) = @_;
+    $t->find($i); $t->found->outRightInDec(K width => 8); $t->data->outRightInDec(K width => 8); PrintOutNL;
+   });
+
+   ok Assemble eq => <<END, avx512=>1;
+       1       0
+       2       1
+       4       2
+       8       3
+      16       4
+      32       5
+       1       6
+       1       7
+       2       8
+       4       9
+       8      10
+      16      11
+      32      12
+      64      13
 END
  }
 
