@@ -7110,7 +7110,7 @@ sub Nasm::X86::Tree::find($$)                                                   
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $F = zmm1, my $K = zmm2, my $D = zmm3, my $N = zmm4, my $key = zmm5;     # We are boldly assuming that these registers are not being used independently
-    PushR my $Q = r15, my $loop = r14, my $eqr = r13;
+    PushR my $Q = r15, my $loop = r14, my $equals = r13, my $insert = r12;
 
     Block
      {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
@@ -7133,14 +7133,14 @@ sub Nasm::X86::Tree::find($$)                                                   
        {my (undef, $start) = @_;
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
-        $t->indexEq($key, $K, set=>$eqr);                                       # The position of a key in a zmm equal to the specified key as a point in a variable.
+        $t->indexEqLt($key, $K, $equals, $insert);                              # The position of a key in a zmm equal to the specified key as a point in a variable.
         IfNz                                                                    # Result mask is non zero so we must have found the key
         Then
-         {dFromPointInZ $eqr, $D, set=>rsi;                                     # Get the corresponding data
+         {dFromPointInZ $equals, $D, set=>rsi;                                  # Get the corresponding data
           $t->data  ->copy(rsi);                                                # Data associated with the key
-          $t->found ->copy($eqr);                                               # Show found
+          $t->found ->copy($equals);                                            # Show found
           $t->offset->copy($Q);                                                 # Offset of the containing block
-          $t->getTreeBit($K, $eqr, set => rdx);                                 # Get corresponding tree bit
+          $t->getTreeBit($K, $equals, set => rdx);                              # Get corresponding tree bit
           $t->subTree->copy(rdx);                                               # Save corresponding tree bit
           Jmp $success;                                                         # Return
          };
@@ -7149,8 +7149,7 @@ sub Nasm::X86::Tree::find($$)                                                   
         Cmp rsi, 0;                                                             # Leaf if zero
         Jz $success;                                                            # Return
 
-        $t->insertionPoint($key, $K, set => rsi);                               # The insertion point if we were inserting
-        dFromPointInZ     (rsi,  $N, set =>  $Q);                               # Get the corresponding offset to the next sub tree
+        dFromPointInZ     ($insert,  $N, set =>  $Q);                           # Get the corresponding offset to the next sub tree
         Sub $loop, 1;
         Jnz $start;                                                             # Keep going but not for ever
        } $loop, 99;                                                             # Loop a limited number of times
@@ -10816,7 +10815,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10818 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10817 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18716,6 +18715,18 @@ Area     Size:     4096    Used:      128
 .... .... .... ..40 | ____ ____ ____ ____  .1__ ____ .2__ ____  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:
+if (1) {
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->put (K(key => 1), K(key => 1));
+  $t->find(K(key => 1)); $t->found->out; PrintOutString "  "; $t->data->outNL;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+found: .... .... .... ...1  data: .... .... .... ...1
 END
  }
 
