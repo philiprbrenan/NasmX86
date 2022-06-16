@@ -18812,73 +18812,107 @@ if (1) {                                                                        
 END
  }
 
-sub BinarySearchD($$)                                                           # Search for an ordered array of double words addressed by r15, of length held in r14 for a double word held in r13 and call the $then routine with the index in rax if found else call the $else routine.
- {my ($then, $else) = @_;                                                       # Routine to call on matchParameters
+sub BinarySearchD(%)                                                            # Search for an ordered array of double words addressed by r15, of length held in r14 for a double word held in r13 and call the $then routine with the index in rax if found else call the $else routine.
+ {my (%options) = @_;                                                           # Options
+  my $found     = delete $options{found}   // sub {PrintErrTraceBack "found"};  # Found an exact match
+  my $before    = delete $options{before}  // sub {PrintErrTraceBack "before"}; # The search key is before any key in the array
+  my $after     = delete $options{after}   // sub {PrintErrTraceBack "after"};  # The search key is after any key in the array
+  my $between   = delete $options{between} // sub {PrintErrTraceBack "between"};# The search key is between two consecutive entries in the array being searched
+  my $empty     = delete $options{empty}   // sub {PrintErrTraceBack "empty"};  # The input array is empty
+  confess "Invalid options: ".join ", ", sort keys %options if keys %options;   # Complain about any invalid keys
 
   my $array = r15, my $length = r14, my $search = r13;                          # Sorted array to search, array length, dword to search for
 
   my $low = rsi, my $high = rdi, my $loop = rcx, my $range = rdx, my $mid = rax;# Work registers modified by this routine
-  Mov $low,  0;                                                                 # Closed start of current range to search
-  Mov $high, $length;                                                           # Open end of current range to search
 
-  Cmp $high, 0;                                                                 # Check we have a none empty array to search
-  IfEq
-  Then                                                                          # Empty array
-   {Mov rax, -1;                                                                # Not found
-    &$else;
-   },
-  Else                                                                          # Search non empty array
-   {Dec $high;                                                                  # Closed end of current range
+  Block
+   {my ($end, $start) = @_;                                                     # End, start label
+    Mov $low,  0;                                                               # Closed start of current range to search
+    Mov $high, $length;                                                         # Open end of current range to search
+    Cmp $high, 0;                                                               # Check we have a none empty array to search
+    IfEq
+    Then                                                                        # Empty array
+     {&$empty;
+     },
+    Else                                                                        # Search non empty array
+     {Dec $high;                                                                # Closed end of current range
 
-    uptoNTimes                                                                  # Search a reasonable number of times
-     {my ($end, $start) = @_;                                                   # End, start label
-      Mov $mid, $low;                                                           # Find new mid point
-      Add $mid, $high;                                                          # Sum of high and low
-      Shr $mid, 1;                                                              # Average of high and low is the new mid point.
-
-      Cmp dWordRegister($search), "[$array+$mid*4]";                            # Compare current element of array with search
-      Pushfq;                                                                   # Save result of comparison
+      Cmp dWordRegister($search), "[$array+$high*4]";                           # Compare last element of array with search
       IfEq
       Then                                                                      # Found
-       {Mov rax, $mid unless rax eq $mid;
-        &$then;
+       {Mov rax, $high;
+        &$found;
+        Jmp $end;
+       };
+      IfGt
+      Then                                                                      # After end of array
+       {&$after;
         Jmp $end;
        };
 
-      Mov $range, $high;                                                        # Size of remaining range
-      Sub $range, $low;
-      Cmp $range, 1;
-
-      IfLe
-      Then                                                                      # Less than three elements in final range
-       {Cmp dWordRegister($search), "[$array+$high*4]";                         # Compare high end of final range with search
-        IfEq
-        Then                                                                    # Found at high end of final range
-         {Mov rax, $high;
-          &$then;
-          Jmp $end;
-         };
-        Cmp dWordRegister($search), "[$array+$low*4]";                          # Compare low end of final range with search
-        IfEq
-        Then                                                                    # Found at low end of final range
-         {Mov rax, $low;
-          &$then;
-          Jmp $end;
-         };
-        Mov rax, -1;                                                            # Not found in final range
-        &$else;
+      Cmp dWordRegister($search), "[$array]";                                   # Compare first element of array with search
+      IfEq
+      Then                                                                      # Found
+       {Mov rax, 0;
+        &$found;
+        Jmp $end;
+       };
+      IfLt
+      Then                                                                      # Before start of array
+       {&$before;
         Jmp $end;
        };
 
-      Popfq;                                                                    # Restore results of comparison
-      IfGt                                                                      # Search argument is higher so move up
-      Then
-       {Mov $low, $mid;                                                         # New lower limit
-       },
-      Else                                                                      # Search argument is lower so move down
-       {Mov $high, $mid;                                                        # New upper limit limit
-       };
-     } $loop, 999;                                                              # Enough to search all the particles in the universe if they could be ordered by some means
+      uptoNTimes                                                                # Search a reasonable number of times now that we knoe that the key to be found is between the lower and upper limits of the array
+       {my ($end, $start) = @_;                                                 # End, start label
+        Mov $mid, $low;                                                         # Find new mid point
+        Add $mid, $high;                                                        # Sum of high and low
+        Shr $mid, 1;                                                            # Average of high and low is the new mid point.
+
+        Cmp dWordRegister($search), "[$array+$mid*4]";                          # Compare current element of array with search
+        Pushfq;                                                                 # Save result of comparison
+        IfEq
+        Then                                                                    # Found
+         {Mov rax, $mid unless rax eq $mid;
+          &$found;
+          Jmp $end;
+         };
+
+        Mov $range, $high;                                                      # Size of remaining range
+        Sub $range, $low;
+        Cmp $range, 1;
+
+        IfLe
+        Then                                                                    # Less than three elements in final range
+         {Cmp dWordRegister($search), "[$array+$high*4]";                       # Compare high end of final range with search
+          IfEq
+          Then                                                                  # Found at high end of final range
+           {Mov rax, $high;
+            &$found;
+            Jmp $end;
+           };
+          Cmp dWordRegister($search), "[$array+$low*4]";                        # Compare low end of final range with search
+          IfEq
+          Then                                                                  # Found at low end of final range
+           {Mov rax, $low;
+            &$found;
+            Jmp $end;
+           };
+          Mov rax, $low;                                                        # Not found in final range so must be between the low element and the next element above it
+          &$between;
+          Jmp $end;
+         };
+
+        Popfq;                                                                  # Restore results of comparison
+        IfGt                                                                    # Search argument is higher so move up
+        Then
+         {Mov $low, $mid;                                                       # New lower limit
+         },
+        Else                                                                    # Search argument is lower so move down
+         {Mov $high, $mid;                                                      # New upper limit limit
+         };
+       } $loop, 999;                                                            # Enough to search all the particles in the universe if they could be ordered by some means
+     };
    };
  }
 
@@ -18887,16 +18921,12 @@ if (1) {                                                                        
   Mov r14, 0;                                                                   # Size of array
   Mov r13, 1;                                                                   # Value to search for
 
-  BinarySearchD                                                                 # Search
-  Then
-   {PrintOutString "Found 1 at index:"; PrintOutRaxInDec;  PrintOutNL;          # Found
-   },
-  Else
-   {PrintOutString "Cannot find 1\n";                                           # Not found
+  BinarySearchD empty => sub                                                    # Search empty array
+   {PrintOutStringNL "Empty";                                                   # Not found
    };
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
-Cannot find 1
+Empty
 END
  }
 
@@ -18908,17 +18938,16 @@ if (1) {                                                                        
     PrintOutString sprintf "%2d:", $s;
 
     BinarySearchD                                                               # Search
-    Then
-     {PrintOutString " <= "; PrintOutRaxInDec;  PrintOutNL;                     # Found
-     },
-    Else
-     {PrintOutNL;
-     };
+    found   => sub{PrintOutString " @ "; PrintOutRaxInDec; PrintOutNL},
+    after   => sub{PrintOutStringNL " after"},
+    before  => sub{PrintOutStringNL " before"},
+    between => sub{PrintOutString " > "; PrintOutRaxInDec;  PrintOutNL},
+    ;
    }
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
  1:
- 2: <= 0
+ 2: @ 0
  3:
  4: <= 1
  5:
