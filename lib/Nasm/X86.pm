@@ -6555,9 +6555,9 @@ sub Nasm::X86::Tree::insertionPoint($$$%)                                       
   $tree->indexXX($key, $K, $Vpcmp->le, 1, %options);                            # Check for less than or equal keys
  }
 
-sub Nasm::X86::Tree::indexEqLt($$$$$$)                                          #P Set the specified registers with the equals point and the insertion point for the specified key in the specified zmm.
- {my ($tree, $key, $K, $W, $setEq, $setLt) = @_;                                # Tree definition, zmm containing a copy of the key to be searched for in each slot, zmm to check, work zmm register, register to set with equals point, register to set with insertion point.
-  @_ == 6 or confess "Six parameters";
+sub Nasm::X86::Tree::indexEqLt($$$$$)                                           #P Set the specified registers with the equals point and the insertion point for the specified key in the specified zmm.
+ {my ($tree, $key, $K, $setEq, $setLt) = @_;                                    # Tree definition, zmm containing a copy of the key to be searched for in each slot, zmm to check, register to set with equals point, register to set with insertion point.
+  @_ == 5 or confess "Five parameters";
 
   confess "Cannot use rdi as a target register" if $setEq =~ m(\Ardi\Z);        # Check the target registers against our work register
   confess "Cannot use rdi as a target register" if $setLt =~ m(\Ardi\Z);
@@ -6567,16 +6567,8 @@ sub Nasm::X86::Tree::indexEqLt($$$$$$)                                          
   Mov $setEq, "[$masks+rdi*8]";                                                 # Load mask address
   Mov $setLt, $setEq;
 
-  my $Z = sub                                                                   # Zmm containing key to test
-   {return $key unless ref $key;                                                # Zmm already contains keys
-    my $Z = $K == 1 ? 0 : 1;                                                    # Choose a free zmm to load the keys into
-    $key->setReg(rdi);                                                          # Set key
-    Vpbroadcastd zmm($Z), edi;                                                  # Load key to test
-    $Z                                                                          # Return zmm loaded with key to test
-   }->();
-
-  Vpcmpud k1, zmm($K, $Z), $Vpcmp->eq;                                          # Check for equality  point
-  Vpcmpud k2, zmm($K, $Z), $Vpcmp->le;                                          # Check for insertion point
+  Vpcmpud k1, zmm($K, $key), $Vpcmp->eq;                                        # Check for equality  point
+  Vpcmpud k2, zmm($K, $key), $Vpcmp->le;                                        # Check for insertion point
   Kmovq rdi, k2;                                                                # Insertion leading
   And   $setLt, rdi;                                                            # Matching keys in mask area
   Inc   $setLt;                                                                 # Insertion point
@@ -7110,7 +7102,6 @@ sub Nasm::X86::Tree::find($$)                                                   
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
     my $F = zmm1, my $K = zmm2, my $D = zmm3, my $N = zmm4, my $key = zmm5;     # We are boldly assuming that these registers are not being used independently
-    my $W = zmm6;
     PushR my $Q = r15, my $loop = r14, my $equals = r13, my $insert = r12;
 
     Block
@@ -7134,7 +7125,7 @@ sub Nasm::X86::Tree::find($$)                                                   
        {my (undef, $start) = @_;
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
-        $t->indexEqLt($key, $K, $W, $equals, $insert);                          # The position of a key in a zmm equal to the specified key as a point in a variable.
+        $t->indexEqLt($key, $K, $equals, $insert);                              # The position of a key in a zmm equal to the specified key as a point in a variable.
         IfNz                                                                    # Result mask is non zero so we must have found the key
         Then
          {dFromPointInZ $equals, $D, set=>rsi;                                  # Get the corresponding data
@@ -10816,7 +10807,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10818 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10809 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -10911,7 +10902,7 @@ if (1) {                                                                        
   $s->setReg(rax);
   Vpgatherqq zmmM(1, 1), "[rax+zmm0]";                                          # Target register must be different from source register
   PrintOutRegisterInHex zmm1, k1;
-  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
   zmm1: 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ...0  .... .... .... ...0 + 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ...0  .... .... .... ...0
     k1: .... .... .... ...0
 END
@@ -14067,7 +14058,7 @@ data: .... .... .... ..22
 END
  }
 
-#latest:
+latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -14090,7 +14081,7 @@ data: .... .... .... ..11
 found: .... .... .... ...2
 data: .... .... .... ..22
 found: .... .... .... ...0
-data: .... .... .... ..22
+data: .... .... .... ...0
 END
  }
 
@@ -14202,7 +14193,7 @@ latest:
 if (1) {                                                                        #TNasm::X86::Tree::indexEqLt
   my $tree = DescribeTree;
 
-  my $K = 31, my $W = 30, my $key = 29;
+  my $K = 31, my $key = 30;
 
   K(K => Rd(0..15))->loadZmm($K);
   $tree->lengthIntoKeys($K, K length => 13);
@@ -14212,7 +14203,7 @@ if (1) {                                                                        
     $index->setReg(rdi);
     Vpbroadcastd zmm($key), edi;
 
-    $tree->indexEqLt ($key, $K, $W, r15, r14);
+    $tree->indexEqLt ($key, $K, r15, r14);
     Pushfq;
     my $f = V key => r15;
     $index->outRightInDec(K width =>  2);
@@ -14299,7 +14290,7 @@ END
 if (1) {
   my $tree = DescribeTree;
 
-  my $K = 31, my $W = 30, my $key = 29;
+  my $K = 31, my $key = 30;
 
   K(K => Rd(map {2*$_} 1..16))->loadZmm($K);
   $tree->lengthIntoKeys($K, K length => 13);
@@ -14308,7 +14299,7 @@ if (1) {
    {my ($index, $start, $next, $end) = @_;
     $index->setReg(rdi);
     Vpbroadcastd zmm($key), edi;
-    $tree->indexEqLt($index, $K, zmm30, r15, r14);
+    $tree->indexEqLt($key, $K, r15, r14);
     Pushfq;
     my $f = V key => r14;
     $index->outRightInDec(K width =>  2);
@@ -14533,7 +14524,7 @@ if (1)
  {my $a = CreateArea;
   my $t = $a->CreateTree;
   $t->put(K(key => 1), K(key => 1));
-  ok Assemble eq=><<END, avx512=>1, trace=>1, mix=> 1;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1;
 END
  }
 
@@ -17166,7 +17157,7 @@ if (1) {                                                                        
   $s->pop;
   my $F = $t->getString($s); $F->found->outNL("found:  "); $F->data->outNL("data:   ");
 
-  ok Assemble eq => <<END, avx512=>1, trace=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>0;
 t = abcd
 Tree: .... .... .... .140
 At:      4C0                                                                                length:        1,  data:      500,  nodes:      540,  first:      140, root, leaf,  trees:             1
@@ -17594,7 +17585,7 @@ if (1) {
    {PrintOutStringNL "DDDD22";
    };
 
-  ok Assemble eq => <<END, avx512=>1, trace=>1;
+  ok Assemble eq => <<END, avx512=>1;
 AAAA11
 BBBB11
 CCCC11
@@ -17639,7 +17630,7 @@ if (1) {
    {PrintOutStringNL "DDDD22";
    };
 
-  ok Assemble eq => <<END, avx512=>1, trace=>1;
+  ok Assemble eq => <<END, avx512=>1;
 AAAA11
 BBBB22
 CCCC22
@@ -18685,7 +18676,7 @@ if (1) {                                                                        
 
   $R->dump('rr');
 
-  ok Assemble eq => <<END, avx512=>1, trace=>1;
+  ok Assemble eq => <<END, avx512=>1;
 rr
 At:  740                    length:    3,  data:  780,  nodes:  7C0,  first:  700, root, leaf
   Index:    0    1    2
