@@ -6555,6 +6555,35 @@ sub Nasm::X86::Tree::insertionPoint($$$%)                                       
   $tree->indexXX($key, $K, $Vpcmp->le, 1, %options);                            # Check for less than or equal keys
  }
 
+sub Nasm::X86::Tree::indexEqLt($$$$$)                                           #P Set the specified registers with the equals point and the insertion point for the specified key in the specified zmm.
+ {my ($tree, $key, $K, $setEq, $setLt) = @_;                                    # Tree definition, variable key to search for or a zmm containing a copy of the key to be searched for in each slot, zmm to check, register to set with equals point, register to set with insertion point.
+  @_ == 5 or confess "Five parameters";
+
+  confess "Cannot use rdi as a target register" if $setEq =~ m(\Ardi\Z);        # Check the target registers against our work register
+  confess "Cannot use rdi as a target register" if $setLt =~ m(\Ardi\Z);
+
+  $tree->lengthFromKeys($K, set=>rdi);                                          # Current length of the keys block
+  my $masks = Rq(map {2**$_ -1} 0..15);                                         # Mask for each length
+  Mov $setEq, "[$masks+rdi*8]";                                                 # Load mask address
+  Mov $setLt, $setEq;
+
+  my $Z = sub                                                                   # Zmm containing key to test
+   {return $key unless ref $key;                                                # Zmm already contains keys
+    my $Z = $K == 1 ? 0 : 1;                                                    # Choose a free zmm to load the keys into
+    $key->setReg(rdi);                                                          # Set key
+    Vpbroadcastd zmm($Z), edi;                                                  # Load key to test
+    $Z                                                                          # Return zmm loaded with key to test
+   }->();
+
+  Vpcmpud k1, zmm($K, $Z), $Vpcmp->eq;                                          # Check for equality  point
+  Vpcmpud k2, zmm($K, $Z), $Vpcmp->le;                                          # Check for insertion point
+  Kmovq rdi, k1;                                                                # Equality point
+  And   $setEq, rdi;                                                            # Matching keys in mask area
+  Kmovq rdi, k2;                                                                # Insertion leading
+  And   $setLt, rdi;                                                            # Matching keys in mask area
+  Inc   $setLt;                                                                 # Insertion point
+ }
+
 sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
  {my ($tree, $point, $F, $K, $D, $IK, $ID, $subTree) = @_;                      # Tree descriptor, point at which to insert formatted as a one in a sea of zeros, first, key, data, insert key, insert data, sub tree if tree.
 
@@ -10787,7 +10816,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10789 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10818 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18946,23 +18975,23 @@ if (1) {                                                                        
    }
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
- 1:
+ 1: before
  2: @ 0
- 3:
- 4: <= 1
- 5:
- 6: <= 2
- 7:
- 8: <= 3
- 9:
-10: <= 4
-11:
-12: <= 5
-13:
-14: <= 6
-15:
-16: <= 7
-17:
+ 3: > 0
+ 4: @ 1
+ 5: > 1
+ 6: @ 2
+ 7: > 2
+ 8: @ 3
+ 9: > 3
+10: @ 4
+11: > 4
+12: @ 5
+13: > 5
+14: @ 6
+15: > 6
+16: @ 7
+17: after
 END
  }
 
