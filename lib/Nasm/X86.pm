@@ -805,7 +805,7 @@ sub wRegIntoZmm($$$)                                                            
   PopR;                                                                         # Reload zmm
  }
 
-sub LoadRegFromMm($$$)                                                          # Load the specified register from the numbered zmm at the quad offset specified as a constant number.
+sub LoadRegFromMm($$$)                                                          #PN Load the specified register from the numbered zmm at the quad offset specified as a constant number.
  {my ($mm, $offset, $reg) = @_;                                                 # Mm register, offset in quads, general purpose register to load
 
   my $w = RegisterSize rax;                                                     # Size of rax
