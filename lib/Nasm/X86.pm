@@ -5831,7 +5831,7 @@ sub DescribeTree(%)                                                             
   my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
   my $length     = delete $options{length};                                     # Maximum number of keys per node
      $length     = 13;                                                          # Maximum number of keys per node
-  confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid keys
+  confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
 
   my $b = RegisterSize 31;                                                      # Size of a block == size of a zmm register
   my $o = RegisterSize eax;                                                     # Size of a double word
@@ -6189,8 +6189,12 @@ sub Nasm::X86::Tree::decLengthInKeys($$)                                        
 
 sub Nasm::X86::Tree::leafFromNodes($$%)                                         #P Return a variable containing true if we are on a leaf.  We determine whether we are on a leaf by checking the offset of the first sub node.  If it is zero we are on a leaf otherwise not.
  {my ($tree, $zmm, %options) = @_;                                              # Tree descriptor, number of zmm containing node block, options
+  my %opt = %options;
+  my $set = delete $opt{set};                                                   # Register version
+  confess "Invalid options: ".join(", ", sort keys %options) if keys %opt;      # Complain about any invalid options
+
   @_ >= 2 or confess "Two or more parameters";
-  if ($options{set})                                                            # Register version
+  if ($set)                                                                     # Register version
    {dFromZ $zmm, 0, %options;
    }
   else                                                                          # Variable version
@@ -6924,7 +6928,9 @@ sub Nasm::X86::Tree::put($$$)                                                   
         Jmp $start;                                                             # Restart the descent now that this block has been split
        };
 
-      If $t->leafFromNodes($N) > 0,
+      $t->leafFromNodes($N, set=>rsi);                                          # NB: in this mode returns 0 if a leaf which is the opposite of what happens if we do not use a transfer register
+      Cmp rsi, 0;
+      IfEq
       Then                                                                      # On a leaf
        {$t->insertKeyDataTreeIntoLeaf($setLt, $F, $K, $D, $k, $d, $S);
         $t->putBlock                 ($Q,         $K, $D, $N);
@@ -10332,7 +10338,7 @@ sub Assemble(%)                                                                 
   my $mix        = delete $options{mix};                                        # Create mix output and fix with line number locations in source
   my $ptr        = delete $options{ptr};                                        # Pointer check required
   my $trace      = delete $options{trace}  //0;                                 # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
-  confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid keys
+  confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
 
   my $execFile   = $keep // q(z);                                               # Executable file
   my $listFile   = q(z.txt);                                                    # Assembler listing
@@ -10753,7 +10759,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10755 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10761 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18190,12 +18196,13 @@ END
 #  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
 #  1_066_780         108_856       1_066_780         108_856        0.1625          0.11  More optimal put
 #  1_041_355         108_744       1_041_355         108_744        0.1614          0.11  Used $setLt in leaf insert
+#    980_660         108_640         980_660         108_640        0.1587          0.11  Register for leafFromNodes
 latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#  $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273
+#  $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252
 #  $t->find(K key => 0xffffff);                                                  # 370 129 127
 
   my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
@@ -18203,10 +18210,9 @@ if (1) {
   my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>1_041_355, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>980_660, trace=>0;
 $l
 END
-exit;
 }
 
 #latest:;
@@ -18944,7 +18950,7 @@ sub BinarySearchD(%)                                                            
   my $after     = delete $options{after}   // sub {PrintErrTraceBack "after"};  # The search key is after any key in the array
   my $between   = delete $options{between} // sub {PrintErrTraceBack "between"};# The search key is between two consecutive entries in the array being searched
   my $empty     = delete $options{empty}   // sub {PrintErrTraceBack "empty"};  # The input array is empty
-  confess "Invalid options: ".join ", ", sort keys %options if keys %options;   # Complain about any invalid keys
+  confess "Invalid options: ".join ", ", sort keys %options if keys %options;   # Complain about any invalid options
 
   my $array = r15, my $length = r14, my $search = r13;                          # Sorted array to search, array length, dword to search for
 
