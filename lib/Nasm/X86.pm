@@ -745,18 +745,26 @@ sub zmm(@)                                                                      
 
 sub zmmM($$)                                                                    # Add zmm to the front of a register number and a mask after it.
  {my ($z, $m) = @_;                                                             # Zmm number, mask register
-  "zmm$z\{k$m}"
+  return "zmm$z\{k$m}" if $z =~ m(\A\d+\Z)    && $m =~ m(\A\d\Z);
+  return "zmm$z\{$m}"  if $z =~ m(\A\d+\Z)    && $m =~ m(\Ak\d\Z);
+  return "$z\{k$m}"    if $z =~ m(\Azmm\d+\Z) && $m =~ m(\A\d\Z);
+  return "$z\{$m}"     if $z =~ m(\Azmm\d+\Z) && $m =~ m(\Ak\d\Z);
+  confess "Bad zmm and mask specification: $z $m";
  }
 
 sub zmmMZ($$)                                                                   # Add zmm to the front of a register number and mask and zero after it.
  {my ($z, $m) = @_;                                                             # Zmm number, mask register number
-  "zmm$z\{k$m}\{z}"
+  return "zmm$z\{k$m}\{z}" if $z =~ m(\A\d+\Z)    && $m =~ m(\A\d\Z);
+  return "zmm$z\{$m}\{z}"  if $z =~ m(\A\d+\Z)    && $m =~ m(\Ak\d\Z);
+  return "$z\{k$m}\{z}"    if $z =~ m(\Azmm\d+\Z) && $m =~ m(\A\d\Z);
+  return "$z\{$m}\{z}"     if $z =~ m(\Azmm\d+\Z) && $m =~ m(\Ak\d\Z);
+  confess "Bad zmm and mask with zero specification: $z $m";
  }
 
 sub LoadZmm($@)                                                                 # Load a numbered zmm with the specified bytes.
  {my ($zmm, @bytes) = @_;                                                       # Numbered zmm, bytes
   my $b = Rb(@bytes);
-  Vmovdqu8 "zmm$zmm", "[$b]";
+  Vmovdqu8 zmm($zmm), "[$b]";
  }
 
 sub checkZmmRegister($)                                                         # Check that a register is a zmm register.
@@ -849,7 +857,6 @@ sub getBwdqFromMm($$$$%)                                                        
 
   my $n = extractRegisterNumberFromMM $mm;                                      # Register number or fail if not an mm register
   my $m = $xyz.'mm'.$n;                                                         # Full name of register
-
   if (!ref($offset) and $offset == 0 and $set and !$setVar)                     # Use Pextr in this special circumstance - need to include other such
    {my $d = dWordRegister $set;                                                 # Target a dword register as set is not a variable
     push @text, <<END;
@@ -908,26 +915,26 @@ sub qFromX($$)                                                                  
 
 sub bFromZ($$%)                                                                 # Get the byte from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
-  my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('z', 'b', $z, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+#  my $z = registerNameFromNumber $zmm;
+  getBwdqFromMm('z', 'b', $zmm, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub wFromZ($$%)                                                                 # Get the word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes,options
-  my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('z', 'w', $z, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+#  my $z = registerNameFromNumber $zmm;
+  getBwdqFromMm('z', 'w', $zmm, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub dFromZ($$%)                                                                 # Get the double word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
-  my $z = extractRegisterNumberFromMM $zmm;
-  getBwdqFromMm('z', 'd', $z, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+#  my $z = extractRegisterNumberFromMM $zmm;
+  getBwdqFromMm('z', 'd', $zmm, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub qFromZ($$%)                                                                 # Get the quad word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes
-  my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('z', 'q', $z, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+#  my $z = registerNameFromNumber $zmm;
+  getBwdqFromMm('z', 'q', $zmm, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 #D2 Mask                                                                        # Operations on mask registers
@@ -3735,7 +3742,7 @@ sub Nasm::X86::Variable::loadZmm($$)                                            
   @_ == 2 or confess "Two parameters";
 
   $source->setReg(rdi);
-  Vmovdqu8 "zmm$zmm", "[rdi]";
+  Vmovdqu8 zmm($zmm), "[rdi]";
  }
 
 sub Nasm::X86::Variable::bFromZ($$$)                                            # Get the byte from the numbered zmm register and put it in a variable.
@@ -3842,14 +3849,14 @@ sub Nasm::X86::Variable::bIntoZ($$$)                                            
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
   checkZmmRegister($zmm);
-  $content->putBwdqIntoMm('b', "zmm$zmm", $offset)                              # Place the value of the content variable at the word in the numbered zmm register
+  $content->putBwdqIntoMm('b', zmm($zmm), $offset)                              # Place the value of the content variable at the word in the numbered zmm register
  }
 
 sub Nasm::X86::Variable::putWIntoZmm($$$)                                       # Place the value of the content variable at the word in the numbered zmm register.
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
   checkZmmRegister($zmm);
-  $content->putBwdqIntoMm('w', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
+  $content->putBwdqIntoMm('w', zmm($zmm), $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
 sub Nasm::X86::Variable::dIntoZ($$$)                                            # Place the value of the content variable at the double word in the numbered zmm register.
@@ -3864,7 +3871,7 @@ sub Nasm::X86::Variable::qIntoZ($$$)                                            
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
   checkZmmRegister $zmm;
-  $content->putBwdqIntoMm('q', "zmm$zmm", $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
+  $content->putBwdqIntoMm('q', zmm($zmm), $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
 #D2 Memory                                                                      # Actions on memory described by variables
@@ -5510,7 +5517,7 @@ sub Nasm::X86::Area::getZmmBlock($$$)                                           
      };
    }
 
-  Vmovdqu64 "zmm$zmm", "[$a+$o]";                                               # Read from memory
+  Vmovdqu64 zmm($zmm), "[$a+$o]";                                               # Read from memory
  }
 
 sub Nasm::X86::Area::putZmmBlock($$$)                                           #P Write the numbered zmm to the block at the specified offset in the specified area.
@@ -5530,7 +5537,7 @@ sub Nasm::X86::Area::putZmmBlock($$$)                                           
      {PrintErrTraceBack "Attempt to put block before start of area";
      };
    }
-  Vmovdqu64 "[$a+$o]", "zmm$zmm";                                               # Read from memory
+  Vmovdqu64 "[$a+$o]", zmm($zmm);                                               # Read from memory
  }
 
 sub Nasm::X86::Area::clearZmmBlock($$)                                          #P Clear the zmm block at the specified offset in the area.
@@ -6047,9 +6054,9 @@ sub Nasm::X86::Tree::incSizeInFirst($$)                                         
   @_ == 2 or confess "Two parameters";
   my $o = $tree->sizeOffset;
   my $w = RegisterSize zmm0;
-  Vmovdqu64 "[rsp-$w]", zmm$zmm;                                                # Position below stack
+  Vmovdqu64 "[rsp-$w]", zmm $zmm;                                               # Position below stack
   Inc "dword[rsp-$w+$o]";                                                       # Increment size field
-  Vmovdqu64 zmm($zmm), "[rsp-$w]";                                                # Reload from stack
+  Vmovdqu64 zmm($zmm), "[rsp-$w]";                                              # Reload from stack
  }
 
 sub Nasm::X86::Tree::decSizeInFirst($$)                                         #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
@@ -6057,7 +6064,7 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
   @_ == 2 or confess "Two parameters";
   my $o = $tree->sizeOffset;
   my $w = RegisterSize xmm0;
-  Vmovdqu64 "[rsp-$w]", zmm$zmm;                                                # Position below stack
+  Vmovdqu64 "[rsp-$w]", zmm $zmm;                                               # Position below stack
 
   if ($DebugMode)
    {Cmp "dword[rsp-$w+$o]", 0;                                                  # Check size is not already zero
@@ -6185,47 +6192,38 @@ sub Nasm::X86::Tree::incLengthInKeys($$)                                        
  {my ($t, $K) = @_;                                                             # Tree, zmm number
   @_ == 2 or confess "Two parameters";
   my $l = $t->lengthOffset;                                                     # Offset of length bits
-  bRegFromZmm rbx, $K, $l;                                                      # Length
+  my $w = RegisterSize zmm0;
+  Vmovdqu64 "[rsp-$w]", zmm$K;                                                  # Position below stack
 
   if ($DebugMode)                                                               # With checking
-   {Cmp bl, $t->length;
-    IfLt
+   {Cmp "byte[rsp-$w+$l]", $t->length;
+    IfGe
     Then
-     {Inc rbx;
-      bRegIntoZmm rbx, $K, $l;
-     },
-    Else
      {PrintErrTraceBack "Cannot increment length of block beyond ".$t->length;
      };
    }
-  else                                                                          # Without checking
-   {Inc rbx;
-    bRegIntoZmm rbx, $K, $l;
-   }
+
+  Inc "byte[rsp-$w+$l]";                                                        # Increment size field
+  Vmovdqu64 zmm($K), "[rsp-$w]";                                                # Reload from stack
  }
 
 sub Nasm::X86::Tree::decLengthInKeys($$)                                        #P Decrement the number of keys in a keys block or complain if such is not possible.
  {my ($t, $K) = @_;                                                             # Tree, zmm number
   @_ == 2 or confess "Two parameters";
   my $l = $t->lengthOffset;                                                     # Offset of length bits
-  ClearRegisters r15;
-  bRegFromZmm rbx, $K, $l;                                                      # Length
+  my $w = RegisterSize zmm0;
+  Vmovdqu64 "[rsp-$w]", zmm$K;                                                  # Position below stack
 
   if ($DebugMode)                                                               # With checking
-   {Cmp bl, 0;
-    IfGt
+   {Cmp "byte[rsp-$w+$l]", 0;
+    IfLe
     Then
-     {Dec rbx;
-      bRegIntoZmm rbx, $K, $l;
-     },
-    Else
-     {PrintErrTraceBack "Cannot decrement length of block below 0";
+     {PrintErrTraceBack "Cannot decrement length of block below zero";
      };
    }
-  else                                                                          # Without checking
-   {Dec rbx;
-    bRegIntoZmm rbx, $K, $l;
-   }
+
+  Dec "byte[rsp-$w+$l]";                                                        # Decrement size field
+  Vmovdqu64 zmm($K), "[rsp-$w]";                                                # Reload from stack
  }
 
 sub Nasm::X86::Tree::leafFromNodes($$%)                                         #P Return a variable containing true if we are on a leaf.  We determine whether we are on a leaf by checking the offset of the first sub node.  If it is zero we are on a leaf otherwise not.
@@ -6632,7 +6630,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       my $area = $t->area;                                                      # Area
 
       PushR 22...31;
-      ClearRegisters 30;                                                        # Otherwise we get left over junk
+      ClearRegisters $PD;                                                       # Otherwise we get left over junk
 
       my $offset = $$p{offset};                                                 # Offset of block in area
       my $split  = $$p{split};                                                  # Indicate whether we split or not
@@ -6923,7 +6921,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
     Block
      {my ($success) = @_;                                                       # End label
       PushR my $Q = r13, my $setEq = r14, my $setLt = r15,                      # Offset of current node, iInsertion point, Equality point
-            my ($F, $K, $D, $N, $key) = reverse 27..31;                         # First, keys, data, nodes, search key
+            my ($F, $K, $D, $N, $key) = zmm reverse 27..31;                     # First, keys, data, nodes, search key
       my $t = $$s{tree};
       my $k = $$p{key};
       my $d = $$p{data};
@@ -10803,7 +10801,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10805 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10803 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -14397,7 +14395,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
 
@@ -19004,10 +19002,10 @@ if (1) {                                                                        
    });
 
 # Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
-#    1           7_211          94_136           7_075          94_136        0.3394          0.10          0.00  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18934
-  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1, clocks=>7_211;
+#    1           6_947          81_896           6_947          81_896        0.2552          0.10          0.00  Better incSizeInFirst
+#    1           6_716          81_728           6_716          81_728        0.2544          0.10          0.00  Better incSizeInKeys
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>6_716;
 END
-exit;
  }
 
 #latest:
