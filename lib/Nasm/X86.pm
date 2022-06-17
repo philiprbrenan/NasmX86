@@ -5518,10 +5518,10 @@ sub Nasm::X86::Area::putZmmBlock($$$)                                           
   @_ == 3 or confess "Three parameters";
 
   my $a = rdi;                                                                  # Work registers
-  my $o = rsi;
+  my $o = ref($block) =~ m(Variable) ? rsi : $block;
 
   $area->address->setReg($a);                                                   # Area address
-  $block->setReg($o);                                                           # Offset of block in area
+  $block->setReg($o) if ref($block) =~ m(Variable);                             # Offset of block in area
 
   if ($DebugMode)
    {Cmp $o, $area->dataOffset;
@@ -6476,6 +6476,27 @@ sub Nasm::X86::Tree::replace($$$$)                                              
  } # replace
 
 sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        #P Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
+ {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Tree descriptor, register point at which to overwrite formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
+
+  @_ == 7 or confess "Seven parameters";
+
+  Kmovq k1, $point;                                                             # A sea of zeros with a one at the point of insertion
+
+  $IK->setReg(rdi); Vpbroadcastd zmmM($K, 1), edi;                              # Insert value at expansion point
+  $ID->setReg(rdi); Vpbroadcastd zmmM($D, 1), edi;
+
+  If $subTree > 0,                                                              # Set the inserted tree bit
+  Then
+   {Kmovq rdi, k1;
+    $tree->setTreeBit ($K, rdi);
+   },
+  Else
+   {Kmovq rdi, k1;
+    $tree->clearTreeBit($K, rdi);
+   };
+ } # overWriteKeyDataTreeInLeaf
+
+sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf22($$$$$$$)                        #P Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
  {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Tree descriptor, point at which to overwrite formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
 
   @_ == 7 or confess "Seven parameters";
@@ -6577,6 +6598,29 @@ sub Nasm::X86::Tree::indexEqLt($$$$$)                                           
  }
 
 sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
+ {my ($tree, $point, $F, $K, $D, $IK, $ID, $subTree) = @_;                      # Tree descriptor, register point at which to insert formatted as a one in a sea of zeros, first, key, data, insert key, insert data, sub tree if tree.
+
+  @_ == 8 or confess "Eight parameters";
+  my $t = $tree;                                                                # Address tree
+
+  Kmovq k3, $point;                                                             # A sea of zeros with a one at the point of insertion
+  $t->maskForFullKeyArea(2);                                                    # Mask for key area
+  Kandnq  k1, k3, k2;                                                           # Mask for key area with a hole at the insertion point
+
+  Vpexpandd zmmM($K, 1), zmm($K);                                               # Expand to make room for the value to be inserted
+  Vpexpandd zmmM($D, 1), zmm($D);
+
+  $IK->setReg(rdi); Vpbroadcastd zmmM($K, 3), edi;                              # Insert value at expansion point
+  $ID->setReg(rdi); Vpbroadcastd zmmM($D, 3), edi;
+
+  $t->incLengthInKeys($K);                                                      # Increment the length of this node to include the inserted value
+
+  $t->insertIntoTreeBits($K, 3, $subTree);                                      # Set the matching tree bit depending on whether we were supplied with a tree or a variable
+
+  $t->incSizeInFirst($F);                                                       # Update number of elements in entire tree.
+ } # insertKeyDataTreeIntoLeaf
+
+sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf2($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
  {my ($tree, $point, $F, $K, $D, $IK, $ID, $subTree) = @_;                      # Tree descriptor, point at which to insert formatted as a one in a sea of zeros, first, key, data, insert key, insert data, sub tree if tree.
 
   @_ == 8 or confess "Eight parameters";
@@ -6924,7 +6968,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
     Block
      {my ($success) = @_;                                                       # End label
-      PushR my $setEq = r14, my $setLt = r15,                                   # Insertion point, Equality point
+      PushR my $Q = r13, my $setEq = r14, my $setLt = r15,                      # Offset of current node, iInsertion point, Equality point
             my ($F, $K, $D, $N, $key) = reverse 27..31;                         # First, keys, data, nodes, search key
       my $t = $$s{tree};
       my $k = $$p{key};
@@ -6937,10 +6981,11 @@ sub Nasm::X86::Tree::put($$$)                                                   
       my $start = SetLabel;                                                     # Start the descent through the tree
 
       $t->firstFromMemory($F);
-      my $Q = $t->rootFromFirst($F);                                            # Start the descent at the root node
+      $t->rootFromFirst($F, set=>$Q);                                           # Start the descent at the root node
 
-      If $Q == 0,                                                               # First entry as there is no root node.
-      Then
+      Cmp $Q, 0;
+      IfEq
+      Then                                                                      # First entry as there is no root node
        {my $block = $t->allocBlock($K, $D, $N);
         $k->dIntoZ                ($K, 0);
         $d->dIntoZ                ($D, 0);
@@ -6960,36 +7005,27 @@ sub Nasm::X86::Tree::put($$$)                                                   
       $t->indexEqLt($key, $K, $setEq, $setLt);                                  # Check for an equal key
       IfNz                                                                      # Equal key found
       Then                                                                      # Overwrite the existing key/data
-       {my $eq = V eq => $setEq;                                                # This can be improved by transferring using a register not a variable
-        $t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d, $S);
-        $t->putBlock                  ($Q,  $K, $D, $N);
+       {$t->overWriteKeyDataTreeInLeaf($setEq, $K, $D, $k, $d, $S);
+        $t->putBlock                  ($Q,     $K, $D, $N);
         Jmp $success;
        };
 
       If $t->lengthFromKeys($K) >= $t->maxKeys,
       Then                                                                      # Split full blocks
-       {$t->splitNode($Q);
+       {$t->splitNode(V offset => $Q);                                          # Split node is a large function that is hopefully called infrequently so crating a register parameter is, perhaps, not worth the effort
         Jmp $start;                                                             # Restart the descent now that this block has been split
        };
 
       If $t->leafFromNodes($N) > 0,
       Then                                                                      # On a leaf
        {my $i = $t->insertionPoint($key, $K);                                   # Find insertion point
-        $t->insertKeyDataTreeIntoLeaf($i, $F, $K, $D, $k, $d, $S);
-        $t->putBlock                 ($Q, $K, $D, $N);
+        $t->insertKeyDataTreeIntoLeaf($setLt, $F, $K, $D, $k, $d, $S);
+        $t->putBlock                 ($Q,         $K, $D, $N);
         $t->firstIntoMemory          ($F);                                      # First back into memory
         Jmp $success;
        };
 
-      my $in = V insert => $setLt;                                              # The position at which the key would be inserted if this were a leaf.  This can be improved ny using a register where we are using a register
-      my $next = $in->dFromPointInZ($N);                                        # The node to the left of the insertion point - this works because the insertion point can be upto one more than the maximum number of keys
-      if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                      # Optimize by removing pointless load/unload/load
-       {pop @text;
-        $Q->getReg(rsi);
-       }
-      else
-       {$Q->copy($next);                                                        # Get the offset of the next node - we are not on a leaf so there must be one
-       }
+      dFromPointInZ($setLt, $N, set=>$Q);                                       # The node to the left of the insertion point - this works because the insertion point can be up to one more than the maximum number of keys
       Jmp $descend;                                                             # Descend to the next level
      };
     PopR;
@@ -10809,7 +10845,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10811 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10847 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -14060,7 +14096,7 @@ data: .... .... .... ..22
 END
  }
 
-latest:
+#latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -14191,7 +14227,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::indexEqLt
   my $tree = DescribeTree;
 
@@ -14377,7 +14413,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
 
@@ -14396,12 +14432,14 @@ if (1) {                                                                        
   PrintOutStringNL "Start";
   PrintOutRegisterInHex $F, $K, $D;
 
-  $tree->insertKeyDataTreeIntoLeaf($point, $F, $K, $D, $IK, $ID, K subTree => 1);
+  $point->setReg(r15);
+  $tree->insertKeyDataTreeIntoLeaf(r15, $F, $K, $D, $IK, $ID, K subTree => 1);
 
   PrintOutStringNL "Inserted";
   PrintOutRegisterInHex $F, $K, $D;
 
-  $tree->overWriteKeyDataTreeInLeaf($point, $K, $D, $ID, $IK, K subTree => 0);
+  $point->setReg(r15);
+  $tree->overWriteKeyDataTreeInLeaf(r15, $K, $D, $ID, $IK, K subTree => 0);
 
   PrintOutStringNL "Overwritten";
   PrintOutRegisterInHex $F, $K, $D;
@@ -14522,16 +14560,22 @@ END
  }
 
 #latest:;
-if (1)
+if (1)                                                                          #TNasm::X86::Tree::put #TNasm::X86::Tree::find
  {my $a = CreateArea;
   my $t = $a->CreateTree;
   $t->put(K(key => 1), K(key => 1));
+  $t->find (K key => 1);
+  $t->found->outNL;
+  $t->data ->outNL;
+
   ok Assemble eq=><<END, avx512=>1, mix=> 1;
+found: .... .... .... ...1
+data: .... .... .... ...1
 END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::put
+if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
@@ -14566,7 +14610,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::put
+if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
@@ -14595,7 +14639,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::put
+if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
@@ -14628,7 +14672,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::put
+if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
@@ -14681,7 +14725,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::put
+if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
