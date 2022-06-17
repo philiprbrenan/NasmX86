@@ -6046,11 +6046,10 @@ sub Nasm::X86::Tree::incSizeInFirst($$)                                         
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   my $o = $tree->sizeOffset;
-  my $w = RegisterSize xmm0;
-  confess "Size not in xmm$zmm" unless $o <= $w - $tree->width;                 # Confirm we can use an xmm register for this operation
-  Vmovdqu64 "[rsp-$w]", xmm$zmm;                                                # Position below stack
+  my $w = RegisterSize zmm0;
+  Vmovdqu64 "[rsp-$w]", zmm$zmm;                                                # Position below stack
   Inc "dword[rsp-$w+$o]";                                                       # Increment size field
-  Vmovdqu64 xmm($zmm), "[rsp-$w]";                                                # Reload from stack
+  Vmovdqu64 zmm($zmm), "[rsp-$w]";                                                # Reload from stack
  }
 
 sub Nasm::X86::Tree::decSizeInFirst($$)                                         #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
@@ -6058,8 +6057,7 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
   @_ == 2 or confess "Two parameters";
   my $o = $tree->sizeOffset;
   my $w = RegisterSize xmm0;
-  confess "Size not in xmm$zmm" unless $o <= $w - $tree->width;                 # Confirm we can use an xmm register for this operation
-  Vmovdqu64 "[rsp-$w]", xmm$zmm;                                                # Position below stack
+  Vmovdqu64 "[rsp-$w]", zmm$zmm;                                                # Position below stack
 
   if ($DebugMode)
    {Cmp "dword[rsp-$w+$o]", 0;                                                  # Check size is not already zero
@@ -6070,7 +6068,7 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
    }
 
   Dec "dword[rsp-$w+$o]";                                                       # Decrement size field
-  Vmovdqu64 xmm($zmm), "[rsp-$w]";                                              # Reload from stack
+  Vmovdqu64 zmm($zmm), "[rsp-$w]";                                              # Reload from stack
  }
 sub Nasm::X86::Tree::decSizeInFirst999($$)                                         #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
@@ -10805,7 +10803,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10807 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10805 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -14374,6 +14372,32 @@ END
  }
 
 #latest:
+if (1) {                                                                        #TNasm::X86::Tree::incSizeInFirst
+  my $t = DescribeTree();
+
+  my $F = 31;
+  K(key => 0xff)->dIntoZ($F, 60);
+  K(key => 0xee)->dIntoZ($F, 56);
+  PrintOutRegisterInHex $F;
+  $t->incSizeInFirst($F); PrintOutRegisterInHex $F;
+  $t->incSizeInFirst($F); PrintOutRegisterInHex $F;
+  $t->incSizeInFirst($F); PrintOutRegisterInHex $F;
+  $t->decSizeInFirst($F); PrintOutRegisterInHex $F;
+  $t->decSizeInFirst($F); PrintOutRegisterInHex $F;
+  $t->decSizeInFirst($F); PrintOutRegisterInHex $F;
+
+  ok Assemble eq => <<END, avx512=>1;                                           # Once we know the insertion point we can add the key/data/subTree triple, increase the length and update the tree bits
+ zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0
+ zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...1  .... .... .... ...0
+ zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...2  .... .... .... ...0
+ zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...3  .... .... .... ...0
+ zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...2  .... .... .... ...0
+ zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...1  .... .... .... ...0
+ zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0
+END
+ }
+
+latest:
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
 
