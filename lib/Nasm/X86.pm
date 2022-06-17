@@ -642,6 +642,19 @@ sub InsertOneIntoRegisterAtPoint($$)                                            
   InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
   if (&CheckIfMaskRegisterNumber($point))                                       # Mask register showing point
    {my ($r) = ChooseRegisters(1, $in);                                          # Choose a general purpose register to place the mask in
+    Kmovq rsi, $point;
+    Or   $in, rsi;                                                              # Make the zero a one
+   }
+  else                                                                          # General purpose register showing point
+   {Or $in, $point;                                                             # Make the zero a one
+   }
+ }
+
+sub InsertOneIntoRegisterAtPoint999($$)                                            # Insert a one into the specified register at the point indicated by another register.
+ {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
+  InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
+  if (&CheckIfMaskRegisterNumber($point))                                       # Mask register showing point
+   {my ($r) = ChooseRegisters(1, $in);                                          # Choose a general purpose register to place the mask in
     PushR $r;
     Kmovq $r, $point;
     Or   $in, $r;                                                               # Make the zero a one
@@ -6591,7 +6604,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       my $area = $t->area;                                                      # Area
 
       PushR 22...31;
-      ClearRegisters 22..31;                                                    # Otherwise we get left over junk
+      ClearRegisters 30;                                                        # Otherwise we get left over junk
 
       my $offset = $$p{offset};                                                 # Offset of block in area
       my $split  = $$p{split};                                                  # Indicate whether we split or not
@@ -6621,6 +6634,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
         $t->upIntoData      ($p,      $LD);                                     # Left  points up to new parent
         $t->upIntoData      ($p,      $RD);                                     # Right points up to new parent
         $t->putBlock        ($p,      $PK, $PD, $PN);
+
         $t->putBlock        ($offset, $LK, $LD, $LN);
         $t->putBlock        ($r,      $RK, $RD, $RN);
 
@@ -10761,7 +10775,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10763 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10777 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18201,7 +18215,7 @@ END
 #    980_660         108_640         980_660         108_640        0.1587          0.11  Register for leafFromNodes
 #    968_631         108_632         968_631         108_632        0.2838          0.13  Register for length from keys
 #    950_171         107_816         950_171         107_816        0.1970          0.12  getLoop register
-latest:;
+#latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
@@ -18919,6 +18933,27 @@ data: .... .... .... ..11
 data: .... .... .... ..22
 data: .... .... .... ..33
 END
+ }
+
+latest:
+if (1) {                                                                        # Speed test for put
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  my $N = 33;
+
+  K(key => $N)->for(sub
+   {my ($i) = @_;                                                              # Parameters
+#$TraceMode = 1;
+    $t->put($i, $i);
+#$TraceMode = 0;
+   });
+
+# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#    1           7_211          94_136           7_075          94_136        0.3394          0.10          0.00  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18934
+  ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1, clocks=>7_211;
+END
+#exit;
  }
 
 #latest:
