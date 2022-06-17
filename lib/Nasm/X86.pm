@@ -6924,7 +6924,8 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
     Block
      {my ($success) = @_;                                                       # End label
-      PushR my ($F, $K, $D, $N, $key) = reverse 27..31;                         # First, keys, data, nodes, search key
+      PushR my $setEq = r14, my $setLt = r15,                                   # Insertion point, Equality point
+            my ($F, $K, $D, $N, $key) = reverse 27..31;                         # First, keys, data, nodes, search key
       my $t = $$s{tree};
       my $k = $$p{key};
       my $d = $$p{data};
@@ -6956,10 +6957,11 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
       $t->getBlock($Q, $K, $D, $N);                                             # Get the current block from memory
 
-      my $eq = $t->indexEq($key, $K);                                           # Check for an equal key
-      If $eq > 0,                                                               # Equal key found
+      $t->indexEqLt($key, $K, $setEq, $setLt);                                  # Check for an equal key
+      IfNz                                                                      # Equal key found
       Then                                                                      # Overwrite the existing key/data
-       {$t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d, $S);
+       {my $eq = V eq => $setEq;                                                # This can be improved by transferring using a register not a variable
+        $t->overWriteKeyDataTreeInLeaf($eq, $K, $D, $k, $d, $S);
         $t->putBlock                  ($Q,  $K, $D, $N);
         Jmp $success;
        };
@@ -6979,7 +6981,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
         Jmp $success;
        };
 
-      my $in = $t->insertionPoint($key, $K);                                    # The position at which the key would be inserted if this were a leaf
+      my $in = V insert => $setLt;                                              # The position at which the key would be inserted if this were a leaf.  This can be improved ny using a register where we are using a register
       my $next = $in->dFromPointInZ($N);                                        # The node to the left of the insertion point - this works because the insertion point can be upto one more than the maximum number of keys
       if ($text[-1] =~ m(\Amov.*rsi\s*\Z))                                      # Optimize by removing pointless load/unload/load
        {pop @text;
@@ -10807,7 +10809,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10809 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10811 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
