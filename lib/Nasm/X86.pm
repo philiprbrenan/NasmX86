@@ -6926,8 +6926,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
       If $t->leafFromNodes($N) > 0,
       Then                                                                      # On a leaf
-       {my $i = $t->insertionPoint($key, $K);                                   # Find insertion point
-        $t->insertKeyDataTreeIntoLeaf($setLt, $F, $K, $D, $k, $d, $S);
+       {$t->insertKeyDataTreeIntoLeaf($setLt, $F, $K, $D, $k, $d, $S);
         $t->putBlock                 ($Q,         $K, $D, $N);
         $t->firstIntoMemory          ($F);                                      # First back into memory
         Jmp $success;
@@ -10525,8 +10524,9 @@ END
           my $g = - $l;
           my $L = numberWithUnderScores $l;
           my $G = numberWithUnderScores $g;
-          print STDERR "   Clocks were $C, but now $I, less $L"       if $l > 0;
-          print STDERR "   Clocks were $C, but now $I, greater by $G" if $g > 0;
+          my $f = onGitHub ? "    " : "\n";
+          print STDERR $f."Clocks were $C, but now $I, less $L"       if $l > 0;
+          print STDERR $f."Clocks were $C, but now $I, greater by $G" if $g > 0;
          }
        }
      }
@@ -14321,7 +14321,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # Perform the insertion
   my $tree = DescribeTree();
 
@@ -14682,7 +14682,7 @@ end
 END
  }
 
-latest:
+#latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18188,23 +18188,25 @@ END
 #  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
 #  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
 #  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
-
-#latest:;
+#  1_066_780         108_856       1_066_780         108_856        0.1625          0.11  More optimal put
+#  1_041_355         108_744       1_041_355         108_744        0.1614          0.11  Used $setLt in leaf insert
+latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put(K(key => 0xffffff), K(key => 1));                                     # 364    347
-# $t->find(K key => 0xffffff);                                                  # 370 -> 129
+#  $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273
+#  $t->find(K key => 0xffffff);                                                  # 370 129 127
 
   my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
   my %l = map {$_=>1} @l;                                                       # All the unique letters
   my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, clocks=>1259700, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>1_041_355, trace=>0;
 $l
 END
+exit;
 }
 
 #latest:;
