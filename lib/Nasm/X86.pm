@@ -6045,19 +6045,34 @@ sub Nasm::X86::Tree::sizeIntoFirst($$$)                                         
 sub Nasm::X86::Tree::incSizeInFirst($$)                                         #P Increment the size field in the first block of a tree when the first block is held in a zmm register.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
-  my $s = dFromZ $zmm, $tree->sizeOffset;
-  $tree->sizeIntoFirst($zmm, $s+1);
- }
-
-sub Nasm::X86::Tree::incSize($)                                                 #P Increment the size of a tree.
- {my ($tree) = @_;                                                              # Tree descriptor
-  @_ == 1 or confess "One parameter";
-  $tree->firstFromMemory(1);
-  $tree->incSizeInFirst (1);
-  $tree->firstIntoMemory(1);
+  my $o = $tree->sizeOffset;
+  my $w = RegisterSize xmm0;
+  confess "Size not in xmm$zmm" unless $o <= $w - $tree->width;                 # Confirm we can use an xmm register for this operation
+  Vmovdqu64 "[rsp-$w]", xmm$zmm;                                                # Position below stack
+  Inc "dword[rsp-$w+$o]";                                                       # Increment size field
+  Vmovdqu64 xmm($zmm), "[rsp-$w]";                                                # Reload from stack
  }
 
 sub Nasm::X86::Tree::decSizeInFirst($$)                                         #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
+ {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
+  @_ == 2 or confess "Two parameters";
+  my $o = $tree->sizeOffset;
+  my $w = RegisterSize xmm0;
+  confess "Size not in xmm$zmm" unless $o <= $w - $tree->width;                 # Confirm we can use an xmm register for this operation
+  Vmovdqu64 "[rsp-$w]", xmm$zmm;                                                # Position below stack
+
+  if ($DebugMode)
+   {Cmp "dword[rsp-$w+$o]", 0;                                                  # Check size is not already zero
+    IfEq
+    Then
+     {PrintErrTraceBack "Cannot decrement zero length tree";
+     };
+   }
+
+  Dec "dword[rsp-$w+$o]";                                                       # Decrement size field
+  Vmovdqu64 xmm($zmm), "[rsp-$w]";                                              # Reload from stack
+ }
+sub Nasm::X86::Tree::decSizeInFirst999($$)                                         #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   my $s = dFromZ $zmm, $tree->sizeOffset;
@@ -6070,6 +6085,21 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
    }
 
   $tree->sizeIntoFirst($zmm, $s-1);
+ }
+
+sub Nasm::X86::Tree::incSizeInFirst999($$)                                         #P Increment the size field in the first block of a tree when the first block is held in a zmm register.
+ {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
+  @_ == 2 or confess "Two parameters";
+  my $s = dFromZ $zmm, $tree->sizeOffset;
+  $tree->sizeIntoFirst($zmm, $s+1);
+ }
+
+sub Nasm::X86::Tree::incSize($)                                                 #P Increment the size of a tree.
+ {my ($tree) = @_;                                                              # Tree descriptor
+  @_ == 1 or confess "One parameter";
+  $tree->firstFromMemory(1);
+  $tree->incSizeInFirst (1);
+  $tree->firstIntoMemory(1);
  }
 
 sub Nasm::X86::Tree::decSize($)                                                 #P Decrement the size of a tree.
@@ -10775,7 +10805,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10777 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10807 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18953,7 +18983,7 @@ if (1) {                                                                        
 #    1           7_211          94_136           7_075          94_136        0.3394          0.10          0.00  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 18934
   ok Assemble eq => <<END, avx512=>1, trace=>1, mix=>1, clocks=>7_211;
 END
-#exit;
+exit;
  }
 
 #latest:
