@@ -6205,10 +6205,10 @@ sub Nasm::X86::Tree::leafFromNodes($$%)                                         
    }
  }
 
-sub Nasm::X86::Tree::getLoop($$)                                                #P Return the value of the loop field as a variable.
- {my ($t, $zmm) = @_;                                                           # Tree descriptor, numbered zmm
-  @_ == 2 or confess "Two parameters";
-  dFromZ $zmm, $t->loop;                                                        # Get loop field as a variable
+sub Nasm::X86::Tree::getLoop($$%)                                               #P Return the value of the loop field as a variable.
+ {my ($t, $zmm, %options) = @_;                                                 # Tree descriptor, numbered zmm, options
+  @_ >= 2 or confess "Two or more parameters";
+  dFromZ $zmm, $t->loop, %options;                                              # Get loop field as a variable
  }
 
 sub Nasm::X86::Tree::putLoop($$$)                                               #P Set the value of the loop field from a variable.
@@ -6263,11 +6263,11 @@ sub Nasm::X86::Tree::putBlock($$$$$)                                            
  {my ($t, $offset, $K, $D, $N) = @_;                                            # Tree descriptor, offset of block as a variable, numbered zmm for keys, numbered data for keys, numbered zmm for nodes
   @_ == 5 or confess "Five parameters";
   my $a    = $t->area;                                                          # Area for tree
-  my $data = $t->getLoop(  $K);                                                 # Get the offset of the corresponding data block
-  my $node = $t->getLoop(  $D);                                                 # Get the offset of the corresponding node block
   $a->putZmmBlock($offset, $K);                                                 # Put the keys block
-  $a->putZmmBlock($data,   $D);                                                 # Put the data block
-  $a->putZmmBlock($node,   $N);                                                 # Put the node block
+  $t->getLoop(  $K, set=>rsi);                                                  # Get the offset of the corresponding data block
+  $a->putZmmBlock(rsi,   $D);                                                   # Put the data block
+  $t->getLoop(  $D, set=>rsi);                                                  # Get the offset of the corresponding node block
+  $a->putZmmBlock(rsi,   $N);                                                   # Put the node block
  }
 
 sub Nasm::X86::Tree::firstNode($$$$)                                            #P Return as a variable the last node block in the specified tree node held in a zmm.
@@ -6921,8 +6921,6 @@ sub Nasm::X86::Tree::put($$$)                                                   
         $t->putBlock                  ($Q,     $K, $D, $N);
         Jmp $success;
        };
-
-#     If $t->lengthFromKeys($K) >= $t->maxKeys,
 
       $t->lengthFromKeys($K, set=>rsi);
       Cmp rsi, $t->maxKeys;
@@ -10763,7 +10761,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10765 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10763 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18202,12 +18200,13 @@ END
 #  1_041_355         108_744       1_041_355         108_744        0.1614          0.11  Used $setLt in leaf insert
 #    980_660         108_640         980_660         108_640        0.1587          0.11  Register for leafFromNodes
 #    968_631         108_632         968_631         108_632        0.2838          0.13  Register for length from keys
+#    950_171         107_816         950_171         107_816        0.1970          0.12  getLoop register
 latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#  $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248
+# $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248 244
 #  $t->find(K key => 0xffffff);                                                  # 370 129 127
 
   my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
@@ -18215,7 +18214,7 @@ if (1) {
   my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>968_631, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>950_171, trace=>0;
 $l
 END
 }
