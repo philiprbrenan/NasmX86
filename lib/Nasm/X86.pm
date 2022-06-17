@@ -2862,19 +2862,6 @@ sub Nasm::X86::Variable::outNL($;$$)                                            
   $left->dump($stdout, 1, $title1, $title2);
  }
 
-sub Nasm::X86::Variable::debug22($)                                             # Dump the value of a variable on stderr with an indication of where the dump came from.
- {my ($left) = @_;                                                              # Left variable
-  PushR rax, rdi;
-  Mov rax, $left->label;                                                        # Address in memory
-  Mov rax, "[rax]";
-  &PrintErrString(pad($left->name, 32).": ");
-  &PrintErrRaxInHex();
-  my ($p, $f, $l) = caller(0);                                                  # Position of caller in file
-  &PrintErrString("               at $f line $l");
-  &PrintErrNL();
-  PopR;
- }
-
 #D3 Decimal representation                                                      # Print out a variable as a decimal number
 
 sub Nasm::X86::Variable::errInDec($;$$)                                         # Dump the value of a variable on stderr in decimal.
@@ -6496,44 +6483,6 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
    };
  } # overWriteKeyDataTreeInLeaf
 
-sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf22($$$$$$$)                        #P Over write an existing key/data/sub tree triple in a set of zmm registers and set the tree bit as indicated.
- {my ($tree, $point, $K, $D, $IK, $ID, $subTree) = @_;                          # Tree descriptor, point at which to overwrite formatted as a one in a sea of zeros, key, data, insert key, insert data, sub tree if tree.
-
-  @_ == 7 or confess "Seven parameters";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-
-    PushR 1..7, rdi;
-
-    $$p{point}->setReg(rdi);                                                    # Load mask register showing point of insertion.
-    Kmovq k7, rdi;                                                              # A sea of zeros with a one at the point of insertion
-
-    $$p{key}  ->setReg(rdi); Vpbroadcastd zmmM($K, 7), edi;                     # Insert value at expansion point
-    $$p{data} ->setReg(rdi); Vpbroadcastd zmmM($D, 7), edi;
-
-    If $$p{subTree} > 0,                                                        # Set the inserted tree bit
-    Then
-     {Kmovq rdi, k7;
-      $tree->setTreeBit ($K, rdi);
-     },
-    Else
-     {Kmovq rdi, k7;
-      $tree->clearTreeBit($K, rdi);
-     };
-
-    PopR;
-   } name =>
-     qq(Nasm::X86::Tree::overWriteKeyDataTreeInLeaf-$K-$D-$$tree{length}),      # Different variants for different blocks of registers.
-     structures => {tree=>$tree},
-     parameters => [qw(point key data subTree)];
-
-  $s->inline
-   (structures => {tree  => $tree},
-    parameters => {key   => $IK, data => $ID,
-                   point => $point, subTree => $subTree});
- } # overWriteKeyDataTreeInLeaf
-
 #D2 Insert                                                                      # Insert a key into the tree.
 
 sub Nasm::X86::Tree::indexXX($$$$$%)                                            #P Return, as a variable, the mask obtained by performing a specified comparison on the key area of a node against a specified key.
@@ -6618,47 +6567,6 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
   $t->insertIntoTreeBits($K, 3, $subTree);                                      # Set the matching tree bit depending on whether we were supplied with a tree or a variable
 
   $t->incSizeInFirst($F);                                                       # Update number of elements in entire tree.
- } # insertKeyDataTreeIntoLeaf
-
-sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf2($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
- {my ($tree, $point, $F, $K, $D, $IK, $ID, $subTree) = @_;                      # Tree descriptor, point at which to insert formatted as a one in a sea of zeros, first, key, data, insert key, insert data, sub tree if tree.
-
-  @_ == 8 or confess "Eight parameters";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-
-    my $t = $$s{tree};                                                          # Address tree
-
-    my $point = $$p{point};                                                     # Point at which to insert
-    $$p{point}->setReg(rdi);                                                    # Load mask register showing point of insertion.
-
-    Kmovq k3, rdi;                                                              # A sea of zeros with a one at the point of insertion
-
-    $t->maskForFullKeyArea(2);                                                  # Mask for key area
-
-    Kandnq  k1, k3, k2;                                                         # Mask for key area with a hole at the insertion point
-
-    Vpexpandd zmmM($K, 1), zmm($K);                                             # Expand to make room for the value to be inserted
-    Vpexpandd zmmM($D, 1), zmm($D);
-
-    $$p{key}  ->setReg(rdi); Vpbroadcastd zmmM($K, 3), edi;                     # Insert value at expansion point
-    $$p{data} ->setReg(rdi); Vpbroadcastd zmmM($D, 3), edi;
-
-    $t->incLengthInKeys($K);                                                    # Increment the length of this node to include the inserted value
-
-    $t->insertIntoTreeBits($K, 3, $$p{subTree});                                # Set the matching tree bit depending on whether we were supplied with a tree or a variable
-
-    $t->incSizeInFirst($F);                                                     # Update number of elements in entire tree.
-   } name =>
-     qq(Nasm::X86::Tree::insertKeyDataTreeIntoLeaf-$F-$K-$D-$$tree{length}),    # Different variants for different blocks of registers.
-     structures => {tree=>$tree},
-     parameters => [qw(point key data subTree)];
-
-  $s->inline
-   (structures => {tree  => $tree},
-    parameters => {key   => $IK, data => $ID,
-                   point => $point, subTree => $subTree});
  } # insertKeyDataTreeIntoLeaf
 
 sub Nasm::X86::Tree::splitNode($$)                                              #P Split a node if it it is full returning a variable that indicates whether a split occurred or not.
@@ -10845,7 +10753,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10847 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10755 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
