@@ -1,8 +1,10 @@
 # Please get involved with this project!
 
 Please join in with this interesting project - we need all the [help](https://en.wikipedia.org/wiki/Online_help) we can get
-- so much so that as an incentive to do so, we will be pleased to offer you
-free Perl and Assembler training to [help](https://en.wikipedia.org/wiki/Online_help) you make useful contributions to this [module](https://en.wikipedia.org/wiki/Modular_programming). 
+to optimize the [code](https://en.wikipedia.org/wiki/Computer_program) base - so much so that as an incentive to do so, we will
+be pleased to offer you free Perl and Assembler training to [help](https://en.wikipedia.org/wiki/Online_help) you make such
+contributions to this project.
+
 # Generate and run [X86-64](https://en.wikipedia.org/wiki/X86-64) [Advanced Vector Extensions](https://en.wikipedia.org/wiki/AVX-512) [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) [programs](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/) 
 ![Test](https://github.com/philiprbrenan/Nasmx86/workflows/Test/badge.svg)
 
