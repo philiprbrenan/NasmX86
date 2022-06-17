@@ -6922,7 +6922,11 @@ sub Nasm::X86::Tree::put($$$)                                                   
         Jmp $success;
        };
 
-      If $t->lengthFromKeys($K) >= $t->maxKeys,
+#     If $t->lengthFromKeys($K) >= $t->maxKeys,
+
+      $t->lengthFromKeys($K, set=>rsi);
+      Cmp rsi, $t->maxKeys;
+      IfGe
       Then                                                                      # Split full blocks
        {$t->splitNode(V offset => $Q);                                          # Split node is a large function that is hopefully called infrequently so crating a register parameter is, perhaps, not worth the effort
         Jmp $start;                                                             # Restart the descent now that this block has been split
@@ -10759,7 +10763,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10761 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10765 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18197,12 +18201,13 @@ END
 #  1_066_780         108_856       1_066_780         108_856        0.1625          0.11  More optimal put
 #  1_041_355         108_744       1_041_355         108_744        0.1614          0.11  Used $setLt in leaf insert
 #    980_660         108_640         980_660         108_640        0.1587          0.11  Register for leafFromNodes
+#    968_631         108_632         968_631         108_632        0.2838          0.13  Register for length from keys
 latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-#  $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252
+#  $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248
 #  $t->find(K key => 0xffffff);                                                  # 370 129 127
 
   my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
@@ -18210,7 +18215,7 @@ if (1) {
   my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>980_660, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>968_631, trace=>0;
 $l
 END
 }
