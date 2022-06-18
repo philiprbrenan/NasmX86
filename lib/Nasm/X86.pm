@@ -6610,13 +6610,13 @@ sub Nasm::X86::Tree::splitNode($$)                                              
  {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in area of tree as a variable
   @_ == 2 or confess 'Two parameters';
 
- my $PK = 31; my $PD = 30; my $PN = 29;                                        # Key, data, node blocks
- my $LK = 28; my $LD = 27; my $LN = 26;
+# my $PK = 31; my $PD = 30; my $PN = 29;                                        # Key, data, node blocks
+# my $LK = 28; my $LD = 27; my $LN = 26;
  my $RK = 25; my $RD = 24; my $RN = 23;
  my $F  = 22;
 
-#  my $PK = 1; my $PD = 2; my $PN = 3;                                           # Key, data, node blocks
-#  my $LK = 4; my $LD = 5; my $LN = 6;
+  my $PK = 1; my $PD = 2; my $PN = 3;                                           # Key, data, node blocks
+  my $LK = 4; my $LD = 5; my $LN = 6;
 #  my $RK = 7; my $RD = 8; my $RN = 9;
 #  my $F  = 10;
                                                                                 # First block of this tree
