@@ -504,10 +504,11 @@ sub Pi64 {Rq("__float32__($Pi)")}                                               
 #D2 Size                                                                        # Sizes of each register
 
 sub RegisterSize($)                                                             # Return the size of a register.
- {my ($r) = @_;                                                                 # Register
-  $r = &registerNameFromNumber($r);
+ {my ($R) = @_;                                                                 # Register
+  my $r = &registerNameFromNumber($R);
   defined($r) or confess;
   defined($Registers{$r}) or confess "No such registers as: $r";
+say STDERR "BBBB $R $r " if $DebugMode == 1;
   eval "${r}Size()";
  }
 
@@ -775,16 +776,13 @@ sub checkZmmRegister($)                                                         
 sub bRegFromZmm($$$)                                                            # Load the specified register from the byte at the specified offset located in the numbered zmm.
  {my ($register, $zmm, $offset) = @_;                                           # Register to load, numbered zmm register to load from, constant offset in bytes
 
-  my $z = registerNameFromNumber $zmm;
   $offset >= 0 && $offset <= RegisterSize zmm0 or
     confess "Offset $offset Out of range";
 
-  PushRR $z;                                                                    # Push source register
-
   my $b = byteRegister $register;                                               # Corresponding byte register
-
-  Mov $b, "[rsp+$offset]";                                                      # Load byte register from offset
-  Add rsp, RegisterSize $z;                                                     # Pop source register
+  my $W = RegisterSize zmm0;                                                    # Register size
+  Vmovdqu32 "[rsp-$W]", zmm $zmm;
+  Mov $b, "[rsp-$W+$offset]";                                                   # Load byte register from offset
  }
 
 sub bRegIntoZmm($$$)                                                            # Put the byte content of the specified register into the byte in the numbered zmm at the specified offset in the zmm.
@@ -792,24 +790,21 @@ sub bRegIntoZmm($$$)                                                            
 
   $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
 
-  PushR $zmm;                                                                   # Push source register
-
   my $b = byteRegister $register;                                               # Corresponding byte register
-
-  Mov "[rsp+$offset]", $b;                                                      # Save byte at specified offset
-  PopR;                                                                         # Reload zmm
+  my $W = RegisterSize zmm0;                                                    # Register size
+  Vmovdqu32 "[rsp-$W]", zmm $zmm;
+  Mov "[rsp-$W+$offset]", $b;                                                   # Save byte at specified offset
+  Vmovdqu32  zmm($zmm), Vmovdqu32 "[rsp-$W]";
  }
 
 sub wRegFromZmm($$$)                                                            # Load the specified register from the word at the specified offset located in the numbered zmm.
  {my ($register, $zmm, $offset) = @_;                                           # Register to load, numbered zmm register to load from, constant offset in bytes
 
-  my $z = registerNameFromNumber $zmm;
   $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
 
-  my $W = RegisterSize $z;                                                      # Register size
-  Vmovdqu32 "[rsp-$W]", $z;
+  my $W = RegisterSize zmm0;                                                    # Register size
   my $w = wordRegister $register;                                               # Corresponding word register
-
+  Vmovdqu32 "[rsp-$W]", zmm $zmm;
   Mov $w, "[rsp-$W+$offset]";                                                   # Load word register from offset
  }
 
@@ -818,12 +813,11 @@ sub wRegIntoZmm($$$)                                                            
 
   $offset >= 0 && $offset <= RegisterSize zmm0 or confess "Out of range";
 
-  PushR $zmm;                                                                   # Push source register
-
   my $w = wordRegister $register;                                               # Corresponding word register
-
-  Mov "[rsp+$offset]", $w;                                                      # Save word at specified offset
-  PopR;                                                                         # Reload zmm
+  my $W = RegisterSize zmm0;                                                    # Register size
+  Vmovdqu32 "[rsp-$W]", zmm $zmm;
+  Mov "[rsp-$W+$offset]", $w;                                                   # Save byte at specified offset
+  Vmovdqu32  zmm($zmm), "[rsp-$W]";
  }
 
 sub LoadRegFromMm($$$)                                                          #PN Load the specified register from the numbered zmm at the quad offset specified as a constant number.
@@ -6616,6 +6610,11 @@ sub Nasm::X86::Tree::splitNode($$)                                              
  {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in area of tree as a variable
   @_ == 2 or confess 'Two parameters';
 
+# my $PK = 31; my $PD = 30; my $PN = 29;                                        # Key, data, node blocks
+# my $LK = 28; my $LD = 27; my $LN = 26;
+# my $RK = 25; my $RD = 24; my $RN = 23;
+# my $F  = 22;
+
   my $PK = 31; my $PD = 30; my $PN = 29;                                        # Key, data, node blocks
   my $LK = 28; my $LD = 27; my $LN = 26;
   my $RK = 25; my $RD = 24; my $RN = 23;
@@ -10801,7 +10800,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10803 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10802 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18268,12 +18267,13 @@ END
 #    968_631         108_632         968_631         108_632        0.2838          0.13  Register for length from keys
 #    950_171         107_816         950_171         107_816        0.1970          0.12  getLoop register
 #    903_671         107_080         903_671         107_080        0.3483          0.11  incSizeInKeys
+#    892_549         106_024         892_549         106_024        0.1696          0.12  wRegFrom/IntoZ
 latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248 244 229
+# $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248 244 229 227
 # $t->find(K key => 0xffffff);                                                  # 370 129 127
 
   my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
@@ -18281,7 +18281,7 @@ if (1) {
   my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>903_671, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>892_549, trace=>0;
 $l
 END
 }
