@@ -17831,7 +17831,7 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
 
 block4: goto blockX unless $block{4};                                           # Fourth block of tests - latest development
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TconstantString
   my $a = CreateArea;
   my ($s, $l) = constantString("1234567");
@@ -18269,6 +18269,7 @@ END
 #    950_171         107_816         950_171         107_816        0.1970          0.12  getLoop register
 #    903_671         107_080         903_671         107_080        0.3483          0.11  incSizeInKeys
 #    892_549         106_024         892_549         106_024        0.1696          0.12  wRegFrom/IntoZ
+#    882_084         105_448         882_084         105_448        0.1682          0.11  Used free zmm registers in splitNode
 latest:;
 if (1) {
   my $a = CreateArea;
