@@ -3330,6 +3330,7 @@ sub Nasm::X86::Variable::division($$$)                                          
   Mov rax, "[rax]" if $left->reference;
   Mov r15, $r;
   Mov r15, "[r15]" if ref($right) and $right->reference;
+  ClearRegisters rdx;                                                           # Failure to do so means that rdx will have junk in it which can cause random divide exceptions that will be incorrectly reported as floating point exceptions.
   Idiv r15;
   my $v = V(join(' ', '('.$left->name, $op, (ref($right) ? $right->name : '').')'), $op eq "%" ? rdx : rax);
   PopR;
@@ -6677,12 +6678,13 @@ sub Nasm::X86::Tree::splitNode($$)                                              
         $r->setReg(rdx);                                                        # Parent offset
         Mov rcx, 0;                                                             # Start the loop at zero
         my $W = RegisterSize zmm1;
+
         Vmovdqu64 "[rsp-$W]", zmm $RN;                                          # Stack list of nodes to be reparented
         For                                                                     # Reparent the children of the right hand side now known not to be a leaf
          {Mov esi, "[rsp+rcx*4-$W]";                                            # Offset of node
           Mov esi, "[rdi+rsi+$$t{loop}]";                                       # Offset of data node
           Mov "[rdi+rsi+$$t{up}]", edx;                                         # Update parent offset
-          } rcx, $t->lengthRight + 1;
+         } rcx, $t->lengthRight + 1;
        };
 
 #      IfGt                                                                      # Not a leaf
@@ -10822,7 +10824,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10824 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10826 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -15001,6 +15003,31 @@ if (1) {                                                                        
     $t->put($l1, $l1 * 2);
     $t->put($h0, $h0 * 2);
    });
+
+  $t->printInOrder("AAAA");
+
+  ok Assemble eq => <<END, avx512=>1, trace=>1;
+AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::printInOrder
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $N = K count => 128;
+
+  $N->for(sub
+   {my ($index, $start, $next, $end) = @_;
+    my $l0 = ($N-$index) / 2;
+    my $l1 = ($N+$index) / 2;
+    my $h0 =  $N-$index;
+    my $h1 =  $N+$index;
+    $t->put($l0, $l0 * 2);
+    $t->put($h1, $h1 * 2);
+    $t->put($l1, $l1 * 2);
+    $t->put($h0, $h0 * 2);
+   });
   $t->printInOrder("AAAA");
 
   ok Assemble eq => <<END, avx512=>1;
@@ -18292,6 +18319,7 @@ END
 #    892_549         106_024         892_549         106_024        0.1696          0.12  wRegFrom/IntoZ
 #    882_084         105_448         882_084         105_448        0.1682          0.11  Used free zmm registers in splitNode
 #    811_799         132_992         811_799         132_992        0.1528          0.17  Low tree suppresses tree bits
+#    794_039         127_256         794_039         127_256        0.1455          0.19  Reparent loop in splitNonRootNode
 latest:;
 if (1) {
   my $a = CreateArea;
@@ -18305,7 +18333,7 @@ if (1) {
   my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>811_799, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>794_039, trace=>0;
 $l
 END
 }
