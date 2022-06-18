@@ -6113,7 +6113,6 @@ sub Nasm::X86::Tree::size($)                                                    
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
   my $F = zmm1;
-cluck;
   $tree->firstFromMemory($F);
   my $s = $tree->sizeFromFirst($F);
   $s->name = q(size of tree);
@@ -10795,7 +10794,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10797 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10796 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18280,7 +18279,6 @@ if (1) {
   ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>892_549, trace=>0;
 $l
 END
-exit;
 }
 
 #latest:;
