@@ -6156,10 +6156,10 @@ sub Nasm::X86::Tree::freeBlock($$$$$)                                           
   $tree->area->freeZmmBlock($_) for $k, $d, $n;                                 # Free the component zmm blocks
  } # freeBlock
 
-sub Nasm::X86::Tree::upFromData($$)                                             #P Up from the data zmm in a block in a tree.
- {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing data block
-  @_ == 2 or confess "Two parameters";
-  dFromZ $zmm, $tree->up;
+sub Nasm::X86::Tree::upFromData($$%)                                            #P Up from the data zmm in a block in a tree.
+ {my ($tree, $zmm, %options) = @_;                                              # Tree descriptor, number of zmm containing data block, options
+  @_ >= 2 or confess "Two or more parameters";
+  dFromZ $zmm, $tree->up, %options;
  }
 
 sub Nasm::X86::Tree::upIntoData($$$)                                            #P Up into the data zmm in a block in a tree.
@@ -6615,10 +6615,10 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 # my $RK = 25; my $RD = 24; my $RN = 23;
 # my $F  = 22;
 
-  my $PK = 31; my $PD = 30; my $PN = 29;                                        # Key, data, node blocks
-  my $LK = 28; my $LD = 27; my $LN = 26;
-  my $RK = 25; my $RD = 24; my $RN = 23;
-  my $F  = 22;
+  my $PK = 1; my $PD = 2; my $PN = 3;                                           # Key, data, node blocks
+  my $LK = 4; my $LD = 5; my $LN = 6;
+  my $RK = 7; my $RD = 8; my $RN = 9;
+  my $F  = 10;
                                                                                 # First block of this tree
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -6628,15 +6628,16 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       my $t    = $$s{tree};                                                     # Tree
       my $area = $t->area;                                                      # Area
 
-      PushR 22...31;
+#      PushR 22...31;
       ClearRegisters $PD;                                                       # Otherwise we get left over junk
 
       my $offset = $$p{offset};                                                 # Offset of block in area
       my $split  = $$p{split};                                                  # Indicate whether we split or not
       $t->getBlock($offset, $LK, $LD, $LN);                                     # Load node as left
 
-      my $length = $t->lengthFromKeys($LK);
-      If $length < $t->maxKeys,
+      $t->lengthFromKeys($LK, set => rsi);
+      Cmp rsi, $t->maxKeys;
+      IfLt
       Then                                                                      # Only split full blocks
        {$split->copy(K split => 0);                                             # Split not required
         Jmp $success;
@@ -6682,7 +6683,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
       $t->putBlock        ($r,      $RK, $RD, $RN);                             # Save right block
      };                                                                         # Insert completed successfully
-    PopR;
+#    PopR;
    }  structures => {tree => $tree},
       parameters => [qw(offset split)],
       name       => qq(Nasm::X86::Tree::splitNode-$$tree{length});
@@ -10800,7 +10801,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10802 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10803 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
