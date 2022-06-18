@@ -1331,9 +1331,9 @@ sub ForIn(&$$$$)                                                                
   SetLabel $end;
 
   Sub $limitRegister, $register;                                                # Size of remainder
-  IfNz                                                                          # Non remainder
-  Then
-   {&$last;                                                                     # Process remainder
+  IfNz
+  Then                                                                          # Execute remainder
+   {&$last;                                                                     # Register shows position of remainder while $limit register shows amount left to process
    }
  }
 
@@ -5602,7 +5602,7 @@ sub Nasm::X86::Area::checkYggdrasilCreated($)                                   
 
 #D2 Areas as Strings                                                            # Use the memory supplied by the area as a string - however, in general, this is too slow unless coupled with another slow operation such as executing a command, mapping a file or writing to a file.
 
-sub Nasm::X86::Area::appendMemory($$$)                                          # Append the variable addressed content in memory of variable size to the specified area.
+sub Nasm::X86::Area::appendMemory($$$)                                          # Append the variable addressed content in memory of variable size to the specified area  and return its offset in that area.
  {my ($area, $address, $size) = @_;                                             # Area descriptor, variable address of content, variable length of content
   @_ == 3 or confess "Three parameters";
 
@@ -18320,7 +18320,7 @@ END
 #    882_084         105_448         882_084         105_448        0.1682          0.11  Used free zmm registers in splitNode
 #    811_799         132_992         811_799         132_992        0.1528          0.17  Low tree suppresses tree bits
 #    794_039         127_256         794_039         127_256        0.1455          0.19  Reparent loop in splitNonRootNode
-latest:;
+#latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
@@ -19040,7 +19040,7 @@ data: .... .... .... ..33
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        # Speed test for put
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -19191,7 +19191,7 @@ sub BinarySearchD(%)                                                            
    };
  }
 
-latest:
+#latest:
 if (1) {                                                                        # Binary search on empty array
   Mov r14, 0;                                                                   # Size of array
   Mov r13, 1;                                                                   # Value to search for
@@ -19238,6 +19238,110 @@ if (1) {                                                                        
 15: > 6
 16: @ 7
 17: after
+END
+ }
+sub Nasm::X86::Area::appendZmm($$$)                                             # Append the contents of teh specified zmm to the specified area and returns its offset in that area as a variable,
+ {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
+  @_ == 2 or confess "Two parameters";
+
+  my $k = $area->allocZmmBlock;                                                 # Allocate a block to hold the content of the zmm register
+
+  $area->address->setReg(rax);
+  $k->setReg(rbx);
+  Vmovdqu64 "[rax+rbx]", zmm($zmm);                                             # Copy in zmm
+
+  $k                                                                            # Return offset in area
+ }
+
+sub Nasm::X86::Tree::putLongString($$$$)                                        # Create a tree keyed by strings represented by  zmm blocks
+ {my ($tree, $address, $size, $data) = @_;                                      # Tree descriptor, address of key, length of key, data associated with key
+  @_ == 4 or confess "Four parameters";
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;
+
+    my $t = $$s{tree}->cloneDescriptor;
+    my $a = $t->area;
+    my $d = $$p{data};
+
+    PushR my $area = r15, my $remainder = r14, my $offset = r13;
+    $$p{address}->setReg($area);
+    $$p{size}   ->setReg($remainder);
+    Mov $offset, 0;
+
+    ForIn                                                                       # Load initial full blocks into area
+     {Vmovdqu64 zmm1, "[$area+$offset]";
+      my $k = $a->appendZmm(1);
+      Cmp $remainder, 0;
+      IfEq
+      Then                                                                      # Final block it just happens to fill the last zmm block
+       {$t->put($k, $d);
+       },
+      Else                                                                      # Not the final block so we create ausb tree to hold the remainder
+       {my $T = $a->CreateTree;
+        $t->put($k, $T);
+        $t->copyDescriptor($T);
+       };
+     }
+    Then                                                                        # Append remainder of string as a full zmm block padded with zeroes
+     {Mov rsi, 0;                                                               # Clear
+      Bts rsi, $remainder;                                                      # Set bit
+      Dec rsi;                                                                  # All left zeroes now ones
+      Kmovq k1, rsi;
+      Vmovdqu8 "zmm1{k1}{z}", "[$area+$offset]";
+      my $k = $a->appendZmm(1);
+      $t->put($k, $d);
+     }, $offset, $remainder, RegisterSize(zmm0);
+
+    PopR;
+   } structures => {tree => $tree},
+     parameters => [qw(address size data)],
+     name       =>  qq(Nasm::X86::Tree::putLongString);
+
+  $s->call(parameters => {address => $address, size=>$size, data=>$data},
+           structures => {tree    => $tree});
+ }
+
+latest:;
+if (1) {                                                                        # Binary search on populated array
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  $t->putLongString(constantString("aaaa1111"), K(data => 1));
+  $t->putLongString(constantString("bbbb2222"), K(data => 2));
+  $t->putLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44441234"), K(data => 3));
+  $a->dump("AA", K(depth => 16));
+  $t->dump("TT");
+  ok Assemble eq => <<END, avx512=>1;
+AA
+Area     Size:     4096    Used:      832
+.... .... .... ...0 | __10 ____ ____ ____  40.3 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | C0__ ____ ____ ____  .3__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | 6161 6161 3131 3131  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | 80__ ____ 80.1 ____  C0.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .3__ .4__ __.1 ____
+.... .... .... .1.. | .1__ ____ .2__ ____  __.2 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40.1 ____
+.... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
+.... .... .... .180 | 6262 6262 3232 3232  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1C0 | 6363 6363 3131 3131  6363 6363 3232 3232  6363 6363 3333 3333  6363 6363 3434 3434  6363 6363 3131 3131  6363 6363 3232 3232  6363 6363 3333 3333  6363 6363 3434 3434
+.... .... .... .2.. | 80.2 ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .240 | 3132 3334 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .280 | 40.2 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .1__ ____ C0.2 ____
+.... .... .... .2C0 | .3__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.3 ____
+.... .... .... .3.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.2 ____
+.... .... .... .340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .380 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .3C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+TT
+At:   C0                    length:    3,  data:  100,  nodes:  140,  first:   40, root, leaf,  trees:           100
+  Index:    0    1    2
+  Keys :   80  180  1C0
+  Data :    1    2  28*
+     At:  280               length:    1,  data:  2C0,  nodes:  300,  first:  200, root, leaf
+       Index:    0
+       Keys :  240
+       Data :    3
+     end
+end
 END
  }
 
