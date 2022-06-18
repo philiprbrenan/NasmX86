@@ -6610,15 +6610,15 @@ sub Nasm::X86::Tree::splitNode($$)                                              
  {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in area of tree as a variable
   @_ == 2 or confess 'Two parameters';
 
-# my $PK = 31; my $PD = 30; my $PN = 29;                                        # Key, data, node blocks
-# my $LK = 28; my $LD = 27; my $LN = 26;
-# my $RK = 25; my $RD = 24; my $RN = 23;
-# my $F  = 22;
+ my $PK = 31; my $PD = 30; my $PN = 29;                                        # Key, data, node blocks
+ my $LK = 28; my $LD = 27; my $LN = 26;
+ my $RK = 25; my $RD = 24; my $RN = 23;
+ my $F  = 22;
 
-  my $PK = 1; my $PD = 2; my $PN = 3;                                           # Key, data, node blocks
-  my $LK = 4; my $LD = 5; my $LN = 6;
-  my $RK = 7; my $RD = 8; my $RN = 9;
-  my $F  = 10;
+#  my $PK = 1; my $PD = 2; my $PN = 3;                                           # Key, data, node blocks
+#  my $LK = 4; my $LD = 5; my $LN = 6;
+#  my $RK = 7; my $RD = 8; my $RN = 9;
+#  my $F  = 10;
                                                                                 # First block of this tree
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -6628,7 +6628,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       my $t    = $$s{tree};                                                     # Tree
       my $area = $t->area;                                                      # Area
 
-#      PushR 22...31;
+      PushR 22...31;
       ClearRegisters $PD;                                                       # Otherwise we get left over junk
 
       my $offset = $$p{offset};                                                 # Offset of block in area
@@ -6683,7 +6683,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
       $t->putBlock        ($r,      $RK, $RD, $RN);                             # Save right block
      };                                                                         # Insert completed successfully
-#    PopR;
+    PopR;
    }  structures => {tree => $tree},
       parameters => [qw(offset split)],
       name       => qq(Nasm::X86::Tree::splitNode-$$tree{length});
@@ -17831,7 +17831,7 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
 
 block4: goto blockX unless $block{4};                                           # Fourth block of tests - latest development
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TconstantString
   my $a = CreateArea;
   my ($s, $l) = constantString("1234567");
