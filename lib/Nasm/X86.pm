@@ -5844,6 +5844,7 @@ sub DescribeTree(%)                                                             
   my $lowTree    = delete $options{lowTree};                                    # This tree is at the lowest level if true. As there are no sub trees hanging from this tree we may optimize put, find, delete to not process information required to describe sub trees.  This action has not been done yet except n the case of low key processing.
   my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
   my $length     = delete $options{length};                                     # Maximum number of keys per node
+  my $name       = delete $options{name};                                       # Optional name for debugging purposes
      $length     = 13;                                                          # Maximum number of keys per node
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
 
@@ -5875,6 +5876,7 @@ sub DescribeTree(%)                                                             
     treeBits     => $keyAreaWidth + 2,                                          # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
     treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
     keyDataMask  => 0x3fff,                                                     # Key data mask
+    name         => $name,                                                      # Optional name
     nodeMask     => 0x7fff,                                                     # Node mask
     up           => $keyAreaWidth,                                              # Offset of up in data block.
     width        => $o,                                                         # Width of a key or data slot.
@@ -5882,8 +5884,8 @@ sub DescribeTree(%)                                                             
     zWidthD      => $b / $o,                                                    # Width of a zmm in double words being the element size
     maxKeysZ     => $b / $o - 2,                                                # The maximum possible number of keys in a zmm register
     maxNodesZ    => $b / $o - 1,                                                # The maximum possible number of nodes in a zmm register
-    lowKeys      => $lowKeys,                                                   # Low keys should be placed in first block where possible
-    lowTree      => $lowTree,                                                   # No sub trees depend on this tree
+    lowKeys      => $lowKeys // 0,                                              # Low keys should be placed in first block where possible
+    lowTree      => $lowTree // 0,                                              # No sub trees depend on this tree
 
     rootOffset   => $o * 0,                                                     # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
     upOffset     => $o * 1,                                                     # Offset of the up field  in the first block -  points to any containing tree
@@ -6509,15 +6511,17 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
   $IK->setReg(rdi); Vpbroadcastd zmmM($K, 1), edi;                              # Insert value at expansion point
   $ID->setReg(rdi); Vpbroadcastd zmmM($D, 1), edi;
 
-  If $subTree > 0,                                                              # Set the inserted tree bit
-  Then
-   {Kmovq rdi, k1;
-    $tree->setTreeBit ($K, rdi);
-   },
-  Else
-   {Kmovq rdi, k1;
-    $tree->clearTreeBit($K, rdi);
-   };
+  unless($tree->lowTree)                                                        # Set tree bits if they are being used
+   {If $subTree > 0,                                                            # Set the inserted tree bit
+    Then
+     {Kmovq rdi, k1;
+      $tree->setTreeBit ($K, rdi);
+     },
+    Else
+     {Kmovq rdi, k1;
+      $tree->clearTreeBit($K, rdi);
+     };
+   }
  } # overWriteKeyDataTreeInLeaf
 
 #D2 Insert                                                                      # Insert a key into the tree.
@@ -6601,7 +6605,7 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
 
   $t->incLengthInKeys($K);                                                      # Increment the length of this node to include the inserted value
 
-  $t->insertIntoTreeBits($K, 3, $subTree);                                      # Set the matching tree bit depending on whether we were supplied with a tree or a variable
+  $t->insertIntoTreeBits($K, 3, $subTree) unless $tree->lowTree;                # Set the matching tree bit depending on whether we were supplied with a tree or a variable
 
   $t->incSizeInFirst($F);                                                       # Update number of elements in entire tree.
  } # insertKeyDataTreeIntoLeaf
@@ -6643,7 +6647,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       If $parent > 0,
       Then                                                                      # Not the root node because it has a parent
        {$t->upIntoData      ($parent, $RD);                                     # Address existing parent from new right
-        $t->getBlock        ($parent, $PK, $PD, $PN);                           # Load extant parent
+        $t->getBlock        ($parent, $PK, $PD, $PN);                           # Load extent parent
         $t->splitNotRoot    ($r,      $PK, $PD, $PN, $LK,$LD,$LN, $RK,$RD,$RN);
         $t->putBlock        ($parent, $PK, $PD, $PN);
         $t->putBlock        ($offset, $LK, $LD, $LN);
@@ -6664,7 +6668,10 @@ sub Nasm::X86::Tree::splitNode($$)                                              
        };
 
       $t->leafFromNodes($RN);                                                   # Whether the right block is a leaf
-      If $t->leafFromNodes($RN) == 0,                                           # Not a leaf
+      $t->leafFromNodes($RN, set=>rsi);                                         # NB: in this mode returns 0 if a leaf which is the opposite of what happens if we do not use a transfer register
+      Cmp rsi, 0;
+
+      IfGt                                                                      # Not a leaf
       Then
        {(K(nodes => $t->lengthRight) + 1)->for(sub                              # Reparent the children of the right hand side now known not to be a leaf
          {my ($index, $start, $next, $end) = @_;
@@ -6790,30 +6797,32 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
     &$mask("01", -$zwk);                                                        # Copy parent offset from left to right so that the new right node  still has the same parent
     Vmovdqu32 zmmM($RD, 7), zmm($LD);
 
-    wRegFromZmm $transfer, $LK, $tb;                                            # Tree bits
-    Mov $work, $transfer;
-    And $work, (1 << $ll) - 1;
-    wRegIntoZmm $work, $LK, $tb;                                                # Left after split
+    unless ($t->lowTree)                                                        # Tree bits
+     {wRegFromZmm $transfer, $LK, $tb;
+      Mov $work, $transfer;
+      And $work, (1 << $ll) - 1;
+      wRegIntoZmm $work, $LK, $tb;                                              # Left after split
 
-    Mov $work, $transfer;
-    Shr $work, $lm;
-    And $work, (1 << $lr) - 1;
-    wRegIntoZmm $work, $RK, $tb;                                                # Right after split
+      Mov $work, $transfer;
+      Shr $work, $lm;
+      And $work, (1 << $lr) - 1;
+      wRegIntoZmm $work, $RK, $tb;                                              # Right after split
 
-    Mov $work, $transfer;                                                       # Insert splitting key tree bit into parent at the location indicated by k5
-    Shr $work, $ll;
-    And  $work, 1;                                                              # Tree bit to be inserted parent at the position indicated by a single 1 in k5 in parent
-    wRegFromZmm $transfer, $PK, $tb;                                            # Tree bits from parent
+      Mov $work, $transfer;                                                     # Insert splitting key tree bit into parent at the location indicated by k5
+      Shr $work, $ll;
+      And  $work, 1;                                                            # Tree bit to be inserted parent at the position indicated by a single 1 in k5 in parent
+      wRegFromZmm $transfer, $PK, $tb;                                          # Tree bits from parent
 
-    Cmp  $work, 0;                                                              # Are we inserting a zero into the tree bits?
-    IfEq
-    Then                                                                        # Inserting zero
-     {InsertZeroIntoRegisterAtPoint k6, $transfer;                              # Insert a zero into transfer at the point indicated by k5
-     },
-    Else                                                                        # Inserting one
-     {InsertOneIntoRegisterAtPoint k6, $transfer;                               # Insert a zero into transfer at the point indicated by k5
-     };
-    wRegIntoZmm $transfer, $PK, $tb;                                            # Save parent tree bits after split
+      Cmp  $work, 0;                                                            # Are we inserting a zero into the tree bits?
+      IfEq
+      Then                                                                      # Inserting zero
+       {InsertZeroIntoRegisterAtPoint k6, $transfer;                            # Insert a zero into transfer at the point indicated by k5
+       },
+      Else                                                                      # Inserting one
+       {InsertOneIntoRegisterAtPoint k6, $transfer;                             # Insert a zero into transfer at the point indicated by k5
+       };
+      wRegIntoZmm $transfer, $PK, $tb;                                          # Save parent tree bits after split
+     }
 
     PopR;
    }
@@ -6886,9 +6895,11 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
     Mov $transfer, 1;                                                           # Lengths
     wRegIntoZmm $transfer, $PK, $lb;                                            # Left after split
 
-    wRegFromZmm $transfer, $PK, $tb;                                            # Parent tree bits
-    And $transfer, 1;
-    wRegIntoZmm $transfer, $PK, $tb;
+    unless($tree->lowTree)                                                      # Parent tree bits
+     {wRegFromZmm $transfer, $PK, $tb;
+      And $transfer, 1;
+      wRegIntoZmm $transfer, $PK, $tb;
+     }
 
     PopR;
    }
@@ -6935,7 +6946,9 @@ sub Nasm::X86::Tree::put($$$)                                                   
         $k->dIntoZ                ($K, 0);
         $d->dIntoZ                ($D, 0);
         $t->incLengthInKeys       ($K);
-        $t->setOrClearTreeBitToMatchContent($K, K(key => 1), $S);
+        if (!$t->lowTree)
+         {$t->setOrClearTreeBitToMatchContent($K, K(key => 1), $S);
+         }
         $t->putBlock($block,       $K, $D, $N);
         $t->rootIntoFirst         ($F, $block);
         $t->incSizeInFirst        ($F);
@@ -6977,7 +6990,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
       Jmp $descend;                                                             # Descend to the next level
      };
     PopR;
-   } name => qq(Nasm::X86::Tree::put-$$tree{length}),
+   } name => qq(Nasm::X86::Tree::put-$$tree{length}-$$tree{lowKeys}-$$tree{lowTree}),
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
@@ -7118,8 +7131,10 @@ sub Nasm::X86::Tree::find($$)                                                   
           $t->data  ->copy(rsi);                                                # Data associated with the key
           $t->found ->copy($equals);                                            # Show found
           $t->offset->copy($Q);                                                 # Offset of the containing block
-          $t->getTreeBit($K, $equals, set => rdx);                              # Get corresponding tree bit
-          $t->subTree->copy(rdx);                                               # Save corresponding tree bit
+          unless ($t->lowTree)
+           {$t->getTreeBit($K, $equals, set => rdx);                            # Get corresponding tree bit
+            $t->subTree->copy(rdx);                                             # Save corresponding tree bit
+           }
           Jmp $success;                                                         # Return
          };
 
@@ -9630,8 +9645,7 @@ sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        
 sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
  {my ($a) = @_;                                                                 # Area in which to create the table
   my $y = $a->yggdrasil;                                                        # Yggdrasil
-  my $t = $a->CreateTree;
-
+  my $t = $a->CreateTree(lowTree => 1, name => "alphabets");                    # Character as utf32 to lexical type
   $y->put(Nasm::X86::Yggdrasil::Unisyn::Alphabets, $t);                         # Make the alphabets locate-able
 
   my @l = qw(A a b B d e p q s v);
@@ -10794,7 +10808,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10796 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10810 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
