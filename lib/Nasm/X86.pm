@@ -18267,20 +18267,21 @@ END
 #    980_660         108_640         980_660         108_640        0.1587          0.11  Register for leafFromNodes
 #    968_631         108_632         968_631         108_632        0.2838          0.13  Register for length from keys
 #    950_171         107_816         950_171         107_816        0.1970          0.12  getLoop register
-#latest:;
+#    903_671         107_080         903_671         107_080        0.3483          0.11  incSizeInKeys
+latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248 244
-#  $t->find(K key => 0xffffff);                                                  # 370 129 127
+# $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248 244 229
+# $t->find(K key => 0xffffff);                                                  # 370 129 127
 
   my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
   my %l = map {$_=>1} @l;                                                       # All the unique letters
   my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>950_171, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>903_671, trace=>0;
 $l
 END
 }
