@@ -6630,7 +6630,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       my $t    = $$s{tree};                                                     # Tree
       my $area = $t->area;                                                      # Area
 
-      PushR 22...31;
+#     PushR 22...31;
       ClearRegisters $PD;                                                       # Otherwise we get left over junk
 
       my $offset = $$p{offset};                                                 # Offset of block in area
@@ -6685,7 +6685,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
       $t->putBlock        ($r,      $RK, $RD, $RN);                             # Save right block
      };                                                                         # Insert completed successfully
-    PopR;
+#    PopR;
    }  structures => {tree => $tree},
       parameters => [qw(offset split)],
       name       => qq(Nasm::X86::Tree::splitNode-$$tree{length});
