@@ -6617,10 +6617,9 @@ sub Nasm::X86::Tree::splitNode($$)                                              
  #  my $RK = 25; my $RD = 24; my $RN = 23;
  #  my $F  = 22;
 
-  my $PK = 11;
-              my $PD = 2; my $PN = 3;                                           # Key, data, node blocks
-  my $LK = 4; my $LD = 5; my $LN = 6;
-  my $RK = 7; my $RD = 8; my $RN = 9;
+  my $PK = 11;  my $PD = 2; my $PN = 3;                                         # Key, data, node blocks
+  my $LK =  4;  my $LD = 5; my $LN = 6;
+  my $RK =  7;  my $RD = 8; my $RN = 9;
   my $F  = 10;
                                                                                 # First block of this tree
   my $s = Subroutine
@@ -10804,7 +10803,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10806 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10805 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
