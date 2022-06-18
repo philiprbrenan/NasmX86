@@ -6611,13 +6611,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
  {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in area of tree as a variable
   @_ == 2 or confess 'Two parameters';
 
-# my $PK = 31;
-#              my $PD = 30; my $PN = 29;                                         # Key, data, node blocks
-# my $LK = 28; my $LD = 27; my $LN = 26;
- #  my $RK = 25; my $RD = 24; my $RN = 23;
- #  my $F  = 22;
-
-  my $PK = 11;  my $PD = 2; my $PN = 3;                                         # Key, data, node blocks
+  my $PK = 11;  my $PD = 2; my $PN = 3;                                         # Key, data, node blocks. insertionPoint uses zmm0,1 so we cannot use those registers
   my $LK =  4;  my $LD = 5; my $LN = 6;
   my $RK =  7;  my $RD = 8; my $RN = 9;
   my $F  = 10;
@@ -6630,7 +6624,6 @@ sub Nasm::X86::Tree::splitNode($$)                                              
       my $t    = $$s{tree};                                                     # Tree
       my $area = $t->area;                                                      # Area
 
-#     PushR 22...31;
       ClearRegisters $PD;                                                       # Otherwise we get left over junk
 
       my $offset = $$p{offset};                                                 # Offset of block in area
@@ -6685,7 +6678,6 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
       $t->putBlock        ($r,      $RK, $RD, $RN);                             # Save right block
      };                                                                         # Insert completed successfully
-#    PopR;
    }  structures => {tree => $tree},
       parameters => [qw(offset split)],
       name       => qq(Nasm::X86::Tree::splitNode-$$tree{length});
@@ -10803,7 +10795,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10805 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10797 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18288,6 +18280,7 @@ if (1) {
   ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>892_549, trace=>0;
 $l
 END
+exit;
 }
 
 #latest:;
