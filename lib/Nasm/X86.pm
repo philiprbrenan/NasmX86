@@ -6673,14 +6673,28 @@ sub Nasm::X86::Tree::splitNode($$)                                              
 
       IfGt                                                                      # Not a leaf
       Then
-       {(K(nodes => $t->lengthRight) + 1)->for(sub                              # Reparent the children of the right hand side now known not to be a leaf
-         {my ($index, $start, $next, $end) = @_;
-          my $n = dFromZ $RN, $index * $t->width;                               # Offset of node
-          $t->getBlock  ($n, $LK, $LD, $LN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
-          $t->upIntoData($r,      $LD);                                         # Parent for child of right hand side
-          $t->putBlock  ($n, $LK, $LD, $LN);                                    # Save block into memory now that its parent pointer has been updated
-         });
+       {$t->area->address->setReg(rdi);                                         # Area address
+        $r->setReg(rdx);                                                        # Parent offset
+        Mov rcx, 0;                                                             # Start the loop at zero
+        my $W = RegisterSize zmm1;
+        Vmovdqu64 "[rsp-$W]", zmm $RN;                                          # Stack list of nodes to be reparented
+        For                                                                     # Reparent the children of the right hand side now known not to be a leaf
+         {Mov esi, "[rsp+rcx*4-$W]";                                            # Offset of node
+          Mov esi, "[rdi+rsi+$$t{loop}]";                                       # Offset of data node
+          Mov "[rdi+rsi+$$t{up}]", edx;                                         # Update parent offset
+          } rcx, $t->lengthRight + 1;
        };
+
+#      IfGt                                                                      # Not a leaf
+#      Then
+#       {(K(nodes => $t->lengthRight) + 1)->for(sub                              # Reparent the children of the right hand side now known not to be a leaf
+#         {my ($index, $start, $next, $end) = @_;
+#          my $n = dFromZ $RN, $index * $t->width;                               # Offset of node
+#          $t->getBlock  ($n, $LK, $LD, $LN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+#          $t->upIntoData($r,      $LD);                                         # Parent for child of right hand side
+#          $t->putBlock  ($n, $LK, $LD, $LN);                                    # Save block into memory now that its parent pointer has been updated
+#         });
+#       };
 
       $t->putBlock        ($r,      $RK, $RD, $RN);                             # Save right block
      };                                                                         # Insert completed successfully
@@ -10808,7 +10822,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10810 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10824 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18277,12 +18291,13 @@ END
 #    903_671         107_080         903_671         107_080        0.3483          0.11  incSizeInKeys
 #    892_549         106_024         892_549         106_024        0.1696          0.12  wRegFrom/IntoZ
 #    882_084         105_448         882_084         105_448        0.1682          0.11  Used free zmm registers in splitNode
+#    811_799         132_992         811_799         132_992        0.1528          0.17  Low tree suppresses tree bits
 latest:;
 if (1) {
   my $a = CreateArea;
   my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
   $t->size->outRightInDecNL(K width => 4);
-# $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248 244 229 227
+# $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248 244 229 227 208
 # $t->find(K key => 0xffffff);                                                  # 370 129 127
 
   my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
@@ -18290,7 +18305,7 @@ if (1) {
   my $l = @l;
   $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>892_549, trace=>0;
+  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>811_799, trace=>0;
 $l
 END
 }
