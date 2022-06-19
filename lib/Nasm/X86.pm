@@ -1023,12 +1023,13 @@ my $Vpcmp = genHash("Nasm::X86::CompareCodes",                                  
   gt=>6,                                                                        # Greater than
  );
 
-sub Subroutine(&%);
+sub BinarySearchD(%);
 sub Comment(@);
-sub K($$);
-sub V($$);
 sub CreateArea(%);
+sub K($$);
 sub PrintErrStringNL(@);
+sub Subroutine(&%);
+sub V($$);
 
 #D1 Structured Programming                                                      # Structured programming constructs
 
@@ -2660,7 +2661,7 @@ sub PrintRaxRightInDec($$)                                                      
  }
 
 sub PrintErrRaxRightInDec($)                                                    # Print rax in decimal right justified in a field of the specified width on stderr.
- {my ($width) = @_;                                                             # Width                  ::copy
+ {my ($width) = @_;                                                             # Width
   PrintRaxRightInDec($width, $stderr);
  }
 
@@ -2679,6 +2680,43 @@ sub PrintOutRaxRightInDecNL($)                                                  
  {my ($width) = @_;                                                             # Width
   PrintRaxRightInDec($width, $stdout);
   PrintOutNL;
+ }
+
+sub PrintErrRegisterRightInDec($$)                                              # Print rax in decimal right justified in a field of the specified width on stderr.
+ {my ($register, $width) = @_;                                                  # Register, width
+  my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
+  PushR rax;
+  Mov rax, $register;
+  PrintRaxRightInDec($w, $stderr);
+  PopR;
+ }
+
+sub PrintErrRegisterRightInDecNL($$)                                                  # Print rax in decimal right justified in a field of the specified width on stderr followed by a new line.
+ {my ($register, $width) = @_;                                                  # Register, width
+  my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
+  PushR rax;
+  Mov rax, $register;
+  PrintRaxRightInDec($w, $stderr);
+  PrintErrNL;
+ }
+
+sub PrintOutRegisterRightInDec($$)                                                    # Print rax in decimal right justified in a field of the specified width on stdout.
+ {my ($register, $width) = @_;                                                  # Register, width
+  my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
+  PushR rax;
+  Mov rax, $register;
+  PrintRaxRightInDec($w, $stdout);
+  PopR;
+ }
+
+sub PrintOutRegisterRightInDecNL($$)                                                  # Print rax in decimal right justified in a field of the specified width on stdout followed by a new line.
+ {my ($register, $width) = @_;                                                  # Register, width
+  my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
+  PushR rax;
+  Mov rax, $register;
+  PrintRaxRightInDec($w, $stdout);
+  PrintOutNL;
+  PopR;
  }
 
 #D2 Text                                                                        # Print the contents of a register as text.
@@ -5846,6 +5884,7 @@ sub DescribeTree(%)                                                             
   my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
   my $length     = delete $options{length};                                     # Maximum number of keys per node
   my $name       = delete $options{name};                                       # Optional name for debugging purposes
+  my $stringTree = delete $options{stringTree};                                 # Tree of strings
      $length     = 13;                                                          # Maximum number of keys per node
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
 
@@ -5887,6 +5926,7 @@ sub DescribeTree(%)                                                             
     maxNodesZ    => $b / $o - 1,                                                # The maximum possible number of nodes in a zmm register
     lowKeys      => $lowKeys // 0,                                              # Low keys should be placed in first block where possible
     lowTree      => $lowTree // 0,                                              # No sub trees depend on this tree
+    stringTree   => $stringTree // 0,                                           # String tree
 
     rootOffset   => $o * 0,                                                     # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
     upOffset     => $o * 1,                                                     # Offset of the up field  in the first block -  points to any containing tree
@@ -5932,7 +5972,12 @@ sub Nasm::X86::Tree::describeTree($%)                                           
  {my ($tree, %options) = @_;                                                    # Tree descriptor, {first=>first node of tree if not the existing first node; area=>area used by tree if not the existing area}
   @_ >= 1 or confess "At least one parameter";
 
-  $tree->area->DescribeTree(%options);                                          # Return a descriptor for a tree
+  $tree->area->DescribeTree                                                     # Return a descriptor for a tree
+   (lowKeys    => $tree->lowKeys,
+    lowTree    => $tree->lowTree,
+    stringTree => $tree->stringTree,
+    %options
+   );
  }
 
 sub Nasm::X86::Tree::position($$)                                               # Create a new tree description for a tree positioned at the specified location.
@@ -6568,7 +6613,7 @@ sub Nasm::X86::Tree::insertionPoint($$$%)                                       
  }
 
 sub Nasm::X86::Tree::indexEqLt($$$$$)                                           #P Set the specified registers with the equals point and the insertion point for the specified key in the specified zmm.
- {my ($tree, $key, $K, $setEq, $setLt) = @_;                                    # Tree definition, zmm containing a copy of the key to be searched for in each slot, zmm to check, register to set with equals point, register to set with insertion point.
+ {my ($tree, $key, $K, $setEq, $setLt) = @_;                                    # Tree definition, zmm containing a copy of the key to be searched for in each slot, zmm to check, bound register to set with equals point, bound register to set with insertion point.
   @_ == 5 or confess "Five parameters";
 
   confess "Cannot use rdi as a target register" if $setEq =~ m(\Ardi\Z);        # Check the target registers against our work register
@@ -6579,13 +6624,72 @@ sub Nasm::X86::Tree::indexEqLt($$$$$)                                           
   Mov $setEq, "[$masks+rdi*8]";                                                 # Load mask address
   Mov $setLt, $setEq;
 
-  Vpcmpud k1, zmm($K, $key), $Vpcmp->eq;                                        # Check for equality  point
-  Vpcmpud k2, zmm($K, $key), $Vpcmp->le;                                        # Check for insertion point
-  Kmovq rdi, k2;                                                                # Insertion leading
-  And   $setLt, rdi;                                                            # Matching keys in mask area
-  Inc   $setLt;                                                                 # Insertion point
-  Kmovq rdi, k1;                                                                # Equality point
-  And   $setEq, rdi;                                                            # Matching keys in mask area setting flags for fast test
+  if ($tree->stringTree)                                                        # Use binary search if we are processing a string tree
+   {my $size = $tree->lengthFromKeys($K);
+
+    BinarySearchD                                                               # Search
+      size    => sub {my ($r) = @_; $size->setReg($r)},                         # Number of keys in this block
+      found   => sub
+       {Mov $setEq, 0;
+        Bts $setEq, rax;                                                        # Show found position
+        Cmp $setEq, 0;                                                          # Show found
+       },
+      after   => sub
+       {Mov $setEq, 0;                                                          # Not found
+        Mov $setLt, 0;                                                          # Greater than all keys
+        $size->setReg(rsi);                                                     # Number of keys in block
+        Bts $setLt, rsi;                                                        # Set insertion point at end
+        Cmp $setEq, 0;                                                          # Show not found
+       },
+      before  => sub
+       {Mov $setEq, 0;                                                          # Not found
+        Mov $setLt, 1;                                                          # Less than all keys
+        Cmp $setEq, 0;                                                          # Show not found
+       },
+      between => sub
+       {Mov $setEq, 0;                                                          # Not found
+        Mov $setLt, 0;
+        Inc rax;
+        Bts $setLt, rax;
+        Cmp $setEq, 0;                                                          # Show not found
+       },
+      compare => sub                                                            # Compare
+       {my ($index) = @_;                                                       # Search key in register, current index in register
+        my $W = RegisterSize(zmm1);                                             # Size of a zmm register
+        Vmovdqu64 "[rsp-$W]", $K;                                               # Push below stack
+        Mov esi, "[rsp-$W+$index*4]";                                           # Offset of indexed key in area
+        $tree->area->address->setReg(rdi);                                      # Address of area
+        Vpcmpub k1, $key, "[rdi+rsi]", $Vpcmp->ne;                              # Not equal so if they are equal we get zeros which can be counted
+        Kmovq rdx, k1;                                                          # Not equal mask
+        Cmp rdx, 0;                                                             # Set the flags to show the two keys are equals
+        IfNe
+        Then                                                                    # The two key strings are not equal
+         {Vmovdqu64 zmm1, "[rdi+rsi]";
+          Vpcmpub k2, $key, "[rdi+rsi]", $Vpcmp->gt;
+          Kmovq rdi, k2;                                                        # Greater than mask
+          Tzcnt rdx, rdx;                                                       # First quad at which the zmm registers differ
+          Bt rdi, rsi;                                                          # test the next bit to determin greater than or less than
+          IfC
+          Then                                                                  # First byte that differs is less than the key
+           {Mov rsi, 1;
+            Cmp rsi, 0;                                                         # Show  key being searched for is lower than indexed key
+           },
+          Else                                                                  # First quad that differs is less than the key
+           {Mov rsi, 0;
+            Cmp rsi, 1;                                                         # Show  key being searched for is greater than indexed key
+           };
+         };
+       };
+   }
+  else                                                                          # Normal comparison
+   {Vpcmpud k1, zmm($K, $key), $Vpcmp->eq;                                      # Check for equality  point
+    Vpcmpud k2, zmm($K, $key), $Vpcmp->le;                                      # Check for insertion point
+    Kmovq rdi, k2;                                                              # Insertion leading
+    And   $setLt, rdi;                                                          # Matching keys in mask area
+    Inc   $setLt;                                                               # Insertion point
+    Kmovq rdi, k1;                                                              # Equality point
+    And   $setEq, rdi;                                                          # Matching keys in mask area setting flags for fast test
+   };
  }
 
 sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        #P Insert a new key/data/sub tree triple into a set of zmm registers if there is room, increment the length of the node and set the tree bit as indicated and increment the number of elements in the tree.
@@ -6930,7 +7034,7 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
  } # splitRoot
 
 sub Nasm::X86::Tree::put($$$)                                                   # Put a variable key and data into a tree. The data could be a tree descriptor to place a sub tree into a tree at the indicated key.
- {my ($tree, $key, $data) = @_;                                                 # Tree definition, key as a variable, data as a variable or a tree descriptor
+ {my ($tree, $key, $data) = @_;                                                 # Tree definition, variable key containing a number for a normal key or the offset in the area of a zmm block containing teh key, data as a variable or a tree descriptor
   @_ == 3 or confess "Three parameters";
 
   my $dt = ref($data) =~ m(Tree);                                               # We are inserting a sub tree if true
@@ -6947,8 +7051,16 @@ sub Nasm::X86::Tree::put($$$)                                                   
       my $d = $$p{data};
       my $S = $$p{subTree};
       my $a = $t->area;
-      $k->setReg(rdi);
-      Vpbroadcastd zmm($key), edi;                                              # Load key to test once
+
+      $k->setReg(rdi);                                                          # Load key once
+      if ($t->stringTree)                                                       # Key is the offset to a key in the same area as the tree
+       {$a->address->setReg(rsi);
+        Vmovdqu64 zmm($key), "[rsi+rdi]";
+       }
+      else                                                                      # Key is any double word
+       {$k->setReg(rdi);
+        Vpbroadcastd zmm($key), edi;
+       }
 
       my $start = SetLabel;                                                     # Start the descent through the tree
 
@@ -6975,6 +7087,8 @@ sub Nasm::X86::Tree::put($$$)                                                   
       my $descend = SetLabel;                                                   # Descend to the next level
 
       $t->getBlock($Q, $K, $D, $N);                                             # Get the current block from memory
+PrintErrStringNL "AAAAAAAA";
+PrintErrRegisterInHex $Q;
 
       $t->indexEqLt($key, $K, $setEq, $setLt);                                  # Check for an equal key
       IfNz                                                                      # Equal key found
@@ -6983,6 +7097,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
         $t->putBlock                  ($Q,     $K, $D, $N);
         Jmp $success;
        };
+PrintErrRegisterInHex $Q;
 
       $t->lengthFromKeys($K, set=>rsi);
       Cmp rsi, $t->maxKeys;
@@ -6991,12 +7106,15 @@ sub Nasm::X86::Tree::put($$$)                                                   
        {$t->splitNode(V offset => $Q);                                          # Split node is a large function that is hopefully called infrequently so crating a register parameter is, perhaps, not worth the effort
         Jmp $start;                                                             # Restart the descent now that this block has been split
        };
+PrintErrRegisterInHex $Q;
 
       $t->leafFromNodes($N, set=>rsi);                                          # NB: in this mode returns 0 if a leaf which is the opposite of what happens if we do not use a transfer register
       Cmp rsi, 0;
       IfEq
       Then                                                                      # On a leaf
-       {$t->insertKeyDataTreeIntoLeaf($setLt, $F, $K, $D, $k, $d, $S);
+       {PrintErrStringNL "BBBBB";
+        $t->insertKeyDataTreeIntoLeaf($setLt, $F, $K, $D, $k, $d, $S);
+        PrintErrRegisterInHex $Q, zmm $D;
         $t->putBlock                 ($Q,         $K, $D, $N);
         $t->firstIntoMemory          ($F);                                      # First back into memory
         Jmp $success;
@@ -7006,7 +7124,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
       Jmp $descend;                                                             # Descend to the next level
      };
     PopR;
-   } name => qq(Nasm::X86::Tree::put-$$tree{length}-$$tree{lowKeys}-$$tree{lowTree}),
+   } name => qq(Nasm::X86::Tree::put-$$tree{length}-$$tree{lowKeys}-$$tree{lowTree}-$$tree{stringTree}),
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
@@ -10824,7 +10942,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10826 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10944 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19089,67 +19207,76 @@ END
 
 sub BinarySearchD(%)                                                            # Search for an ordered array of double words addressed by r15, of length held in r14 for a double word held in r13 and call the $then routine with the index in rax if found else call the $else routine.
  {my (%options) = @_;                                                           # Options
-  my $found     = delete $options{found}   // sub {PrintErrTraceBack "found"};  # Found an exact match
-  my $before    = delete $options{before}  // sub {PrintErrTraceBack "before"}; # The search key is before any key in the array
-  my $after     = delete $options{after}   // sub {PrintErrTraceBack "after"};  # The search key is after any key in the array
-  my $between   = delete $options{between} // sub {PrintErrTraceBack "between"};# The search key is between two consecutive entries in the array being searched
-  my $empty     = delete $options{empty}   // sub {PrintErrTraceBack "empty"};  # The input array is empty
+  my $Found     = delete $options{found}   // sub {PrintErrTraceBack "found"};  # Found an exact match
+  my $Before    = delete $options{before}  // sub {PrintErrTraceBack "before"}; # The search key is before any key in the array
+  my $After     = delete $options{after}   // sub {PrintErrTraceBack "after"};  # The search key is after any key in the array
+  my $Between   = delete $options{between} // sub {PrintErrTraceBack "between"};# The search key is between two consecutive entries in the array being searched
+  my $Empty     = delete $options{empty}   // sub {PrintErrTraceBack "empty"};  # The input array is empty
+  my $Compare   = delete $options{compare} // sub {PrintErrTraceBack "compare"};# Compare routine
+  my $Size      = delete $options{size}    // sub {PrintErrTraceBack "size"};   # Length of the array
   confess "Invalid options: ".join ", ", sort keys %options if keys %options;   # Complain about any invalid options
 
-  my $array = r15, my $length = r14, my $search = r13;                          # Sorted array to search, array length, dword to search for
-
-  my $low = rsi, my $high = rdi, my $loop = rcx, my $range = rdx, my $mid = rax;# Work registers modified by this routine
-
+  PushR rax;                                                                    # Rax is used to communicate the results of the search back to the caller
   Block
    {my ($end, $start) = @_;                                                     # End, start label
+
+    PushR my $low = r15, my $high = r14,                                        # Work registers modified by this routine
+      my $loop = r13, my $range = r12, my $mid = r11;
+
     Mov $low,  0;                                                               # Closed start of current range to search
-    Mov $high, $length;                                                         # Open end of current range to search
+    &$Size($high);                                                              # Open end of current range to search
     Cmp $high, 0;                                                               # Check we have a none empty array to search
     IfEq
     Then                                                                        # Empty array
-     {&$empty;
+     {PopRR;
+      &$Empty;
+      Jmp $end;
      },
     Else                                                                        # Search non empty array
      {Dec $high;                                                                # Closed end of current range
 
-      Cmp dWordRegister($search), "[$array+$high*4]";                           # Compare last element of array with search
+      &$Compare($high);                                                         # Compare last element of array with search
       IfEq
       Then                                                                      # Found
        {Mov rax, $high;
-        &$found;
+        PopRR;
+        &$Found;
         Jmp $end;
        };
       IfGt
       Then                                                                      # After end of array
-       {&$after;
+       {PopRR;
+        &$After;
         Jmp $end;
        };
 
-      Cmp dWordRegister($search), "[$array]";                                   # Compare first element of array with search
+      &$Compare($low);                                                          # Compare first element of array with search
       IfEq
       Then                                                                      # Found
-       {Mov rax, 0;
-        &$found;
+       {Mov rax, $low;
+        PopRR;
+        &$Found;
         Jmp $end;
        };
       IfLt
       Then                                                                      # Before start of array
-       {&$before;
+       {PopRR;
+        &$Before;
         Jmp $end;
        };
 
       uptoNTimes                                                                # Search a reasonable number of times now that we knoe that the key to be found is between the lower and upper limits of the array
-       {my ($end, $start) = @_;                                                 # End, start label
-        Mov $mid, $low;                                                         # Find new mid point
+       {Mov $mid, $low;                                                         # Find new mid point
         Add $mid, $high;                                                        # Sum of high and low
         Shr $mid, 1;                                                            # Average of high and low is the new mid point.
 
-        Cmp dWordRegister($search), "[$array+$mid*4]";                          # Compare current element of array with search
+        &$Compare($mid);                                                        # Compare current element of array with search
         Pushfq;                                                                 # Save result of comparison
         IfEq
         Then                                                                    # Found
-         {Mov rax, $mid unless rax eq $mid;
-          &$found;
+         {Mov rax, $mid;
+          PopRR;
+          &$Found;
           Jmp $end;
          };
 
@@ -19159,22 +19286,25 @@ sub BinarySearchD(%)                                                            
 
         IfLe
         Then                                                                    # Less than three elements in final range
-         {Cmp dWordRegister($search), "[$array+$high*4]";                       # Compare high end of final range with search
+         {&$Compare($high);                                                     # Compare high end of final range with search
           IfEq
           Then                                                                  # Found at high end of final range
            {Mov rax, $high;
-            &$found;
+            PopRR;
+            &$Found;
             Jmp $end;
            };
-          Cmp dWordRegister($search), "[$array+$low*4]";                        # Compare low end of final range with search
+          &$Compare($low);                                                      # Compare low end of final range with search
           IfEq
           Then                                                                  # Found at low end of final range
            {Mov rax, $low;
-            &$found;
+            PopRR;
+            &$Found;
             Jmp $end;
            };
-          Mov rax, $low;                                                        # Not found in final range so must be between the low element and the next element above it
-          &$between;
+          Mov rax, $low;
+          PopRR;
+          &$Between;                                                            # Not found in final range so must be between the low element and the next element above it
           Jmp $end;
          };
 
@@ -19186,9 +19316,11 @@ sub BinarySearchD(%)                                                            
         Else                                                                    # Search argument is lower so move down
          {Mov $high, $mid;                                                      # New upper limit limit
          };
-       } $loop, 999;                                                            # Enough to search all the particles in the universe if they could be ordered by some means
+       } $loop, 99;                                                            # Enough to search all the particles in the universe if they could be ordered by some means
+      pop @PushR;                                                               # This assembly code is unreachable so we only reduce the stack record in Perl rather than the stack in assembler
      };
    };
+  PopR;
  }
 
 #latest:
@@ -19196,28 +19328,38 @@ if (1) {                                                                        
   Mov r14, 0;                                                                   # Size of array
   Mov r13, 1;                                                                   # Value to search for
 
-  BinarySearchD empty => sub                                                    # Search empty array
-   {PrintOutStringNL "Empty";                                                   # Not found
-   };
+  BinarySearchD
+    empty => sub                                                                # Search empty array
+     {PrintOutStringNL "Empty";                                                 # Not found
+     },
+    size  => sub {my ($r) = @_; Mov $r, 0};
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
 Empty
 END
  }
 
+#latest:
 if (1) {                                                                        # Binary search on populated array
+  my $array = Rd(2, 4, 6, 8, 10, 12, 14, 16);
+
   for my $s(1..17)
-   {Mov r15, Rd(2, 4, 6, 8, 10, 12, 14, 16);                                    # Address array to search
-    Mov r14, 8;                                                                 # Size of array
-    Mov r13, $s;                                                                # Value to search for
+#  for my $s(4)
+   {Mov r13, $s;                                                                # Value to search for
     PrintOutString sprintf "%2d:", $s;
 
     BinarySearchD                                                               # Search
-    found   => sub{PrintOutString " @ "; PrintOutRaxInDec; PrintOutNL},
-    after   => sub{PrintOutStringNL " after"},
-    before  => sub{PrintOutStringNL " before"},
-    between => sub{PrintOutString " > "; PrintOutRaxInDec;  PrintOutNL},
-    ;
+      size    => sub{my ($r) = @_; Mov $r, 8},
+      found   => sub{PrintOutString " @ "; PrintOutRegisterRightInDecNL rax, 1},
+      after   => sub{PrintOutStringNL " after"},
+      before  => sub{PrintOutStringNL " before"},
+      between => sub{PrintOutString " > "; PrintOutRegisterRightInDecNL rax, 1},
+      compare => sub                                                            # Compare
+       {my ($index) = @_;                                                       # Search key in register, current index in register
+        Mov rdi, $array;
+        Mov rsi, $s;
+        Cmp esi, "[rdi+$index*4]";
+       };
    }
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
@@ -19240,6 +19382,7 @@ if (1) {                                                                        
 17: after
 END
  }
+
 sub Nasm::X86::Area::appendZmm($$$)                                             # Append the contents of teh specified zmm to the specified area and returns its offset in that area as a variable,
  {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
   @_ == 2 or confess "Two parameters";
@@ -19248,27 +19391,34 @@ sub Nasm::X86::Area::appendZmm($$$)                                             
 
   $area->address->setReg(rax);
   $k->setReg(rbx);
-  Vmovdqu64 "[rax+rbx]", zmm($zmm);                                             # Copy in zmm
+  Vmovdqu64 "[rax+rbx]", zmm($zmm);                                             # Copy in the data held in the supplied zmm register
 
   $k                                                                            # Return offset in area
+ }
+
+sub Nasm::X86::Tree::findLongString($$$)                                        # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
+ {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key
+  @_ == 3 or confess "Three parameters";
  }
 
 sub Nasm::X86::Tree::putLongString($$$$)                                        # Create a tree keyed by strings represented by  zmm blocks
  {my ($tree, $address, $size, $data) = @_;                                      # Tree descriptor, address of key, length of key, data associated with key
   @_ == 4 or confess "Four parameters";
 
+  $tree->stringTree or confess "Not a string tree";                             # Check that we are creating a string tree
+
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;
 
-    my $t = $$s{tree}->cloneDescriptor;
+    my $t = $$s{tree}->cloneDescriptor;                                         # Clone the input tree descriptor so we can reposition it to handle strings longer than one zmm block
     my $a = $t->area;
     my $d = $$p{data};
 
     PushR my $area = r15, my $remainder = r14, my $offset = r13;
-    $$p{address}->setReg($area);
+    $$p{address}->setReg($area);                                                # Address parameters
     $$p{size}   ->setReg($remainder);
-    Mov $offset, 0;
 
+    Mov $offset, 0;
     ForIn                                                                       # Load initial full blocks into area
      {Vmovdqu64 zmm1, "[$area+$offset]";
       my $k = $a->appendZmm(1);
@@ -19284,12 +19434,12 @@ sub Nasm::X86::Tree::putLongString($$$$)                                        
        };
      }
     Then                                                                        # Append remainder of string as a full zmm block padded with zeroes
-     {Mov rsi, 0;                                                               # Clear
+     {Mov rsi, 0;
       Bts rsi, $remainder;                                                      # Set bit
-      Dec rsi;                                                                  # All left zeroes now ones
+      Dec rsi;                                                                  # All the zeroes left of the bit are now ones
       Kmovq k1, rsi;
       Vmovdqu8 "zmm1{k1}{z}", "[$area+$offset]";
-      my $k = $a->appendZmm(1);
+      my $k = $a->appendZmm(1);                                                 # Place the zmm data into the area
       $t->put($k, $d);
      }, $offset, $remainder, RegisterSize(zmm0);
 
@@ -19305,14 +19455,16 @@ sub Nasm::X86::Tree::putLongString($$$$)                                        
 latest:;
 if (1) {                                                                        # Binary search on populated array
   my $a = CreateArea;
-  my $t = $a->CreateTree;
-
-  $t->putLongString(constantString("aaaa1111"), K(data => 1));
+  my $t = $a->CreateTree(stringTree=>1);
+  $t->putLongString(constantString("dddd4444"), K(data => 4));
+# $t->putLongString(constantString("eeee5555"), K(data => 5));
   $t->putLongString(constantString("bbbb2222"), K(data => 2));
-  $t->putLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44441234"), K(data => 3));
+  $t->putLongString(constantString("cccc3333"), K(data => 3));
+#  $t->putLongString(constantString("aaaa1111"), K(data => 1));
+#  $t->putLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44441234"), K(data => 3));
   $a->dump("AA", K(depth => 16));
   $t->dump("TT");
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
 AA
 Area     Size:     4096    Used:      832
 .... .... .... ...0 | __10 ____ ____ ____  40.3 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
