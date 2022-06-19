@@ -5879,7 +5879,7 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
  {my (%options)  = @_;                                                          # Tree description options
   my $area       = delete $options{area};                                       # The area containing the tree
-  my $lowKeys    = delete $options{lowKeys};                                    # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
+  my $smallTree    = delete $options{smallTree};                                    # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
   my $lowTree    = delete $options{lowTree};                                    # This tree is at the lowest level if true. As there are no sub trees hanging from this tree we may optimize put, find, delete to not process information required to describe sub trees.  This action has not been done yet except n the case of low key processing.
   my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
   my $length     = delete $options{length};                                     # Maximum number of keys per node
@@ -5924,7 +5924,7 @@ sub DescribeTree(%)                                                             
     zWidthD      => $b / $o,                                                    # Width of a zmm in double words being the element size
     maxKeysZ     => $b / $o - 2,                                                # The maximum possible number of keys in a zmm register
     maxNodesZ    => $b / $o - 1,                                                # The maximum possible number of nodes in a zmm register
-    lowKeys      => $lowKeys // 0,                                              # Low keys should be placed in first block where possible
+    smallTree      => $smallTree // 0,                                              # Low keys should be placed in first block where possible
     lowTree      => $lowTree // 0,                                              # No sub trees depend on this tree
     stringTree   => $stringTree // 0,                                           # String tree
 
@@ -5973,7 +5973,7 @@ sub Nasm::X86::Tree::describeTree($%)                                           
   @_ >= 1 or confess "At least one parameter";
 
   $tree->area->DescribeTree                                                     # Return a descriptor for a tree
-   (lowKeys    => $tree->lowKeys,
+   (smallTree    => $tree->smallTree,
     lowTree    => $tree->lowTree,
     stringTree => $tree->stringTree,
     %options
@@ -7118,13 +7118,13 @@ sub Nasm::X86::Tree::put($$$)                                                   
       Jmp $descend;                                                             # Descend to the next level
      };
     PopR;
-   } name => qq(Nasm::X86::Tree::put-$$tree{length}-$$tree{lowKeys}-$$tree{lowTree}-$$tree{stringTree}),
+   } name => qq(Nasm::X86::Tree::put-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree}),
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
   Block                                                                         # Place low keys if requested and possible
    {my ($end) = @_;                                                             # End of block
-    if ($tree->lowKeys)                                                         # only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+    if ($tree->smallTree)                                                         # only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
      {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
       confess "Should be three" unless $co == 3;
 
@@ -7135,7 +7135,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
           $tree->firstFromMemory($F);                                           # Load first block
           my $p = $k * $tree->width + $tree->fcArray;                           # Offset of dword in bytes
           ($dt ? $data->first : $data)->dIntoZ($F, $p);                         # Save dword - either the supplied data or the offset of the sub tree
-          if ($tree->lowKeys == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+          if ($tree->smallTree == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
            {PushR my $control = r15;                                            # Copy of the control dword
             Pextrd $control."d", xmm1, $co;                                     # Get the control dword
             my $b = $k+$tree->fcPresent;                                        # Present bit
@@ -7167,7 +7167,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
           my $p = $key * $tree->width + $tree->fcArray;                         # Offset of dword in bytes
           ($dt ? $data->first : $data)->dIntoZ($F, $p);                         # Save dword - either the supplied data or the offset of the sub tree
 
-          if ($tree->lowKeys == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+          if ($tree->smallTree == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
            {PushR my $bit = r14, my $control = r15;                             # Copy of the control dword
             Pextrd $control."d", xmm1, $co;                                     # Get the control dword
             my $b = $key+$tree->fcPresent;                                      # Present bit
@@ -7222,7 +7222,7 @@ sub Nasm::X86::Tree::zero($)                                                    
  }
 
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and tests whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
- {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for which cn either be a variable containing a double word for a normal tree or a zmm register containing the key to be sought for a stringTree.
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
 
@@ -7284,14 +7284,14 @@ sub Nasm::X86::Tree::find($$)                                                   
 
   Block                                                                         # Find low keys if possible
    {my ($end) = @_;                                                             # End of block
-    if ($tree->lowKeys)                                                         # only if low key placement is enabled for this tree. Small tres benefit nore than large trees from this optimization.
+    if ($tree->smallTree)                                                         # only if low key placement is enabled for this tree. Small tres benefit nore than large trees from this optimization.
      {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
       confess "Should be three" unless $co == 3;
 
       if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
        {my $k = $key->expr;                                                     # Key is small enough to go in cache
         if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
-         {if ($tree->lowKeys == 1)                                              # The low keys are behaving just like normal keys
+         {if ($tree->smallTree == 1)                                              # The low keys are behaving just like normal keys
            {my $F = zmm1;                                                       # Place first block in this zmm
             $tree->firstFromMemory($F);                                         # Load first block
             my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
@@ -7332,7 +7332,7 @@ sub Nasm::X86::Tree::find($$)                                                   
       else                                                                      # The key is a variable, we check if it should go in the first cache
        {ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
         Then                                                                    # Less than the upper limit
-         {if ($tree->lowKeys == 1)                                              # The low keys are behaving just like normal keys
+         {if ($tree->smallTree == 1)                                              # The low keys are behaving just like normal keys
            {my $F = zmm1;                                                       # Place first block in this zmm
             $tree->firstFromMemory($F);                                         # Load first block
             my $o = $key * $tree->width + $tree->fcArray;                       # Offset if dword containing data
@@ -7433,8 +7433,8 @@ sub Nasm::X86::Tree::findFirst($)                                               
 sub Nasm::X86::Tree::findLast($)                                                # Find the last key in a tree - crucial for stack like operations.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  confess "Not allowed with lowKeys == 2"                                       # Only basic low keys allowed if low keys being used
-    if $tree->lowKeys && $tree->lowKeys != 1;
+  confess "Not allowed with smallTree == 2"                                       # Only basic low keys allowed if low keys being used
+    if $tree->smallTree && $tree->smallTree != 1;
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -7450,7 +7450,7 @@ sub Nasm::X86::Tree::findLast($)                                                
       my $size = $t->sizeFromFirst($F);                                         # Number of entries in tree
       If $size > 0,                                                             # Non empty tree
       Then
-       {if ($tree->lowKeys)                                                     # Low keys in play so the root node might not be present if all the data is now in the first block
+       {if ($tree->smallTree)                                                     # Low keys in play so the root node might not be present if all the data is now in the first block
          {PushR my $z = r13, my $bit = r14, my $present = r15;                  # The current size fo the tree, the index of the present bit for the highest remaining key, the present bits
           my $i = V key => 0;                                                   # Assume we are not in the first block
           wFromZ $F, $t->fcPresentOff, set=>$present;                           # Present bits
@@ -8621,14 +8621,14 @@ sub Nasm::X86::Tree::delete($$)                                                 
 
   Block                    ## Need to detect sub tree or not                    # Delete low keys if possible
    {my ($end) = @_;                                                             # End of block
-    if ($tree->lowKeys)                                                         # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+    if ($tree->smallTree)                                                         # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
      {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
       confess "Should be three" unless $co == 3;
 
       if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
        {my $k = $key->expr;                                                     # Key is small enough to go in cache
         if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
-         {if ($tree->lowKeys == 1)                                              # The low keys are behaving just like normal keys
+         {if ($tree->smallTree == 1)                                              # The low keys are behaving just like normal keys
            {my $F = zmm1;                                                       # Place first block in this zmm
             $tree->firstFromMemory($F);                                         # Load first block
             my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
@@ -8668,7 +8668,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
       else {                                                                    # The key is a variable, we check if it should go in the first cache
         ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
         Then                                                                    # Less than the upper limit
-         {if ($tree->lowKeys == 1)                                              # The low keys are behaving just like normal keys
+         {if ($tree->smallTree == 1)                                              # The low keys are behaving just like normal keys
            {my $F = zmm1;                                                       # Place first block in this zmm
             $tree->firstFromMemory($F);                                         # Load first block
             my $o = $key * $tree->width + $tree->fcArray;                       # Offset if dword containing data
@@ -8711,7 +8711,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
     #$s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
     $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
 
-    if ($tree->lowKeys and $tree->lowKeys == 1)                                 # Clear tree if it becomes empty as a result of deleting the last low key
+    if ($tree->smallTree and $tree->smallTree == 1)                                 # Clear tree if it becomes empty as a result of deleting the last low key
      {If $tree->size == 0,
       Then
        {$tree->clear();
@@ -9859,7 +9859,7 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
   my $openClose   = $tables->openClose;                                         # Open to close bracket matching
   my $transitions = $tables->transitions;                                       # Create and load the table of lexical transitions.
 
-  my $brackets    = $area->CreateTree; #(lowKeys => 1);                         # Bracket stack
+  my $brackets    = $area->CreateTree; #(smallTree => 1);                         # Bracket stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
   my $symbols     = $area->CreateTree;                                          # String tree of symbols encountered during the parse
 
@@ -16955,7 +16955,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
   my $a = CreateArea;
-  my $t = $a->CreateTree(lowKeys=>1);
+  my $t = $a->CreateTree(smallTree=>1);
   my $N = K loop => 16;
   $N->for(sub
    {my ($i) = @_;
@@ -19007,7 +19007,7 @@ END
 #latest:
 if (1) {                                                                        # First cache constants
   my $a = CreateArea;
-  my $t = $a->CreateTree(lowKeys=>1);
+  my $t = $a->CreateTree(smallTree=>1);
 
   my $k = K key  => 1;
   my $d = K data => 1;
@@ -19027,7 +19027,7 @@ END
 #latest:
 if (1) {                                                                        # First cache variables
   my $a = CreateArea;
-  my $t = $a->CreateTree(lowKeys=>1);
+  my $t = $a->CreateTree(smallTree=>1);
 
   my $k = V key  => 1;
   my $d = V data => 1;
@@ -19059,7 +19059,7 @@ END
 #latest:
 if (1) {                                                                        # First cache variables - constants, level 1
   my $a = CreateArea;
-  my $t = $a->CreateTree(lowKeys=>1);
+  my $t = $a->CreateTree(smallTree=>1);
 
   my $N = 3;
 
@@ -19083,7 +19083,7 @@ END
 #latest:
 if (1) {                                                                        # First cache variables - variables, level 1
   my $a = CreateArea;
-  my $t = $a->CreateTree(lowKeys=>1);
+  my $t = $a->CreateTree(smallTree=>1);
 
   my $N = 3;
 
@@ -19107,7 +19107,7 @@ END
 #latest:
 if (1) {                                                                        # First cache variables - constants, level 2
   my $a = CreateArea;
-  my $t = $a->CreateTree(lowKeys=>2);
+  my $t = $a->CreateTree(smallTree=>2);
 
   my $N = 3;
 
@@ -19131,7 +19131,7 @@ END
 #latest:
 if (1) {                                                                        # First cache variables - variables, level 2
   my $a = CreateArea;
-  my $t = $a->CreateTree(lowKeys=>2);
+  my $t = $a->CreateTree(smallTree=>2);
 
   my $N = 3;
 
@@ -19419,16 +19419,9 @@ sub Nasm::X86::Tree::putLongString($$$$)                                        
     ForIn                                                                       # Load initial full blocks into area
      {Vmovdqu64 zmm1, "[$area+$offset]";
       my $k = $a->appendZmm(1);
-      Cmp $remainder, 0;
-      IfEq
-      Then                                                                      # Final block it just happens to fill the last zmm block
-       {$t->put($k, $d);
-       },
-      Else                                                                      # Not the final block so we create ausb tree to hold the remainder
-       {my $T = $a->CreateTree;
-        $t->put($k, $T);
-        $t->copyDescriptor($T);
-       };
+      my $T = $a->CreateTree;
+      $t->put($k, $T);
+      $t->copyDescriptor($T);
      }
     Then                                                                        # Append remainder of string as a full zmm block padded with zeroes
      {Mov rsi, 0;
