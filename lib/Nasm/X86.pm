@@ -7087,8 +7087,6 @@ sub Nasm::X86::Tree::put($$$)                                                   
       my $descend = SetLabel;                                                   # Descend to the next level
 
       $t->getBlock($Q, $K, $D, $N);                                             # Get the current block from memory
-PrintErrStringNL "AAAAAAAA";
-PrintErrRegisterInHex $Q;
 
       $t->indexEqLt($key, $K, $setEq, $setLt);                                  # Check for an equal key
       IfNz                                                                      # Equal key found
@@ -7097,7 +7095,6 @@ PrintErrRegisterInHex $Q;
         $t->putBlock                  ($Q,     $K, $D, $N);
         Jmp $success;
        };
-PrintErrRegisterInHex $Q;
 
       $t->lengthFromKeys($K, set=>rsi);
       Cmp rsi, $t->maxKeys;
@@ -7106,15 +7103,12 @@ PrintErrRegisterInHex $Q;
        {$t->splitNode(V offset => $Q);                                          # Split node is a large function that is hopefully called infrequently so crating a register parameter is, perhaps, not worth the effort
         Jmp $start;                                                             # Restart the descent now that this block has been split
        };
-PrintErrRegisterInHex $Q;
 
       $t->leafFromNodes($N, set=>rsi);                                          # NB: in this mode returns 0 if a leaf which is the opposite of what happens if we do not use a transfer register
       Cmp rsi, 0;
       IfEq
       Then                                                                      # On a leaf
-       {PrintErrStringNL "BBBBB";
-        $t->insertKeyDataTreeIntoLeaf($setLt, $F, $K, $D, $k, $d, $S);
-        PrintErrRegisterInHex $Q, zmm $D;
+       {$t->insertKeyDataTreeIntoLeaf($setLt, $F, $K, $D, $k, $d, $S);
         $t->putBlock                 ($Q,         $K, $D, $N);
         $t->firstIntoMemory          ($F);                                      # First back into memory
         Jmp $success;
@@ -10942,7 +10936,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10944 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10938 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19221,14 +19215,14 @@ sub BinarySearchD(%)                                                            
    {my ($end, $start) = @_;                                                     # End, start label
 
     PushR my $low = r15, my $high = r14,                                        # Work registers modified by this routine
-      my $loop = r13, my $range = r12, my $mid = r11;
+      my $loop = r13, my $mid = r12;
 
     Mov $low,  0;                                                               # Closed start of current range to search
     &$Size($high);                                                              # Open end of current range to search
     Cmp $high, 0;                                                               # Check we have a none empty array to search
     IfEq
     Then                                                                        # Empty array
-     {PopRR;
+     {PopRR $PushR[-1]->@*;
       &$Empty;
       Jmp $end;
      },
@@ -19239,13 +19233,13 @@ sub BinarySearchD(%)                                                            
       IfEq
       Then                                                                      # Found
        {Mov rax, $high;
-        PopRR;
+        PopRR $PushR[-1]->@*;
         &$Found;
         Jmp $end;
        };
       IfGt
       Then                                                                      # After end of array
-       {PopRR;
+       {PopRR $PushR[-1]->@*;
         &$After;
         Jmp $end;
        };
@@ -19254,13 +19248,13 @@ sub BinarySearchD(%)                                                            
       IfEq
       Then                                                                      # Found
        {Mov rax, $low;
-        PopRR;
+        PopRR $PushR[-1]->@*;
         &$Found;
         Jmp $end;
        };
       IfLt
       Then                                                                      # Before start of array
-       {PopRR;
+       {PopRR $PushR[-1]->@*;
         &$Before;
         Jmp $end;
        };
@@ -19269,20 +19263,20 @@ sub BinarySearchD(%)                                                            
        {Mov $mid, $low;                                                         # Find new mid point
         Add $mid, $high;                                                        # Sum of high and low
         Shr $mid, 1;                                                            # Average of high and low is the new mid point.
-
         &$Compare($mid);                                                        # Compare current element of array with search
         Pushfq;                                                                 # Save result of comparison
         IfEq
         Then                                                                    # Found
          {Mov rax, $mid;
-          PopRR;
+          Popfq;
+          PopRR $PushR[-1]->@*;
           &$Found;
           Jmp $end;
          };
 
-        Mov $range, $high;                                                      # Size of remaining range
-        Sub $range, $low;
-        Cmp $range, 1;
+        Mov rsi, $high;                                                         # Size of remaining range
+        Sub rsi, $low;
+        Cmp rsi, 1;
 
         IfLe
         Then                                                                    # Less than three elements in final range
@@ -19290,7 +19284,8 @@ sub BinarySearchD(%)                                                            
           IfEq
           Then                                                                  # Found at high end of final range
            {Mov rax, $high;
-            PopRR;
+            Popfq;
+            PopRR $PushR[-1]->@*;
             &$Found;
             Jmp $end;
            };
@@ -19298,12 +19293,14 @@ sub BinarySearchD(%)                                                            
           IfEq
           Then                                                                  # Found at low end of final range
            {Mov rax, $low;
-            PopRR;
+            Popfq;
+            PopRR $PushR[-1]->@*;
             &$Found;
             Jmp $end;
            };
           Mov rax, $low;
-          PopRR;
+          Popfq;
+          PopRR $PushR[-1]->@*;
           &$Between;                                                            # Not found in final range so must be between the low element and the next element above it
           Jmp $end;
          };
@@ -19316,7 +19313,7 @@ sub BinarySearchD(%)                                                            
         Else                                                                    # Search argument is lower so move down
          {Mov $high, $mid;                                                      # New upper limit limit
          };
-       } $loop, 99;                                                            # Enough to search all the particles in the universe if they could be ordered by some means
+       } $loop, 999;                                                            # Enough to search all the particles in the universe if they could be ordered by some means
       pop @PushR;                                                               # This assembly code is unreachable so we only reduce the stack record in Perl rather than the stack in assembler
      };
    };
@@ -19457,41 +19454,41 @@ if (1) {                                                                        
   my $a = CreateArea;
   my $t = $a->CreateTree(stringTree=>1);
   $t->putLongString(constantString("dddd4444"), K(data => 4));
-# $t->putLongString(constantString("eeee5555"), K(data => 5));
+  $t->putLongString(constantString("eeee5555"), K(data => 5));
   $t->putLongString(constantString("bbbb2222"), K(data => 2));
   $t->putLongString(constantString("cccc3333"), K(data => 3));
-#  $t->putLongString(constantString("aaaa1111"), K(data => 1));
-#  $t->putLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44441234"), K(data => 3));
+  $t->putLongString(constantString("aaaa1111"), K(data => 1));
+  $t->putLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44441234"), K(data => 6));
   $a->dump("AA", K(depth => 16));
   $t->dump("TT");
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
 AA
-Area     Size:     4096    Used:      832
-.... .... .... ...0 | __10 ____ ____ ____  40.3 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | C0__ ____ ____ ____  .3__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..80 | 6161 6161 3131 3131  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..C0 | 80__ ____ 80.1 ____  C0.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .3__ .4__ __.1 ____
-.... .... .... .1.. | .1__ ____ .2__ ____  __.2 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40.1 ____
+Area     Size:     4096    Used:     1024
+.... .... .... ...0 | __10 ____ ____ ____  __.4 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | C0__ ____ ____ ____  .6__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | 6464 6464 3434 3434  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | 40.2 ____ C0.1 ____  80.2 ____ __.2 ____  80__ ____ 80.1 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .6__ .4__ __.1 ____
+.... .... .... .1.. | .1__ ____ .2__ ____  C0.2 ____ .3__ ____  .4__ ____ .5__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40.1 ____
 .... .... .... .140 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40__ ____
-.... .... .... .180 | 6262 6262 3232 3232  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... .1C0 | 6363 6363 3131 3131  6363 6363 3232 3232  6363 6363 3333 3333  6363 6363 3434 3434  6363 6363 3131 3131  6363 6363 3232 3232  6363 6363 3333 3333  6363 6363 3434 3434
-.... .... .... .2.. | 80.2 ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... .240 | 3132 3334 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... .280 | 40.2 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .1__ ____ C0.2 ____
-.... .... .... .2C0 | .3__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.3 ____
-.... .... .... .3.. | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.2 ____
-.... .... .... .340 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... .380 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... .3C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .180 | 6565 6565 3535 3535  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .1C0 | 6262 6262 3232 3232  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .2.. | 6363 6363 3333 3333  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .240 | 6161 6161 3131 3131  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .280 | 6363 6363 3131 3131  6363 6363 3232 3232  6363 6363 3333 3333  6363 6363 3434 3434  6363 6363 3131 3131  6363 6363 3232 3232  6363 6363 3333 3333  6363 6363 3434 3434
+.... .... .... .2C0 | 40.3 ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .3.. | 3132 3334 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .340 | __.3 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .1__ ____ 80.3 ____
+.... .... .... .380 | .6__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ C0.3 ____
+.... .... .... .3C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ C0.2 ____
 TT
-At:   C0                    length:    3,  data:  100,  nodes:  140,  first:   40, root, leaf,  trees:           100
-  Index:    0    1    2
-  Keys :   80  180  1C0
-  Data :    1    2  28*
-     At:  280               length:    1,  data:  2C0,  nodes:  300,  first:  200, root, leaf
+At:   C0                    length:    6,  data:  100,  nodes:  140,  first:   40, root, leaf,  trees:           100
+  Index:    0    1    2    3    4    5
+  Keys :  240  1C0  280  200   80  180
+  Data :    1    2  34*    3    4    5
+     At:  340               length:    1,  data:  380,  nodes:  3C0,  first:  2C0, root, leaf
        Index:    0
-       Keys :  240
-       Data :    3
+       Keys :  300
+       Data :    6
      end
 end
 END
