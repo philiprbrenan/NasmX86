@@ -5606,7 +5606,7 @@ sub Nasm::X86::Area::yggdrasil($)                                               
    },
   Else                                                                          # Yggdrasil has not been created
    {my $T = $area->CreateTree;
-    $t->first->copy($T->first);
+    $t->copyDescriptor($T);
     $T->first->setReg(r15);
     $area->address->setReg(rax);                                                # Address underlying area - it might have moved
     Mov "[rax+$$area{treeOffset}]", r15;                                        # Save offset of Yggdrasil
@@ -5997,14 +5997,14 @@ sub Nasm::X86::Tree::cloneDescriptor($)                                         
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
   my $t = $tree->describeTree(length=>$tree->length);                           # Length of new tree must be same as old tree
-  $t->first->copy($tree->first);                                                # Load new descriptor from original descriptor
+  $t->copyDescriptor($tree);                                                # Load new descriptor from original descriptor
   $t                                                                            # Return new descriptor
  }
 
 sub Nasm::X86::Tree::copyDescriptor($$)                                         # Copy the description of one tree into another.
  {my ($target, $source) = @_;                                                   # The target of the copy, the source of the copy
   @_ == 2 or confess "Two parameters";
-  $target->first->copy($source->first);                                         # Load the target from the source
+  $target->copyDescriptor($source);                                         # Load the target from the source
   $target                                                                       # Return target
  }
 
@@ -7678,7 +7678,7 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
   @_ == 2 or confess "Two parameters";
 
   my $t = $tree->describeTree;                                                  # The sub tree we are attempting to load
-     $t->first->copy($tree->first);                                             # Position on the tree
+     $t->copyDescriptor($tree);                                             # Position on the tree
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -9128,7 +9128,7 @@ sub Nasm::X86::Tree::putString($$)                                              
        {$s->copy(0);
         my $T = $t->area->CreateTree;
         $S->put($t->data, $T);
-        $S->first->copy($T->first);
+        $S->copyDescriptor($T);
        },
       Else
        {$S->first->copy($S->data);                                              # Position on found element
@@ -9137,7 +9137,7 @@ sub Nasm::X86::Tree::putString($$)                                              
     Else                                                                        # String no longer matches an existing string - we are creating a new path
      {my $T = $t->area->CreateTree;
       $S->put($t->data, $T);
-      $S->first->copy($T->first);
+      $S->copyDescriptor($T);
      };
    });
   $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
@@ -9171,7 +9171,7 @@ sub Nasm::X86::Tree::putStringFromMemory($$$)                                   
          {$f->copy(0);
           my $T = $S->area->CreateTree;
           $S->put($char, $T);
-          $S->first->copy($T->first);
+          $S->copyDescriptor($T);
          },
         Else
          {$S->first->copy($S->data);                                            # Position on found element
@@ -9180,7 +9180,7 @@ sub Nasm::X86::Tree::putStringFromMemory($$$)                                   
       Else                                                                      # String no longer matches an existing string - we are creating a new path
        {my $T = $S->area->CreateTree;
         $S->put($char, $T);
-        $S->first->copy($T->first);
+        $S->copyDescriptor($T);
        };
       Inc $i
      });
@@ -18522,7 +18522,7 @@ sub Nasm::X86::Tree::put2($$$$)                                                 
   If $t->found == 0,
   Then
    {my $T = $tree->area->CreateTree;
-    $t->first->copy($T->first);
+    $t->copyDescriptor($T);
     $tree->put($key1, $t);
    };
 
@@ -18554,7 +18554,7 @@ sub Nasm::X86::Tree::putKeyString($$$$)                                         
   If $t->found == 0,
   Then
    {my $T = $tree->area->CreateTree;
-    $t->first->copy($T->first);
+    $t->copyDescriptor($T);
     $tree->put($key, $t);
    };
 
@@ -18572,7 +18572,7 @@ sub Nasm::X86::Tree::getKeyString($$$$)                                         
     If $T->found > 0,
     Then                                                                        # Found so copy the results into the returned tree
      {$t->data->copy($T->data);
-      $t->first->copy($T->first);
+      $t->copyDescriptor($T);
      }
    };
   $t                                                                            # Found field indicates whether the data field is valid
