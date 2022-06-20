@@ -5997,7 +5997,7 @@ sub Nasm::X86::Tree::cloneDescriptor($)                                         
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
   my $t = $tree->describeTree(length=>$tree->length);                           # Length of new tree must be same as old tree
-  $t->first->copy($tree->first);                                                # Load new descriptor from original descriptor
+  $t->copyDescriptor($tree);                                                # Load new descriptor from original descriptor
   $t                                                                            # Return new descriptor
  }
 
@@ -19065,7 +19065,7 @@ Area     Size:     4096    Used:      128
 END
  }
 
-latest:
+#latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
