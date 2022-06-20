@@ -6004,7 +6004,7 @@ sub Nasm::X86::Tree::cloneDescriptor($)                                         
 sub Nasm::X86::Tree::copyDescriptor($$)                                         # Copy the description of one tree into another.
  {my ($target, $source) = @_;                                                   # The target of the copy, the source of the copy
   @_ == 2 or confess "Two parameters";
-  $target->first->copy($source->first);                                         # Load the target from the source
+  $target->copyDescriptor($source);                                         # Load the target from the source
   $target                                                                       # Return target
  }
 
@@ -7678,7 +7678,7 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
   @_ == 2 or confess "Two parameters";
 
   my $t = $tree->describeTree;                                                  # The sub tree we are attempting to load
-     $t->first->copy($tree->first);                                             # Position on the tree
+     $t->copyDescriptor($tree);                                             # Position on the tree
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -9128,7 +9128,7 @@ sub Nasm::X86::Tree::putString($$)                                              
        {$s->copy(0);
         my $T = $t->area->CreateTree;
         $S->put($t->data, $T);
-        $S->first->copy($T->first);
+        $S->copyDescriptor($T);
        },
       Else
        {$S->first->copy($S->data);                                              # Position on found element
