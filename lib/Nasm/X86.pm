@@ -1455,7 +1455,8 @@ sub PrintTraceBack($)                                                           
 
 sub PrintErrTraceBack($)                                                        # Print sub routine track back on stderr and then exit with a message.
  {my ($message) = @_;                                                           # Reason why we are printing the trace back and then stopping
-  PrintErrStringNL $message;
+  my ($p, $f, $l) = caller(0);
+  PrintStringNL($stderr, "$message at $0 line $l");
   PrintTraceBack($stderr);
   Exit(1);
  }
@@ -10961,7 +10962,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10963 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10964 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19416,7 +19417,7 @@ sub Nasm::X86::Area::appendZmm($$$)                                             
   $k                                                                            # Return offset in area
  }
 
-sub Nasm::X86::Tree::getKeyString($$$)                                        # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
+sub Nasm::X86::Tree::getKeyString($$$)                                          # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
  {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key
   @_ == 3 or confess "Three parameters";
 
@@ -19429,29 +19430,39 @@ sub Nasm::X86::Tree::getKeyString($$$)                                        # 
     my $a = $t->area;
     my $d = $$p{data};
 
-    PushR my $area = r15, my $remainder = r14, my $offset = r13, my $key = 31;
-    $$p{address}->setReg($area);                                                # Address parameters
+    PushR my $address = r15, my $remainder = r14, my $offset = r13, my $key = 31;
+    $$p{address}->setReg($address);                                             # Address parameters
     $$p{size}   ->setReg($remainder);
 
     my $T = $t->cloneDescriptor;                                                # Copy the descriptor for the tree so we can repositionit if needed
 
-    Mov $offset, 0;
-    ForIn                                                                       # Find initial full blocks
-     {Vmovdqu64 zmm($key), "[$area+$offset]";
-      $T->find(zmm $key);
-      $T->down;
-     }
-    Then                                                                        # Last block (which might be empty
-     {Mov rsi, 0;
-      Bts rsi, $remainder;                                                      # Set bit
-      Dec rsi;                                                                  # All the zeroes left of the bit are now ones
-      Kmovq k1, rsi;
-      Vmovdqu8 zmmMZ($key, 1), "[$area+$offset]";
-      $T->find(zmm $key);                                                       # Find thw zmm
-     }, $offset, $remainder, RegisterSize(zmm0);
+    Block
+     {my ($end) = @_;
+      Mov $offset, 0;
+      ForIn                                                                     # Find initial full blocks
+       {Vmovdqu64 zmm($key), "[$address+$offset]";
+        $T->find(zmm $key);
+        If $T->found > 0,
+        Then
+         {$T->down;
+         },
+        Else                                                                    # Not found at this level
+         {$t->found->copy(0);                                                   # Show not found
+          Jmp $end;                                                             # Finished
+         };
+       }
+      Then                                                                      # Last block (which might be empty
+       {Mov rsi, 0;
+        Bts rsi, $remainder;                                                    # Set bit
+        Dec rsi;                                                                # All the zeroes left of the bit are now ones
+        Kmovq k1, rsi;
+        Vmovdqu8 zmmMZ($key, 1), "[$address+$offset]";
+        $T->find(zmm $key);                                                     # Find thw zmm
+       }, $offset, $remainder, RegisterSize(zmm0);
 
-    $t->found->copy($T->found);                                                 # Copy results into original tree
-    $t->data ->copy($T->data);
+      $t->found->copy($T->found);                                               # Copy results into original tree
+      $t->data ->copy($T->data);
+     };
 
     PopR;
    } structures => {tree => $tree},
@@ -19646,7 +19657,7 @@ data   : .... .... .... ...2
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #TNasm::X86::Tree::putKeyString #TNasm::X86::Tree::getKeyString
   my $a = CreateArea;
   my $t = $a->CreateTree(stringTree=>1);
