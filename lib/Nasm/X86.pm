@@ -650,21 +650,6 @@ sub InsertOneIntoRegisterAtPoint($$)                                            
    }
  }
 
-sub InsertOneIntoRegisterAtPoint999($$)                                         # Insert a one into the specified register at the point indicated by another register.
- {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
-  InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
-  if (&CheckIfMaskRegisterNumber($point))                                       # Mask register showing point
-   {my ($r) = ChooseRegisters(1, $in);                                          # Choose a general purpose register to place the mask in
-    PushR $r;
-    Kmovq $r, $point;
-    Or   $in, $r;                                                               # Make the zero a one
-    PopR;
-   }
-  else                                                                          # General purpose register showing point
-   {Or $in, $point;                                                             # Make the zero a one
-   }
- }
-
 #D2 Save and Restore                                                            # Saving and restoring registers via the stack
 
 my @syscallSequence = qw(rax rdi rsi rdx r10 r8 r9);                            # The parameter list sequence for system calls
@@ -2489,9 +2474,9 @@ sub PrintRightInBin($$$)                                                        
  {my ($channel, $number, $width) = @_;                                          # Channel, number as a variable, width of output field as a variable
   @_ == 3 or confess "Three parameters required";
 
-  $channel =~ m(\A(1|2)\Z) or confess "Invalid channel should be stderr or stdout";
-  ref($number) =~ m(variable)i or confess "number must be a variable";
-  ref($width)  =~ m(variable)i or confess "width must be a variable";
+  $channel =~ m(\A(1|2)\Z)     or confess "Channel should be stderr or stdout";
+  ref($number) =~ m(variable)i or confess "Number must be a variable";
+  ref($width)  =~ m(variable)i or confess "Width must be a variable";
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -6123,28 +6108,6 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
   Vmovdqu64 zmm($zmm), "[rsp-$w]";                                              # Reload from stack
  }
 
-sub Nasm::X86::Tree::decSizeInFirst999($$)                                      #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
- {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
-  @_ == 2 or confess "Two parameters";
-  my $s = dFromZ $zmm, $tree->sizeOffset;
-
-  if ($DebugMode)
-   {If $s == 0,
-    Then
-     {PrintErrTraceBack "Cannot decrement zero length tree";
-     };
-   }
-
-  $tree->sizeIntoFirst($zmm, $s-1);
- }
-
-sub Nasm::X86::Tree::incSizeInFirst999($$)                                      #P Increment the size field in the first block of a tree when the first block is held in a zmm register.
- {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
-  @_ == 2 or confess "Two parameters";
-  my $s = dFromZ $zmm, $tree->sizeOffset;
-  $tree->sizeIntoFirst($zmm, $s+1);
- }
-
 sub Nasm::X86::Tree::incSize($)                                                 #P Increment the size of a tree.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
@@ -7046,7 +7009,7 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
  } # splitRoot
 
 sub Nasm::X86::Tree::put($$$)                                                   # Put a variable key and data into a tree. The data could be a tree descriptor to place a sub tree into a tree at the indicated key.
- {my ($tree, $key, $data) = @_;                                                 # Tree definition, variable key containing a number for a normal key or the offset in the area of a zmm block containing teh key, data as a variable or a tree descriptor
+ {my ($tree, $key, $data) = @_;                                                 # Tree definition, variable key containing a number for a normal key or the offset in the area of a zmm block containing the key, data as a variable or a tree descriptor
   @_ == 3 or confess "Three parameters";
 
   my $dt = ref($data) =~ m(Tree);                                               # We are inserting a sub tree if true
@@ -10962,7 +10925,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10964 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10927 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18981,7 +18944,7 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
   my $f = "zzzOperators.lib";
 
   my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
@@ -19404,7 +19367,7 @@ if (1) {                                                                        
 END
  }
 
-sub Nasm::X86::Area::appendZmm($$$)                                             # Append the contents of teh specified zmm to the specified area and returns its offset in that area as a variable,
+sub Nasm::X86::Area::appendZmm($$$)                                             # Append the contents of the specified zmm to the specified area and returns its offset in that area as a variable,
  {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
   @_ == 2 or confess "Two parameters";
 
