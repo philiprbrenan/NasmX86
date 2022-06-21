@@ -650,7 +650,7 @@ sub InsertOneIntoRegisterAtPoint($$)                                            
    }
  }
 
-sub InsertOneIntoRegisterAtPoint999($$)                                            # Insert a one into the specified register at the point indicated by another register.
+sub InsertOneIntoRegisterAtPoint999($$)                                         # Insert a one into the specified register at the point indicated by another register.
  {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
   InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
   if (&CheckIfMaskRegisterNumber($point))                                       # Mask register showing point
@@ -909,25 +909,25 @@ sub qFromX($$)                                                                  
 sub bFromZ($$%)                                                                 # Get the byte from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
 #  my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('z', 'b', $zmm, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  getBwdqFromMm('z', 'b', $zmm, $offset, %options)                              # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub wFromZ($$%)                                                                 # Get the word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes,options
 #  my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('z', 'w', $zmm, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  getBwdqFromMm('z', 'w', $zmm, $offset, %options)                              # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub dFromZ($$%)                                                                 # Get the double word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
 #  my $z = extractRegisterNumberFromMM $zmm;
-  getBwdqFromMm('z', 'd', $zmm, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  getBwdqFromMm('z', 'd', $zmm, $offset, %options)                              # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 sub qFromZ($$%)                                                                 # Get the quad word from the numbered zmm register and return it in a variable.
  {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes
 #  my $z = registerNameFromNumber $zmm;
-  getBwdqFromMm('z', 'q', $zmm, $offset, %options)                                # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
+  getBwdqFromMm('z', 'q', $zmm, $offset, %options)                              # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 #D2 Mask                                                                        # Operations on mask registers
@@ -1332,7 +1332,7 @@ sub ForIn(&$$$$)                                                                
 
   Sub $limitRegister, $register;                                                # Size of remainder
 #  IfNz
-#  Then                                                                          # Execute remainder
+#  Then                                                                         # Execute remainder
    {&$last;                                                                     # Register shows position of remainder while $limit register shows amount left to process
    }
  }
@@ -2691,7 +2691,7 @@ sub PrintErrRegisterRightInDec($$)                                              
   PopR;
  }
 
-sub PrintErrRegisterRightInDecNL($$)                                                  # Print rax in decimal right justified in a field of the specified width on stderr followed by a new line.
+sub PrintErrRegisterRightInDecNL($$)                                            # Print rax in decimal right justified in a field of the specified width on stderr followed by a new line.
  {my ($register, $width) = @_;                                                  # Register, width
   my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
   PushR rax;
@@ -2700,7 +2700,7 @@ sub PrintErrRegisterRightInDecNL($$)                                            
   PrintErrNL;
  }
 
-sub PrintOutRegisterRightInDec($$)                                                    # Print rax in decimal right justified in a field of the specified width on stdout.
+sub PrintOutRegisterRightInDec($$)                                              # Print rax in decimal right justified in a field of the specified width on stdout.
  {my ($register, $width) = @_;                                                  # Register, width
   my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
   PushR rax;
@@ -2709,7 +2709,7 @@ sub PrintOutRegisterRightInDec($$)                                              
   PopR;
  }
 
-sub PrintOutRegisterRightInDecNL($$)                                                  # Print rax in decimal right justified in a field of the specified width on stdout followed by a new line.
+sub PrintOutRegisterRightInDecNL($$)                                            # Print rax in decimal right justified in a field of the specified width on stdout followed by a new line.
  {my ($register, $width) = @_;                                                  # Register, width
   my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
   PushR rax;
@@ -5879,7 +5879,7 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
  {my (%options)  = @_;                                                          # Tree description options
   my $area       = delete $options{area};                                       # The area containing the tree
-  my $smallTree  = delete $options{smallTree};                                    # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
+  my $smallTree  = delete $options{smallTree};                                  # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
   my $lowTree    = delete $options{lowTree};                                    # This tree is at the lowest level if true. As there are no sub trees hanging from this tree we may optimize put, find, delete to not process information required to describe sub trees.  This action has not been done yet except n the case of low key processing.
   my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
   my $length     = delete $options{length};                                     # Maximum number of keys per node
@@ -6123,7 +6123,7 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
   Vmovdqu64 zmm($zmm), "[rsp-$w]";                                              # Reload from stack
  }
 
-sub Nasm::X86::Tree::decSizeInFirst999($$)                                         #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
+sub Nasm::X86::Tree::decSizeInFirst999($$)                                      #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   my $s = dFromZ $zmm, $tree->sizeOffset;
@@ -6138,7 +6138,7 @@ sub Nasm::X86::Tree::decSizeInFirst999($$)                                      
   $tree->sizeIntoFirst($zmm, $s-1);
  }
 
-sub Nasm::X86::Tree::incSizeInFirst999($$)                                         #P Increment the size field in the first block of a tree when the first block is held in a zmm register.
+sub Nasm::X86::Tree::incSizeInFirst999($$)                                      #P Increment the size field in the first block of a tree when the first block is held in a zmm register.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   my $s = dFromZ $zmm, $tree->sizeOffset;
@@ -6173,7 +6173,7 @@ sub Nasm::X86::Tree::size($)                                                    
 
 sub Nasm::X86::Tree::allocBlock($$$$)                                           #P Allocate a keys/data/node block and place it in the numbered zmm registers.
  {my ($tree, $K, $D, $N) = @_;                                                  # Tree descriptor, numbered zmm for keys, numbered zmm for data, numbered zmm for children
-  @_ == 4 or confess "4 parameters";
+  @_ == 4 or confess "Four parameters";
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -6803,14 +6803,14 @@ sub Nasm::X86::Tree::splitNode($$)                                              
          } rcx, $t->lengthRight + 1;
        };
 
-#      IfGt                                                                      # Not a leaf
+#      IfGt                                                                     # Not a leaf
 #      Then
-#       {(K(nodes => $t->lengthRight) + 1)->for(sub                              # Reparent the children of the right hand side now known not to be a leaf
+#       {(K(nodes => $t->lengthRight) + 1)->for(sub                             # Reparent the children of the right hand side now known not to be a leaf
 #         {my ($index, $start, $next, $end) = @_;
-#          my $n = dFromZ $RN, $index * $t->width;                               # Offset of node
-#          $t->getBlock  ($n, $LK, $LD, $LN);                                    # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
-#          $t->upIntoData($r,      $LD);                                         # Parent for child of right hand side
-#          $t->putBlock  ($n, $LK, $LD, $LN);                                    # Save block into memory now that its parent pointer has been updated
+#          my $n = dFromZ $RN, $index * $t->width;                              # Offset of node
+#          $t->getBlock  ($n, $LK, $LD, $LN);                                   # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
+#          $t->upIntoData($r,      $LD);                                        # Parent for child of right hand side
+#          $t->putBlock  ($n, $LK, $LD, $LN);                                   # Save block into memory now that its parent pointer has been updated
 #         });
 #       };
 
@@ -7136,7 +7136,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
   Block                                                                         # Place low keys if requested and possible
    {my ($end) = @_;                                                             # End of block
-    if ($tree->smallTree)                                                         # only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+    if ($tree->smallTree)                                                       # only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
      {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
       confess "Should be three" unless $co == 3;
 
@@ -7147,7 +7147,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
           $tree->firstFromMemory($F);                                           # Load first block
           my $p = $k * $tree->width + $tree->fcArray;                           # Offset of dword in bytes
           ($dt ? $data->first : $data)->dIntoZ($F, $p);                         # Save dword - either the supplied data or the offset of the sub tree
-          if ($tree->smallTree == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+          if ($tree->smallTree == 1)                                            # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
            {PushR my $control = r15;                                            # Copy of the control dword
             Pextrd $control."d", xmm1, $co;                                     # Get the control dword
             my $b = $k+$tree->fcPresent;                                        # Present bit
@@ -7179,7 +7179,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
           my $p = $key * $tree->width + $tree->fcArray;                         # Offset of dword in bytes
           ($dt ? $data->first : $data)->dIntoZ($F, $p);                         # Save dword - either the supplied data or the offset of the sub tree
 
-          if ($tree->smallTree == 1)                                              # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+          if ($tree->smallTree == 1)                                            # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
            {PushR my $bit = r14, my $control = r15;                             # Copy of the control dword
             Pextrd $control."d", xmm1, $co;                                     # Get the control dword
             my $b = $key+$tree->fcPresent;                                      # Present bit
@@ -7247,7 +7247,7 @@ sub Nasm::X86::Tree::find($$)                                                   
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $F = zmm1, my $K = zmm2, my $D = zmm3, my $N = zmm4, my $zKey = zmm5;     # We are boldly assuming that these registers are not being used independently
+    my $F = zmm1, my $K = zmm2, my $D = zmm3, my $N = zmm4, my $zKey = zmm5;    # We are boldly assuming that these registers are not being used independently
     PushR my $Q = r15, my $loop = r14, my $equals = r13, my $insert = r12;
 
     Block
@@ -7256,7 +7256,7 @@ sub Nasm::X86::Tree::find($$)                                                   
       my $t = $$s{tree};                                                        # Tree to search
       $t->zero;                                                                 # Clear search fields
 
-#      $t->key->copy(my $k = $$p{key});                                          # Copy in key so we know what was searched for
+#      $t->key->copy(my $k = $$p{key});                                         # Copy in key so we know what was searched for
 
       $t->firstFromMemory      ($F);                                            # Load first block
 
@@ -7310,14 +7310,14 @@ $DebugMode = 1;
 
   Block                                                                         # Find low keys if possible
    {my ($end) = @_;                                                             # End of block
-    if ($tree->smallTree)                                                         # only if low key placement is enabled for this tree. Small tres benefit nore than large trees from this optimization.
+    if ($tree->smallTree)                                                       # only if low key placement is enabled for this tree. Small tres benefit nore than large trees from this optimization.
      {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
       confess "Should be three" unless $co == 3;
 
       if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
        {my $k = $key->expr;                                                     # Key is small enough to go in cache
         if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
-         {if ($tree->smallTree == 1)                                              # The low keys are behaving just like normal keys
+         {if ($tree->smallTree == 1)                                            # The low keys are behaving just like normal keys
            {my $F = zmm1;                                                       # Place first block in this zmm
             $tree->firstFromMemory($F);                                         # Load first block
             my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
@@ -7358,7 +7358,7 @@ $DebugMode = 1;
       else                                                                      # The key is a variable, we check if it should go in the first cache
        {ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
         Then                                                                    # Less than the upper limit
-         {if ($tree->smallTree == 1)                                              # The low keys are behaving just like normal keys
+         {if ($tree->smallTree == 1)                                            # The low keys are behaving just like normal keys
            {my $F = zmm1;                                                       # Place first block in this zmm
             $tree->firstFromMemory($F);                                         # Load first block
             my $o = $key * $tree->width + $tree->fcArray;                       # Offset if dword containing data
@@ -7459,7 +7459,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
 sub Nasm::X86::Tree::findLast($)                                                # Find the last key in a tree - crucial for stack like operations.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  confess "Not allowed with smallTree == 2"                                       # Only basic low keys allowed if low keys being used
+  confess "Not allowed with smallTree == 2"                                     # Only basic low keys allowed if low keys being used
     if $tree->smallTree && $tree->smallTree != 1;
 
   my $s = Subroutine
@@ -7476,7 +7476,7 @@ sub Nasm::X86::Tree::findLast($)                                                
       my $size = $t->sizeFromFirst($F);                                         # Number of entries in tree
       If $size > 0,                                                             # Non empty tree
       Then
-       {if ($tree->smallTree)                                                     # Low keys in play so the root node might not be present if all the data is now in the first block
+       {if ($tree->smallTree)                                                   # Low keys in play so the root node might not be present if all the data is now in the first block
          {PushR my $z = r13, my $bit = r14, my $present = r15;                  # The current size fo the tree, the index of the present bit for the highest remaining key, the present bits
           my $i = V key => 0;                                                   # Assume we are not in the first block
           wFromZ $F, $t->fcPresentOff, set=>$present;                           # Present bits
@@ -7683,7 +7683,7 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
   @_ == 2 or confess "Two parameters";
 
   my $t = $tree->describeTree;                                                  # The sub tree we are attempting to load
-     $t->copyDescriptor($tree);                                             # Position on the tree
+     $t->copyDescriptor($tree);                                                 # Position on the tree
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -7809,7 +7809,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
   $d
  } # depth
 
-##D2 Sub trees                                                                   # Construct trees of trees - all private.
+##D2 Sub trees                                                                  # Construct trees of trees - all private.
 
 sub Nasm::X86::Tree::isTree($$$)                                                #P Set the Zero Flag to oppose the tree bit in the numbered zmm register holding the keys of a node to indicate whether the data element indicated by the specified register is an offset to a sub tree in the containing area or not.
 {my ($t, $zmm, $point) = @_;                                                    # Tree descriptor, numbered zmm register holding the keys for a node in the tree, register showing point to test
@@ -8647,14 +8647,14 @@ sub Nasm::X86::Tree::delete($$)                                                 
 
   Block                    ## Need to detect sub tree or not                    # Delete low keys if possible
    {my ($end) = @_;                                                             # End of block
-    if ($tree->smallTree)                                                         # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+    if ($tree->smallTree)                                                       # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
      {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
       confess "Should be three" unless $co == 3;
 
       if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
        {my $k = $key->expr;                                                     # Key is small enough to go in cache
         if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
-         {if ($tree->smallTree == 1)                                              # The low keys are behaving just like normal keys
+         {if ($tree->smallTree == 1)                                            # The low keys are behaving just like normal keys
            {my $F = zmm1;                                                       # Place first block in this zmm
             $tree->firstFromMemory($F);                                         # Load first block
             my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
@@ -8694,7 +8694,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
       else {                                                                    # The key is a variable, we check if it should go in the first cache
         ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
         Then                                                                    # Less than the upper limit
-         {if ($tree->smallTree == 1)                                              # The low keys are behaving just like normal keys
+         {if ($tree->smallTree == 1)                                            # The low keys are behaving just like normal keys
            {my $F = zmm1;                                                       # Place first block in this zmm
             $tree->firstFromMemory($F);                                         # Load first block
             my $o = $key * $tree->width + $tree->fcArray;                       # Offset if dword containing data
@@ -8737,7 +8737,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
     #$s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
     $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
 
-    if ($tree->smallTree and $tree->smallTree == 1)                                 # Clear tree if it becomes empty as a result of deleting the last low key
+    if ($tree->smallTree and $tree->smallTree == 1)                             # Clear tree if it becomes empty as a result of deleting the last low key
      {If $tree->size == 0,
       Then
        {$tree->clear();
@@ -9885,7 +9885,7 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
   my $openClose   = $tables->openClose;                                         # Open to close bracket matching
   my $transitions = $tables->transitions;                                       # Create and load the table of lexical transitions.
 
-  my $brackets    = $area->CreateTree; #(smallTree => 1);                         # Bracket stack
+  my $brackets    = $area->CreateTree; #(smallTree => 1);                       # Bracket stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
   my $symbols     = $area->CreateTree;                                          # String tree of symbols encountered during the parse
 
@@ -10762,7 +10762,7 @@ END
 
   Start;                                                                        # Clear work areas for next assembly
 
-  if ($run and defined(my $e = $eq))                                             # Diff results against expected
+  if ($run and defined(my $e = $eq))                                            # Diff results against expected
    {my $g = readFile($debug ? $o2 : $o1);
        $e =~ s(\s+#.*?\n) (\n)gs;                                               # Remove comments so we can annotate listings
     s(Subroutine trace back.*) ()s for $e, $g;                                  # Remove any trace back because the location of the subroutine in memory will vary
@@ -17230,7 +17230,7 @@ END
  }
 
 #latest:
-if (0) {           ## Fails for some weird reason                                                             #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+if (0) {           ## Fails for some weird reason                               #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
@@ -17599,10 +17599,10 @@ END
  }
 
 # Early version of library - the later version fixed the problem of not including code used to build the library in the library by defining a specific scope for the code to be placed in the library - namely the scope of the containing subroutine.
-##D1 Library                                                                     # Create a library and call the methods contained in it.
+##D1 Library                                                                    # Create a library and call the methods contained in it.
 #
-#sub CreateLibrary(%)                                                            # Create a library.
-# {my (%library) = @_;                                                           # Library definition
+#sub CreateLibrary(%)                                                           # Create a library.
+# {my (%library) = @_;                                                          # Library definition
 #
 #  $library{subroutines} or confess "Subroutines required";
 #  $library{file}        or confess "Subroutines file name required";
@@ -17611,33 +17611,33 @@ END
 #
 #  Mov rax, scalar @s;
 #  Ret;
-#  my @l = map {my $l = Label; Mov rax, $l; $l} @s;                              # Vector of subroutine addresses
+#  my @l = map {my $l = Label; Mov rax, $l; $l} @s;                             # Vector of subroutine addresses
 #
-#  my @c = map {&$_} @s;                                                         # Call the subroutines provided to write their code into the program and return the details of the subroutine so written
+#  my @c = map {&$_} @s;                                                        # Call the subroutines provided to write their code into the program and return the details of the subroutine so written
 #
-#  for my $c(keys @c)                                                            # Write the entry point of each routine
+#  for my $c(keys @c)                                                           # Write the entry point of each routine
 #   {my $e = $c[$c]->start;
 #    push @text, <<END;
 #$l[$c] equ $e
 #END
 #   }
 #
-#  unlink my $f = $library{file};                                                # The name of the file containing the library
+#  unlink my $f = $library{file};                                               # The name of the file containing the library
 #
-#  Assemble library => $f;                                                       # Create the library file
+#  Assemble library => $f;                                                      # Create the library file
 #
-#  $library{address} = undef;                                                    # Address of the library once it has been loaded
-#  $library{size}    = undef;                                                    # Size of the library in bytes
-#  $library{meta}    = \@c;                                                      # Array describing each subroutine in the order they are held in the library
-#  $library{name}{$c[$_]{name}} = $c[$_] for keys @c;                            # Subroutine description by name
+#  $library{address} = undef;                                                   # Address of the library once it has been loaded
+#  $library{size}    = undef;                                                   # Size of the library in bytes
+#  $library{meta}    = \@c;                                                     # Array describing each subroutine in the order they are held in the library
+#  $library{name}{$c[$_]{name}} = $c[$_] for keys @c;                           # Subroutine description by name
 #
 #  genHash "Nasm::X86::Library", %library
 # }
 #
-#sub Nasm::X86::Library::load($)                                                 # Load a library and return the addresses of its subroutines as variables.
-# {my ($library) = @_;                                                           # Description of library to load
+#sub Nasm::X86::Library::load($)                                                # Load a library and return the addresses of its subroutines as variables.
+# {my ($library) = @_;                                                          # Description of library to load
 #
-#  my @offsets = sub                                                             # Examine library at run time
+#  my @offsets = sub                                                            # Examine library at run time
 #   {my $c = readBinaryFile $$library{file};
 #    my (undef, $n) = unpack "SQ", $c;
 #    my @v = unpack "SQC(SQ)[$n]", $c;
@@ -17645,20 +17645,20 @@ END
 #   }->();
 #
 #  my @s = $$library{meta}->@*;
-#  $s[$_]{offset} = V(entry=>$offsets[$_]) for keys @s;                          # Variable offset of each subroutine
+#  $s[$_]{offset} = V(entry=>$offsets[$_]) for keys @s;                         # Variable offset of each subroutine
 #
-#  ($library->address, $library->size) = ReadFile $$library{file};               # Load library at run time
+#  ($library->address, $library->size) = ReadFile $$library{file};              # Load library at run time
 # }
 #
-#sub Nasm::X86::Library::call($$%)                                               # Call a library routine
-# {my ($library, $name, %options) = @_;                                          # Description of library, method name, options - which includes parameters and structures
+#sub Nasm::X86::Library::call($$%)                                              # Call a library routine
+# {my ($library, $name, %options) = @_;                                         # Description of library, method name, options - which includes parameters and structures
 #  @_ >= 2 or confess "Two or more parameters";
 #
 #  $library->name->{$name}->call(library => $library->address, %options);
 # }
 #
 ##latest:
-#if (1) {                                                                        #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
+#if (1) {                                                                       #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
 #  my $l = CreateLibrary
 #   (subroutines =>
 #     [sub
@@ -19186,7 +19186,7 @@ if (1) {                                                                        
   my $N = 33;
 
   K(key => $N)->for(sub
-   {my ($i) = @_;                                                              # Parameters
+   {my ($i) = @_;                                                               # Parameters
     $t->put($i, $i);
    });
 
@@ -19547,7 +19547,7 @@ sub Nasm::X86::Tree::uniqueKeyString($$$)                                       
    {$c->getReg($count);
     Inc $count;
     $tree->area->address->setReg($area);                                        # The area might have moved due to the new allocation
-    Mov "[$area+$first+$o]", dWordRegister($count);                               # Update string count after successful insert
+    Mov "[$area+$first+$o]", dWordRegister($count);                             # Update string count after successful insert
    },
    Else
     {$c->copy($tree->data);
