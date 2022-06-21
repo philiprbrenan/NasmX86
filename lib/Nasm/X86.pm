@@ -10929,7 +10929,7 @@ __DATA__
 use Time::HiRes qw(time);
 use Test::Most;
 
-my %block = map {$_=>1} (@ARGV ? @ARGV : 1..9);                                 # Blocks of tests to execute
+my %block = map {$_=>1} (@ARGV ? @ARGV : 1..99);                                # Blocks of tests to execute
 #say STDERR "Tests: ", dump(\%block);
 unlink my $resultFile = "zzzStatus.txt";                                        # File holding consolidated results of tests
 
@@ -17860,6 +17860,8 @@ END
   unlink $f;
  }
 
+block7: goto block8 unless $block{7};
+
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
 
 sub ParseUnisyn($$$)                                                            #P Test the parse of a unisyn expression.
@@ -17882,6 +17884,8 @@ sub ParseUnisyn($$$)                                                            
   unlink $f;
  };
 
+block71: goto block72 unless $block{71};
+
 #latest:;
 ParseUnisyn '',                                        "\n",                    qq(\n\n);
 ParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
@@ -17893,6 +17897,8 @@ ParseUnisyn 'b( B)',                                   "【】\n",              
 ParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】\n",                qq(【\n._⟦\n);
 ParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",              qq(【\n._⟦\n._._⟨\n);
 
+block72: goto block73 unless $block{72};
+
 ParseUnisyn 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
 ParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
 ParseUnisyn 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",             qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
@@ -17902,6 +17908,9 @@ ParseUnisyn 'va s vb',                                 "𝗔⟢𝗕\n",         
 ParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
 ParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
 ParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖\n",               qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
+
+block73: goto block74 unless $block{73};
+
 ParseUnisyn 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
 ParseUnisyn 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
 ParseUnisyn 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
@@ -17910,6 +17919,9 @@ ParseUnisyn 'va a= b1 vb e+ vc B1 e* vd dif ve',       "𝗔＝⌊𝗕＋𝗖⌋
 ParseUnisyn 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
 ParseUnisyn 'p11 va',                                  "𝑳𝗔\n",                  qq(𝑳\n._𝗔\n);
 ParseUnisyn 'va q11',                                  "𝗔𝙇\n",                  qq(𝙇\n._𝗔\n);
+
+block74: goto block8 unless $block{74};
+
 ParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
 ParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
 ParseUnisyn 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
@@ -17986,7 +17998,7 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    };
  }
 
-block7: goto blockX unless $block{7};
+block8: goto block9 unless $block{8};
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TconstantString
@@ -19000,6 +19012,7 @@ END
   unlink $f;
  };
 
+block9: goto blockX unless $block{9};
 
 #latest:
 if (1) {                                                                        # First cache constants
