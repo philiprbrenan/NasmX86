@@ -1623,7 +1623,7 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
 
   my $y = $a->yggdrasil;
   my ($N, $L) = constantString($s->name);                                       # The name of the subroutine
-  my $n = $y->putKeyString(&Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);   # Make the name of the subroutine into a unique number
+  my $n = $y->putStringUnderKey(&Nasm::X86::Yggdrasil::UniqueStrings, $N, $L);  # Make the name of the subroutine into a unique number
   my $o = $a->appendMemory($address, $size);                                    # Copy a subroutine into an area
   $y->put2(                &Nasm::X86::Yggdrasil::SubroutineOffsets, $n, $off); # Record the offset of the subroutine under the unique string number
 
@@ -18546,7 +18546,7 @@ sub Nasm::X86::Tree::get2($$$)                                                  
   $tree
  }
 
-sub Nasm::X86::Tree::putKeyString($$$$)                                         # Especially useful for Yggdrasil: puts a key into a tree if it is not already there then puts a string into the sub string tree and return the unique number for the string.
+sub Nasm::X86::Tree::putStringUnderKey($$$$)                                    # Especially useful for Yggdrasil: puts a key into a tree if it is not already there then puts a string into the sub string tree and return the unique number for the string.
  {my ($tree, $key, $address, $size) = @_;                                       # Tree, key, variable address of string in memory, variable size of string
   @_ == 4 or confess "Four parameters";
 
@@ -18561,7 +18561,7 @@ sub Nasm::X86::Tree::putKeyString($$$$)                                         
   $t->putStringFromMemory($address, $size);                                     # Return the unique number that of this string in the located sub tree
  }
 
-sub Nasm::X86::Tree::getKeyString($$$$)                                         # Especially useful for Yggdrasil: locates a string tree by key then locates a string in that string tree if both the key and the string exist.  Th result of the search is indicated in the found and data fields of the returned tree descriptor.
+sub Nasm::X86::Tree::getStringUnderKey($$$$)                                    # Especially useful for Yggdrasil: locates a string tree by key then locates a string in that string tree if both the key and the string exist.  Th result of the search is indicated in the found and data fields of the returned tree descriptor.
  {my ($tree, $key, $address, $size) = @_;                                       # Tree, key, variable address of string in memory, variable size of string
   @_ == 4 or confess "Four parameters";
 
@@ -18628,7 +18628,7 @@ if (1) {                                                                        
 
     my $y = $a->yggdrasil;
     my ($N, $L) = constantString($sub);
-    my $n = $y->putKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $n = $y->putStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings, $N, $L); # Make the string into a unique number
     $y->put2(                Nasm::X86::Yggdrasil::SubroutineOffsets, $n, $off);# Record the offset of the subroutine under the unique string number
 
     $a->write(V file => Rs $f);                                                 # Save the area
@@ -18640,7 +18640,7 @@ if (1) {                                                                        
 
     my $y = $a->yggdrasil;
     my ($N, $L) = constantString($sub);
-    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     my $address = $a->address + $o->data;
@@ -18662,7 +18662,7 @@ END
 
     my $y = $a->yggdrasil;
     my ($N, $L) = constantString($sub);
-    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
@@ -18679,7 +18679,7 @@ END
 
     my $y = $a->yggdrasil;
     my ($N, $L) = constantString($sub);
-    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
@@ -18720,7 +18720,7 @@ if (1) {                                                                        
 
     my $y = $a->yggdrasil;
     my ($N, $L) = constantString(q(b));
-    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $t->call(parameters=>{a        => K key => 0x9999},                         # Call position independent code
@@ -18738,7 +18738,7 @@ END
 
     my $y = $a->yggdrasil;
     my ($N, $L) = constantString(q(b));
-    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
@@ -18755,7 +18755,7 @@ END
 
     my $y = $a->yggdrasil;
     my ($N, $L) = constantString(q(a));
-    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
@@ -18772,7 +18772,7 @@ END
 
     my $y = $a->yggdrasil;
     my ($N, $L) = constantString(q(b));
-    my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
+    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
     my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
 
     $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
@@ -18800,7 +18800,7 @@ sub Nasm::X86::Area::sub($$$)                                                   
   @_ == 3 or confess "Three parameters";
 
   my $y = $area->yggdrasil;
-  my $n = $y->getKeyString(Nasm::X86::Yggdrasil::UniqueStrings, $string, $size);# Make the string into a unique number
+  my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings, $string, $size);# Make the string into a unique number
   my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);  # Get the offset of the subroutine under the unique string number
 
   $area->address + $o->data                                                     # Actual address - valid until the area moves.
@@ -19412,7 +19412,7 @@ sub Nasm::X86::Area::appendZmm($$$)                                             
   $k                                                                            # Return offset in area
  }
 
-sub Nasm::X86::Tree::findLongString($$$)                                        # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
+sub Nasm::X86::Tree::getKeyString($$$)                                        # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
  {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key
   @_ == 3 or confess "Three parameters";
 
@@ -19452,13 +19452,13 @@ sub Nasm::X86::Tree::findLongString($$$)                                        
     PopR;
    } structures => {tree => $tree},
      parameters => [qw(address size)],
-     name       =>  qq(Nasm::X86::Tree::findLongString);
+     name       =>  qq(Nasm::X86::Tree::getKeyString);
 
   $s->call(parameters => {address => $address, size=>$size},
            structures => {tree    => $tree});
  }
 
-sub Nasm::X86::Tree::putLongString($$$$)                                        # Create a tree keyed by strings represented by  zmm blocks
+sub Nasm::X86::Tree::putKeyString($$$$)                                        # Create a tree keyed by strings represented by  zmm blocks
  {my ($tree, $address, $size, $data) = @_;                                      # Tree descriptor, address of key, length of key, data associated with key
   @_ == 4 or confess "Four parameters";
 
@@ -19503,7 +19503,7 @@ sub Nasm::X86::Tree::putLongString($$$$)                                        
     PopR;
    } structures => {tree => $tree},
      parameters => [qw(address size data)],
-     name       =>  qq(Nasm::X86::Tree::putLongString);
+     name       =>  qq(Nasm::X86::Tree::putKeyString);
 
   $s->call(parameters => {address => $address, size=>$size, data=>$data},
            structures => {tree    => $tree});
@@ -19513,11 +19513,11 @@ sub Nasm::X86::Tree::putLongString($$$$)                                        
 if (1) {                                                                        # Binary search on populated array
   my $a = CreateArea;
   my $t = $a->CreateTree(stringTree=>1);
-  $t->putLongString(constantString("d"),        K(data => 1));
+  $t->putKeyString(constantString("d"),        K(data => 1));
   $a->dump("AA", K(depth => 6));
   $t->dump("TT");
 
-  $t->findLongString(constantString("d"));  $t->found->outNL; $t->data->outNL;
+  $t->getKeyString(constantString("d"));  $t->found->outNL; $t->data->outNL;
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
 AA
@@ -19543,13 +19543,13 @@ END
 if (1) {                                                                        # Binary search on populated array
   my $a = CreateArea;
   my $t = $a->CreateTree(stringTree=>1);
-  $t->putLongString(constantString("d2"), K(data => 2));
-  $t->putLongString(constantString("d1"), K(data => 1));
+  $t->putKeyString(constantString("d2"), K(data => 2));
+  $t->putKeyString(constantString("d1"), K(data => 1));
   $a->dump("AA", K(depth => 7));
   $t->dump("TT");
 
-  $t->findLongString(constantString("d1")); $t->found->outNL; $t->data->outNL;
-  $t->findLongString(constantString("d2")); $t->found->outNL; $t->data->outNL;
+  $t->getKeyString(constantString("d1")); $t->found->outNL; $t->data->outNL;
+  $t->getKeyString(constantString("d2")); $t->found->outNL; $t->data->outNL;
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
 AA
@@ -19578,13 +19578,13 @@ END
 if (1) {                                                                        # Binary search on populated array
   my $a = CreateArea;
   my $t = $a->CreateTree(stringTree=>1);
-  $t->putLongString(constantString("d"),        K(data => 1));
-  $t->putLongString(constantString("dd"),       K(data => 2));
+  $t->putKeyString(constantString("d"),        K(data => 1));
+  $t->putKeyString(constantString("dd"),       K(data => 2));
   $a->dump("AA", K(depth => 7));
   $t->dump("TT");
 
-  $t->findLongString(constantString("d"));  $t->found->outNL; $t->data->outNL;
-  $t->findLongString(constantString("dd")); $t->found->outNL; $t->data->outNL;
+  $t->getKeyString(constantString("d"));  $t->found->outNL; $t->data->outNL;
+  $t->getKeyString(constantString("dd")); $t->found->outNL; $t->data->outNL;
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
 AA
@@ -19613,29 +19613,29 @@ END
 if (1) {                                                                        # Binary search on populated array
   my $a = CreateArea;
   my $t = $a->CreateTree(stringTree=>1);
-  $t->putLongString(constantString("dddd444"),  K(data => 8));
-  $t->putLongString(constantString("dddd4444"), K(data => 9));
-  $t->putLongString(constantString("eeee5555"), K(data =>10));
-  $t->putLongString(constantString("bbbb2222"), K(data => 2));
-  $t->putLongString(constantString("cccc3333"), K(data => 7));
-  $t->putLongString(constantString("aaaa1111"), K(data => 1));
-  $t->putLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44443"),  K data => 6);
-  $t->putLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44442"),  K data => 5);
-  $t->putLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44441"),  K data => 4);
-  $t->putLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44440"),  K data => 3);
+  $t->putKeyString(constantString("dddd444"),  K(data => 8));
+  $t->putKeyString(constantString("dddd4444"), K(data => 9));
+  $t->putKeyString(constantString("eeee5555"), K(data =>10));
+  $t->putKeyString(constantString("bbbb2222"), K(data => 2));
+  $t->putKeyString(constantString("cccc3333"), K(data => 7));
+  $t->putKeyString(constantString("aaaa1111"), K(data => 1));
+  $t->putKeyString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44443"),  K data => 6);
+  $t->putKeyString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44442"),  K data => 5);
+  $t->putKeyString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44441"),  K data => 4);
+  $t->putKeyString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44440"),  K data => 3);
   $a->dump("AA", K(depth => 20));
   $t->dump("TT");
 
-  $t->findLongString(constantString("aaaa1111"));                                                          $t->data->outNL;
-  $t->findLongString(constantString("bbbb2222"));                                                          $t->data->outNL;
-  $t->findLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44440")); $t->data->outNL;
-  $t->findLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44441")); $t->data->outNL;
-  $t->findLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44442")); $t->data->outNL;
-  $t->findLongString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44443")); $t->data->outNL;
-  $t->findLongString(constantString("cccc3333"));                                                          $t->data->outNL;
-  $t->findLongString(constantString("dddd444"));                                                           $t->data->outNL;
-  $t->findLongString(constantString("dddd4444"));                                                          $t->data->outNL;
-  $t->findLongString(constantString("eeee5555"));                                                          $t->data->outNL;
+  $t->getKeyString(constantString("aaaa1111"));                                                          $t->data->outNL;
+  $t->getKeyString(constantString("bbbb2222"));                                                          $t->data->outNL;
+  $t->getKeyString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44440")); $t->data->outNL;
+  $t->getKeyString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44441")); $t->data->outNL;
+  $t->getKeyString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44442")); $t->data->outNL;
+  $t->getKeyString(constantString("cccc1111cccc2222cccc3333cccc4444cccc1111cccc2222cccc3333cccc44443")); $t->data->outNL;
+  $t->getKeyString(constantString("cccc3333"));                                                          $t->data->outNL;
+  $t->getKeyString(constantString("dddd444"));                                                           $t->data->outNL;
+  $t->getKeyString(constantString("dddd4444"));                                                          $t->data->outNL;
+  $t->getKeyString(constantString("eeee5555"));                                                          $t->data->outNL;
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
 AA
