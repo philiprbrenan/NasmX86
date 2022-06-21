@@ -19010,7 +19010,7 @@ END
   unlink $f;
  };
 
-test12: goto blockX unless $test{12};
+test12: goto testX unless $test{12};
 
 #latest:
 if (1) {                                                                        # First cache constants
