@@ -1,4 +1,4 @@
-# Test NasmX86 2022-06-21 at 19:04:15
+# Test NasmX86 2022-06-21 at 19:13:43
 
 name: Test
 
@@ -6,7 +6,7 @@ on:
   push
 
 jobs:
-  test1:
+  test01:
     runs-on: ubuntu-latest
 
     steps:
@@ -60,7 +60,7 @@ jobs:
       run: |
         cat zzzStatus.txt
 
-  test2:
+  test02:
     runs-on: ubuntu-latest
 
     steps:
@@ -114,7 +114,7 @@ jobs:
       run: |
         cat zzzStatus.txt
 
-  test3:
+  test03:
     runs-on: ubuntu-latest
 
     steps:
@@ -168,7 +168,7 @@ jobs:
       run: |
         cat zzzStatus.txt
 
-  test4:
+  test04:
     runs-on: ubuntu-latest
 
     steps:
@@ -222,7 +222,7 @@ jobs:
       run: |
         cat zzzStatus.txt
 
-  test5:
+  test05:
     runs-on: ubuntu-latest
 
     steps:
@@ -276,7 +276,7 @@ jobs:
       run: |
         cat zzzStatus.txt
 
-  test6:
+  test06:
     runs-on: ubuntu-latest
 
     steps:
@@ -330,7 +330,7 @@ jobs:
       run: |
         cat zzzStatus.txt
 
-  test7:
+  test07:
     runs-on: ubuntu-latest
 
     steps:
@@ -384,7 +384,7 @@ jobs:
       run: |
         cat zzzStatus.txt
 
-  test8:
+  test08:
     runs-on: ubuntu-latest
 
     steps:
@@ -438,7 +438,7 @@ jobs:
       run: |
         cat zzzStatus.txt
 
-  test9:
+  test09:
     runs-on: ubuntu-latest
 
     steps:
