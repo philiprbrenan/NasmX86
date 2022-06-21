@@ -17860,7 +17860,7 @@ END
   unlink $f;
  }
 
-block7: goto block8 unless $block{7};
+block7: goto block71 unless $block{7};
 
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
 
