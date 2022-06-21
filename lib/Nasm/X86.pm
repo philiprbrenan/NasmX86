@@ -10929,7 +10929,7 @@ __DATA__
 use Time::HiRes qw(time);
 use Test::Most;
 
-my %block = map {$_=>1} (@ARGV ? @ARGV : 1..99);                                # Blocks of tests to execute
+my %test = map {$_=>1} (@ARGV ? @ARGV : 1..99);                                 # Blocks of tests to execute
 #say STDERR "Tests: ", dump(\%block);
 unlink my $resultFile = "zzzStatus.txt";                                        # File holding consolidated results of tests
 
@@ -10954,7 +10954,7 @@ my $start = time;                                                               
 
 eval {goto latest} unless onGitHub;                                             # Latest test if visible and testing locally
 
-goto block2 unless $block{1};
+goto test2 unless $test{1};
 
 #latest:
 if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
@@ -13768,7 +13768,7 @@ struct: 34
 END
  }
 
-block2: goto block3 unless $block{2};
+test2: goto test3 unless $test{2};
 
 #latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
@@ -15087,7 +15087,7 @@ Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   F
 END
  }
 
-block3: goto block4 unless $block{3};
+test3: goto test4 unless $test{3};
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::printInOrder
@@ -16022,7 +16022,7 @@ end
 END
  }
 
-block4: goto block5 unless $block{4};
+test4: goto test5 unless $test{4};
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::delete
@@ -16983,7 +16983,7 @@ END
  }
 
 
-block5: goto block6 unless $block{5};
+test5: goto test6 unless $test{5};
 
 
 #latest:
@@ -17678,7 +17678,7 @@ point: .... .... .... ...2
 END
  }
 
-block6: goto block7 unless $block{6};
+test6: goto test7 unless $test{6};
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitions
@@ -17882,7 +17882,7 @@ sub ParseUnisyn($$$)                                                            
   unlink $f;
  };
 
-block7: goto block8 unless $block{7};
+test7: goto test8 unless $test{7};
 
 #latest:;
 ParseUnisyn '',                                        "\n",                    qq(\n\n);
@@ -17895,7 +17895,7 @@ ParseUnisyn 'b( B)',                                   "【】\n",              
 ParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】\n",                qq(【\n._⟦\n);
 ParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",              qq(【\n._⟦\n._._⟨\n);
 
-block8: goto block9 unless $block{8};
+test8: goto test9 unless $test{8};
 
 ParseUnisyn 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
 ParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
@@ -17907,7 +17907,7 @@ ParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕\n",      
 ParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
 ParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖\n",               qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
 
-block9: goto block10 unless $block{9};
+test9: goto test10 unless $test{9};
 
 ParseUnisyn 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
 ParseUnisyn 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
@@ -17918,7 +17918,7 @@ ParseUnisyn 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈
 ParseUnisyn 'p11 va',                                  "𝑳𝗔\n",                  qq(𝑳\n._𝗔\n);
 ParseUnisyn 'va q11',                                  "𝗔𝙇\n",                  qq(𝙇\n._𝗔\n);
 
-block10: goto block11 unless $block{10};
+test10: goto test11 unless $test{10};
 
 ParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
 ParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
@@ -17996,7 +17996,7 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    };
  }
 
-block11: goto block12 unless $block{11};
+test11: goto test12 unless $test{11};
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::treeFromString #TconstantString
@@ -18398,7 +18398,7 @@ END
 #     Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
 #  2,623,415         177,952       2,623,415         177,952      0.429488          0.16
 #  2,611,013         177,952       2,611,013         177,952      0.398965          0.16  Improved allocZmmBlock
-#  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmBlock3
+#  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmtest3
 #  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
 #  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
 #  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
@@ -19010,7 +19010,7 @@ END
   unlink $f;
  };
 
-block12: goto blockX unless $block{12};
+test12: goto blockX unless $test{12};
 
 #latest:
 if (1) {                                                                        # First cache constants
@@ -19753,20 +19753,22 @@ if (0) {                                                                        
 END
  }
 
-blockX:                                                                         # End of blocks of tests
+testX:                                                                          # End of blocks of tests
 
 done_testing;
 
 #unlink $_ for qw(sde-footprint.txt sde-log.txt);
 
 if (1)                                                                          # Summary of processing
- {my $t = <<END,
-#    Block        Fails     Passes    Assemblies            Time           Bytes          Clocks
+ {my $s = $testsThatFailed == 0 ? 'SUCCESS' : sprintf("FAIL:%3d", $testsThatFailed);
+
+   my $t = <<END,
+#    Tests        Fails     Passes    Assemblies            Time           Bytes          Clocks
 END
   my $r = sprintf(<<END,
 # %8s        %5d     %6d    %10d        %8.2f    %12s    %12s
 END
-  join('', sort keys %block),
+  $s,
   $testsThatFailed,
   $testsThatPassed,
   $assembliesPerformed,
