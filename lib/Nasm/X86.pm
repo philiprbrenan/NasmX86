@@ -5883,9 +5883,11 @@ sub DescribeTree(%)                                                             
   my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
   my $length     = delete $options{length};                                     # Maximum number of keys per node
   my $name       = delete $options{name};                                       # Optional name for debugging purposes
-  my $stringTree = delete $options{stringTree};                                 # Tree of strings
+  my $stringTree = delete $options{stringTree};                                 # Tree of strings - becoming obsolete with the implementation of string Keys
      $length     = 13;                                                          # Maximum number of keys per node
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
+  confess "Choose one of stringKeys and smalTree but not both"
+    if $smallTree and $stringKeys;
 
   my $b = RegisterSize 31;                                                      # Size of a block == size of a zmm register
   my $o = RegisterSize eax;                                                     # Size of a double word
@@ -5901,51 +5903,52 @@ sub DescribeTree(%)                                                             
   my $l2 = int($length/2);                                                      # Minimum number of keys in a node
 
   genHash(__PACKAGE__."::Tree",                                                 # Tree
-    area        => ($area // DescribeArea),                                     # Area definition.
-    length       => $length,                                                    # Number of keys in a maximal block
-    lengthLeft   => $l2,                                                        # Left minimal number of keys
-    lengthMiddle => $l2 + 1,                                                    # Number of splitting key counting from 1
-    lengthMin    => $length - 1 - $l2,                                          # The smallest number of keys we are allowed in any node other than a root node.
-    lengthOffset => $keyAreaWidth,                                              # Offset of length in keys block.  The length field is a word - see: "MultiWayTree.svg"
-    lengthRight  => $length - 1 - $l2,                                          # Right minimal number of keys
-    loop         => $b - $o,                                                    # Offset of keys, data, node loop.
-    maxKeys      => $length,                                                    # Maximum number of keys allowed in this tree which might well ne less than the maximum we can store in a zmm.
-    offset       => V(offset  => 0),                                            # Offset of last node found
-    splittingKey => ($l2 + 1) * $o,                                             # Offset at which to split a full block
-    treeBits     => $keyAreaWidth + 2,                                          # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
-    treeBitsMask => 0x3fff,                                                     # Total of 14 tree bits
-    keyDataMask  => 0x3fff,                                                     # Key data mask
-    name         => $name,                                                      # Optional name
-    nodeMask     => 0x7fff,                                                     # Node mask
-    up           => $keyAreaWidth,                                              # Offset of up in data block.
-    width        => $o,                                                         # Width of a key or data slot.
-    zWidth       => $b,                                                         # Width of a zmm register
-    zWidthD      => $b / $o,                                                    # Width of a zmm in double words being the element size
-    maxKeysZ     => $b / $o - 2,                                                # The maximum possible number of keys in a zmm register
-    maxNodesZ    => $b / $o - 1,                                                # The maximum possible number of nodes in a zmm register
-    smallTree    => $smallTree // 0,                                              # Low keys should be placed in first block where possible
-    lowTree      => $lowTree // 0,                                              # No sub trees depend on this tree
-    stringTree   => $stringTree // 0,                                           # String tree
+    area                 => ($area // DescribeArea),                            # Area definition.
+    length               => $length,                                            # Number of keys in a maximal block
+    lengthLeft           => $l2,                                                # Left minimal number of keys
+    lengthMiddle         => $l2 + 1,                                            # Number of splitting key counting from 1
+    lengthMin            => $length - 1 - $l2,                                  # The smallest number of keys we are allowed in any node other than a root node.
+    lengthOffset         => $keyAreaWidth,                                      # Offset of length in keys block.  The length field is a word - see: "MultiWayTree.svg"
+    lengthRight          => $length - 1 - $l2,                                  # Right minimal number of keys
+    loop                 => $b - $o,                                            # Offset of keys, data, node loop.
+    maxKeys              => $length,                                            # Maximum number of keys allowed in this tree which might well ne less than the maximum we can store in a zmm.
+    offset               => V(offset  => 0),                                    # Offset of last node found
+    splittingKey         => ($l2 + 1) * $o,                                     # Offset at which to split a full block
+    treeBits             => $keyAreaWidth + 2,                                  # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
+    treeBitsMask         => 0x3fff,                                             # Total of 14 tree bits
+    keyDataMask          => 0x3fff,                                             # Key data mask
+    name                 => $name,                                              # Optional name
+    nodeMask             => 0x7fff,                                             # Node mask
+    up                   => $keyAreaWidth,                                      # Offset of up in data block.
+    width                => $o,                                                 # Width of a key or data slot.
+    zWidth               => $b,                                                 # Width of a zmm register
+    zWidthD              => $b / $o,                                            # Width of a zmm in double words being the element size
+    maxKeysZ             => $b / $o - 2,                                        # The maximum possible number of keys in a zmm register
+    maxNodesZ            => $b / $o - 1,                                        # The maximum possible number of nodes in a zmm register
+    smallTree            => $smallTree // 0,                                    # Low keys should be placed in first block where possible
+    lowTree              => $lowTree // 0,                                      # No sub trees depend on this tree
+    stringTree           => $stringTree // 0,                                   # String tree
 
-    rootOffset   => $o * 0,                                                     # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
-    upOffset     => $o * 1,                                                     # Offset of the up field  in the first block -  points to any containing tree
-    sizeOffset   => $o * 2,                                                     # Offset of the size field  in the first block - tells us the number of  keys in the tree
-    fcControl    => $o * 3,                                                     # Offset of the tree bits and present bits in the first cache of low key values for this tree.
-    fcPresentOff => $o * 3,                                                     # Byte offset of word  containing present bits
-    fcPresent    => 0,                                                          # Offset of the present bits in the control dword
-    fcTreeBitsOff=> $o * 3 + RegisterSize(ax),                                  # Byte offset of word containing tree bits
-    fcTreeBits   => 16,                                                         # Offset of the tree bits in bits in the control dword
-    fcArray      => $o * 4,                                                     # Offset of cached array in first block
-    fcDWidth     => $b / $o - 4,                                                # Number of dwords available in the first cache.  The first cache supplies an alternate area to store the values of keys less than this value  to fill the otherwise unused space in a way that improves the performance of trees when used to represent small arrays, stacks or structures.
-    middleOffset => $o * ($l2 + 0),                                             # Offset of the middle slot in bytes
-    rightOffset  => $o * ($l2 + 1),                                             # Offset of the first right slot in bytes
+    rootOffset           => $o * 0,                                             # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
+    upOffset             => $o * 1,                                             # Offset of the up field  in the first block -  points to any containing tree
+    sizeOffset           => $o * 2,                                             # Offset of the size field  in the first block - tells us the number of  keys in the tree
+    fcControl            => $o * 3,                                             # Offset of the tree bits and present bits in the first cache of low key values for this tree.
+    fcPresentOff         => $o * 3,                                             # Byte offset of word  containing present bits
+    fcPresent            => 0,                                                  # Offset of the present bits in the control dword
+    fcTreeBitsOff        => $o * 3 + RegisterSize(ax),                          # Byte offset of word containing tree bits
+    fcTreeBits           => 16,                                                 # Offset of the tree bits in bits in the control dword
+    fcArray              => $o * 4,                                             # Offset of cached array in first block
+    fcDWidth             => $b / $o - 4,                                        # Number of dwords available in the first cache.  The first cache supplies an alternate area to store the values of keys less than this value  to fill the otherwise unused space in a way that improves the performance of trees when used to represent small arrays, stacks or structures.
+    middleOffset         => $o * ($l2 + 0),                                     # Offset of the middle slot in bytes
+    rightOffset          => $o * ($l2 + 1),                                     # Offset of the first right slot in bytes
+    stringKeyCountOffset => $o * 4,                                             # This field is used to count the total number of keys in a string tree so that we can assign unique numbers when pushing.  This field reuses an area used by small trees - so string trees are nort allowed to be small tees - which makes sense - why store big keys in a small tree?
 
-    data         => V('data   ' => 0),                                          # Variable containing the current data
-    first        => V('first  ' => 0),                                          # Variable addressing offset to first block of the tree which is the header block
-    found        => V('found  ' => 0),                                          # Variable indicating whether the last find was successful or not
-    key          => V('key    ' => 0),                                          # Variable containing the current key
-    offset       => V('offset ' => 0),                                          # Variable containing the offset of the block containing the current key
-    subTree      => V('subTree' => 0),                                          # Variable indicating whether the last find found a sub tree
+    data                 => V('data   ' => 0),                                  # Variable containing the current data
+    first                => V('first  ' => 0),                                  # Variable addressing offset to first block of the tree which is the header block
+    found                => V('found  ' => 0),                                  # Variable indicating whether the last find was successful or not
+    key                  => V('key    ' => 0),                                  # Variable containing the current key
+    offset               => V('offset ' => 0),                                  # Variable containing the offset of the block containing the current key
+    subTree              => V('subTree' => 0),                                  # Variable indicating whether the last find found a sub tree
    );
  }
 
@@ -6118,6 +6121,7 @@ sub Nasm::X86::Tree::decSizeInFirst($$)                                         
   Dec "dword[rsp-$w+$o]";                                                       # Decrement size field
   Vmovdqu64 zmm($zmm), "[rsp-$w]";                                              # Reload from stack
  }
+
 sub Nasm::X86::Tree::decSizeInFirst999($$)                                         #P Decrement the size field in the first block of a tree when the first block is held in a zmm register.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
@@ -10957,7 +10961,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10959 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10963 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19458,7 +19462,7 @@ sub Nasm::X86::Tree::getKeyString($$$)                                        # 
            structures => {tree    => $tree});
  }
 
-sub Nasm::X86::Tree::putKeyString($$$$)                                        # Create a tree keyed by strings represented by  zmm blocks
+sub Nasm::X86::Tree::putKeyString($$$$)                                         # Associate a string of any length with a double word.
  {my ($tree, $address, $size, $data) = @_;                                      # Tree descriptor, address of key, length of key, data associated with key
   @_ == 4 or confess "Four parameters";
 
@@ -19505,8 +19509,41 @@ sub Nasm::X86::Tree::putKeyString($$$$)                                        #
      parameters => [qw(address size data)],
      name       =>  qq(Nasm::X86::Tree::putKeyString);
 
-  $s->call(parameters => {address => $address, size=>$size, data=>$data},
-           structures => {tree    => $tree});
+  $tree->getKeyString($address, $size);                                         # See if we can find the string in the tree as an existing tree
+
+  If $tree->found == 0,                                                         # Not found so insert
+  Then
+   {$s->call(parameters => {address => $address, size=>$size, data=>$data},
+            structures => {tree    => $tree});
+    $tree->found->copy(0);                                                      # We had to insert
+   };
+ }
+
+sub Nasm::X86::Tree::uniqueKeyString($$$)                                       # Add a key string to a string tree if the key is not already present and return a unique number identifying the string (although currently there is no way to fast way to recover the string from the number). If the key string is already present in the string tree return the number associated with the original key string rather than creating a new entry.
+ {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key, data associated with key
+  @_ == 3 or confess "Three parameters";
+
+  PushR my $area = r15, my $first = r14, my $count = r13;
+  $tree->area->address->setReg($area);
+  $tree->first->setReg($first);
+  my $o = $tree->stringKeyCountOffset;                                          # Offset of count field - long keys are stored in multiple sub trees so the conventional size field is not enough
+  Mov dWordRegister($count),"[$area+$first+$o]";                                # Number of strings so far
+
+  my $c = V count => $count;
+  $tree->putKeyString($address, $size, $c);                                     # Try to add the string
+  If $tree->found == 0,
+  Then                                                                          # A new key string was inserted
+   {$c->getReg($count);
+    Inc $count;
+    $tree->area->address->setReg($area);                                        # The area might have moved due to the new allocation
+    Mov "[$area+$first+$o]", dWordRegister($count);                               # Update string count after successful insert
+   },
+   Else
+    {$c->copy($tree->data);
+    };
+   PopR;
+
+  $c                                                                            # Unique string number as a variable
  }
 
 #latest:;
@@ -19610,7 +19647,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        # Binary search on populated array
+if (1) {                                                                        #TNasm::X86::Tree::putKeyString #TNasm::X86::Tree::getKeyString
   my $a = CreateArea;
   my $t = $a->CreateTree(stringTree=>1);
   $t->putKeyString(constantString("dddd444"),  K(data => 8));
@@ -19681,6 +19718,39 @@ data   : .... .... .... ...7
 data   : .... .... .... ...8
 data   : .... .... .... ...9
 data   : .... .... .... ...A
+END
+ }
+
+latest:;
+if (1) {                                                                        #TNasm::X86::Tree::uniqueKeyString #TNasm::X86::Tree::getKeyString
+  my $t = CreateArea->CreateTree(stringTree=>1);
+
+  K(loop => 3)->for(sub
+   {my $a = $t->uniqueKeyString(constantString("aaaa")); $a->outNL;
+    my $b = $t->uniqueKeyString(constantString("bbbb")); $b->outNL;
+   });
+
+  for my $k(qw(aaaa bbbb ccccc))
+   {PrintOutStringNL $k;
+    $t->getKeyString(constantString $k); $t->found->outNL; $t->data->outNL;
+   }
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
+count: .... .... .... ...0
+count: .... .... .... ...1
+count: .... .... .... ...0
+count: .... .... .... ...1
+count: .... .... .... ...0
+count: .... .... .... ...1
+aaaa
+found  : .... .... .... ...1
+data   : .... .... .... ...0
+bbbb
+found  : .... .... .... ...2
+data   : .... .... .... ...1
+ccccc
+found  : .... .... .... ...0
+data   : .... .... .... ...0
 END
  }
 
