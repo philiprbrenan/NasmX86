@@ -6524,7 +6524,7 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
   $IK->setReg(rdi); Vpbroadcastd zmmM($K, 1), edi;                              # Insert value at expansion point
   $ID->setReg(rdi); Vpbroadcastd zmmM($D, 1), edi;
 
-  unless($tree->lowTree)                                                        # Set tree bits if they are being used
+  if (!$tree->lowTree)                                                          # Set tree bits if they are being used
    {If $subTree > 0,                                                            # Set the inserted tree bit
     Then
      {Kmovq rdi, k1;
@@ -7099,7 +7099,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
   Block                                                                         # Place low keys if requested and possible
    {my ($end) = @_;                                                             # End of block
-    if ($tree->smallTree)                                                       # only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+    if ($tree->smallTree)                                                       # Small trees benefit from this optimization while large trees do not
      {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
       confess "Should be three" unless $co == 3;
 
@@ -7142,7 +7142,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
           my $p = $key * $tree->width + $tree->fcArray;                         # Offset of dword in bytes
           ($dt ? $data->first : $data)->dIntoZ($F, $p);                         # Save dword - either the supplied data or the offset of the sub tree
 
-          if ($tree->smallTree == 1)                                            # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+          if ($tree->smallTree == 1)                                            # Only if low key placement is enabled for this tree. Small trees benefit from this optimization while large trees do not
            {PushR my $bit = r14, my $control = r15;                             # Copy of the control dword
             Pextrd $control."d", xmm1, $co;                                     # Get the control dword
             my $b = $key+$tree->fcPresent;                                      # Present bit
@@ -7273,7 +7273,7 @@ $DebugMode = 1;
 
   Block                                                                         # Find low keys if possible
    {my ($end) = @_;                                                             # End of block
-    if ($tree->smallTree)                                                       # only if low key placement is enabled for this tree. Small tres benefit nore than large trees from this optimization.
+    if ($tree->smallTree)                                                       # Small trees benefit from this optimization while large trees do not
      {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
       confess "Should be three" unless $co == 3;
 
@@ -8610,7 +8610,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
 
   Block                    ## Need to detect sub tree or not                    # Delete low keys if possible
    {my ($end) = @_;                                                             # End of block
-    if ($tree->smallTree)                                                       # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
+    if ($tree->smallTree)                                                       # Small trees benefit from this optimization while large trees do not
      {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
       confess "Should be three" unless $co == 3;
 
@@ -19639,7 +19639,7 @@ data   : .... .... .... ...2
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Tree::putKeyString #TNasm::X86::Tree::getKeyString
   my $a = CreateArea;
   my $t = $a->CreateTree(stringTree=>1);
@@ -19714,7 +19714,7 @@ data   : .... .... .... ...A
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Tree::uniqueKeyString #TNasm::X86::Tree::getKeyString
   my $t = CreateArea->CreateTree(stringTree=>1);
 
