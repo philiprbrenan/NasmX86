@@ -1489,7 +1489,7 @@ sub OnSegv()                                                                    
   $s->call;
  }
 
-# Subroutine                                                                    # Define and call subroutines
+# Subroutine                                                                    # Create and call subroutines with the option of placing them into an area that can be writtento a file and reloaded and executed by another process.
 
 sub copyStructureMinusVariables($)                                              # Copy a non recursive structure ignoring variables.
  {my ($s) = @_;                                                                 # Structure to copy
@@ -1523,6 +1523,7 @@ sub Subroutine(&%)                                                              
   my %subroutinesSaved;                                                         # Current set of subroutine definitions
   my %rodataSaved;                                                              # Current set of read only elements
   my %rodatasSaved;                                                             # Current set of read only strings
+
   if ($export)                                                                  # Create a new set of subroutines for this routine and all of its sub routines
    {%subroutinesSaved = %subroutines;                                           # Save current set of subroutines
     %subroutines      = ();                                                     # New set of subroutines
@@ -1608,7 +1609,7 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
   my $off     = $a->appendMemory($address, $size);                              # Copy a subroutine into an area
 
   my $y = $a->yggdrasil;
-  my ($N, $L) = constantString($s->name);                                       # The name of the subroutine
+  my ($N, $L) = constantString($s->name);                                       # The name of the containing subroutine
   my $n = $y->putStringUnderKey(&Nasm::X86::Yggdrasil::UniqueStrings, $N, $L);  # Make the name of the subroutine into a unique number
   my $o = $a->appendMemory($address, $size);                                    # Copy a subroutine into an area
   $y->put2(                &Nasm::X86::Yggdrasil::SubroutineOffsets, $n, $off); # Record the offset of the subroutine under the unique string number
@@ -1617,7 +1618,7 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
   my $O = $y->findSubTree(&Nasm::X86::Yggdrasil::SubroutineOffsets);            # Find the unique subroutine offset tree created above
 
   my %saved;                                                                    # An array of sub routine definitions preceded by this helpful string.  It is entirely possible that this string is not unique in this area - in that case one would have to parse Yggdrasil in Perl - but for the  moment this would be overkill.
-  for my $sub(sort keys %$subs)                                                 # Each sub routine definition contained in this subroutine
+  for my $sub(sort keys %$subs)                                                 # Each sub routine definition contained in the containing subroutine
    {my $r = $$subs{$sub};                                                       # A routine within the subroutine
     my ($N, $L) = constantString($r->name);                                     # The name of the sub
     my $n = $U->putStringFromMemory($N, $L);                                    # Make the name of the sub routine into a unique number
@@ -5625,7 +5626,7 @@ sub Nasm::X86::Area::checkYggdrasilCreated($)                                   
 
 #D2 Areas as Strings                                                            # Use the memory supplied by the area as a string - however, in general, this is too slow unless coupled with another slow operation such as executing a command, mapping a file or writing to a file.
 
-sub Nasm::X86::Area::appendMemory($$$)                                          # Append the variable addressed content in memory of variable size to the specified area  and return its offset in that area.
+sub Nasm::X86::Area::appendMemory($$$)                                          # Append the variable addressed content in memory of variable size to the specified area  and return its offset in that area. Pre-pack data as much as possible before using this routine to optimize processing.
  {my ($area, $address, $size) = @_;                                             # Area descriptor, variable address of content, variable length of content
   @_ == 3 or confess "Three parameters";
 
@@ -5670,7 +5671,7 @@ sub Nasm::X86::Area::q($$)                                                      
   $area->appendMemory(V('address', $s), V('size', length($string)));
  }
 
-sub Nasm::X86::Area::ql($$)                                                     # Append a quoted string containing new line characters to the specified area.
+sub Nasm::X86::Area::ql($$)                                                     # Append a constant quoted string containing new line characters to the specified area.
  {my ($area, $const) = @_;                                                      # Area, constant
   @_ == 2 or confess "Two parameters";
   for my $l(split /\s*\n/, $const)
@@ -5679,7 +5680,7 @@ sub Nasm::X86::Area::ql($$)                                                     
    }
  }
 
-sub Nasm::X86::Area::char($$)                                                   # Append a character expressed as a decimal number to the specified area.
+sub Nasm::X86::Area::char($$)                                                   # Append a constant character expressed as a decimal number to the specified area.
  {my ($area, $char) = @_;                                                       # Area descriptor, number of character to be appended
   @_ == 2 or confess "Two parameters";
   my $s = Rb(ord($char));
@@ -10925,7 +10926,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10927 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10928 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19744,6 +19745,31 @@ data   : .... .... .... ...1
 ccccc
 found  : .... .... .... ...0
 data   : .... .... .... ...0
+END
+ }
+
+latest:;
+if (1) {                                                                        #TNasm::X86::Area::appendQuad #TNasm::X86::Area::appendDWord
+  my $a = CreateArea;
+
+  my %s = (abcd => 0x1, 𝝰=>0x22, 𝗮=>0x333, 𝕒 =>0x4444);                            # Subroutine names and offsets
+
+  my $p = pack "Q", scalar keys %s;                                                    # Number of subroutines
+
+  for my $s(sort keys %s)                                                       # Length of each subroutine
+   {$p .= pack "Q", $s{$s};
+   }
+
+  for my $s(sort keys %s)                                                       # Name of each subroutine in utf32
+   {use bytes;
+    $p .= pack "Q", length($s);
+    $p .= $s;
+   }
+
+  $a->appendMemory(constantString $p);
+  $a->dump("AA");
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0, clocks=>4374;
 END
  }
 
