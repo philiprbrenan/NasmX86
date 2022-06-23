@@ -19748,7 +19748,7 @@ data   : .... .... .... ...0
 END
  }
 
-sub Nasm::X86::Area::loadSubroutineNames($$)                                    # Load a hash of subroutine names and offsets into an area
+sub Nasm::X86::Area::writeSubroutineNames($$)                                   # Load a hash of subroutine names and offsets into an area
  {my ($area, $subs) = @_;                                                       # area to load into, hash of subroutine names to offsets
   my $w = RegisterSize(rax);
 
@@ -19788,12 +19788,12 @@ sub Nasm::X86::Area::loadSubroutineNames($$)                                    
  }
 
 latest:;
-if (1) {                                                                        #TNasm::X86::Area::loadSubroutineNames
+if (1) {                                                                        #TNasm::X86::Area::writeSubroutineNames
   my $a = CreateArea;
 
   my %s = (abcd => 0x1, 𝝰=>0x22, 𝗮=>0x333, 𝕒 =>0x4444);                         # Subroutine names and offsets
 
-  $a->loadSubroutineNames({%s});
+  $a->writeSubroutineNames({%s});
 
   $a->dump("AA");
 
