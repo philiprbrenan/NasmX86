@@ -19748,13 +19748,12 @@ data   : .... .... .... ...0
 END
  }
 
-latest:;
-if (1) {                                                                        #TNasm::X86::Area::appendQuad #TNasm::X86::Area::appendDWord
-  my $a = CreateArea;
-
-  my %s = (abcd => 0x1, 𝝰=>0x22, 𝗮=>0x333, 𝕒 =>0x4444);                         # Subroutine names and offsets
-
+sub Nasm::X86::Area::loadSubroutineNames($$)                                    # Load a hash of subroutine names and offsets into an area
+ {my ($area, $subs) = @_;                                                       # area to load into, hash of subroutine names to offsets
   my $w = RegisterSize(rax);
+
+  my $a = $area;
+  my %s = %$subs;
   my $l = $w * (1 + 2 * scalar keys %s);                                        # Number of quads required
 
   if (1)                                                                        # Length of concatenated names
@@ -19763,7 +19762,7 @@ if (1) {                                                                        
    }
   $l = int(($l + 8) / 8) * 8;                                                   # Enough room in bytes for quads and names
 
-  Sub rsp, $l;
+  Sub rsp, $l;                                                                  # make space in stack
   my $p = 0;
   Mov "qword[rsp+$p]", scalar keys %s; $p += $w;                                # Number of subroutines
 
@@ -19782,9 +19781,19 @@ if (1) {                                                                        
      {Mov "byte[rsp+$p]", ord substr($s, $i-1, 1); $p += 1;                     # Load each byte of the names
      }
    }
-  $a->appendMemory(V(address => rsp), V size => $l);
 
-  Add rsp, $l;
+  $a->appendMemory(V(address => rsp), V size => $l);                            # Load stack into area
+
+  Add rsp, $l;                                                                  # Restores stack
+ }
+
+latest:;
+if (1) {                                                                        #TNasm::X86::Area::loadSubroutineNames
+  my $a = CreateArea;
+
+  my %s = (abcd => 0x1, 𝝰=>0x22, 𝗮=>0x333, 𝕒 =>0x4444);                         # Subroutine names and offsets
+
+  $a->loadSubroutineNames({%s});
 
   $a->dump("AA");
 
