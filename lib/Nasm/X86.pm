@@ -19102,10 +19102,10 @@ if (1) {                                                                        
   for my $i(1..$N)
    {$t->find(K(key => $i)); $t->found->out; PrintOutString "  "; $t->data->outNL;
    }
-  $t->put (K(key => 1), K(key => 1));                                           # 18
-  $t->find(K(key => 1));                                                        # 20
+#  $t->put (K(key => 1), K(key => 1));                                           # 18
+#  $t->find(K(key => 1));                                                        # 20
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks => 2037;
 found  : .... .... .... ...1  data   : .... .... .... ..11
 found  : .... .... .... ...1  data   : .... .... .... ..22
 found  : .... .... .... ...1  data   : .... .... .... ..33
@@ -19153,7 +19153,7 @@ if (1) {                                                                        
 # $t->put (K(key => 1), K(key => 1));                                           # 11
 # $t->find(K(key => 1));                                                        # 7
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1066;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1078;
 data   : .... .... .... ..11
 data   : .... .... .... ..22
 data   : .... .... .... ..33
@@ -19728,7 +19728,7 @@ if (1) {                                                                        
     $t->getKeyString(constantString $k); $t->found->outNL; $t->data->outNL;
    }
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0, clocks=>4374;
 count: .... .... .... ...0
 count: .... .... .... ...1
 count: .... .... .... ...0
