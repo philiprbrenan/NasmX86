@@ -19752,24 +19752,49 @@ latest:;
 if (1) {                                                                        #TNasm::X86::Area::appendQuad #TNasm::X86::Area::appendDWord
   my $a = CreateArea;
 
-  my %s = (abcd => 0x1, 𝝰=>0x22, 𝗮=>0x333, 𝕒 =>0x4444);                            # Subroutine names and offsets
+  my %s = (abcd => 0x1, 𝝰=>0x22, 𝗮=>0x333, 𝕒 =>0x4444);                         # Subroutine names and offsets
 
-  my $p = pack "Q", scalar keys %s;                                                    # Number of subroutines
+  my $w = RegisterSize(rax);
+  my $l = $w * (1 + 2 * scalar keys %s);                                        # Number of quads required
 
-  for my $s(sort keys %s)                                                       # Length of each subroutine
-   {$p .= pack "Q", $s{$s};
-   }
-
-  for my $s(sort keys %s)                                                       # Name of each subroutine in utf32
+  if (1)                                                                        # Length of concatenated names
    {use bytes;
-    $p .= pack "Q", length($s);
-    $p .= $s;
+    $l += length $_ for sort keys %s;
+   }
+  $l = int(($l + 8) / 8) * 8;                                                   # Enough room in bytes for quads and names
+
+  Sub rsp, $l;
+  my $p = 0;
+  Mov "qword[rsp+$p]", scalar keys %s; $p += $w;                                # Number of subroutines
+
+  for my $s(sort keys %s)                                                       # Subroutine offsets
+   {Mov "qword[rsp+$p]", $s{$s};  $p += $w;
    }
 
-  $a->appendMemory(constantString $p);
+  for my $s(sort keys %s)                                                       # Subroutine name lengths
+   {use bytes;
+    Mov "qword[rsp+$p]", length $s{$s};  $p += $w;
+   }
+
+  for my $s(sort keys %s)                                                       # Subroutine names as one long string
+   {use bytes;
+    for my $i(1..length $s)
+     {Mov "byte[rsp+$p]", ord substr($s, $i-1, 1); $p += 1;                     # Load each byte of the names
+     }
+   }
+  $a->appendMemory(V(address => rsp), V size => $l);
+
+  Add rsp, $l;
+
   $a->dump("AA");
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0, clocks=>4374;
+AA
+Area     Size:     4096    Used:      160
+.... .... .... ...0 | __10 ____ ____ ____  A0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | .4__ ____ ____ ____  .1__ ____ ____ ____  4444 ____ ____ ____  33.3 ____ ____ ____  22__ ____ ____ ____  .1__ ____ ____ ____  .5__ ____ ____ ____  .3__ ____ ____ ____
+.... .... .... ..80 | .2__ ____ ____ ____  6162 6364 F09D 9592  F09D 97AE F09D 9DB0  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
