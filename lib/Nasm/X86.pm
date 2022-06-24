@@ -1296,6 +1296,19 @@ sub For(&$$;$)                                                                  
   SetLabel $end;                                                                # Exit loop
  }
 
+sub ToZero(&$)                                                                  # Iterate a block the number of times specified in the register which is decremented to zero.
+ {my ($block, $register) = @_;                                                  # Block, limit register
+  @_ == 2 or confess "Two parameters";
+  my $end   = Label;                                                            # Next iteration
+  my $start = SetLabel;
+  Cmp $register, 0;
+  Je $end;
+  &$block($end, $start);                                                        # End and start labels
+  Dec $register;
+  Jne $start;
+  SetLabel $end;
+ }
+
 sub ForIn(&$$$$)                                                                # For - iterate the full block as long as register plus increment is less than than limit incrementing by increment each time then perform the last block with the remainder which might be of length zero.
  {my ($full, $last, $register, $limitRegister, $increment) = @_;                # Block for full block, block for last block , register, register containing upper limit of loop, increment on each iteration
 
@@ -10926,7 +10939,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10928 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10941 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19748,7 +19761,20 @@ data   : .... .... .... ...0
 END
  }
 
-sub Nasm::X86::Area::writeSubroutineNames($$)                                   # Load a hash of subroutine names and offsets into an area
+#latest:;
+if (1) {                                                                        #TToZero
+  Mov rax, 3;
+  ToZero
+   {PrintOutStringNL "AAAA";
+   }  rax;
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0, clocks=>4374;
+AAAA
+AAAA
+AAAA
+END
+ }
+
+sub Nasm::X86::Area::writeLibraryHeader($$)                                     # Load a hash of subroutine names and offsets into an area
  {my ($area, $subs) = @_;                                                       # area to load into, hash of subroutine names to offsets
   my $w = RegisterSize(rax);
 
@@ -19766,13 +19792,10 @@ sub Nasm::X86::Area::writeSubroutineNames($$)                                   
   my $p = 0;
   Mov "qword[rsp+$p]", scalar keys %s; $p += $w;                                # Number of subroutines
 
-  for my $s(sort keys %s)                                                       # Subroutine offsets
-   {Mov "qword[rsp+$p]", $s{$s};  $p += $w;
-   }
-
-  for my $s(sort keys %s)                                                       # Subroutine name lengths
+  for my $s(sort keys %s)                                                       # Subroutine offsets and name lengths
    {use bytes;
-    Mov "qword[rsp+$p]", length $s{$s};  $p += $w;
+    Mov "qword[rsp+$p]", $s{$s};    $p += $w;                                   # Subroutine offsets
+    Mov "qword[rsp+$p]", length $s; $p += $w;                                   # Subroutine name lengths
    }
 
   for my $s(sort keys %s)                                                       # Subroutine names as one long string
@@ -19782,28 +19805,75 @@ sub Nasm::X86::Area::writeSubroutineNames($$)                                   
      }
    }
 
-  $a->appendMemory(V(address => rsp), V size => $l);                            # Load stack into area
+  my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
+  my $o = $a->appendMemory(V(address => rsp), V size => $l);                    # Load stack into area
+  $y->put(Nasm::X86::Yggdrasil::SubroutineOffsets, $o);                         # Save subroutine offsets
 
   Add rsp, $l;                                                                  # Restores stack
  }
 
+sub Nasm::X86::Area::readLibraryHeader($$)                                      # Create a tree mapping the string numbers from a parse to the number to the offset of the corresponding library routine
+ {my ($area, $uniqueStrings) = @_;                                              # Area containing subroutines, unique strings
+
+  my $a = $area;
+  my $u = $uniqueStrings;                                                       # UNique strings
+  my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
+  $y->get(Nasm::X86::Yggdrasil::SubroutineOffsets);                             # Get subroutine offsets
+
+  PushR my $count = r15, my $sub = r14, my $name = r13, my $library = r12;      # Number of subroutines, offset and anme length block, name address
+  my $w = RegisterSize $count;
+  ($a->address + $y->data)->setReg($library);
+  Mov $count, "[$library]";                                                     # The number of subroutines
+  Lea $sub,   "[$library+$w]";                                                  # Address of offset, name length array
+  Add $library, $w;                                                             # Skip count field
+  Mov $name, $count;
+  Shl $name, 4;                                                                 # Offsets of names
+  Add $name, $library;                                                          # Address in library
+
+  my $t = $a->CreateTree;
+
+  ToZero                                                                        # Each subroutine
+   {my $offset = rsi;
+    Mov $offset, "[$sub]";                                                      # Offset
+
+    $u->getKeyString(V(address => $name), V length => "[$sub+$w]");
+    If $u->found > 0,
+    Then                                                                        # Subrotuine name matches a unique string so record the mapping between string number anf subroutine offset
+     {$t->put($u->data, V offset => "[$sub]");
+     };
+    Add $name, "[$sub+$w]";
+    Add $sub, 2 * $w;
+   } $count;
+
+  PopR;
+
+  $t
+
+ }
+
 latest:;
-if (1) {                                                                        #TNasm::X86::Area::writeSubroutineNames
+if (1) {                                                                        #TNasm::X86::Area::writeLibraryHeader
   my $a = CreateArea;
 
-  my %s = (abcd => 0x1, 𝝰=>0x22, 𝗮=>0x333, 𝕒 =>0x4444);                         # Subroutine names and offsets
+  my $u = $a->CreateTree(stringTree=>1);
+  $u->putKeyString(constantString("ab"), K key => 1);
+  $u->putKeyString(constantString("ac"), K key => 3);
+  $u->putKeyString(constantString("𝕒𝕒"), K key => 4);
 
-  $a->writeSubroutineNames({%s});
+  my %s = (ab => 2, 𝕒𝕒 =>8, 𝗮𝗮𝗮=>12, 𝝰𝝰𝝰𝝰=>16);                                 # Subroutine names and offsets
 
-  $a->dump("AA");
+  $a->writeLibraryHeader({%s});
+  my $t = $a->readLibraryHeader($u);
+
+  $t->dump("TT");
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0, clocks=>4374;
-AA
-Area     Size:     4096    Used:      160
-.... .... .... ...0 | __10 ____ ____ ____  A0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | .4__ ____ ____ ____  .1__ ____ ____ ____  4444 ____ ____ ____  33.3 ____ ____ ____  22__ ____ ____ ____  .1__ ____ ____ ____  .5__ ____ ____ ____  .3__ ____ ____ ____
-.... .... .... ..80 | .2__ ____ ____ ____  6162 6364 F09D 9592  F09D 97AE F09D 9DB0  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+TT
+At:  3B0                    length:    2,  data:  3F0,  nodes:  430,  first:  370, root, leaf
+  Index:    0    1
+  Keys :    1    4
+  Data :    2    8
+end
 END
  }
 
