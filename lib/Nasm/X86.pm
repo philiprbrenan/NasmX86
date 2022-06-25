@@ -2018,7 +2018,7 @@ sub RComment(@)                                                                 
 END
  }
 
-#D1 Print                                                                       # Print the values of registers.  The print commands do not overwrite the free registes as doing so would make debugging difficult.
+#D1 Print                                                                       # Print the values of registers and memory interspersed with constant strings.  The print commands do not overwrite the free registers as doing so would make debugging difficult.
 
 #D2 Strings                                                                     # Print constant and variable strings
 
