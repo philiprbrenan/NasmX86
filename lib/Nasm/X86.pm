@@ -9961,7 +9961,8 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
        {Jmp $end;
        };
      });
-    my ($top) = map {$parse->popSubTree} 1..4;                                  # Top of the parse tree - with three starts below
+    my $top = $parse->popSubTree;                                               # Top of the parse tree
+    $parse->clear;
     $parse->push($top);                                                         # New top of the parse tree
    };
 
@@ -10980,7 +10981,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10982 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10983 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17657,6 +17658,7 @@ ParseUnisyn 'va q11',                                  "𝗔𝙇\n",            
 
 test10: goto test11 unless $test{10};
 
+#latest:
 ParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
 ParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
 ParseUnisyn 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
@@ -18980,7 +18982,7 @@ data   : .... .... .... .333
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString("【𝗔＋𝗔＋𝗔＋𝗔】");
 
@@ -19011,7 +19013,7 @@ parseReason: .... .... .... ...0
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】');
 
@@ -19032,6 +19034,32 @@ pos: .... .... .... ...6
 parseMatch: .... .... .... ...0
 parseReason: .... .... .... ...0
 【
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString('𝑳【】𝙆');
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $parse = $a->ParseUnisyn($a8, $s8);                                        # Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->tree->dumpParseTree($a8);
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
+parseChar: .... .... ...1 D646
+parseFail: .... .... .... ...0
+pos: .... .... .... ...E
+parseMatch: .... .... .... ...0
+parseReason: .... .... .... ...0
+𝙆
+._𝑳
+._._【
 END
  }
 
