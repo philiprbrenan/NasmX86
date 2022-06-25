@@ -1684,7 +1684,7 @@ sub Nasm::X86::Area::writeLibraryHeader($$)                                     
 
   my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
   my $o = $a->appendMemory(V(address => rsp), V size => $l);                    # Load stack into area
-  $y->put(Nasm::X86::Yggdrasil::SubroutineOffsets, $o);                         # Save subroutine offsets
+  $y->put(&Nasm::X86::Yggdrasil::SubroutineOffsets, $o);                         # Save subroutine offsets
 
   Add rsp, $l;                                                                  # Restores stack
 
@@ -1697,7 +1697,7 @@ sub Nasm::X86::Area::readLibraryHeader($$)                                      
   my $a = $area;
   my $u = $uniqueStrings;                                                       # UNique strings
   my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
-  $y->find(Nasm::X86::Yggdrasil::SubroutineOffsets);                            # Find subroutine offsets
+  $y->find(&Nasm::X86::Yggdrasil::SubroutineOffsets);                            # Find subroutine offsets
 
   If $y->found == 0,                                                            # If there are no subroutine offsets then this is not a library
   Then
