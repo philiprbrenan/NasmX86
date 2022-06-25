@@ -10000,6 +10000,76 @@ sub Nasm::X86::Tree::dumpParseTree($$)                                          
    };
  }
 
+sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators.
+ {my ($parse, $library, $intersection) = @_;                                    # Parse tree, area containing a library, intersection of parse tree with library
+  @_ == 3 or confess "Three parameters";
+
+  my $s = Subroutine                                                            # Print a tree
+   {my ($parameters, $structures, $sub) = @_;                                   # Parameters, structures, subroutine definition
+
+    my $t = $$structures{tree};                                                 # Parse tree
+    my $i = $$structures{intersection};                                         # Intersection
+    my $L = $$structures{library};                                              # Library
+
+    my $l = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::left);
+    my $r = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::right);
+    my $𝞃 = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::type);
+    my $S = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::symbol);
+
+    If $l->found > 0,
+    Then                                                                        # There is a left sub tree
+     {$sub->call(structures => {tree => $l, intersection => $i, library => $L});
+     };
+
+    if (1)                                                                      # Process the lexical type associated with this node of the parse tree.
+     {my $d = my $p = my $a = my $v = my $q = my $s = my $b = my $B = sub {};   # Default lexical item processors
+
+      my $A = sub                                                               # Ascii
+       {PrintOutStringNL "Ascii";
+       };
+
+      my $e = sub                                                               # Operator
+       {PrintOutStringNL "Operator";
+
+        my $y = $L->yggdrasil;                                                  # Yggdrasil for the parse tree area
+        my $o = $y->findSubTree(Nasm::X86::Yggdrasil::SubroutineOffsets);       # Offsets of subroutines in library
+        $i->find($S->data);                                                     # Lexical item number to library routine offset
+
+        my $t = Subroutine {}                                                   # Subroutine definition
+          name       => "Nasm::X86::Unisyn::Operator:plus",
+          parameters => [qw()];
+
+        $t->call(override => $L->address + $i->data);
+       };
+                                                                                # Process lexical from parse tree
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$A};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::d), Then {&$d};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::p), Then {&$p};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::a), Then {&$a};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::v), Then {&$v};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::q), Then {&$q};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::s), Then {&$s};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::e), Then {&$e};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::b), Then {&$b};
+      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::B), Then {&$B};
+     }
+
+    If $r->found > 0,
+    Then                                                                        # There is a right sub tree
+     {$sub->call(structures => {tree         => $r,
+                                intersection => $i,
+                                library      => $L});
+     };
+   } structures => {tree        => $parse->tree,
+                   intersection => $intersection,
+                   library      => $library},
+     name       => "Nasm::X86::Tree::traverseApplyingLibraryOperators";
+
+  $s->call(structures => {tree         => $parse->tree,
+                          intersection => $intersection,
+                          library      => $library});
+ }
+
 #D1 Assemble                                                                    # Assemble generated code
 
 sub CallC($@)                                                                   # Call a C subroutine.
@@ -10705,7 +10775,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10707 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10777 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17904,76 +17974,6 @@ END
  }
 
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
-
-sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators.
- {my ($parse, $library, $intersection) = @_;                                    # Parse tree, area containing a library, intersection of parse tree with library
-  @_ == 3 or confess "Three parameters";
-
-  my $s = Subroutine                                                            # Print a tree
-   {my ($parameters, $structures, $sub) = @_;                                   # Parameters, structures, subroutine definition
-
-    my $t = $$structures{tree};                                                 # Parse tree
-    my $i = $$structures{intersection};                                         # Intersection
-    my $L = $$structures{library};                                              # Library
-
-    my $l = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::left);
-    my $r = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::right);
-    my $𝞃 = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::type);
-    my $S = $t->findSubTree(K pos => Nasm::X86::Unisyn::Lex::symbol);
-
-    If $l->found > 0,
-    Then                                                                        # There is a left sub tree
-     {$sub->call(structures => {tree => $l, intersection => $i, library => $L});
-     };
-
-    if (1)                                                                      # Process the lexical type associated with this node of the parse tree.
-     {my $d = my $p = my $a = my $v = my $q = my $s = my $b = my $B = sub {};   # Default lexical item processors
-
-      my $A = sub                                                               # Ascii
-       {PrintOutStringNL "Ascii";
-       };
-
-      my $e = sub                                                               # Operator
-       {PrintOutStringNL "Operator";
-
-        my $y = $L->yggdrasil;                                                  # Yggdrasil for the parse tree area
-        my $o = $y->findSubTree(Nasm::X86::Yggdrasil::SubroutineOffsets);       # Offsets of subroutines in library
-        $i->find($S->data);                                                     # Lexical item number to library routine offset
-
-        my $t = Subroutine {}                                                   # Subroutine definition
-          name       => "Nasm::X86::Unisyn::Operator:plus",
-          parameters => [qw()];
-
-        $t->call(override => $L->address + $i->data);
-       };
-                                                                                # Process lexical from parse tree
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$A};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::d), Then {&$d};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::p), Then {&$p};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::a), Then {&$a};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::v), Then {&$v};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::q), Then {&$q};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::s), Then {&$s};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::e), Then {&$e};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::b), Then {&$b};
-      If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::B), Then {&$B};
-     }
-
-    If $r->found > 0,
-    Then                                                                        # There is a right sub tree
-     {$sub->call(structures => {tree         => $r,
-                                intersection => $i,
-                                library      => $L});
-     };
-   } structures => {tree        => $parse->tree,
-                   intersection => $intersection,
-                   library      => $library},
-     name       => "Nasm::X86::Tree::traverseApplyingLibraryOperators";
-
-  $s->call(structures => {tree         => $parse->tree,
-                          intersection => $intersection,
-                          library      => $library});
- }
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
