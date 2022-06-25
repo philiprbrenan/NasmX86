@@ -1643,6 +1643,15 @@ sub Nasm::X86::Subroutine::writeLibraryToArea($$)                               
   $a->free;
  }
 
+sub Nasm::X86::Subroutine::subroutineDefinition($$$)                            # Get the definition of a subroutine from an area.
+ {my ($area, $file, $name) = @_;                                                # Area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
+  my $a = readBinaryFile $file;                                                 # Reload the area
+  my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
+  my $c = eval $b;                                                              # Convert to Perl data structure
+  confess "Cannot extract subroutine definition from file $file\n$@\n" if $@;   # Complain if the eval failed
+  $$c{a};                                                                       # Extract subroutine definition
+ }
+
 sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           # Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined.
  {my ($sub, $S, @P) = @_;                                                       # Sub definition, copies of source structures, path through copies of source structures to a variable that becomes a reference
   for my $s(sort keys %$S)                                                      # Source keys
@@ -10696,7 +10705,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10698 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10707 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17894,14 +17903,7 @@ END
   unlink $f;
  }
 
-sub Nasm::X86::Area::subroutineDefinition($$$)                                  # Get the definition of a subroutine from an area.
- {my ($area, $file, $name) = @_;                                                # Area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
-  my $a = readBinaryFile $file;                                                 # Reload the area
-  my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
-  my $c = eval $b;                                                              # Convert to Perl data structure
-  confess "Cannot extract subroutine definition from file $file\n$@\n" if $@;   # Complain if the eval failed
-  $$c{a};                                                                       # Extract subroutine definition
- }
+#D1 Awaiting Classification                                                     # Routines that have not yet been classified.
 
 sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators.
  {my ($parse, $library, $intersection) = @_;                                    # Parse tree, area containing a library, intersection of parse tree with library
