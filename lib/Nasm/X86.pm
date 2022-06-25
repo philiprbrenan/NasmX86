@@ -10130,13 +10130,13 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
   my $parseTree = $parse->popSubTree; $parse->free; $brackets->free;            # Obtain the parse tree and free the brackets and stack trees
 
   genHash "Nasm::X86::Unisyn::Parse",                                           # Parse results
-    tree     => $parseTree,                                                     # The resulting parse tree
-    char     => $parseChar,                                                     # Last character processed
-    fail     => $parseFail,                                                     # If not zero the parse has failed for some reason
-    position => $position,                                                      # The position reached in the input string
-    match    => $parseMatch,                                                    # The position of the matching bracket  that did not match
-    reason   => $parseReason,                                                   # The reason code describing the failure if any
-    symbols  => $symbols;                                                       # The symbol tree produced by the parse
+    'tree    ' => $parseTree,                                                   # The resulting parse tree
+    'char    ' => $parseChar,                                                   # Last character processed
+    'fail    ' => $parseFail,                                                   # If not zero the parse has failed for some reason
+    'position' => $position,                                                    # The position reached in the input string
+    'match   ' => $parseMatch,                                                  # The position of the matching bracket  that did not match
+    'reason  ' => $parseReason,                                                 # The reason code describing the failure if any
+    'symbols ' => $symbols;                                                     # The symbol tree produced by the parse
  } # Parse
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree.
