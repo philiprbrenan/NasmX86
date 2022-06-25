@@ -8765,8 +8765,6 @@ sub Nasm::X86::Tree::pop($)                                                     
     $tree->key    ->copy($k);                                                   # Retrieved key
     $tree->data   ->copy($d);                                                   # Retrieved data
     $tree->subTree->copy($s);                                                   # Retrieved sub tree indicator
-PrintErrStringNL "CCCCC";
-$s->d;
     $tree->found  ->copy(1);                                                    # Indicate success
    },
   Else
@@ -8778,17 +8776,15 @@ sub Nasm::X86::Tree::popSubTree($)                                              
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
 
-  $tree->area->dump("Start Pop");
   $tree->pop;
-$tree->subTree->d;
+
   my $t = $tree->describeTree;                                                  # Create a tree descriptor to indicate the result
      $t->zero;
   If $tree->found > 0,
   Then
    {If $tree->subTree > 0,
     Then
-     {PrintErrStringNL "AAAA222";
-      $t->found->copy($tree->found);
+     {$t->found->copy($tree->found);
       $t->first->copy($tree->data);                                             # We are popping a tree so the data is the offset of the first block
       $t->subTree->copy(1);
      },
@@ -10048,20 +10044,18 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
       $t->push($char);                                                          # The opening bracket
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
       $brackets->push($t);                                                      # Save bracket description on bracket stack
-$brackets->area->dump("Has sub  tree");
       $change->copy(1);                                                         # Changing because we are on a bracket
+PrintErrStringNL "AAAA";
+$t->area->dump("AAAAAAA");
      },
     Ef {$alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::B)}
     Then                                                                        # Closing bracket
-     {
-$brackets->area->dump("Should have sub  tree");
-$brackets->size->d;
-       my $t = $brackets->popSubTree;                                            # Match with brackets stack
-$brackets->size->d;
-$t->found->d;
+     {my $t = $brackets->popSubTree;                                            # Match with brackets stack
       If $t->found > 0,                                                         # Something to match with on the brackets stack
       Then
        {$t->find(K out => 2);                                                   # Expected bracket - known to be in the tree
+PrintErrStringNL "BBBB";
+$t->area->dump("BBBBB");
         If $t->data != $char,                                                   # Did not match the expected bracket
         Then
          {$t->find(K position => 0);
@@ -10987,7 +10981,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10989 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10983 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18882,7 +18876,7 @@ sub Nasm::X86::Tree::findLast($)                                                
       If $size > 0,                                                             # Non empty tree
       Then
        {if ($tree->smallTree)                                                   # Low keys in play so the root node might not be present if all the data is now in the first block
-         {PushR my $z = r13, my $bit = r14, my $present = r15;                  # The current size of the tree, the index of the present bit for the highest remaining key, the present bits
+         {PushR my $z = r13, my $bit = r14, my $present = r15, my $pos = r12;   # The current size of the tree, the index of the present bit for the highest remaining key, the present bits
           my $i = V key => 0;                                                   # Assume we are not in the first block
           wFromZ $F, $t->fcPresentOff,  set=>$present;                          # Present bits
           Popcnt $bit, $present;                                                # Number of entries in first block
@@ -18892,17 +18886,17 @@ sub Nasm::X86::Tree::findLast($)                                                
           Then
            {Bsr $bit, $present;                                                 # Position of highest key found by reverse scan to find index of highest bit set
             $t->key->getReg($bit);                                              # Show key found
-### Need to retrrive tree bit so we can pop trees
-            Shl $bit, 2;                                                        # Position in first block array of dwords
-            Add $bit, $t->fcArray;                                              # Position in first block
-            dFromZ($F, V(position => $bit), set => $t->data);                   # Save data
+            Mov $pos, $bit;                                                     # Position of corresponding dword in first block
+            Shl $pos, 2;                                                        # Position in first block array of dwords
+            Add $pos, $t->fcArray;                                              # Position in first block
+            dFromZ($F, V(position => $pos), set => $t->data);                   # Save data
             $t->found->getReg($present);                                        # Show found
             $i->copy(1);                                                        # We are in the first block
-            wFromZ $F, $t->fcTreeBitsOff, set=>rdi;                             # Sub tree bits
 
             $t->subTree->copy(0);                                               # Assume this element does not refer to a sub tree
-            Bt rdi, $present;                                                   # Sub tree present
-            IfC Then {$t->subTree->copy(1)}                                     # Show sub tree present
+            wFromZ $F, $t->fcTreeBitsOff, set=>rdi;                             # Sub tree bits
+            Bt rdi, $bit;                                                       # Test sub tree present
+            IfC Then {$t->subTree->copy(1)};                                    # Show sub tree present
            };
           PopR;
           If $i > 0, Then {Jmp $success};                                       # Successfully found
@@ -18965,8 +18959,6 @@ if (1) {                                                                        
     $t->size->outNL;
    });
 
-  $t->popSubTree;
-
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
 size of tree: .... .... .... ...1
 size of tree: .... .... .... ...2
@@ -19000,18 +18992,6 @@ size of tree: .... .... .... ...3
 size of tree: .... .... .... ...2
 size of tree: .... .... .... ...1
 size of tree: .... .... .... ...0
-END
- }
-
-#latest:;
-if (1) {                                                                        #TNasm::X86::Area::writeLibraryHeader  #TNasm::X86::Area::readLibraryHeader
-  my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>1);
-  $t->popSubTree;
-  $t->found->outNL;
-
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
-found  : .... .... .... ...0
 END
  }
 
@@ -19054,6 +19034,35 @@ if (1) {                                                                        
 END
  }
 
+#latest:;
+if (1) {                                                                        #
+  my $a = CreateArea;
+  my $t = $a->CreateTree(smallTree=>1);
+  my $T = $a->CreateTree;
+
+  $t->push($T);
+  $t->push(K key => 0x22);
+
+  $t->pop;
+  $t->found->outNL;
+  $t->data->outNL;
+  $t->subTree->outNL;
+
+  $t->popSubTree;
+  $t->found->outNL;
+  $t->data->outNL;
+  $t->subTree->outNL;
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
+found  : .... .... .... ...1
+data   : .... .... .... ..22
+subTree: .... .... .... ...0
+found  : .... .... .... ...1
+data   : .... .... .... ..80
+subTree: .... .... .... ...1
+END
+ }
+
 latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】');
@@ -19075,7 +19084,6 @@ parseMatch: .... .... .... ...0
 parseReason: .... .... .... ...0
 END
  }
-
 
 #latest:
 if (0) {                                                                        #TAssemble
