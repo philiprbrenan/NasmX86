@@ -18285,39 +18285,7 @@ sub Nasm::X86::Tree::get2($$$)                                                  
   $tree
  }
 
-sub Nasm::X86::Tree::putStringUnderKey($$$$)                                    # Especially useful for Yggdrasil: puts a key into a tree if it is not already there then puts a string into the sub string tree and return the unique number for the string.
- {my ($tree, $key, $address, $size) = @_;                                       # Tree, key, variable address of string in memory, variable size of string
-  @_ == 4 or confess "Four parameters";
-
-  my $t = $tree->findSubTree($key);                                             # Find the key
-  If $t->found == 0,
-  Then
-   {my $T = $tree->area->CreateTree;
-    $t->copyDescriptor($T);
-    $tree->put($key, $t);
-   };
-
-  $t->putKeyString($address, $size);                                            # Return the unique number that of this string in the located sub tree
- }
-
-sub Nasm::X86::Tree::getStringUnderKey($$$$)                                    # Especially useful for Yggdrasil: locates a string tree by key then locates a string in that string tree if both the key and the string exist.  Th result of the search is indicated in the found and data fields of the returned tree descriptor.
- {my ($tree, $key, $address, $size) = @_;                                       # Tree, key, variable address of string in memory, variable size of string
-  @_ == 4 or confess "Four parameters";
-
-  my $t = $tree->findSubTree($key);                                             # Find the key
-  If $t->found == 1,
-  Then
-   {my $T = $t->uniqueKeyString($address, $size);
-    If $T->found > 0,
-    Then                                                                        # Found so copy the results into the returned tree
-     {$t->data->copy($T->data);
-      $t->copyDescriptor($T);
-     }
-   };
-  $t                                                                            # Found field indicates whether the data field is valid
- }
-
-#latest:;
+latest:;
 if (1) {                                                                        #TNasm::X86::Tree::put2 #TNasm::X86::Tree::get2
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18341,95 +18309,6 @@ found  : .... .... .... ...1
 data   : .... .... .... .333
 found  : .... .... .... ...0
 END
- }
-
-latest:;
-if (1) {                                                                        # Load a subroutine into an area and call it.
-  unlink my $f = q(zzzArea.data);
-  my $sub = "abcd";
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;
-    $$p{a}->setReg(rax);
-    #$$p{a}->outNL;
-   } name => $sub, parameters=>[qw(a)];
-
-  my $t = Subroutine {} name => "t", parameters=>[qw(a)];
-
-  $s->call(parameters=>{a => K key => 1});
-  PrintOutRegisterInHex rax;
-
-  if (1)                                                                        # Create an area and load a subroutine into it
-   {my $a = CreateArea;
-    my $address = K address => $s->start;
-    my $size    = K size => "$$s{end}-$$s{start}";
-    my $off     = $a->appendMemory($address, $size);                            # Copy a subroutine into an area
-
-    my $y = $a->yggdrasil;
-    my ($N, $L) = constantString($sub);
-    my $n = $y->putStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings, $N, $L); # Make the string into a unique number
-    $y->put2(                Nasm::X86::Yggdrasil::SubroutineOffsets, $n, $off);# Record the offset of the subroutine under the unique string number
-
-    $a->write(V file => Rs $f);                                                 # Save the area
-    $a->free;
-   }
-
-  if (1)                                                                        # Read an area containing a subroutine into memory
-   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-
-    my $y = $a->yggdrasil;
-    my ($N, $L) = constantString($sub);
-    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
-
-    my $address = $a->address + $o->data;
-
-    $t->call(parameters=>{a => K key => 0x9999}, override => $address);         # Call position independent code
-    PrintOutRegisterInHex rax;
-   }
-
-  ok Assemble eq=><<END, avx512=>1, mix=>0, trace=>0;
-   rax: .... .... .... ...1
-   rax: .... .... .... 9999
-END
-  ok -e $f;
-#  is_deeply fileSize($f),  77 unless onGitHub;
-#  is_deeply fileSize($f), 173 if     onGitHub;
-
-  if (1)                                                                        # Read an area containing a subroutine into memory
-   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-
-    my $y = $a->yggdrasil;
-    my ($N, $L) = constantString($sub);
-    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
-
-    $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
-                          override => $a->address + $o->data);
-    PrintOutRegisterInHex rax;
-   }
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
-   rax: .... .... .... 8888
-END
-
-  if (1)                                                                        # Load an area into a thing
-   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-
-    my $y = $a->yggdrasil;
-    my ($N, $L) = constantString($sub);
-    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
-
-    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
-                          override => $a->address + $o->data);
-    PrintOutRegisterInHex rax;
-   }
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
-   rax: .... .... .... 7777
-END
-  unlink $f;
  }
 
 #latest:;
