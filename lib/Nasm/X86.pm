@@ -4987,167 +4987,6 @@ sub ConvertUtf8ToUtf32($$)                                                      
   ($a32, $s32, $count, $fail)                                                   # Utf32 string address as a variable, utf32 area length as a variable, number of characters converted, fail if one else zero
  } # ConvertUtf8ToUtf32
 
-#   4---+---3---+---2---+---1---+---0  Octal not decimal
-# 0  CCCCCCCC                          ClassifyInRange                  C == classification
-# 1  XXXXXXXX                          ClassifyWithInRange              X == offset in range
-# 2  CCCCCCCC                XXXXXXXX  ClassifyWithInRangeAndSaveOffset C == classification, X == offset in range 0-2**10
-
-sub ClassifyRange($$$)                                                          #P Implementation of ClassifyInRange and ClassifyWithinRange.
- {my ($recordOffsetInRange, $address, $size) = @_;                              # Record offset in classification in high byte if 1 else in classification if 2, variable address of utf32 string to classify, variable length of utf32 string to classify
-  @_ == 3 or confess "Three parameters";
-
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-    my $finish = Label;
-
-    PushR my @save =  (($recordOffsetInRange ? (r11, r12, r13) : ()),           # More registers required if we are recording position in range
-                       r14, r15, k6, k7, zmm 29..31);
-
-    Mov r15, 0x88888888;                                                        # Create a mask for the classification bytes
-    Kmovq k7, r15;
-    Kshiftlq k6, k7, 32;                                                        # Move mask into upper half of register
-    Korq  k7, k6, k7;                                                           # Classification bytes masked by k7
-
-    Knotq k7, k7;                                                               # Utf32 characters mask
-    Vmovdqu8 "zmm31\{k7}{z}", zmm1;                                             # Utf32 characters at upper end of each range
-    Vmovdqu8 "zmm30\{k7}{z}", zmm0;                                             # Utf32 characters at lower end of each range
-
-    $$p{address}->setReg(15);                                                   # Address of first utf32 character
-    $$p{size}->for(sub                                                          # Process each utf32 character in the block of memory
-     {my ($index, $start, $next, $end) = @_;
-
-      Mov r14d, "[r15]";                                                        # Load utf32 character
-      Add r15, RegisterSize r14d;                                               # Move up to next utf32 character
-      Vpbroadcastd       zmm29, r14d;                                           # Process 16 copies of the utf32 character
-      Vpcmpud  k7,       zmm29, zmm30, 5;                                       # Look for start of range
-      Vpcmpud "k6\{k7}", zmm29, zmm31, 2;                                       # Look for end of range
-      Ktestw k6, k6;                                                            # Was there a match ?
-      Jz $next;                                                                 # No character was matched
-                                                                                # Process matched character
-      if ($recordOffsetInRange == 1)                                            # Record offset in classification range in high byte as used for bracket matching
-       {Vpcompressd "zmm29\{k6}", zmm0;                                         # Place classification byte at start of xmm29
-        Vpextrd r13d, xmm29, 0;                                                 # Extract start of range
-        Mov r12, r13;                                                           # Copy start of range
-        Shr r12, 24;                                                            # Classification start
-        And r13, 0x00ffffff;                                                    # Range start
-        Sub r14, r13;                                                           # Offset in range
-        Add r12, r14;                                                           # Offset in classification
-        Mov "[r15-1]", r12b;                                                    # Save classification in high byte as in case 1 above.
-       }
-      elsif ($recordOffsetInRange == 2)                                         # Record classification in high byte and offset in classification range in low byte as used for alphabets
-       {Vpcompressd "zmm29\{k6}", zmm0;                                         # Place classification byte and start of range at start of xmm29
-        Vpextrd r13d, xmm29, 0;                                                 # Extract start of range specification
-        Mov r12, r13;                                                           # Range classification code and start of range
-        Shr r12, 24; Shl r12, 24;                                               # Clear low three bytes
-        And r13, 0x00ffffff;                                                    # Utf Range start minus classification code
-
-        Vpcompressd "zmm29\{k6}", zmm1;                                         # Place start of alphabet at start of xmm29
-        Vpextrd r11d, xmm29, 0;                                                 # Extract offset of alphabet in range
-        Shr r11, 24;                                                            # Alphabet offset
-        Add r11, r14;                                                           # Range start plus utf32
-        Sub r11, r13;                                                           # Offset of utf32 in alphabet range
-        Or  r12, r11;                                                           # Case 2 above
-        Mov "[r15-4]", r12d;                                                    # Save offset of utf32 in alphabet range in low bytes as in case 2 above.
-       }
-      else                                                                      # Record classification in high byte
-       {Vpcompressd "zmm29\{k6}", zmm0;                                         # Place classification byte at start of xmm29
-        Vpextrb "[r15-1]", xmm29, 3;                                            # Extract and save classification in high byte as in case 0 above.
-       }
-     });
-
-    SetLabel $finish;
-    PopR;
-   } parameters=>[qw(address size)],
-     name => "ClassifyRange_$recordOffsetInRange";
-
-  $s->call(parameters=>{address=>$address, size=>$size});
- } # ClassifyRange
-
-sub ClassifyInRange($$)                                                         # Character classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with each double word in zmm0 having the classification in the highest 8 bits and with zmm0 and zmm1 having the utf32 character at the start (zmm0) and end (zmm1) of each range in the lowest 18 bits.  The classification bits from the first matching range are copied into the high (unused) byte of each utf32 character in the block of memory.  The effect is to replace the high order byte of each utf32 character with a classification code saying what type of character we are working.
- {my ($address, $size) = @_;                                                    # Variable address of utf32 string to classify, variable length of utf32 string to classify
-  @_ == 2 or confess "Two parameters required";
-  ClassifyRange(0, $address, $size);
- }
-
-sub ClassifyWithInRange($$)                                                     # Bracket classification: Classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification range in the high byte of each dword in zmm0 and the utf32 character at the start (zmm0) and end (zmm1) of each range in the lower 18 bits of each dword.  The classification bits from the position within the first matching range are copied into the high (unused) byte of each utf32 character in the block of memory.  With bracket matching this gives us a normalized bracket number.
- {my ($address, $size) = @_;                                                    # Variable address of utf32 string to classify, variable length of utf32 string to classify
-  @_ == 2 or confess "Two parameters required";
-  ClassifyRange(1, $address, $size);
- }
-
-sub ClassifyWithInRangeAndSaveOffset($$)                                        # Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1 formatted in double words with the classification code in the highest byte of each double word in zmm0 and the offset of the first element in the range in the highest byte of each dword in zmm1.  The lowest 18 bits of each double word in zmm0 and zmm1  contain the utf32 characters marking the start and end of each range. The classification bits from zmm1 for the first matching range are copied into the high byte of each utf32 character in the block of memory.  The offset in the range is copied into the lowest byte of each utf32 character in the block of memory.  The middle two bytes are cleared.  The classification byte is placed in the lowest byte of the utf32 character.
- {my ($address, $size) = @_;                                                    # Variable address of utf32 string to classify, variable length of utf32 string to classify
-  @_ == 2 or confess "Two parameters required";
-  ClassifyRange(2, $address, $size);
- }
-
-#   4---+---3---+---2---+---1---+---0  Octal not decimal
-#    CCCCCCCC        XXXXXXXXXXXXXXXX  ClassifyWithInRangeAndSaveWordOffset C == classification, X == offset in range 0-2**16
-
-sub ClassifyWithInRangeAndSaveWordOffset($$$)                                   # Alphabetic classification: classify the utf32 characters in a block of memory of specified length using a range specification held in zmm0, zmm1, zmm2 formatted in double words. Zmm0 contains the low end of the range, zmm1 the high end and zmm2 contains the range offset in the high word of each Dword and the lexical classification on the lowest byte of each dword. Each utf32 character recognized is replaced by a dword whose upper byte is the lexical classification and whose lowest word is the range offset.
- {my ($address, $size, $classification) = @_;                                   # Variable address of string of utf32 characters, variable size of string in utf32 characters, variable one byte classification code for this range
-  @_ == 3 or confess "Three parameters required";
-
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-    my $finish = Label;
-
-    PushR 12, 13, 14, 15, 6, 7, 29..31;
-
-    $$p{address}->setReg(15);                                                   # Address of first utf32 character
-    $$p{size}->for(sub                                                          # Process each utf32 character in the block of memory
-     {my ($index, $start, $next, $end) = @_;
-
-      Mov r14d, "[r15]";                                                        # Load utf32 character
-      Add r15, RegisterSize r14d;                                               # Move up to next utf32 character
-      Vpbroadcastd       zmm31, r14d;                                           # Process 16 copies of the utf32 character
-      Vpcmpud  k7,       zmm31, zmm0, 5;                                        # Look for start of range
-      Vpcmpud "k6\{k7}", zmm31, zmm1, 2;                                        # Look for end of range
-      Ktestw k6, k6;                                                            # Was there a match ?
-      Jz $next;                                                                 # No character was matched
-                                                                                # Process matched character
-      Vpcompressd "zmm31\{k6}", zmm2;                                           # Corresponding classification and offset
-      Vpextrd r13d, xmm31, 0;                                                   # Extract start of range specification - we can subtract this from the character to get its offset in this range
-      Mov r12, r14;                                                             # Range classification code and start of range
-      Sub r12, r13;                                                             # We now have the offset in the range
-
-      $$p{classification}->setReg(13);                                          # Classification code
-      Shl r13, 24;                                                              # Shift classification code into position
-      Or  r12, r13;                                                             # Position classification code
-      Mov "[r15-4]", r12d;                                                      # Classification in highest byte of dword, offset in range in lowest word
-     });
-    PopR;
-   } parameters => [qw(address size classification)],
-     name       => "ClassifyWithInRangeAndSaveWordOffset";
-
-  $s->call(parameters=>{address=>$address, size=>$size,
-           classification=>$classification});
- } # ClassifyWithInRangeAndSaveWordOffset
-
-sub Nasm::X86::Variable::dClassify($$$)                                         # Classify the dword in a variable between ranges held in zmm registers and return the index of the matching range.
- {my ($d, $low, $high) = @_;                                                    # Variable containing a dword, zmm number not 31 holding the low end of each range, zmm number not 31 holding the high end of each range
-  @_ == 3 or confess "Three parameters required";
-
-  my $s = Subroutine
-   {my ($p) = @_;                                                               # Parameters
-
-    PushR 15, 5, 6, 7, 31;
-    $$p{d}->setReg(15);                                                         # Dword to classify
-    Vpbroadcastd zmm31, r15d;                                                   # 16 copies of the dword
-    Vpcmpud  k7, zmm($low,  31), $Vpcmp->le;                                    # Look for start of range
-    Vpcmpud  k6, zmm($high, 31), $Vpcmp->ge;                                    # Look for end of range
-    Kandq k5, k6, k7;                                                           # Look for end of range
-    Kmovq r15, k5;                                                              # Recover point
-    $$p{point}->getReg(15);                                                     # Return point
-    PopR;
-   } parameters => [qw(d point)],
-     name       => "Nasm::X86::Variable::dClassify";
-
-  my $point = V point => 0;                                                     # Point of matching range or zero if no match
-  $s->call(parameters=>{d=>$d, point=>$point});
-  $point
- } # dClassify
-
 #D1 C Strings                                                                   # C strings are a series of bytes terminated by a zero byte.
 
 sub Cstrlen()                                                                   #P Length of the C style string addressed by rax returning the length in r15.
@@ -7246,7 +7085,6 @@ sub Nasm::X86::Tree::find($$)                                                   
        {my (undef, $start) = @_;
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
-$DebugMode = 1;
         $t->indexEqLt($zKey, $K, $equals, $insert);                             # The position of a key in a zmm equal to the specified key as a point in a variable.
         IfNz                                                                    # Result mask is non zero so we must have found the key
         Then
@@ -9081,147 +8919,6 @@ sub Nasm::X86::Tree::intersection($)                                            
   $i                                                                            # Intersection
  }
 
-
-=pod
-#D2 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.
-
-sub Nasm::X86::Tree::putString($$)                                              # Enter a string tree into a tree of strings and return the offset of the last inserted tree as the unique number of this string.
- {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
-  @_ == 2 or confess "Two parameters";
-  confess "Second parameter must be a tree"
-    unless ref($string) and ref($string) =~ m(Tree);
-
-  my $s = V state => 1;                                                         # 1 - string found so far, 0 - inserting new string
-  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
-
-  $string->by(sub                                                               # Insert latest tree
-   {my ($t) = @_;
-    If $s == 1,
-    Then                                                                        # String matches an existing string so far
-     {$S->find($t->data);
-      If $S->found == 0,
-      Then                                                                      # Position on new element
-       {$s->copy(0);
-        my $T = $t->area->CreateTree;
-        $S->put($t->data, $T);
-        $S->copyDescriptor($T);
-       },
-      Else
-       {$S->first->copy($S->data);                                              # Position on found element
-       };
-     },
-    Else                                                                        # String no longer matches an existing string - we are creating a new path
-     {my $T = $t->area->CreateTree;
-      $S->put($t->data, $T);
-      $S->copyDescriptor($T);
-     };
-   });
-  $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.
- }
-
-sub Nasm::X86::Tree::putStringFromMemory($$$)                                   # Enter a string in memory into a tree of strings and return the offset of the last inserted tree as the unique number of this string.
- {my ($tree, $address, $size) = @_;                                             # Tree descriptor representing string tree, variable address in memory of string, variable size of string
-  @_ == 3 or confess "Three parameters";
-
-  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;
-
-    my $S = $$s{tree};
-    PushR my $c = r13, my $a = r14, my $i = r15;
-    ClearRegisters $c, $i;
-    $$p{address}->setReg($a);                                                   # Address of content in memory
-    my $f = V state => 1;                                                       # 1 - string found so far, 0 - inserting new string
-
-    $$p{size}->for(sub                                                          # Insert each character - obviously this can be improved by using registers instead of variables
-     {my ($index) = @_;                                                         # Position in the string
-      Mov $c."b", "[$a+$i]";                                                    # Get the next byte
-      my $char = V char => $c;                                                  # Next character of the string
-
-      If $f == 1,
-      Then                                                                      # String matches an existing string so far
-       {$S->find($char);
-        If $S->found == 0,
-        Then                                                                    # Position on new element
-         {$f->copy(0);
-          my $T = $S->area->CreateTree;
-          $S->put($char, $T);
-          $S->copyDescriptor($T);
-         },
-        Else
-         {$S->first->copy($S->data);                                            # Position on found element
-         };
-       },
-      Else                                                                      # String no longer matches an existing string - we are creating a new path
-       {my $T = $S->area->CreateTree;
-        $S->put($char, $T);
-        $S->copyDescriptor($T);
-       };
-      Inc $i
-     });
-
-    PopR;
-   } structures => {tree => $tree},
-     parameters => [qw(address size)],
-     name       =>  qq(Nasm::X86::Tree::putStringFromMemory);
-
-  $s->call(parameters => {address => $address, size=>$size},
-           structures => {tree    => $S});
-
-  $S->first;                                                                    # The offset of the start of the tree gives us a unique number for each input string.  We do not need to send an indicator as to whether this subroutine failed or succeeded because it always succeeds, or if it doe not something so serious has happened that it is not plausible to report it here
- }
-
-sub Nasm::X86::Tree::getString($$)                                              # Locate the tree in a string tree representing the specified string but only if it is present and return its data in B<found> and B<data>.  If the string is not present then return a tree descriptor with found set to zero.
- {my ($tree, $string) = @_;                                                     # Tree descriptor representing string tree, tree representing a string to be inserted into the string tree.
-  @_ == 2 or confess "Two parameters";
-  ref($string) =~ m(\ANasm::X86::::Tree\Z);
-
-  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
-  $S->found->copy(1);                                                           # The empty string maps to the offset of the string tree itself
-
-  Block
-   {my ($end, $start) = @_;                                                     # End label
-    $S->zero;                                                                   # Assume we will not find the string
-    $S->subTree->copy(1);                                                       # We know we start with a string
-    $string->by(sub                                                             # Insert latest tree
-     {my ($s) = @_;
-      If $S->subTree == 0, Then {Jmp $end};                                     # Confirm that we are searching a sub tree
-      $S->find($s->data);                                                       # Try to find the next character of the string
-      If $S->found   == 0, Then {Jmp $end};                                     # The string cannot be found
-      $S->first->copy($S->data);
-     });
-   };
-
-  $S                                                                            # The result is shown via a tree descriptor
- }
-
-sub Nasm::X86::Tree::getStringFromMemory($$$)                                   # Locate the tree in a string tree representing the specified string but only if it is present and return its data in B<found> and B<data>.  If the string is not present then return a tree descriptor with found set to zero.
- {my ($tree, $address, $size) = @_;                                             # Tree descriptor representing string tree, variable address in memory of string, variable size of string
-  @_ == 3 or confess "Three parameters";
-
-  my $S = $tree->copyDescription;                                               # Create a new descriptor for the string tree
-  $S->found->copy(1);                                                           # The empty string maps to the offset of the string tree itself
-
-  PushR my $c = r13, my $a = r14, my $i = r15;
-  ClearRegisters $c, $i;
-  $address->setReg($a);
-
-  $size->for(sub                                                                # Insert each character - obviously this can be improved by using registers instead of variables
-   {my ($index, $start, $next, $end) = @_;                                      # Position in the string
-
-    Mov $c."b", "[$a+$i]";                                                      # Get the next byte
-    my $char = V char => $c;                                                    # Next character of the string
-    $S->find($char);
-    If $S->found == 0, Then {Jmp $end};                                         # Not found
-    $S->first->copy($S->data);                                                  # Position on found element
-    Inc $i;
-   });
-  PopR;
-  $S                                                                            # Tree descriptor found and data fields indicate the value and validity of the result
- }
-=cut
-
 #D2 Print                                                                       # Print a tree
 
 sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     #P Dump a tree and all its sub trees.
@@ -10932,7 +10629,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10934 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10631 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18400,16 +18097,16 @@ sub Nasm::X86::Area::subroutineDefinition($$$)                                  
   $$c{a};                                                                       # Extract subroutine definition
  }
 
-sub Nasm::X86::Area::sub($$$)                                                   # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
- {my ($area, $string, $size) = @_;                                              # Area containing the subroutine, variable address of string, variable size of string
-  @_ == 3 or confess "Three parameters";
-
-  my $y = $area->yggdrasil;
-  my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings, $string, $size);# Make the string into a unique number
-  my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);  # Get the offset of the subroutine under the unique string number
-
-  $area->address + $o->data                                                     # Actual address - valid until the area moves.
- }
+#sub Nasm::X86::Area::sub($$$)                                                   # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
+# {my ($area, $string, $size) = @_;                                              # Area containing the subroutine, variable address of string, variable size of string
+#  @_ == 3 or confess "Three parameters";
+#
+#  my $y = $area->yggdrasil;
+#  my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings, $string, $size);# Make the string into a unique number
+#  my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);  # Get the offset of the subroutine under the unique string number
+#
+#  $area->address + $o->data                                                     # Actual address - valid until the area moves.
+# }
 
 sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators.
  {my ($parse, $library, $intersection) = @_;                                    # Parse tree, area containing a library, intersection of parse tree with library
