@@ -17152,22 +17152,6 @@ deref (addr a add 16): .... .... .... ...3
 END
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Variable::dClassify
-  K(K => Rd(map {32 * $_     } 0..15))->loadZmm(29);
-  K(K => Rd(map {32 * $_ + 16} 0..15))->loadZmm(30);
-
-  V(classify => 20)->dClassify(29, 30)->outNL;
-  V(classify => 14)->dClassify(29, 30)->outNL;
-  V(classify => 40)->dClassify(29, 30)->outNL;
-
-  ok Assemble eq => <<END, avx512=>1;
-point: .... .... .... ...0
-point: .... .... .... ...1
-point: .... .... .... ...2
-END
- }
-
 test6: goto test7 unless $test{6};
 
 #latest:
