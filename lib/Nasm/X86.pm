@@ -5933,6 +5933,10 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   my $o    = $tree->area->allocZmmBlock;                                        # Allocate header
   $tree->first->copy($o);                                                       # Install header
 
+  $tree->area->getZmmBlock($o, 31);   ####TTTT
+  K(key => 0x1111)->dIntoZ(31, $tree->upOffset);
+  $tree->area->putZmmBlock($o, 31);
+
   $tree                                                                         # Description of array
  }
 
@@ -10981,7 +10985,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10983 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10987 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
