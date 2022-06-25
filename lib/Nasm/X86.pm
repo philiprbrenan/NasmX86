@@ -7249,7 +7249,7 @@ sub Nasm::X86::Tree::find($$)                                                   
     PopR;
    } parameters => [qw(key)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::find-$$tree{length}-$$tree{stringTree});
+     name       => qq(Nasm::X86::Tree::find-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   Block                                                                         # Find low keys if possible
    {my ($end) = @_;                                                             # End of block
@@ -7394,7 +7394,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
      };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
-     name => qq(Nasm::X86::Tree::findFirst-$$tree{length});
+     name => qq(Nasm::X86::Tree::findFirst-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree});
  } # findFirst
@@ -7459,7 +7459,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
     PopR;
    } parameters => [qw(key)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::findNext-$$tree{length});
+     name       => qq(Nasm::X86::Tree::findNext-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # findNext
@@ -7529,7 +7529,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
     PopR;
    } parameters => [qw(key)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::findPrev-$$tree{length});
+     name       => qq(Nasm::X86::Tree::findPrev-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # findPrev
@@ -7614,8 +7614,8 @@ sub Nasm::X86::Tree::leftOrRightMost($$$$)                                      
     PopR;
    } structures => {tree => $tree},
      parameters => [qw(node offset)],
-     name       => $dir==0 ? qq(Nasm::X86::Tree::leftMost-$$tree{length}) :
-                             qq(Nasm::X86::Tree::rightMost-$$tree{length});
+     name       => $dir==0 ? qq(Nasm::X86::Tree::leftMost-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree}) :
+                             qq(Nasm::X86::Tree::rightMost-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   $s->call
    (structures => {tree=>$tree},
@@ -7668,7 +7668,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
     PopR;
    }  structures => {tree => $tree},
       parameters => [qw(node depth)],
-      name       => qq(Nasm::X86::Tree::depth-$$tree{length});
+      name       => qq(Nasm::X86::Tree::depth-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   $s->call(structures => {tree => $tree->copyDescription},
            parameters => {node => $node, depth => my $d = V depth => 0});
@@ -7892,7 +7892,7 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
     PopR;
    } parameters => [qw(point)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::extract-$K-$D-$N-$$tree{length});
+     name       => qq(Nasm::X86::Tree::extract-$K-$D-$N-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   $s->inline(structures=>{tree => $tree}, parameters=>{point => $point});
  } # extract
@@ -7933,7 +7933,7 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
 
     PopR;
    } structures=>{tree=>$tree},
-     name => qq(Nasm::X86::Tree::extractFirst-$K-$D-$N-$$tree{length});
+     name => qq(Nasm::X86::Tree::extractFirst-$K-$D-$N-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree});
  } # extractFirst
@@ -8041,7 +8041,7 @@ sub Nasm::X86::Tree::mergeOrSteal($$)                                           
     PopR;
    } parameters => [qw(offset changed)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::mergeOrSteal-$$tree{length});
+     name       => qq(Nasm::X86::Tree::mergeOrSteal-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   $s->call
    (structures => {tree   => $tree},
@@ -8372,7 +8372,7 @@ sub Nasm::X86::Tree::deleteFirstKeyAndData($$$)                                 
      };
     PopR;
    }
-  name => qq(Nasm::X86::Tree::deleteFirstKeyAndData-$K-$D-$$tree{length}),
+  name => qq(Nasm::X86::Tree::deleteFirstKeyAndData-$K-$D-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree}),
   structures => {tree => $tree};
 
   $s->call(structures => {tree => $tree});
@@ -8384,9 +8384,11 @@ sub Nasm::X86::Tree::delete($$)                                                 
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to delete
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
+  confess "No yet implemented for stringKeys" if $tree->stringKeys;
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
     Block
      {my ($success) = @_;                                                       # Short circuit if ladders by jumping directly to the end after a successful push
 
@@ -8510,7 +8512,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
     PopR;
    } parameters =>[qw(key)],
      structures =>{tree=>$tree},
-     name       => qq(Nasm::X86::Tree::delete-$$tree{length});
+     name       => qq(Nasm::X86::Tree::delete-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   Block                    ## Need to detect sub tree or not                    # Delete low keys if possible
    {my ($end) = @_;                                                             # End of block
@@ -8558,8 +8560,8 @@ sub Nasm::X86::Tree::delete($$)                                                 
          }
        }
 
-      else {                                                                    # The key is a variable, we check if it should go in the first cache
-        ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
+      else                                                                      # The key is a variable, we check if it should go in the first cache
+       {ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
         Then                                                                    # Less than the upper limit
          {if ($tree->smallTree == 1)                                            # The low keys are behaving just like normal keys
            {my $F = zmm1;                                                       # Place first block in this zmm
@@ -8646,7 +8648,7 @@ sub Nasm::X86::Tree::clear($)                                                   
     PopR;
    } parameters => [qw(offset)],
      structures => {tree => $tree},
-     name       => qq(Nasm::X86::Tree::clear-$$tree{length});
+     name       => qq(Nasm::X86::Tree::clear-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   PushR my $F = 31;
   $tree->firstFromMemory($F);
@@ -9411,7 +9413,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
     PopR;
    } parameters => [qw(offset)],
      structures => {tree => $tree},
-     name       => qq(Nasm::X86::Tree::printInOrder-$$tree{length});
+     name       => qq(Nasm::X86::Tree::printInOrder-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   PrintOutString $title;                                                        # Title of the piece so we do not lose it
 
@@ -10020,7 +10022,6 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
   $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
-$char->d;
 
     $parseChar->copy($char);                                                    # Copy the current character
     If $fail > 0,
@@ -10979,7 +10980,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10981 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10982 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17601,7 +17602,7 @@ END
 sub ParseUnisyn($$$)                                                            #P Test the parse of a unisyn expression.
  {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
-# say STDERR readFile($f);
+
   is_deeply readFile($f), $text;
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
@@ -18981,13 +18982,10 @@ END
 
 latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('va a= b( vb e+ vc B) e* vd dif ve');
-  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+  my ($a8, $s8) = constantString("【𝗔＋𝗔＋𝗔＋𝗔】");
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $parse = $a->ParseUnisyn($a8, $s8-1);                                      # Parse the utf8 string minus the final new line
+  my $parse = $a->ParseUnisyn($a8, $s8);                                        # Parse the utf8 string
 
   $parse->char    ->outNL;                                                      # Print results
   $parse->fail    ->outNL;
@@ -18996,28 +18994,21 @@ if (1) {                                                                        
   $parse->reason  ->outNL;
   $parse->tree->dumpParseTree($a8);
 
-# 1_369_790
-# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
-#    1          52_693         556_640          52_693         556_640        0.4909          2.57          0.00
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar: .... .... ...1 D5D8
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>41_769;
+parseChar: .... .... .... 3011
 parseFail: .... .... .... ...0
-pos: .... .... .... ..2B
+pos: .... .... .... ..1F
 parseMatch: .... .... .... ...0
 parseReason: .... .... .... ...0
-＝
-._𝗔
-._𝐈𝐅
-._._✕
-._._._【
-._._._._＋
-._._._._._𝗕
-._._._._._𝗖
-._._._𝗗
-._._𝗘
+【
+._＋
+._._＋
+._._._＋
+._._._._𝗔
+._._._._𝗔
+._._._𝗔
+._._𝗔
 END
-  unlink $f;
  }
 
 latest:
@@ -19025,13 +19016,14 @@ if (1) {                                                                        
   my ($a8, $s8) = constantString('【】');
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $parse = $a->ParseUnisyn($a8, $s8);                                        # Parse the utf8 string minus the final new line
+  my $parse = $a->ParseUnisyn($a8, $s8);                                        # Parse the utf8 string
 
   $parse->char    ->outNL;                                                      # Print results
   $parse->fail    ->outNL;
   $parse->position->outNL;
   $parse->match   ->outNL;
   $parse->reason  ->outNL;
+  $parse->tree->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar: .... .... .... 3011
@@ -19039,6 +19031,7 @@ parseFail: .... .... .... ...0
 pos: .... .... .... ...6
 parseMatch: .... .... .... ...0
 parseReason: .... .... .... ...0
+【
 END
  }
 
