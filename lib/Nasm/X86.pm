@@ -16,6 +16,7 @@
 # Jump forwarding
 # All options checking immediately after parameters
 # Which subs do we actually need SaveFirst four on?
+# Add bits to trees in what is now the unusedUpdata fields to show whether the tree is a small tree, low tree etc so that print and popSubTree can test these bits.
 package Nasm::X86;
 our $VERSION = "20220606";
 use warnings FATAL => qw(all);
@@ -5839,7 +5840,7 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 
 #D2 Constructors                                                                # Construct a tree.
 
-sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.
+sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.  The options from one tree get inherited by any sub trees they contain
  {my (%options)  = @_;                                                          # Tree description options
   my $area       = delete $options{area};                                       # The area containing the tree
   my $smallTree  = delete $options{smallTree};                                  # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
@@ -8772,13 +8773,13 @@ sub Nasm::X86::Tree::pop($)                                                     
    };
  }
 
-sub Nasm::X86::Tree::popSubTree($)                                              # Pop the last value out of a tree and return a tree descriptor positioned on it with the first/found fields set.
- {my ($tree) = @_;                                                              # Tree descriptor
-  @_ == 1 or confess "One parameter";
+sub Nasm::X86::Tree::popSubTree($%)                                             # Pop the last value out of a tree and return a tree descriptor positioned on it with the first/found fields set.
+ {my ($tree, %options) = @_;                                                    # Tree descriptor, options describing the sub tree
+  @_ >= 1 or confess "One or more parameter";
 
   $tree->pop;
 
-  my $t = $tree->describeTree;                                                  # Create a tree descriptor to indicate the result
+  my $t = $tree->describeTree(%options);                                        # Create a tree descriptor to indicate the result
      $t->zero;
   If $tree->found > 0,
   Then
@@ -10045,17 +10046,13 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
       $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
       $brackets->push($t);                                                      # Save bracket description on bracket stack
       $change->copy(1);                                                         # Changing because we are on a bracket
-PrintErrStringNL "AAAA";
-$t->area->dump("AAAAAAA");
      },
     Ef {$alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::B)}
     Then                                                                        # Closing bracket
-     {my $t = $brackets->popSubTree;                                            # Match with brackets stack
+     {my $t = $brackets->popSubTree(smallTree=>0);                              # Match with brackets stack
       If $t->found > 0,                                                         # Something to match with on the brackets stack
       Then
        {$t->find(K out => 2);                                                   # Expected bracket - known to be in the tree
-PrintErrStringNL "BBBB";
-$t->area->dump("BBBBB");
         If $t->data != $char,                                                   # Did not match the expected bracket
         Then
          {$t->find(K position => 0);
@@ -10981,7 +10978,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10983 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10980 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19039,6 +19036,7 @@ if (1) {                                                                        
   my $a = CreateArea;
   my $t = $a->CreateTree(smallTree=>1);
   my $T = $a->CreateTree;
+     $T->push(K key => 0x333);
 
   $t->push($T);
   $t->push(K key => 0x22);
@@ -19048,10 +19046,14 @@ if (1) {                                                                        
   $t->data->outNL;
   $t->subTree->outNL;
 
-  $t->popSubTree;
+  my $P = $t->popSubTree(smallTree => 0);
   $t->found->outNL;
   $t->data->outNL;
   $t->subTree->outNL;
+  PrintOutStringNL "PPPPP";
+  $P->find(K key => 0);
+  $P->found->outNL;
+  $P->data->outNL;
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
 found  : .... .... .... ...1
@@ -19060,6 +19062,9 @@ subTree: .... .... .... ...0
 found  : .... .... .... ...1
 data   : .... .... .... ..80
 subTree: .... .... .... ...1
+PPPPP
+found  : .... .... .... ...1
+data   : .... .... .... .333
 END
  }
 
