@@ -18297,7 +18297,7 @@ sub Nasm::X86::Tree::putStringUnderKey($$$$)                                    
     $tree->put($key, $t);
    };
 
-  $t->putStringFromMemory($address, $size);                                     # Return the unique number that of this string in the located sub tree
+  $t->putKeyString($address, $size);                                            # Return the unique number that of this string in the located sub tree
  }
 
 sub Nasm::X86::Tree::getStringUnderKey($$$$)                                    # Especially useful for Yggdrasil: locates a string tree by key then locates a string in that string tree if both the key and the string exist.  Th result of the search is indicated in the found and data fields of the returned tree descriptor.
@@ -18307,7 +18307,7 @@ sub Nasm::X86::Tree::getStringUnderKey($$$$)                                    
   my $t = $tree->findSubTree($key);                                             # Find the key
   If $t->found == 1,
   Then
-   {my $T = $t->getStringFromMemory($address, $size);
+   {my $T = $t->uniqueKeyString($address, $size);
     If $T->found > 0,
     Then                                                                        # Found so copy the results into the returned tree
      {$t->data->copy($T->data);
@@ -18343,7 +18343,7 @@ found  : .... .... .... ...0
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        # Load a subroutine into an area and call it.
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
@@ -18432,7 +18432,7 @@ END
   unlink $f;
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        # Create and use a library
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
@@ -19487,7 +19487,7 @@ sub Nasm::X86::Area::readLibraryHeader($$)                                      
  }
 
 latest:;
-if (1) {                                                                        #TNasm::X86::Area::writeLibraryHeader
+if (1) {                                                                        #TNasm::X86::Area::writeLibraryHeader  #TNasm::X86::Area::readLibraryHeader
   my $a = CreateArea;
 
   my $u = $a->CreateTree(stringTree=>1);
