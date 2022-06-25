@@ -1603,7 +1603,7 @@ sub Subroutine(&%)                                                              
 END
 
   if ($export)                                                                  # Create a new set of subroutines for this routine and all of its sub routines
-   {$s->writeToArea({%subroutines});                                            # Place the subroutine in an area then write the area containing the subroutine and its contained routines to a file
+   {$s->writeLibraryToArea({%subroutines});                                     # Place the subroutine in an area then write the area containing the subroutine and its contained routines to a file
     %subroutines = %subroutinesSaved;                                           # Save current set of subroutines
     %rodata      = %rodataSaved;                                                # Restore current set of read only elements
     %rodatas     = %rodatasSaved;                                               # Restore current set of read only strings
@@ -1614,32 +1614,24 @@ END
   $s                                                                            # Return subroutine definition
  }
 
-sub Nasm::X86::Subroutine::writeToArea($$)                                      #P Write a subroutine and its sub routines to an area then save the area in a file so that the subroutine can be reloaded at a later date either as separate file or via incorporation into a thing.  A thing was originally an assembly of people as in "The Allthing" or the "Stort Thing".
+sub Nasm::X86::Subroutine::writeLibraryToArea($$)                               #P Write a subroutine library to an area then save the area in a file so that the subroutine can be reloaded at a later date either as separate file or via incorporation into a thing.  A thing was originally an assembly of people as in "The Allthing" or the "Stort Thing".
  {my ($s, $subs) = @_;                                                          # Sub definition of containing subroutine, definitions of contained subroutines
   my $a = CreateArea;
   my $address = K address => $s->start;
-  my $size    = K size => "$$s{end}-$$s{start}";
-  my $off     = $a->appendMemory($address, $size);                              # Copy a subroutine into an area
+  my $size    = K size    => "$$s{end}-$$s{start}";
+  my $off     = $a->appendMemory($address, $size);                              # Copy the containing subroutine into the area
 
-  my $y = $a->yggdrasil;
-  my ($N, $L) = constantString($s->name);                                       # The name of the containing subroutine
-  my $n = $y->putStringUnderKey(&Nasm::X86::Yggdrasil::UniqueStrings, $N, $L);  # Make the name of the subroutine into a unique number
-  my $o = $a->appendMemory($address, $size);                                    # Copy a subroutine into an area
-  $y->put2(                &Nasm::X86::Yggdrasil::SubroutineOffsets, $n, $off); # Record the offset of the subroutine under the unique string number
-
-  my $U = $y->findSubTree(&Nasm::X86::Yggdrasil::UniqueStrings);                # Find the unique string sub tree created above
-  my $O = $y->findSubTree(&Nasm::X86::Yggdrasil::SubroutineOffsets);            # Find the unique subroutine offset tree created above
-
-  my %saved;                                                                    # An array of sub routine definitions preceded by this helpful string.  It is entirely possible that this string is not unique in this area - in that case one would have to parse Yggdrasil in Perl - but for the  moment this would be overkill.
+  my %offsets; my %saved;                                                       # Contained subroutine name to offset mapping. Contained subroutine definitions
   for my $sub(sort keys %$subs)                                                 # Each sub routine definition contained in the containing subroutine
    {my $r = $$subs{$sub};                                                       # A routine within the subroutine
-    my ($N, $L) = constantString($r->name);                                     # The name of the sub
-    my $n = $U->putStringFromMemory($N, $L);                                    # Make the name of the sub routine into a unique number
-    my $o = $off + K delta => "$$r{start}-$$s{start}";                          # Offset to this sub routine within the subroutine
-    $O->put($n, $o);                                                            # Record the offset of the subroutine under the unique string number
-
-    $saved{$r->name} = $$subs{$sub};                                            # Saved this subroutine definition as the sub is included in the area
+    $offsets{$r->name} = $off + K delta => "$$r{start}-$$s{start}";             # Offset to this sub routine within the subroutine
+    $saved  {$r->name} = $$subs{$sub};                                          # Saved this subroutine definition as the sub is included in the area. The subroutine definition enables us to format the parameter list to the subroutine and so call it correctly.
    }
+
+  my $h = $a->writeLibraryHeader({%offsets});                                   # Save the library header which tells us where each routine is and what it is called
+
+  my $y = $a->yggdrasil;
+  $y->put(&Nasm::X86::Yggdrasil::SubroutineOffsets, $h);                        # Record the location of the library header
 
   if (1)                                                                        # Save the definitions of the subs in this area
    {my $s = "SubroutineDefinitions:".dump(\%saved)."ZZZZ";                      # String to save
@@ -1647,8 +1639,8 @@ sub Nasm::X86::Subroutine::writeToArea($$)                                      
     $y->put(&Nasm::X86::Yggdrasil::SubroutineDefinitions, $d);                  # Record the offset of the subroutine definition under the unique string number for this subroutine
    }
 
-   $a->write(V file => Rs $s->export);                                          # Save the area to the named file
-   $a->free;
+  $a->write(V file => Rs $s->export);                                           # Save the area to the named file
+  $a->free;
  }
 
 sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           # Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined.
@@ -9864,7 +9856,7 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
 
   my $brackets    = $area->CreateTree; #(smallTree => 1);                       # Bracket stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
-  my $symbols     = $area->CreateTree;                                          # String tree of symbols encountered during the parse
+  my $symbols     = $area->CreateTree(stringTree=>1);                           # String tree of symbols encountered during the parse
 
   my $position    = V pos => 0;                                                 # Position in input string
   my $last        = V last => Nasm::X86::Unisyn::Lex::Number::S;                # Last lexical type starting on ths start symbol
@@ -9912,11 +9904,9 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
    {my $t = $parse->position($lastNew);                                         # The description of the last lexical item
 
     my $l = $position - $startPos;                                              # Length of previous item
+    my $s = $symbols->uniqueKeyString($a8+$startPos,   $l);                     # The symbol number of the previous lexical item
+    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record lexical symbol number of previous item in its describing tree
     $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $l);                        # Record length of previous item in its describing tree
-    my $m = $area->treeFromString($a8+$startPos, $l);                           # Create a tree string from the symbol in the parsing area as an easy way of loading the tree of strings - it would be better to have a version that loaded a string tree directly from memory
-    my $s = $symbols->putString($m);                                            # The symbol number for the last lexical item
-    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record length of previous item in its describing tree
-    $m->free;                                                                   # Free the tree acting as a string now that its content has been incorporated into the tree of strings - a source of inefficiency
    };
 
   my $new = sub                                                                 # Create a new lexical item
@@ -10939,7 +10929,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10941 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10931 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18693,8 +18683,8 @@ END
   unlink $f;
  }
 
-#latest:;
-if (1) {                                                                        # Subroutine of sub routines
+latest:;
+if (1) {                                                                        # Create and use a library
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
 
@@ -18704,85 +18694,72 @@ if (1) {                                                                        
     my $a = Subroutine
      {my ($p, $s, $sub) = @_;
       Mov rax, 0x111;
+      PrintOutRegisterInHex rax;
      } name => 'a', parameters=>[qw(a)];
 
     my $b = Subroutine
      {my ($p, $s, $sub) = @_;
       $$p{a}->setReg(rax);
+      PrintOutRegisterInHex rax;
      } name => 'b', parameters=>[qw(a)];
 
-   } name => $sub, parameters=>[qw(a)], export => $f;
+   } name => $sub, parameters=>[qw(a)], export => $f;                           # Export the library
 
   my $t = Subroutine {} name => "t", parameters=>[qw(a)];
 
-  if (1)                                                                        # Read an area containing a subroutine into memory
+  my sub mapSubroutines                                                         # Create a string tree mapping subroutine names to subroutine numbers
+   {my $n = CreateArea->CreateTree(stringTree=>1);
+    $n->putKeyString(constantString("a"), K offset => 1);
+    $n->putKeyString(constantString("b"), K offset => 2);
+    $n
+   }
+
+  if (1)                                                                        # Read a library and call the subroutines there-in
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+    my $l = $a->readLibraryHeader(mapSubroutines);                              # Create a tree mapping the subroutine numbers to subroutine offsets
 
-    my $y = $a->yggdrasil;
-    my ($N, $L) = constantString(q(b));
-    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+    $l->find(K sub => 1);                                                       # Look up the offset of the first subroutine
 
-    $t->call(parameters=>{a        => K key => 0x9999},                         # Call position independent code
-                          override => $a->address + $y->data);
-    PrintOutRegisterInHex rax;
+    If $l->found > 0,
+    Then
+     {$t->call(parameters=>{a        => K key => 0x9999},                       # Call position independent code
+                            override => $a->address + $l->data);
+     },
+    Else
+     {PrintOutStringNL "Unable to locate subroutine 'a'";
+     };
+
+    $l->find(K sub => 2);                                                       # Look  up the offset of the second subroutine
+
+    If $l->found > 0,
+    Then
+     {$t->call(parameters=>{a        => K key => 0x9999},                       # Call position independent code
+                            override => $a->address + $l->data);
+     },
+    Else
+     {PrintOutStringNL "Unable to locate subroutine 'b'";
+     };
    }
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0, count=>0;
+   rax: .... .... .... .111
    rax: .... .... .... 9999
 END
-  ok -e $f;
+  ok -e $f;                                                                     # Confirm we have created the library
 
-  if (1)                                                                        # Read an area containing a subroutine into memory
-   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-
-    my $y = $a->yggdrasil;
-    my ($N, $L) = constantString(q(b));
-    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
+  if (1)                                                                        # Include a library in a program
+   {my $a = loadAreaIntoAssembly $f;                                            # Load the library from the file it was exported to
+    my $l = $a->readLibraryHeader(mapSubroutines);                              # Create a tree mapping the subroutine numbers to subroutine offsets
+       $l->find(K sub => 2);                                                    # Look  up the offset of the second subroutine
 
     $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
-                          override => $a->address + $o->data);
-    PrintOutRegisterInHex rax;
+                          override => $a->address + $l->data);
    }
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
    rax: .... .... .... 8888
 END
 
-  if (1)                                                                        # Load an area into a thing
-   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-
-    my $y = $a->yggdrasil;
-    my ($N, $L) = constantString(q(a));
-    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
-
-    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
-                          override => $a->address + $o->data);
-    PrintOutRegisterInHex rax;
-   }
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
-   rax: .... .... .... .111
-END
-
-  if (1)                                                                        # Load an area into a thing
-   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-
-    my $y = $a->yggdrasil;
-    my ($N, $L) = constantString(q(b));
-    my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings,     $N, $L);  # Make the string into a unique number
-    my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);# Get the offset of the subroutine under the unique string number
-
-    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
-                          override => $a->address + $o->data);
-    PrintOutRegisterInHex rax;
-   }
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
-   rax: .... .... .... 7777
-END
   unlink $f;
  }
 
@@ -18806,106 +18783,8 @@ sub Nasm::X86::Area::sub($$$)                                                   
   $area->address + $o->data                                                     # Actual address - valid until the area moves.
  }
 
-sub Nasm::X86::Area::subFromConstantString($$)                                  # Obtain the address of the subroutine held in an area from a constant string.
- {my ($area, $string) = @_;                                                     # Area containing the subroutine, a constant string
-  @_ == 2 or confess "Two parameters";
-
-  $area->sub(constantString($string))                                           # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
- }
-
-#latest:;
-if (1) {                                                                        # Subroutine of sub routines which calls a subroutines which returns data
-  unlink my $f = q(zzzArea.data);
-
-  my $s = Subroutine                                                            # The containing subroutine which will contain all the code written to the area
-   {my ($p, $s, $sub) = @_;
-
-    my $a = Subroutine                                                          # The contained routine that we wish to call
-     {my ($p, $s, $sub) = @_;
-      $$p{a}->setReg(rax);
-      PrintOutStringNL "AAAAA";
-      PrintOutRegisterInHex rax;
-     } name => "a", parameters=>[qw(a)];
-
-   } name => "abcd",  parameters=>[qw(a)], export => $f;
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Assemble the containing subroutine into an area and thence into a file.
-END
-
-  if (1)                                                                        # Read an area containing a subroutine into memory
-   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-    my $A = $a->subFromConstantString(q(a));                                    # Locate the address of the subroutine in the area as longas the area does not move
-
-    $a->subroutineDefinition($f, q(a))->                                        # Call position independent code at the specified address in the area after extracting the subroutine definition so that we can prepare the parameter list correctly.
-      call(parameters=>{a => K key => 0x8888}, override => $A);
-   }
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;                          # Call the routine and observe that it produces the expected result.
-AAAAA
-   rax: .... .... .... 8888
-END
- }
-
-sub Nasm::X86::Tree::intersectionOfStringTrees($$)                              #P Find the intersection of two string trees. The result is a tree that maps the values of the first tree to those of the second tree whenever they have a string in common.  This is mapping because bot the keys and the data values are unique.
- {my ($tree, $Tree) = @_;                                                       # First tree, second tree
-  @_ == 2 or confess "Two parameters";
-
-  my $result = $tree->area->CreateTree;                                         # The resulting mapping tree
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    my $t = $$s{tree};                                                          # First tree
-    my $T = $$s{Tree};                                                          # Second tree
-    my $r = $$s{result};                                                        # Result tree
-
-    $t->by(sub                                                                  # Elements of the current tree
-     {my ($s, $start, $next) = @_;
-      my $S = $T->findSubTree($s->key);
-      If $S->found > 0,
-      Then                                                                      # Found a matching sub tree
-       {$r->put($s->data, $S->data);
-        $sub->call(structures=>{tree=>$s->cloneAndDown, Tree=>$S, result=>$r});
-       };
-     });
-
-   } structures => {tree => $tree, Tree=>$tree, result=>$result},
-     name       => "Nasm::X86::Tree::intersectionOfStringTrees";
-
-  $s->call(structures=>{tree=>$tree, Tree=>$Tree, result=>$result});            # Start at the top of each input tree with an empty result so far
-
-  $result
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-  my $T = $a->CreateTree;
-
-  for my $s(qw(a ab abc))
-   {$t->putStringFromMemory(constantString $s);
-   }
-
-  for my $s(qw(ab abc abd))
-   {$T->putStringFromMemory(constantString $s);
-   }
-
-  my $R = $t->intersectionOfStringTrees($T);
-
-  $R->dump('rr');
-
-  ok Assemble eq => <<END, avx512=>1;
-rr
-At:  740                    length:    3,  data:  780,  nodes:  7C0,  first:  700, root, leaf
-  Index:    0    1    2
-  Keys :   C0  1C0  2C0
-  Data :  960 1216 1472
-end
-END
- }
-
 sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators.
- {my ($parse, $library, $intersection) = @_;                                    # Parse tree, library of operators, intersection of parse tree with library of operators
+ {my ($parse, $library, $intersection) = @_;                                    # Parse tree, area containing a library, intersection of parse tree with library
   @_ == 3 or confess "Three parameters";
 
   my $s = Subroutine                                                            # Print a tree
@@ -18937,14 +18816,13 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
 
         my $y = $L->yggdrasil;                                                  # Yggdrasil for the parse tree area
         my $o = $y->findSubTree(Nasm::X86::Yggdrasil::SubroutineOffsets);       # Offsets of subroutines in library
-        $i->find($S->data);                                                     # Unique string in library
-        $o->find($i->data);                                                     # Offset of routine
+        $i->find($S->data);                                                     # Lexical item number to library routine offset
 
         my $t = Subroutine {}                                                   # Subroutine definition
           name       => "Nasm::X86::Unisyn::Operator:plus",
           parameters => [qw()];
 
-        $t->call(override => $L->address + $o->data);
+        $t->call(override => $L->address + $i->data);
        };
                                                                                 # Process lexical from parse tree
       If $𝞃->data == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$A};
@@ -19003,10 +18881,7 @@ END
 
   $p->tree->dumpParseTree($A);                                                  # Parse tree
 
-  my $y = $l->yggdrasil;                                                        # Yggdrasil for the parse tree area
-  my $u = $y->findSubTree(Nasm::X86::Yggdrasil::UniqueStrings);                 # Unique strings in area from parse
-  my $o = $y->findSubTree(Nasm::X86::Yggdrasil::SubroutineOffsets);             # Offsets of subroutines in library
-  my $i = $p->symbols->intersectionOfStringTrees($u);                           # Mapping between the number of a symbol to the number of a routine.  The library sub tree SubroutineOffsets located via Yggdrasil can be used to obtain the actual offset of the routine in the library.
+  my $i = $l->readLibraryHeader($p->symbols);                                   # Create a tree mapping the subroutine numbers to subroutine offsets
 
 #  $i->dump8xx('ii');                                                           # Intersection of parse strings with library strings
 #  $o->dump8xx('oo');                                                           # Subroutine offsets
@@ -19794,7 +19669,15 @@ sub Nasm::X86::Area::writeLibraryHeader($$)                                     
 
   for my $s(sort keys %s)                                                       # Subroutine offsets and name lengths
    {use bytes;
-    Mov "qword[rsp+$p]", $s{$s};    $p += $w;                                   # Subroutine offsets
+
+    my $o = sub                                                                 # Either a variable or a constant
+     {my $O = $s{$s};                                                           # Subroutine offset
+      return $O unless ref($O);                                                 # Constant for easier testing
+      $O->setReg(rsi);                                                          # Variable - place value in a free register
+      rsi
+     }->();
+
+    Mov "qword[rsp+$p]", $o;        $p += $w;                                   # Subroutine offsets
     Mov "qword[rsp+$p]", length $s; $p += $w;                                   # Subroutine name lengths
    }
 
@@ -19810,15 +19693,22 @@ sub Nasm::X86::Area::writeLibraryHeader($$)                                     
   $y->put(Nasm::X86::Yggdrasil::SubroutineOffsets, $o);                         # Save subroutine offsets
 
   Add rsp, $l;                                                                  # Restores stack
+
+  $o                                                                            # Return the offset of the library header in the area
  }
 
-sub Nasm::X86::Area::readLibraryHeader($$)                                      # Create a tree mapping the string numbers from a parse to the number to the offset of the corresponding library routine
+sub Nasm::X86::Area::readLibraryHeader($$)                                      # Create a tree mapping the numbers assigned to subtoutine names to the offsets of the corresponding routines in a library
  {my ($area, $uniqueStrings) = @_;                                              # Area containing subroutines, unique strings
 
   my $a = $area;
   my $u = $uniqueStrings;                                                       # UNique strings
   my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
-  $y->get(Nasm::X86::Yggdrasil::SubroutineOffsets);                             # Get subroutine offsets
+  $y->find(Nasm::X86::Yggdrasil::SubroutineOffsets);                            # Find subroutine offsets
+
+  If $y->found == 0,                                                            # If there are no subroutine offsets then this is not a library
+  Then
+   {PrintErrTraceBack "Not a library";
+   };
 
   PushR my $count = r15, my $sub = r14, my $name = r13, my $library = r12;      # Number of subroutines, offset and anme length block, name address
   my $w = RegisterSize $count;
@@ -19830,15 +19720,12 @@ sub Nasm::X86::Area::readLibraryHeader($$)                                      
   Shl $name, 4;                                                                 # Offsets of names
   Add $name, $library;                                                          # Address in library
 
-  my $t = $a->CreateTree;
+  my $t = $uniqueStrings->area->CreateTree;                                     # Resulting mapping
 
   ToZero                                                                        # Each subroutine
-   {my $offset = rsi;
-    Mov $offset, "[$sub]";                                                      # Offset
-
-    $u->getKeyString(V(address => $name), V length => "[$sub+$w]");
+   {$u->getKeyString(V(address => $name), V length => "[$sub+$w]");             # Check whether the sub routine name matches any string in the key string tree.
     If $u->found > 0,
-    Then                                                                        # Subrotuine name matches a unique string so record the mapping between string number anf subroutine offset
+    Then                                                                        # Subroutine name matches a unique string so record the mapping between string number and subroutine offset
      {$t->put($u->data, V offset => "[$sub]");
      };
     Add $name, "[$sub+$w]";
@@ -19847,8 +19734,7 @@ sub Nasm::X86::Area::readLibraryHeader($$)                                      
 
   PopR;
 
-  $t
-
+  $t                                                                            # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
  }
 
 latest:;
