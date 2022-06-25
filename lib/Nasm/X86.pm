@@ -9081,6 +9081,8 @@ sub Nasm::X86::Tree::intersection($)                                            
   $i                                                                            # Intersection
  }
 
+
+=pod
 #D2 Trees of strings                                                            # Trees of strings assign a unique number to a string so that given a string we can produce a unique number representing the string.
 
 sub Nasm::X86::Tree::putString($$)                                              # Enter a string tree into a tree of strings and return the offset of the last inserted tree as the unique number of this string.
@@ -9218,6 +9220,7 @@ sub Nasm::X86::Tree::getStringFromMemory($$$)                                   
   PopR;
   $S                                                                            # Tree descriptor found and data fields indicate the value and validity of the result
  }
+=cut
 
 #D2 Print                                                                       # Print a tree
 
@@ -10929,7 +10932,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10931 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10934 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
