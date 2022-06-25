@@ -54,7 +54,7 @@ our $stdout      = 1;                                                           
 our $stderr      = 2;                                                           # File descriptor for standard error
 
 our $TraceMode   = 0;                                                           # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.  This mode assumes that you will not be using the mm0 register (most people are not)and that you have any IDE like Geany that can interpret a Perl error line number and position on that line in this file.
-our $DebugMode   = 1;                                                           # 1: enables checks that take time and sometimes catch programming errors.
+our $DebugMode   = 0;                                                           # 1: enables checks that take time and sometimes catch programming errors.
 our $LibraryMode = 0;                                                           # 1: we are building a library so constants must appear in line in the text section rather than in a block in the data section
 
 my %Registers;                                                                  # The names of all the registers
@@ -10020,6 +10020,7 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
   $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+$char->d;
 
     $parseChar->copy($char);                                                    # Copy the current character
     If $fail > 0,
@@ -10050,7 +10051,7 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
     Ef {$alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::B)}
     Then                                                                        # Closing bracket
      {my $t = $brackets->popSubTree(smallTree=>0);                              # Match with brackets stack
-      If $t->found > 0,                                                         # Something to match with on the brackets stack
+      If $brackets->found > 0,                                                  # Something to match with on the brackets stack
       Then
        {$t->find(K out => 2);                                                   # Expected bracket - known to be in the tree
         If $t->data != $char,                                                   # Did not match the expected bracket
@@ -10978,7 +10979,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10980 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10981 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -16893,7 +16894,7 @@ if (1) {                                                                        
    {my ($i) = @_;
     $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
    });
-  $t->pop; $t->found->outNL("f: ");
+# $t->pop; $t->found->outNL("f: ");
 
   ok Assemble eq => <<END, avx512=>1, mix => 1, clocks => 29_852;
 data   : .... .... .... ...F
@@ -16918,98 +16919,8 @@ f: .... .... .... ...1 i: .... .... .... ...3 data   : .... .... .... ...3
 f: .... .... .... ...1 i: .... .... .... ...2 data   : .... .... .... ...2
 f: .... .... .... ...1 i: .... .... .... ...1 data   : .... .... .... ...1
 f: .... .... .... ...1 i: .... .... .... ...0 data   : .... .... .... ...0
-f: .... .... .... ...0
 END
  }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-  my $N = K loop => 16;
-  $N->for(sub
-   {my ($i) = @_;
-    $t->push($i);
-   });
-
-  $t->peek(K key => 1)->data ->outNL;
-  $t->peek(K key => 2)->data ->outNL;
-  $t->peek(K key => 3)->found->outNL;
-  $t->peek(2 * $N    )->found->outNL;
-
-  $t->size->outNL;
-  $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
-
-  $N->for(sub
-   {my ($i) = @_;
-    $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
-   });
-  $t->pop; $t->found->outNL("f: ");
-
-  ok Assemble eq => <<END, avx512=>1, mix => 1, clocks => 29_852;
-data   : .... .... .... ...F
-data   : .... .... .... ...E
-found  : .... .... .... ..40
-found  : .... .... .... ...0
-size of tree: .... .... .... ..10
-f: .... .... .... ...2 i: .... .... .... ...E data   : .... .... .... ...8
-f: .... .... .... ...1 i: .... .... .... ...F data   : .... .... .... ...F
-f: .... .... .... ...1 i: .... .... .... ...E data   : .... .... .... ...E
-f: .... .... .... ...1 i: .... .... .... ...D data   : .... .... .... ...D
-f: .... .... .... ...1 i: .... .... .... ...C data   : .... .... .... ...C
-f: .... .... .... ...1 i: .... .... .... ...B data   : .... .... .... ...B
-f: .... .... .... ...1 i: .... .... .... ...A data   : .... .... .... ...A
-f: .... .... .... ...1 i: .... .... .... ...9 data   : .... .... .... ...9
-f: .... .... .... ...1 i: .... .... .... ...8 data   : .... .... .... ...8
-f: .... .... .... ...1 i: .... .... .... ...7 data   : .... .... .... ...7
-f: .... .... .... ...1 i: .... .... .... ...6 data   : .... .... .... ...6
-f: .... .... .... ...1 i: .... .... .... ...5 data   : .... .... .... ...5
-f: .... .... .... ...1 i: .... .... .... ...4 data   : .... .... .... ...4
-f: .... .... .... ...1 i: .... .... .... ...3 data   : .... .... .... ...3
-f: .... .... .... ...1 i: .... .... .... ...2 data   : .... .... .... ...2
-f: .... .... .... ...1 i: .... .... .... ...1 data   : .... .... .... ...1
-f: .... .... .... ...1 i: .... .... .... ...0 data   : .... .... .... ...0
-f: .... .... .... ...0
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
-  my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>1);
-  my $N = K loop => 16;
-  $N->for(sub
-   {my ($i) = @_;
-    $t->push($i);
-   });
-
-  $N->for(sub
-   {my ($i) = @_;
-    $t->pop; $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
-   });
-  $t->pop; $t->found->outNL("f: ");
-
-  ok Assemble eq => <<END, avx512=>1, mix => 1, clocks => 20_485;
-f: .... .... .... ...1 i: .... .... .... ...F data   : .... .... .... ...F
-f: .... .... .... ...1 i: .... .... .... ...E data   : .... .... .... ...E
-f: .... .... .... ...1 i: .... .... .... ...D data   : .... .... .... ...D
-f: .... .... .... ...1 i: .... .... .... ...C data   : .... .... .... ...C
-f: .... .... .... ...1 i: .... .... .... ...B data   : .... .... .... ...B
-f: .... .... .... ...1 i: .... .... .... ...A data   : .... .... .... ...A
-f: .... .... .... ...1 i: .... .... .... ...9 data   : .... .... .... ...9
-f: .... .... .... ...1 i: .... .... .... ...8 data   : .... .... .... ...8
-f: .... .... .... ...1 i: .... .... .... ...7 data   : .... .... .... ...7
-f: .... .... .... ...1 i: .... .... .... ...6 data   : .... .... .... ...6
-f: .... .... .... ...1 i: .... .... .... ...5 data   : .... .... .... ...5
-f: .... .... .... ...1 i: .... .... .... ...4 data   : .... .... .... ...4
-f: .... .... .... ...1 i: .... .... .... ...3 data   : .... .... .... ...3
-f: .... .... .... ...1 i: .... .... .... ...2 data   : .... .... .... ...2
-f: .... .... .... ...1 i: .... .... .... ...1 data   : .... .... .... ...1
-f: .... .... .... ...1 i: .... .... .... ...0 data   : .... .... .... ...0
-f: .... .... .... ...0
-END
- }
-
 
 test5: goto test6 unless $test{5};
 
@@ -19066,6 +18977,47 @@ PPPPP
 found  : .... .... .... ...1
 data   : .... .... .... .333
 END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
+   ('va a= b( vb e+ vc B) e* vd dif ve');
+  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
+  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $parse = $a->ParseUnisyn($a8, $s8-1);                                      # Parse the utf8 string minus the final new line
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->tree->dumpParseTree($a8);
+
+# 1_369_790
+# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#    1          52_693         556_640          52_693         556_640        0.4909          2.57          0.00
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
+parseChar: .... .... ...1 D5D8
+parseFail: .... .... .... ...0
+pos: .... .... .... ..2B
+parseMatch: .... .... .... ...0
+parseReason: .... .... .... ...0
+＝
+._𝗔
+._𝐈𝐅
+._._✕
+._._._【
+._._._._＋
+._._._._._𝗕
+._._._._._𝗖
+._._._𝗗
+._._𝗘
+END
+  unlink $f;
  }
 
 latest:
