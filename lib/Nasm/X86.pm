@@ -1643,6 +1643,94 @@ sub Nasm::X86::Subroutine::writeLibraryToArea($$)                               
   $a->free;
  }
 
+sub Nasm::X86::Area::writeLibraryHeader($$)                                     # Load a hash of subroutine names and offsets into an area
+ {my ($area, $subs) = @_;                                                       # area to load into, hash of subroutine names to offsets
+  my $w = RegisterSize(rax);
+
+  my $a = $area;
+  my %s = %$subs;
+  my $l = $w * (1 + 2 * scalar keys %s);                                        # Number of quads required
+
+  if (1)                                                                        # Length of concatenated names
+   {use bytes;
+    $l += length $_ for sort keys %s;
+   }
+  $l = int(($l + 8) / 8) * 8;                                                   # Enough room in bytes for quads and names
+
+  Sub rsp, $l;                                                                  # make space in stack
+  my $p = 0;
+  Mov "qword[rsp+$p]", scalar keys %s; $p += $w;                                # Number of subroutines
+
+  for my $s(sort keys %s)                                                       # Subroutine offsets and name lengths
+   {use bytes;
+
+    my $o = sub                                                                 # Either a variable or a constant
+     {my $O = $s{$s};                                                           # Subroutine offset
+      return $O unless ref($O);                                                 # Constant for easier testing
+      $O->setReg(rsi);                                                          # Variable - place value in a free register
+      rsi
+     }->();
+
+    Mov "qword[rsp+$p]", $o;        $p += $w;                                   # Subroutine offsets
+    Mov "qword[rsp+$p]", length $s; $p += $w;                                   # Subroutine name lengths
+   }
+
+  for my $s(sort keys %s)                                                       # Subroutine names as one long string
+   {use bytes;
+    for my $i(1..length $s)
+     {Mov "byte[rsp+$p]", ord substr($s, $i-1, 1); $p += 1;                     # Load each byte of the names
+     }
+   }
+
+  my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
+  my $o = $a->appendMemory(V(address => rsp), V size => $l);                    # Load stack into area
+  $y->put(Nasm::X86::Yggdrasil::SubroutineOffsets, $o);                         # Save subroutine offsets
+
+  Add rsp, $l;                                                                  # Restores stack
+
+  $o                                                                            # Return the offset of the library header in the area
+ }
+
+sub Nasm::X86::Area::readLibraryHeader($$)                                      # Create a tree mapping the numbers assigned to subtoutine names to the offsets of the corresponding routines in a library
+ {my ($area, $uniqueStrings) = @_;                                              # Area containing subroutines, unique strings
+
+  my $a = $area;
+  my $u = $uniqueStrings;                                                       # UNique strings
+  my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
+  $y->find(Nasm::X86::Yggdrasil::SubroutineOffsets);                            # Find subroutine offsets
+
+  If $y->found == 0,                                                            # If there are no subroutine offsets then this is not a library
+  Then
+   {PrintErrTraceBack "Not a library";
+   };
+
+  PushR my $count = r15, my $sub = r14, my $name = r13, my $library = r12;      # Number of subroutines, offset and anme length block, name address
+  my $w = RegisterSize $count;
+  ($a->address + $y->data)->setReg($library);
+  Mov $count, "[$library]";                                                     # The number of subroutines
+  Lea $sub,   "[$library+$w]";                                                  # Address of offset, name length array
+  Add $library, $w;                                                             # Skip count field
+  Mov $name, $count;
+  Shl $name, 4;                                                                 # Offsets of names
+  Add $name, $library;                                                          # Address in library
+
+  my $t = $uniqueStrings->area->CreateTree;                                     # Resulting mapping
+
+  ToZero                                                                        # Each subroutine
+   {$u->getKeyString(V(address => $name), V length => "[$sub+$w]");             # Check whether the sub routine name matches any string in the key string tree.
+    If $u->found > 0,
+    Then                                                                        # Subroutine name matches a unique string so record the mapping between string number and subroutine offset
+     {$t->put($u->data, V offset => "[$sub]");
+     };
+    Add $name, "[$sub+$w]";
+    Add $sub, 2 * $w;
+   } $count;
+
+  PopR;
+
+  $t                                                                            # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
+ }
+
 sub Nasm::X86::Subroutine::subroutineDefinition($$$)                            # Get the definition of a subroutine from an area.
  {my ($area, $file, $name) = @_;                                                # Area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
   my $a = readBinaryFile $file;                                                 # Reload the area
@@ -8875,6 +8963,148 @@ sub Nasm::X86::Area::treeFromString($$$)                                        
   $t                                                                            # Description of tree loaded from string
  }
 
+#D2 Key String Trees                                                            # A key string tree has strings for keys.
+
+sub Nasm::X86::Tree::getKeyString($$$)                                          # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
+ {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key
+  @_ == 3 or confess "Three parameters";
+
+  $tree->stringTree or confess "Not a string tree";                             # Check that we are creating a string tree
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # should be optimized for case where string is less than one zmm
+
+    my $t = $$s{tree};
+    my $a = $t->area;
+    my $d = $$p{data};
+
+    PushR my $address = r15, my $remainder = r14, my $offset = r13, my $key = 31;
+    $$p{address}->setReg($address);                                             # Address parameters
+    $$p{size}   ->setReg($remainder);
+
+    my $T = $t->cloneDescriptor;                                                # Copy the descriptor for the tree so we can repositionit if needed
+
+    Block
+     {my ($end) = @_;
+      Mov $offset, 0;
+      ForIn                                                                     # Find initial full blocks
+       {Vmovdqu64 zmm($key), "[$address+$offset]";
+        $T->find(zmm $key);
+        If $T->found > 0,
+        Then
+         {$T->down;
+         },
+        Else                                                                    # Not found at this level
+         {$t->found->copy(0);                                                   # Show not found
+          Jmp $end;                                                             # Finished
+         };
+       }
+      Then                                                                      # Last block (which might be empty
+       {Mov rsi, 0;
+        Bts rsi, $remainder;                                                    # Set bit
+        Dec rsi;                                                                # All the zeroes left of the bit are now ones
+        Kmovq k1, rsi;
+        Vmovdqu8 zmmMZ($key, 1), "[$address+$offset]";
+        $T->find(zmm $key);                                                     # Find thw zmm
+       }, $offset, $remainder, RegisterSize(zmm0);
+
+      $t->found->copy($T->found);                                               # Copy results into original tree
+      $t->data ->copy($T->data);
+     };
+
+    PopR;
+   } structures => {tree => $tree},
+     parameters => [qw(address size)],
+     name       =>  qq(Nasm::X86::Tree::getKeyString);
+
+  $s->call(parameters => {address => $address, size=>$size},
+           structures => {tree    => $tree});
+ }
+
+sub Nasm::X86::Tree::putKeyString($$$$)                                         # Associate a string of any length with a double word.
+ {my ($tree, $address, $size, $data) = @_;                                      # Tree descriptor, address of key, length of key, data associated with key
+  @_ == 4 or confess "Four parameters";
+
+  $tree->stringTree or confess "Not a string tree";                             # Check that we are creating a string tree
+
+  my $s = Subroutine                                                            # should be optimized for case where string is less than one zmm
+   {my ($p, $s, $sub) = @_;
+
+    my $t = $$s{tree}->cloneDescriptor;                                         # Clone the input tree descriptor so we can reposition it to handle strings longer than one zmm block
+    my $a = $t->area;
+    my $d = $$p{data};
+
+    PushR my $area = r15, my $remainder = r14, my $offset = r13, my $zKey = 31;
+    $$p{address}->setReg($area);                                                # Address parameters
+    $$p{size}   ->setReg($remainder);
+
+    Mov $offset, 0;
+    ForIn                                                                       # Load initial full blocks into area
+     {Vmovdqu64 zmm($zKey), "[$area+$offset]";
+      $t->find(zmm $zKey);
+      If $t->found > 0,
+      Then
+       {$t->first->copy($t->data);
+       },
+      Else
+       {my $k = $a->appendZmm(zmm $zKey);
+        my $T = $a->CreateTree(stringTree => 1);
+        $t->put($k, $T);
+        $t->copyDescriptor($T);
+       };
+     }
+    Then                                                                        # Append remainder of string as a full zmm block padded with zeroes
+     {Mov rsi, 0;
+      Bts rsi, $remainder;                                                      # Set bit
+      Dec rsi;                                                                  # All the zeroes left of the bit are now ones
+      Kmovq k1, rsi;
+      Vmovdqu8 "zmm1{k1}{z}", "[$area+$offset]";
+      my $k = $a->appendZmm(1);                                                 # Place the zmm data into the area
+      $t->put($k, $d);
+     }, $offset, $remainder, RegisterSize(zmm0);
+
+    PopR;
+   } structures => {tree => $tree},
+     parameters => [qw(address size data)],
+     name       =>  qq(Nasm::X86::Tree::putKeyString);
+
+  $tree->getKeyString($address, $size);                                         # See if we can find the string in the tree as an existing tree
+
+  If $tree->found == 0,                                                         # Not found so insert
+  Then
+   {$s->call(parameters => {address => $address, size=>$size, data=>$data},
+            structures => {tree    => $tree});
+    $tree->found->copy(0);                                                      # We had to insert
+   };
+ }
+
+sub Nasm::X86::Tree::uniqueKeyString($$$)                                       # Add a key string to a string tree if the key is not already present and return a unique number identifying the string (although currently there is no way to fast way to recover the string from the number). If the key string is already present in the string tree return the number associated with the original key string rather than creating a new entry.
+ {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key, data associated with key
+  @_ == 3 or confess "Three parameters";
+
+  PushR my $area = r15, my $first = r14, my $count = r13;
+  $tree->area->address->setReg($area);
+  $tree->first->setReg($first);
+  my $o = $tree->stringKeyCountOffset;                                          # Offset of count field - long keys are stored in multiple sub trees so the conventional size field is not enough
+  Mov dWordRegister($count),"[$area+$first+$o]";                                # Number of strings so far
+
+  my $c = V count => $count;
+  $tree->putKeyString($address, $size, $c);                                     # Try to add the string
+  If $tree->found == 0,
+  Then                                                                          # A new key string was inserted
+   {$c->getReg($count);
+    Inc $count;
+    $tree->area->address->setReg($area);                                        # The area might have moved due to the new allocation
+    Mov "[$area+$first+$o]", dWordRegister($count);                             # Update string count after successful insert
+   },
+   Else
+    {$c->copy($tree->data);
+    };
+   PopR;
+
+  $c                                                                            # Unique string number as a variable
+ }
+
 #D2 Trees as sets                                                               # Trees of trees as sets
 
 sub Nasm::X86::Tree::union($)                                                   # Given a tree of trees consider each sub tree as a set and form the union of all these sets as a new tree.
@@ -10788,7 +11018,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10790 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11020 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17986,8 +18216,6 @@ END
   unlink $f;
  }
 
-#D1 Awaiting Classification                                                     # Routines that have not yet been classified.
-
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
   my $f = "zzzOperators.lib";
@@ -18229,6 +18457,8 @@ if (1) {                                                                        
 END
  }
 
+#D1 Awaiting Classification                                                     # Routines that have not yet been classified.
+
 sub BinarySearchD(%)                                                            # Search for an ordered array of double words addressed by r15, of length held in r14 for a double word held in r13 and call the $then routine with the index in rax if found else call the $else routine.
  {my (%options) = @_;                                                           # Options
   my $Found     = delete $options{found}   // sub {PrintErrTraceBack "found"};  # Found an exact match
@@ -18408,146 +18638,6 @@ if (1) {                                                                        
 16: @ 7
 17: after
 END
- }
-
-sub Nasm::X86::Tree::getKeyString($$$)                                          # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
- {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key
-  @_ == 3 or confess "Three parameters";
-
-  $tree->stringTree or confess "Not a string tree";                             # Check that we are creating a string tree
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # should be optimized for case where string is less than one zmm
-
-    my $t = $$s{tree};
-    my $a = $t->area;
-    my $d = $$p{data};
-
-    PushR my $address = r15, my $remainder = r14, my $offset = r13, my $key = 31;
-    $$p{address}->setReg($address);                                             # Address parameters
-    $$p{size}   ->setReg($remainder);
-
-    my $T = $t->cloneDescriptor;                                                # Copy the descriptor for the tree so we can repositionit if needed
-
-    Block
-     {my ($end) = @_;
-      Mov $offset, 0;
-      ForIn                                                                     # Find initial full blocks
-       {Vmovdqu64 zmm($key), "[$address+$offset]";
-        $T->find(zmm $key);
-        If $T->found > 0,
-        Then
-         {$T->down;
-         },
-        Else                                                                    # Not found at this level
-         {$t->found->copy(0);                                                   # Show not found
-          Jmp $end;                                                             # Finished
-         };
-       }
-      Then                                                                      # Last block (which might be empty
-       {Mov rsi, 0;
-        Bts rsi, $remainder;                                                    # Set bit
-        Dec rsi;                                                                # All the zeroes left of the bit are now ones
-        Kmovq k1, rsi;
-        Vmovdqu8 zmmMZ($key, 1), "[$address+$offset]";
-        $T->find(zmm $key);                                                     # Find thw zmm
-       }, $offset, $remainder, RegisterSize(zmm0);
-
-      $t->found->copy($T->found);                                               # Copy results into original tree
-      $t->data ->copy($T->data);
-     };
-
-    PopR;
-   } structures => {tree => $tree},
-     parameters => [qw(address size)],
-     name       =>  qq(Nasm::X86::Tree::getKeyString);
-
-  $s->call(parameters => {address => $address, size=>$size},
-           structures => {tree    => $tree});
- }
-
-sub Nasm::X86::Tree::putKeyString($$$$)                                         # Associate a string of any length with a double word.
- {my ($tree, $address, $size, $data) = @_;                                      # Tree descriptor, address of key, length of key, data associated with key
-  @_ == 4 or confess "Four parameters";
-
-  $tree->stringTree or confess "Not a string tree";                             # Check that we are creating a string tree
-
-  my $s = Subroutine                                                            # should be optimized for case where string is less than one zmm
-   {my ($p, $s, $sub) = @_;
-
-    my $t = $$s{tree}->cloneDescriptor;                                         # Clone the input tree descriptor so we can reposition it to handle strings longer than one zmm block
-    my $a = $t->area;
-    my $d = $$p{data};
-
-    PushR my $area = r15, my $remainder = r14, my $offset = r13, my $zKey = 31;
-    $$p{address}->setReg($area);                                                # Address parameters
-    $$p{size}   ->setReg($remainder);
-
-    Mov $offset, 0;
-    ForIn                                                                       # Load initial full blocks into area
-     {Vmovdqu64 zmm($zKey), "[$area+$offset]";
-      $t->find(zmm $zKey);
-      If $t->found > 0,
-      Then
-       {$t->first->copy($t->data);
-       },
-      Else
-       {my $k = $a->appendZmm(zmm $zKey);
-        my $T = $a->CreateTree(stringTree => 1);
-        $t->put($k, $T);
-        $t->copyDescriptor($T);
-       };
-     }
-    Then                                                                        # Append remainder of string as a full zmm block padded with zeroes
-     {Mov rsi, 0;
-      Bts rsi, $remainder;                                                      # Set bit
-      Dec rsi;                                                                  # All the zeroes left of the bit are now ones
-      Kmovq k1, rsi;
-      Vmovdqu8 "zmm1{k1}{z}", "[$area+$offset]";
-      my $k = $a->appendZmm(1);                                                 # Place the zmm data into the area
-      $t->put($k, $d);
-     }, $offset, $remainder, RegisterSize(zmm0);
-
-    PopR;
-   } structures => {tree => $tree},
-     parameters => [qw(address size data)],
-     name       =>  qq(Nasm::X86::Tree::putKeyString);
-
-  $tree->getKeyString($address, $size);                                         # See if we can find the string in the tree as an existing tree
-
-  If $tree->found == 0,                                                         # Not found so insert
-  Then
-   {$s->call(parameters => {address => $address, size=>$size, data=>$data},
-            structures => {tree    => $tree});
-    $tree->found->copy(0);                                                      # We had to insert
-   };
- }
-
-sub Nasm::X86::Tree::uniqueKeyString($$$)                                       # Add a key string to a string tree if the key is not already present and return a unique number identifying the string (although currently there is no way to fast way to recover the string from the number). If the key string is already present in the string tree return the number associated with the original key string rather than creating a new entry.
- {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key, data associated with key
-  @_ == 3 or confess "Three parameters";
-
-  PushR my $area = r15, my $first = r14, my $count = r13;
-  $tree->area->address->setReg($area);
-  $tree->first->setReg($first);
-  my $o = $tree->stringKeyCountOffset;                                          # Offset of count field - long keys are stored in multiple sub trees so the conventional size field is not enough
-  Mov dWordRegister($count),"[$area+$first+$o]";                                # Number of strings so far
-
-  my $c = V count => $count;
-  $tree->putKeyString($address, $size, $c);                                     # Try to add the string
-  If $tree->found == 0,
-  Then                                                                          # A new key string was inserted
-   {$c->getReg($count);
-    Inc $count;
-    $tree->area->address->setReg($area);                                        # The area might have moved due to the new allocation
-    Mov "[$area+$first+$o]", dWordRegister($count);                             # Update string count after successful insert
-   },
-   Else
-    {$c->copy($tree->data);
-    };
-   PopR;
-
-  $c                                                                            # Unique string number as a variable
  }
 
 #latest:;
@@ -18769,94 +18859,6 @@ AAAA
 AAAA
 AAAA
 END
- }
-
-sub Nasm::X86::Area::writeLibraryHeader($$)                                     # Load a hash of subroutine names and offsets into an area
- {my ($area, $subs) = @_;                                                       # area to load into, hash of subroutine names to offsets
-  my $w = RegisterSize(rax);
-
-  my $a = $area;
-  my %s = %$subs;
-  my $l = $w * (1 + 2 * scalar keys %s);                                        # Number of quads required
-
-  if (1)                                                                        # Length of concatenated names
-   {use bytes;
-    $l += length $_ for sort keys %s;
-   }
-  $l = int(($l + 8) / 8) * 8;                                                   # Enough room in bytes for quads and names
-
-  Sub rsp, $l;                                                                  # make space in stack
-  my $p = 0;
-  Mov "qword[rsp+$p]", scalar keys %s; $p += $w;                                # Number of subroutines
-
-  for my $s(sort keys %s)                                                       # Subroutine offsets and name lengths
-   {use bytes;
-
-    my $o = sub                                                                 # Either a variable or a constant
-     {my $O = $s{$s};                                                           # Subroutine offset
-      return $O unless ref($O);                                                 # Constant for easier testing
-      $O->setReg(rsi);                                                          # Variable - place value in a free register
-      rsi
-     }->();
-
-    Mov "qword[rsp+$p]", $o;        $p += $w;                                   # Subroutine offsets
-    Mov "qword[rsp+$p]", length $s; $p += $w;                                   # Subroutine name lengths
-   }
-
-  for my $s(sort keys %s)                                                       # Subroutine names as one long string
-   {use bytes;
-    for my $i(1..length $s)
-     {Mov "byte[rsp+$p]", ord substr($s, $i-1, 1); $p += 1;                     # Load each byte of the names
-     }
-   }
-
-  my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
-  my $o = $a->appendMemory(V(address => rsp), V size => $l);                    # Load stack into area
-  $y->put(Nasm::X86::Yggdrasil::SubroutineOffsets, $o);                         # Save subroutine offsets
-
-  Add rsp, $l;                                                                  # Restores stack
-
-  $o                                                                            # Return the offset of the library header in the area
- }
-
-sub Nasm::X86::Area::readLibraryHeader($$)                                      # Create a tree mapping the numbers assigned to subtoutine names to the offsets of the corresponding routines in a library
- {my ($area, $uniqueStrings) = @_;                                              # Area containing subroutines, unique strings
-
-  my $a = $area;
-  my $u = $uniqueStrings;                                                       # UNique strings
-  my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
-  $y->find(Nasm::X86::Yggdrasil::SubroutineOffsets);                            # Find subroutine offsets
-
-  If $y->found == 0,                                                            # If there are no subroutine offsets then this is not a library
-  Then
-   {PrintErrTraceBack "Not a library";
-   };
-
-  PushR my $count = r15, my $sub = r14, my $name = r13, my $library = r12;      # Number of subroutines, offset and anme length block, name address
-  my $w = RegisterSize $count;
-  ($a->address + $y->data)->setReg($library);
-  Mov $count, "[$library]";                                                     # The number of subroutines
-  Lea $sub,   "[$library+$w]";                                                  # Address of offset, name length array
-  Add $library, $w;                                                             # Skip count field
-  Mov $name, $count;
-  Shl $name, 4;                                                                 # Offsets of names
-  Add $name, $library;                                                          # Address in library
-
-  my $t = $uniqueStrings->area->CreateTree;                                     # Resulting mapping
-
-  ToZero                                                                        # Each subroutine
-   {$u->getKeyString(V(address => $name), V length => "[$sub+$w]");             # Check whether the sub routine name matches any string in the key string tree.
-    If $u->found > 0,
-    Then                                                                        # Subroutine name matches a unique string so record the mapping between string number and subroutine offset
-     {$t->put($u->data, V offset => "[$sub]");
-     };
-    Add $name, "[$sub+$w]";
-    Add $sub, 2 * $w;
-   } $count;
-
-  PopR;
-
-  $t                                                                            # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
  }
 
 latest:;
