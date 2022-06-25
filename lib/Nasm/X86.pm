@@ -9772,19 +9772,19 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
   my $parse       = $area->CreateTree;                                          # Parse tree stack
   my $symbols     = $area->CreateTree(stringTree=>1);                           # String tree of symbols encountered during the parse
 
-  my $position    = V pos => 0;                                                 # Position in input string
-  my $last        = V last => Nasm::X86::Unisyn::Lex::Number::S;                # Last lexical type starting on ths start symbol
+  my $position    = V 'pos        ' => 0;                                       # Position in input string
+  my $last        = V 'last       ' => Nasm::X86::Unisyn::Lex::Number::S;       # Last lexical type starting on ths start symbol
   my $next        = $transitions->cloneDescriptor;                              # Clone the transitions table so we can step down it without losing the original table
      $next->find($last);                                                        # Locate the current classification
      $next->down;                                                               # Tree of possible transitions on lexical type
 
-  my $parseFail   = V parseFail   => 1;                                         # If not zero the parse has failed for some reason
-  my $parseReason = V parseReason => 0;                                         # The reason code describing the failure
-  my $parseMatch  = V parseMatch  => 0;                                         # The position of the bracket we failed to match
-  my $parseChar   = V parseChar   => 0;                                         # The last character recognized
+  my $parseFail   = V 'parseFail  ' => 1;                                       # If not zero the parse has failed for some reason
+  my $parseReason = V 'parseReason' => 0;                                       # The reason code describing the failure
+  my $parseMatch  = V 'parseMatch ' => 0;                                       # The position of the bracket we failed to match
+  my $parseChar   = V 'parseChar  ' => 0;                                       # The last character recognized
 
-  my $startPos    = V startPos    => 0;                                         # Start position of the last lexical item
-  my $lastNew     = V lastNew     => 0;                                         # Last lexical created
+  my $startPos    = V 'startPos   ' => 0;                                       # Start position of the last lexical item
+  my $lastNew     = V 'lastNew    ' => 0;                                       # Last lexical created
   my $started;                                                                  # True after we have added the first symbol and so can have a previous symbol
 
   my $dumpStack = sub                                                           # Dump the parse stack
@@ -10130,13 +10130,13 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
   my $parseTree = $parse->popSubTree; $parse->free; $brackets->free;            # Obtain the parse tree and free the brackets and stack trees
 
   genHash "Nasm::X86::Unisyn::Parse",                                           # Parse results
-    'tree    ' => $parseTree,                                                   # The resulting parse tree
-    'char    ' => $parseChar,                                                   # Last character processed
-    'fail    ' => $parseFail,                                                   # If not zero the parse has failed for some reason
-    'position' => $position,                                                    # The position reached in the input string
-    'match   ' => $parseMatch,                                                  # The position of the matching bracket  that did not match
-    'reason  ' => $parseReason,                                                 # The reason code describing the failure if any
-    'symbols ' => $symbols;                                                     # The symbol tree produced by the parse
+    tree     => $parseTree,                                                     # The resulting parse tree
+    char     => $parseChar,                                                     # Last character processed
+    fail     => $parseFail,                                                     # If not zero the parse has failed for some reason
+    position => $position,                                                      # The position reached in the input string
+    match    => $parseMatch,                                                    # The position of the matching bracket  that did not match
+    reason   => $parseReason,                                                   # The reason code describing the failure if any
+    symbols  => $symbols;                                                       # The symbol tree produced by the parse
  } # Parse
 
 sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree.
@@ -17581,10 +17581,10 @@ if (1) {                                                                        
 #    1          52_693         556_640          52_693         556_640        0.4909          2.57          0.00
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar: .... .... ...1 D5D8
-parseFail: .... .... .... ...0
-pos: .... .... .... ..2B
-parseMatch: .... .... .... ...0
+parseChar  : .... .... ...1 D5D8
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ..2B
+parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 ＝
 ._𝗔
@@ -18997,10 +18997,10 @@ if (1) {                                                                        
   $parse->tree->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>41_769;
-parseChar: .... .... .... 3011
-parseFail: .... .... .... ...0
-pos: .... .... .... ..1F
-parseMatch: .... .... .... ...0
+parseChar  : .... .... .... 3011
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ..1F
+parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 【
 ._＋
@@ -19028,11 +19028,12 @@ if (1) {                                                                        
   $parse->tree->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar: .... .... .... 3011
-parseFail: .... .... .... ...0
-pos: .... .... .... ...6
-parseMatch: .... .... .... ...0
+parseChar  : .... .... .... 3011
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ...6
+parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
+【
 【
 END
  }
@@ -19052,10 +19053,10 @@ if (1) {                                                                        
   $parse->tree->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar: .... .... ...1 D646
-parseFail: .... .... .... ...0
-pos: .... .... .... ...E
-parseMatch: .... .... .... ...0
+parseChar  : .... .... ...1 D646
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ...E
+parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 𝙆
 ._𝑳
