@@ -9924,6 +9924,73 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
     symbols  => $symbols;                                                       # The symbol tree produced by the parse
  } # Parse
 
+sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree.
+ {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
+  @_ == 2 or confess "Two parameters";
+
+  my $s = Subroutine                                                            # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $t      = $$s{tree};                                                     # Tree
+    my $source = $$p{source};                                                   # Source
+    my $depth  = $$p{depth};                                                    # Depth
+    my $area   = $t->area;                                                      # Area
+    If $depth < K(key => 99),
+    Then {                                                                      # Not in a recursive loop yet ?
+                  $t->find(K pos => Nasm::X86::Unisyn::Lex::length);
+    my $length   = $t->data->clone("Length");                                   # Length of input
+
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::position);
+    my $position = $t->data->clone("Position");                                 # Position in input
+
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::type);
+    my $type     = $t->data->clone("Type");                                     # Type of operator
+
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::left);
+    my $leftF    = $t->found->clone("Left");                                    # Left operand found
+    my $left     = $t->data ->clone('left');                                    # Left operand
+
+                   $t->find(K pos => Nasm::X86::Unisyn::Lex::right);
+    my $rightF   = $t->found->clone("Right");                                   # Right operand found
+    my $right    = $t->data ->clone('right');                                   # Right operand
+
+    If $length > 0,                                                             # Source text of lexical item
+    Then
+     {$depth->for(sub
+       {PrintOutString "._";
+       });
+      ($source + $position)->printOutMemoryNL($length);
+     };
+
+    If $leftF > 0,
+    Then                                                                        # There is a left sub tree
+     {$sub->call(structures => {tree  => $t->position($left)},
+                 parameters => {depth => $depth+1, source=> $source});
+     };
+
+    If $rightF > 0,
+    Then                                                                        # There is a right sub tree
+     {$sub->call(structures => {tree  => $t->position($right)},
+                 parameters => {depth => $depth+1, source=> $source});
+     };
+     };
+   } structures => {tree => $tree}, parameters=>[qw(depth source)],
+     name       => "Nasm::X86::Tree::dumpParseTree";
+
+# PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
+
+  If $tree->size == 0,                                                          # Empty tree
+  Then
+   {#PrintOutStringNL "- empty";
+   },
+  Else                                                                          # Print root node
+   {#PrintOutString ": ";
+    $s->call(structures => {tree  => $tree},
+             parameters => {depth => K(depth => 0), source=> $source});
+    #PrintOutNL;
+   };
+ }
+
 #D1 Assemble                                                                    # Assemble generated code
 
 sub CallC($@)                                                                   # Call a C subroutine.
@@ -10629,7 +10696,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10631 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10698 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17334,8 +17401,6 @@ END
   unlink $f;
  }
 
-#D1 Awaiting Classification                                                     # Routines that have not yet been classified.
-
 sub ParseUnisyn($$$)                                                            #P Test the parse of a unisyn expression.
  {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
@@ -17402,73 +17467,6 @@ ParseUnisyn 'va e+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇\n", 
 ParseUnisyn 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",           qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
 ParseUnisyn 'va e+ p11 vb q11 dif p21 b( vc e* vd B) q22 delse ve e* vf',
             "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙\n",                                          qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._＋\n._._._𝗔\n._._._𝙇\n._._._._𝑳\n._._._._._𝗕\n._._𝙒\n._._._𝑽\n._._._._【\n._._._._._✕\n._._._._._._𝗖\n._._._._._._𝗗\n._✕\n._._𝗘\n._._𝗙\n);
-
-sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree.
- {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
-  @_ == 2 or confess "Two parameters";
-
-  my $s = Subroutine                                                            # Print a tree
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-
-    my $t      = $$s{tree};                                                     # Tree
-    my $source = $$p{source};                                                   # Source
-    my $depth  = $$p{depth};                                                    # Depth
-    my $area   = $t->area;                                                      # Area
-    If $depth < K(key => 99),
-    Then {                                                                      # Not in a recursive loop yet ?
-                  $t->find(K pos => Nasm::X86::Unisyn::Lex::length);
-    my $length   = $t->data->clone("Length");                                   # Length of input
-
-                   $t->find(K pos => Nasm::X86::Unisyn::Lex::position);
-    my $position = $t->data->clone("Position");                                 # Position in input
-
-                   $t->find(K pos => Nasm::X86::Unisyn::Lex::type);
-    my $type     = $t->data->clone("Type");                                     # Type of operator
-
-                   $t->find(K pos => Nasm::X86::Unisyn::Lex::left);
-    my $leftF    = $t->found->clone("Left");                                    # Left operand found
-    my $left     = $t->data ->clone('left');                                    # Left operand
-
-                   $t->find(K pos => Nasm::X86::Unisyn::Lex::right);
-    my $rightF   = $t->found->clone("Right");                                   # Right operand found
-    my $right    = $t->data ->clone('right');                                   # Right operand
-
-    If $length > 0,                                                             # Source text of lexical item
-    Then
-     {$depth->for(sub
-       {PrintOutString "._";
-       });
-      ($source + $position)->printOutMemoryNL($length);
-     };
-
-    If $leftF > 0,
-    Then                                                                        # There is a left sub tree
-     {$sub->call(structures => {tree  => $t->position($left)},
-                 parameters => {depth => $depth+1, source=> $source});
-     };
-
-    If $rightF > 0,
-    Then                                                                        # There is a right sub tree
-     {$sub->call(structures => {tree  => $t->position($right)},
-                 parameters => {depth => $depth+1, source=> $source});
-     };
-     };
-   } structures => {tree => $tree}, parameters=>[qw(depth source)],
-     name       => "Nasm::X86::Tree::dumpParseTree";
-
-# PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
-
-  If $tree->size == 0,                                                          # Empty tree
-  Then
-   {#PrintOutStringNL "- empty";
-   },
-  Else                                                                          # Print root node
-   {#PrintOutString ": ";
-    $s->call(structures => {tree  => $tree},
-             parameters => {depth => K(depth => 0), source=> $source});
-    #PrintOutNL;
-   };
- }
 
 test11: goto test12 unless $test{11};
 
@@ -17816,64 +17814,6 @@ END
   unlink $f;
  }
 
-sub Nasm::X86::Tree::put2($$$$)                                                 # Especially useful for Yggdrasil: puts a key into a tree if it is not already there and puts a sub tree under it into which the following key, data pair is place. In this regard it is very like putString() but without the overhead of building an intermediate tree and restricted to just two entries.
- {my ($tree, $key1, $key2, $data) = @_;                                         # Tree, first key, second key, data
-  @_ == 4 or confess "Four parameters";
-
-  my $t = $tree->findSubTree($key1);                                            # First key1
-  If $t->found == 0,
-  Then
-   {my $T = $tree->area->CreateTree;
-    $t->copyDescriptor($T);
-    $tree->put($key1, $t);
-   };
-
-  $t->put($key2, $data);
- }
-
-sub Nasm::X86::Tree::get2($$$)                                                  # Especially useful for Yggdrasil: gets the data associated with the pair of keys used to place it with put2().  The data is returned in the tree found and data fields using the normal tree search paradigm.
- {my ($tree, $key1, $key2) = @_;                                                # Tree, first key, second key
-  @_ == 3 or confess "Three parameters";
-
-  $tree->found->copy(0);                                                        # Assume we will not find the data using the two keys
-
-  my $t = $tree->findSubTree($key1);                                            # Find first key
-  If $t->found > 0,
-  Then                                                                          # First key found in first tree
-   {$t->find($key2);
-    $tree->found->copy($t->found);
-    $tree->data ->copy($t->data);
-   };
-
-  $tree
- }
-
-latest:;
-if (1) {                                                                        #TNasm::X86::Tree::put2 #TNasm::X86::Tree::get2
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-  my $k1 = K key1 => 0x1;
-  my $k2 = K key2 => 0x22;
-  my $d  = K data => 0x333;
-
-  $t->put2($k1, $k2, $d);
-
-  $t->data->copy(0);
-  $t->get2($k1, $k2);
-  $t->found->outNL;
-  $t->data ->outNL;
-
-  $t->data->copy(0);
-  $t->get2($k2, $k1);
-  $t->found->outNL;
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
-found  : .... .... .... ...1
-data   : .... .... .... .333
-found  : .... .... .... ...0
-END
- }
-
 #latest:;
 if (1) {                                                                        # Create and use a library
   unlink my $f = q(zzzArea.data);
@@ -17962,17 +17902,6 @@ sub Nasm::X86::Area::subroutineDefinition($$$)                                  
   confess "Cannot extract subroutine definition from file $file\n$@\n" if $@;   # Complain if the eval failed
   $$c{a};                                                                       # Extract subroutine definition
  }
-
-#sub Nasm::X86::Area::sub($$$)                                                   # Obtain the address of a subroutine held in an area from its name held in memory as a variable string.
-# {my ($area, $string, $size) = @_;                                              # Area containing the subroutine, variable address of string, variable size of string
-#  @_ == 3 or confess "Three parameters";
-#
-#  my $y = $area->yggdrasil;
-#  my $n = $y->getStringUnderKey(Nasm::X86::Yggdrasil::UniqueStrings, $string, $size);# Make the string into a unique number
-#  my $o = $y->get2(        Nasm::X86::Yggdrasil::SubroutineOffsets, $n->data);  # Get the offset of the subroutine under the unique string number
-#
-#  $area->address + $o->data                                                     # Actual address - valid until the area moves.
-# }
 
 sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators.
  {my ($parse, $library, $intersection) = @_;                                    # Parse tree, area containing a library, intersection of parse tree with library
