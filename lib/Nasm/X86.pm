@@ -13075,31 +13075,6 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::ClassifyWithInRangeAndSaveWordOffset Nasm::X86::Variable::loadZmm
-  my $l = V('low',   Rd(2, 7, (0) x 14));
-  my $h = V('high' , Rd(3, 9, (0) x 14));
-  my $o = V('off',   Rd(2, 5, (0) x 14));
-  my $u = V('utf32', Dd(2, 3, 7, 8, 9, (0) x 11));
-
-
-  $l->loadZmm(0);
-  $h->loadZmm(1);
-  $o->loadZmm(2);
-
-  ClassifyWithInRangeAndSaveWordOffset($u, V('size', 5), V('classification', 7));
-  $u->loadZmm(3);
-
-  PrintOutRegisterInHex zmm 0..3;
-
-  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>1);
-  zmm0: .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... ...7 .... ...2
-  zmm1: .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... ...9 .... ...3
-  zmm2: .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... ...5 .... ...2
-  zmm3: .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .7.. ...4 - .7.. ...3 .7.. ...2  .7.. ...1 .7.. ....
-END
- }
-
-#latest:
 if (1) {                                                                        #TPrintOutRaxInDecNL #TPrintOutRaxRightInDec
   my $w = V width => 12;
 
@@ -17176,99 +17151,6 @@ deref (addr a add 16): .... .... .... ...2
 deref (addr a add 16): .... .... .... ...3
 END
  }
-
-# Early version of library - the later version fixed the problem of not including code used to build the library in the library by defining a specific scope for the code to be placed in the library - namely the scope of the containing subroutine.
-##D1 Library                                                                    # Create a library and call the methods contained in it.
-#
-#sub CreateLibrary(%)                                                           # Create a library.
-# {my (%library) = @_;                                                          # Library definition
-#
-#  $library{subroutines} or confess "Subroutines required";
-#  $library{file}        or confess "Subroutines file name required";
-#
-#  my @s = $library{subroutines}->@*;
-#
-#  Mov rax, scalar @s;
-#  Ret;
-#  my @l = map {my $l = Label; Mov rax, $l; $l} @s;                             # Vector of subroutine addresses
-#
-#  my @c = map {&$_} @s;                                                        # Call the subroutines provided to write their code into the program and return the details of the subroutine so written
-#
-#  for my $c(keys @c)                                                           # Write the entry point of each routine
-#   {my $e = $c[$c]->start;
-#    push @text, <<END;
-#$l[$c] equ $e
-#END
-#   }
-#
-#  unlink my $f = $library{file};                                               # The name of the file containing the library
-#
-#  Assemble library => $f;                                                      # Create the library file
-#
-#  $library{address} = undef;                                                   # Address of the library once it has been loaded
-#  $library{size}    = undef;                                                   # Size of the library in bytes
-#  $library{meta}    = \@c;                                                     # Array describing each subroutine in the order they are held in the library
-#  $library{name}{$c[$_]{name}} = $c[$_] for keys @c;                           # Subroutine description by name
-#
-#  genHash "Nasm::X86::Library", %library
-# }
-#
-#sub Nasm::X86::Library::load($)                                                # Load a library and return the addresses of its subroutines as variables.
-# {my ($library) = @_;                                                          # Description of library to load
-#
-#  my @offsets = sub                                                            # Examine library at run time
-#   {my $c = readBinaryFile $$library{file};
-#    my (undef, $n) = unpack "SQ", $c;
-#    my @v = unpack "SQC(SQ)[$n]", $c;
-#    map {$_ > 2 && $_ % 2 == 0 ? ($v[$_]) : () } keys @v
-#   }->();
-#
-#  my @s = $$library{meta}->@*;
-#  $s[$_]{offset} = V(entry=>$offsets[$_]) for keys @s;                         # Variable offset of each subroutine
-#
-#  ($library->address, $library->size) = ReadFile $$library{file};              # Load library at run time
-# }
-#
-#sub Nasm::X86::Library::call($$%)                                              # Call a library routine
-# {my ($library, $name, %options) = @_;                                         # Description of library, method name, options - which includes parameters and structures
-#  @_ >= 2 or confess "Two or more parameters";
-#
-#  $library->name->{$name}->call(library => $library->address, %options);
-# }
-#
-##latest:
-#if (1) {                                                                       #TCreateLibrary #Nasm::X86::Library::load #Nasm::X86::Library::call
-#  my $l = CreateLibrary
-#   (subroutines =>
-#     [sub
-#       {Subroutine
-#         {my ($p, $s, $sub) = @_;
-#          PrintOutStringNL "SSSS";
-#         } name=>"ssss";
-#       },
-#      sub
-#       {Subroutine
-#         {my ($p, $s, $sub) = @_;
-#          PrintOutStringNL "TTTT";
-#          $$p{p}->outNL;
-#         } name=>"tttt",  parameters=>[qw(p)];
-#       },
-#     ],
-#    file => q(library),
-#   );
-#
-#  my ($address, $size) = $l->load;
-#
-#  $l->call(q(ssss));
-#  $l->call(q(tttt), parameters=>{p => V key => 42});
-#
-#  ok Assemble eq => <<END, avx512=>0;
-#SSSS
-#TTTT
-#p: .... .... .... ..2A
-#END
-#  unlink $l->file;
-# }
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Variable::dClassify
