@@ -5516,6 +5516,19 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
   $offset
  }
 
+sub Nasm::X86::Area::appendZmm($$$)                                             # Append the contents of the specified zmm to the specified area and returns its offset in that area as a variable,
+ {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
+  @_ == 2 or confess "Two parameters";
+
+  my $k = $area->allocZmmBlock;                                                 # Allocate a block to hold the content of the zmm register
+
+  $area->address->setReg(rax);
+  $k->setReg(rbx);
+  Vmovdqu64 "[rax+rbx]", zmm($zmm);                                             # Copy in the data held in the supplied zmm register
+
+  $k                                                                            # Return offset in area
+ }
+
 sub Nasm::X86::Area::q($$)                                                      # Append a constant string to the area.
  {my ($area, $string) = @_;                                                     # Area descriptor, string
   @_ == 2 or confess "Two parameters";
@@ -10775,7 +10788,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10777 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10790 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18395,19 +18408,6 @@ if (1) {                                                                        
 16: @ 7
 17: after
 END
- }
-
-sub Nasm::X86::Area::appendZmm($$$)                                             # Append the contents of the specified zmm to the specified area and returns its offset in that area as a variable,
- {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
-  @_ == 2 or confess "Two parameters";
-
-  my $k = $area->allocZmmBlock;                                                 # Allocate a block to hold the content of the zmm register
-
-  $area->address->setReg(rax);
-  $k->setReg(rbx);
-  Vmovdqu64 "[rax+rbx]", zmm($zmm);                                             # Copy in the data held in the supplied zmm register
-
-  $k                                                                            # Return offset in area
  }
 
 sub Nasm::X86::Tree::getKeyString($$$)                                          # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
