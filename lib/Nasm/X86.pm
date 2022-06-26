@@ -5622,7 +5622,7 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
      name       => 'Nasm::X86::Area::m';
 
   my $offset = V offset => 0;                                                   # Offset within the area at which the content was appended
-  $s->call(structures => {area => $area},
+  $s->inline(structures => {area => $area},
            parameters => {address => $address, size => $size,
                           offset  => $offset});
   $offset
@@ -5835,6 +5835,9 @@ sub Nasm::X86::Area::dump($$;$)                                                 
   PrintOutStringNL $title;
   $s->call(structures=>{area=>$area}, parameters=>{depth => ($depth // V('depth', 4))});
  }
+
+#D2 Areas as Stacks                                                             # Use an area as a stack
+
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an area.
 
@@ -11095,7 +11098,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11097 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11100 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19087,6 +19090,25 @@ parseReason: .... .... .... ...0
 𝙆
 ._𝑳
 ._._【
+END
+ }
+
+# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#    1          12_425          25_440          12_425          25_440        0.2804          0.05          0.00  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 19100
+
+latest:
+if (1) {                                                                        #TNasm::X86::Area::appendMemory
+  my $a = CreateArea;
+     $a->appendMemory(constantString("aaaa"));                                  # 82
+     $a->dump("AA");
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>12_425;
+AA
+Area     Size:     4096    Used:       68
+.... .... .... ...0 | __10 ____ ____ ____  44__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 6161 6161 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
