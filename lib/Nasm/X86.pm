@@ -28,7 +28,7 @@ use Time::HiRes qw(time);
 use feature qw(say current_sub);
 use utf8;
 
-makeDieConfess;
+makeDieConfess unless &onGitHub;
 
 my %rodata;                                                                     # Read only data already written
 my %rodatas;                                                                    # Read only string already written
