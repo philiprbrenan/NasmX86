@@ -7427,6 +7427,92 @@ sub Nasm::X86::Tree::findFirst($)                                               
   $s->call(structures=>{tree => $tree});
  } # findFirst
 
+sub Nasm::X86::Tree::findLast($)                                                # Find the last key in a tree - crucial for stack like operations.
+ {my ($tree) = @_;                                                              # Tree descriptor
+  @_ == 1 or confess "One parameter";
+  confess "Not allowed with smallTree == 2"                                     # Only basic low keys allowed if low keys being used
+    if $tree->smallTree && $tree->smallTree != 1;
+
+  my $s = Subroutine
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+    Block
+     {my ($success) = @_;                                                       # Successfully completed
+
+      my $t = $$s{tree}->zero;                                                  # Tree to search
+
+      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
+
+      $t->firstFromMemory($F);                                                  # Update the size of the tree
+      my $size = $t->sizeFromFirst($F);                                         # Number of entries in tree
+
+      If $size > 0,                                                             # Non empty tree
+      Then
+       {if ($tree->smallTree)                                                   # Low keys in play so the root node might not be present if all the data is now in the first block
+         {PushR my $z = r13, my $bit = r14, my $present = r15, my $pos = r12;   # The current size of the tree, the index of the present bit for the highest remaining key, the present bits
+          my $i = V key => 0;                                                   # Assume we are not in the first block
+          wFromZ $F, $t->fcPresentOff,  set=>$present;                          # Present bits
+          Popcnt $bit, $present;                                                # Number of entries in first block
+          $size->setReg($z);
+          Cmp $bit, $z;                                                         # We are in the first block entries if the number of keys present in the first block is the same as the current size of the tree
+          IfEq
+          Then
+           {Bsr $bit, $present;                                                 # Position of highest key found by reverse scan to find index of highest bit set
+            $t->key->getReg($bit);                                              # Show key found
+            Mov $pos, $bit;                                                     # Position of corresponding dword in first block
+            Shl $pos, 2;                                                        # Position in first block array of dwords
+            Add $pos, $t->fcArray;                                              # Position in first block
+            dFromZ($F, V(position => $pos), set => $t->data);                   # Save data
+            $t->found->getReg($present);                                        # Show found
+            $i->copy(1);                                                        # We are in the first block
+
+            $t->subTree->copy(0);                                               # Assume this element does not refer to a sub tree
+            wFromZ $F, $t->fcTreeBitsOff, set=>rdi;                             # Sub tree bits
+            Bt rdi, $bit;                                                       # Test sub tree present
+            IfC Then {$t->subTree->copy(1)};                                    # Show sub tree present
+           };
+          PopR;
+          If $i > 0, Then {Jmp $success};                                       # Successfully found
+         }
+
+        my $root = $t->rootFromFirst($F);                                       # Root of tree
+
+        $t->getBlock($root, $K, $D, $N);                                        # Load root
+
+        K(loop => 99)->for(sub                                                  # Step down through the tree a reasonable number of times
+         {my ($i, $start, $next, $end) = @_;
+          my $l = $t->lengthFromKeys($K);
+
+          If $t->leafFromNodes($N) > 0,                                         # Leaf node means we have arrived
+          Then
+           {my $o  = ($l - 1) * $t->width;
+            my $k = dFromZ($K, $o);
+            my $d = dFromZ($D, $o);
+            my $b = $t->getTreeBit($K, $l);
+
+            $t->found  ->copy(1);
+            $t->key    ->copy($k);
+            $t->data   ->copy($d);
+            $t->subTree->copy($b);
+            Jmp $success
+           };
+
+          my $O = $l * $t->width;
+          my $n = dFromZ($N, $O);                                               # Step down to the next level
+          $t->getBlock($n, $K, $D, $N);
+         });
+        PrintErrTraceBack "Stuck looking for last";
+       },
+      Else
+       {$t->found->copy(0);
+       };
+     };                                                                         # Find completed successfully
+    PopR;
+   } structures=>{tree=>$tree},
+     name => qq(Nasm::X86::Tree::findLast-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+
+  $s->call(structures=>{tree => $tree});                                        # Inline causes very long assembly times so we call instead.
+ } # findLast
+
 sub Nasm::X86::Tree::findNext($$)                                               # Find the next key greater than the one specified.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key
   @_ == 2 or confess "Two parameters";
@@ -11009,7 +11095,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11011 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11097 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18793,93 +18879,6 @@ end
 END
  }
 
-# findFirst
-sub Nasm::X86::Tree::findLast($)                                                # Find the last key in a tree - crucial for stack like operations.
- {my ($tree) = @_;                                                              # Tree descriptor
-  @_ == 1 or confess "One parameter";
-  confess "Not allowed with smallTree == 2"                                     # Only basic low keys allowed if low keys being used
-    if $tree->smallTree && $tree->smallTree != 1;
-
-  my $s = Subroutine
-   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    Block
-     {my ($success) = @_;                                                       # Successfully completed
-
-      my $t = $$s{tree}->zero;                                                  # Tree to search
-
-      PushR my $F = 31, my $K = 30, my $D = 29, my $N = 28;
-
-      $t->firstFromMemory($F);                                                  # Update the size of the tree
-      my $size = $t->sizeFromFirst($F);                                         # Number of entries in tree
-
-      If $size > 0,                                                             # Non empty tree
-      Then
-       {if ($tree->smallTree)                                                   # Low keys in play so the root node might not be present if all the data is now in the first block
-         {PushR my $z = r13, my $bit = r14, my $present = r15, my $pos = r12;   # The current size of the tree, the index of the present bit for the highest remaining key, the present bits
-          my $i = V key => 0;                                                   # Assume we are not in the first block
-          wFromZ $F, $t->fcPresentOff,  set=>$present;                          # Present bits
-          Popcnt $bit, $present;                                                # Number of entries in first block
-          $size->setReg($z);
-          Cmp $bit, $z;                                                         # We are in the first block entries if the number of keys present in the first block is the same as the current size of the tree
-          IfEq
-          Then
-           {Bsr $bit, $present;                                                 # Position of highest key found by reverse scan to find index of highest bit set
-            $t->key->getReg($bit);                                              # Show key found
-            Mov $pos, $bit;                                                     # Position of corresponding dword in first block
-            Shl $pos, 2;                                                        # Position in first block array of dwords
-            Add $pos, $t->fcArray;                                              # Position in first block
-            dFromZ($F, V(position => $pos), set => $t->data);                   # Save data
-            $t->found->getReg($present);                                        # Show found
-            $i->copy(1);                                                        # We are in the first block
-
-            $t->subTree->copy(0);                                               # Assume this element does not refer to a sub tree
-            wFromZ $F, $t->fcTreeBitsOff, set=>rdi;                             # Sub tree bits
-            Bt rdi, $bit;                                                       # Test sub tree present
-            IfC Then {$t->subTree->copy(1)};                                    # Show sub tree present
-           };
-          PopR;
-          If $i > 0, Then {Jmp $success};                                       # Successfully found
-         }
-
-        my $root = $t->rootFromFirst($F);                                       # Root of tree
-
-        $t->getBlock($root, $K, $D, $N);                                        # Load root
-
-        K(loop => 99)->for(sub                                                  # Step down through the tree a reasonable number of times
-         {my ($i, $start, $next, $end) = @_;
-          my $l = $t->lengthFromKeys($K);
-
-          If $t->leafFromNodes($N) > 0,                                         # Leaf node means we have arrived
-          Then
-           {my $o  = ($l - 1) * $t->width;
-            my $k = dFromZ($K, $o);
-            my $d = dFromZ($D, $o);
-            my $b = $t->getTreeBit($K, $l);
-
-            $t->found  ->copy(1);
-            $t->key    ->copy($k);
-            $t->data   ->copy($d);
-            $t->subTree->copy($b);
-            Jmp $success
-           };
-
-          my $O = $l * $t->width;
-          my $n = dFromZ($N, $O);                                               # Step down to the next level
-          $t->getBlock($n, $K, $D, $N);
-         });
-        PrintErrTraceBack "Stuck looking for last";
-       },
-      Else
-       {$t->found->copy(0);
-       };
-     };                                                                         # Find completed successfully
-    PopR;
-   } structures=>{tree=>$tree},
-     name => qq(Nasm::X86::Tree::findLast-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
-
-  $s->call(structures=>{tree => $tree});                                        # Inline causes very long assembly times so we call instead.
- } # findLast
-
 #latest:;
 if (1) {                                                                        #TNasm::X86::Area::writeLibraryHeader  #TNasm::X86::Area::readLibraryHeader
   my $a = CreateArea;
@@ -19090,8 +19089,6 @@ parseReason: .... .... .... ...0
 ._._【
 END
  }
-
-
 
 #latest:
 if (0) {                                                                        #TAssemble
