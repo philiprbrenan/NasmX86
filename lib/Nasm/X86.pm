@@ -5844,7 +5844,8 @@ sub DescribeTree(%)                                                             
  {my (%options)  = @_;                                                          # Tree description options
   my $area       = delete $options{area};                                       # The area containing the tree
   my $smallTree  = delete $options{smallTree};                                  # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
-  my $lowTree    = delete $options{lowTree};                                    # This tree is at the lowest level if true. As there are no sub trees hanging from this tree we may optimize put, find, delete to not process information required to describe sub trees.  This action has not been done yet except n the case of low key processing.
+  my $lowTree    = delete $options{lowTree};                                    # No sub trees hanging from this tree
+  my $highTree   = delete $options{highTree};                                   # All data fields in this tree represent a sub tree offset
   my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
   my $length     = delete $options{length};                                     # Maximum number of keys per node
   my $name       = delete $options{name};                                       # Optional name for debugging purposes
@@ -5896,7 +5897,11 @@ sub DescribeTree(%)                                                             
     stringTree           => $stringTree // 0,                                   # String tree
 
     rootOffset           => $o * 0,                                             # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
-    optionsOffset        => $o * 1,                                             # Offset of the options double word in teh first block
+    optionsOffset        => $o * 1,                                             # Offset of the options double word in the first block
+    smallTreeBit         => 0,                                                  # Bit indicating a small tree
+    lowTreeBit           => 1,                                                  # Bit indicating a low tree - a tree that does not have any sub trees
+    highTreeBit          => 2,                                                  # Bit indicating a high tree - a tree where every data field represents a sub tree offset
+    stringKeysBit        => 3,                                                  # Bit indicating string key tree
     sizeOffset           => $o * 2,                                             # Offset of the size field  in the first block - tells us the number of  keys in the tree
     fcControl            => $o * 3,                                             # Offset of the tree bits and present bits in the first cache of low key values for this tree.
     fcPresentOff         => $o * 3,                                             # Byte offset of word  containing present bits
@@ -10995,7 +11000,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10997 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11002 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
