@@ -5165,7 +5165,7 @@ sub DescribeArea(%)                                                             
   my $N = 2 ** $B;                                                              # Initial size of area
   my $w = RegisterSize 31;
 
-  my $quad = RegisterSize rax;                                                  # Field offsets
+  my $quad = RegisterSize rax;                                                  # Field offsets of quad words used in the header to
   my $size = 0;
   my $used = $size + $quad;                                                     # Amount of memory in the area that has been used - includes the free chain.
   my $free = $used + $quad;                                                     # Free chain blocks = freed zmm blocks
@@ -5836,29 +5836,59 @@ sub Nasm::X86::Area::dump($$;$)                                                 
   $s->call(structures=>{area=>$area}, parameters=>{depth => ($depth // V('depth', 4))});
  }
 
-#D2 Areas as Stacks                                                             # Use an area as a stack
+#D2 Areas as Stacks                                                             # Use an area as a stack. If the area is simultaneouls used for other operations confusion will ensue.
 
-sub Nasm::X86::Area::pushVar($$)                                                # Push the contents of a variable into an area
+sub Nasm::X86::Area::push($$)                                                   # Push the contents of a variable into an area
  {my ($area, $var) = @_;                                                        # Area descriptor, variable
   @_ == 2 or confess "Two parameters";
 
-Comment "PPPP1111";
-
   $area->updateSpace(K size => my $w = RegisterSize rax);                       # Update space if needed
 
-  my $oldUsed = rsi, my $target = rdi, my $areaA = rax;
-  my $used = "[$areaA+$$area{usedOffset}]";                                     # Address the used field in the area
+  my $oldUsed = rsi, my $target = rdi, my $areaA = rax, my $dataToPush = rdx;
+  my $used = "qword[$areaA+$$area{usedOffset}]";                                # Address the used field in the area
 
   $area->address->setReg($areaA);                                               # Address area
   Mov $oldUsed, $used;                                                          # Record currently used space
 
-  Mov rdx, $var->addressExpr;                                                   # Data to push
-  Mov "[$oldUsed + $areaA]", rdx;                                                         # Push data into the area
+  Mov $dataToPush, $var->addressExpr;                                           # Data to push
+  Mov "[$oldUsed + $areaA]", $dataToPush;                                       # Push data into the area
   Lea $target, "[$oldUsed + $w]";                                               # Amount of space now being used
 
   $area->address->setReg($areaA);                                               # Update used field
   Mov $used, $target;
-Comment "PPPP2222";
+ }
+
+sub Nasm::X86::Area::stackSize($)                                               # Size of the stack in an area being used as a stack
+ {my ($area) = @_;                                                              # Area descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $oldUsed = rsi, my $areaA = rax;
+  my $used = "qword[$areaA+$$area{usedOffset}]";                                # Address the used field in the area
+
+  $area->address->setReg($areaA);                                               # Address area
+  Mov $oldUsed, $used;                                                          # Record currently used space
+  Sub $oldUsed, $area->dataOffset;                                              # Space minus header is actual space used by stack
+  V stackSize => $oldUsed;                                                      # Return stack size as a variable
+ }
+
+sub Nasm::X86::Area::pop($)                                                     # Pop a variable from the stack in an area being used as a stack
+ {my ($area) = @_;                                                              # Area descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $oldUsed = rsi, my $areaA = rax;
+  my $used = "qword[$areaA+$$area{usedOffset}]";                                # Address the used field in the area
+
+  $area->address->setReg($areaA);                                               # Address area
+  Mov $oldUsed, $used;                                                          # Record currently used space
+  Cmp $oldUsed, $area->dataOffset;                                              # Space minus header is actual space used by stack
+  IfLe                                                                          # Stack under flow
+  Then
+   {PrintErrTraceBack "Stack underflow";
+   };
+
+  my $w = RegisterSize rax;                                                     # Size of a variable
+  Sub $used, $w;                                                                # Reduce stack by one variable
+  V pop => "[$oldUsed + $areaA - $w]";                                          # Return popped data
  }
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an area.
@@ -11120,7 +11150,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11122 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11152 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19135,20 +19165,54 @@ Area     Size:     4096    Used:       68
 END
  }
 
-# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
-#    1          12_338          24_360          12_338          24_360        0.0827          0.05          0.00  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 19141
-
 latest:
-if (1) {                                                                        #TNasm::X86::Area::appendMemory
+if (1) {                                                                        #TNasm::X86::Area::push
   my $a = CreateArea;
-     $a->pushVar(K key => 0x11111111);                                          #
-     $a->pushVar(K key => 0x22222222);                                          # 12
-     $a->dump("AA");
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>86;
+#     $a->dump("AA");
+     $a->push(K key => 0x11111111);
+#     $a->dump("AA");
+     $a->push(K key => 0x22222222);                                             # 12
+#     $a->dump("AA");
+
+     $a->stackSize->outNL;
+
+#     $a->pop;
+#     $a->dump("AA");
+#     $a->pop;
+#     $a->dump("AA");
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>687;
+AA
+Area     Size:     4096    Used:       64
+.... .... .... ...0 | __10 ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+AA
+Area     Size:     4096    Used:       72
+.... .... .... ...0 | __10 ____ ____ ____  48__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 1111 1111 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 AA
 Area     Size:     4096    Used:       80
 .... .... .... ...0 | __10 ____ ____ ____  50__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 1111 1111 ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+stackSize: .... .... .... ..10
+pop: .... .... 2222 2222
+AA
+Area     Size:     4096    Used:       72
+.... .... .... ...0 | __10 ____ ____ ____  48__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 1111 1111 ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+pop: .... .... 1111 1111
+AA
+Area     Size:     4096    Used:       64
+.... .... .... ...0 | __10 ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..40 | 1111 1111 ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
