@@ -5595,20 +5595,20 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
  {my ($area, $address, $size) = @_;                                             # Area descriptor, variable address of content, variable length of content
   @_ == 3 or confess "Three parameters";
 
-  my $used = "[rax+$$area{usedOffset}]";
+  my $used = "[rax+$$area{usedOffset}]";                                        # Address the used field in the area
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 #    SaveFirstFour;
     my $area = $$s{area};
-    $area->address->setReg(rax);
-    my $oldUsed = V("used", $used);
+    $area->address->setReg(rax);                                                # Address area
+    my $oldUsed = V("used", $used);                                             # Record currently used space
     $area->updateSpace($$p{size});                                              # Update space if needed
 
-    my $target  = $oldUsed + $area->address;
+    my $target  = $oldUsed + $area->address;                                    # Where to write the copied memory to
     CopyMemory($$p{address}, $target, $$p{size});                               # Copy data into the area
 
-    my $newUsed = $oldUsed + $$p{size};
+    my $newUsed = $oldUsed + $$p{size};                                         # Amount of space now being used
 
     $area->address->setReg(rax);                                                # Update used field
     $newUsed->setReg(rdi);
@@ -5622,9 +5622,9 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
      name       => 'Nasm::X86::Area::m';
 
   my $offset = V offset => 0;                                                   # Offset within the area at which the content was appended
-  $s->inline(structures => {area => $area},
-           parameters => {address => $address, size => $size,
-                          offset  => $offset});
+  $s->inline(structures => {area    => $area},
+             parameters => {address => $address, size => $size,
+                            offset  => $offset});
   $offset
  }
 
@@ -5838,6 +5838,28 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 
 #D2 Areas as Stacks                                                             # Use an area as a stack
 
+sub Nasm::X86::Area::pushVar($$)                                                # Push the contents of a variable into an area
+ {my ($area, $var) = @_;                                                        # Area descriptor, variable
+  @_ == 2 or confess "Two parameters";
+
+Comment "PPPP1111";
+
+  $area->updateSpace(K size => my $w = RegisterSize rax);                       # Update space if needed
+
+  my $oldUsed = rsi, my $target = rdi, my $areaA = rax;
+  my $used = "[$areaA+$$area{usedOffset}]";                                     # Address the used field in the area
+
+  $area->address->setReg($areaA);                                               # Address area
+  Mov $oldUsed, $used;                                                          # Record currently used space
+
+  Mov rdx, $var->addressExpr;                                                   # Data to push
+  Mov "[$oldUsed + $areaA]", rdx;                                                         # Push data into the area
+  Lea $target, "[$oldUsed + $w]";                                               # Amount of space now being used
+
+  $area->address->setReg($areaA);                                               # Update used field
+  Mov $used, $target;
+Comment "PPPP2222";
+ }
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an area.
 
@@ -11098,7 +11120,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11100 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11122 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19095,18 +19117,39 @@ END
 
 # Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
 #    1          12_425          25_440          12_425          25_440        0.2804          0.05          0.00  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 19100
+#    1          12_391          25_928          12_391          25_928        0.0787          0.02          0.00  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 19103
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Area::appendMemory
   my $a = CreateArea;
-     $a->appendMemory(constantString("aaaa"));                                  # 82
+     $a->appendMemory(constantString("aaaa"));                                  # 82 48
      $a->dump("AA");
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>12_425;
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>12_391;
 AA
 Area     Size:     4096    Used:       68
 .... .... .... ...0 | __10 ____ ____ ____  44__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..40 | 6161 6161 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#    1          12_338          24_360          12_338          24_360        0.0827          0.05          0.00  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 19141
+
+latest:
+if (1) {                                                                        #TNasm::X86::Area::appendMemory
+  my $a = CreateArea;
+     $a->pushVar(K key => 0x11111111);                                          #
+     $a->pushVar(K key => 0x22222222);                                          # 12
+     $a->dump("AA");
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>86;
+AA
+Area     Size:     4096    Used:       80
+.... .... .... ...0 | __10 ____ ____ ____  50__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 1111 1111 ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
