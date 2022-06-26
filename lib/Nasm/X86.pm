@@ -5948,13 +5948,13 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   my $t = $tree;
   my $a = $t->area;
 
-  ClearRegisters rsi, $z;                                                       # At this point the first block is empty so there is no need to get it from memory because it has nothing in it.
-  Bts rsi, $t->lowTreeBit    if $t->lowTree;
-  Bts rsi, $t->highTreeBit   if $t->highTree;
-  Bts rsi, $t->smallTreeBit  if $t->smallTree;
-  Bts rsi, $t->stringKeysBit if $t->stringKeys;
-  dRegIntoZmm rsi, $z, $t->optionsOffset;
-  $a->putZmmBlock($o, $z);                                                      # Save first block with options loaded
+#  ClearRegisters rsi, $z;                                                       # At this point the first block is empty so there is no need to get it from memory because it has nothing in it.
+#  Bts rsi, $t->lowTreeBit    if $t->lowTree;
+#  Bts rsi, $t->highTreeBit   if $t->highTree;
+#  Bts rsi, $t->smallTreeBit  if $t->smallTree;
+#  Bts rsi, $t->stringKeysBit if $t->stringKeys;
+#  dRegIntoZmm rsi, $z, $t->optionsOffset;
+#  $a->putZmmBlock($o, $z);                                                      # Save first block with options loaded
 
   $tree                                                                         # Description of array
  }
@@ -10753,7 +10753,7 @@ END
   my $eStart = time;
 
   #lll $exec;
-  qx(timeout 60s $exec) if $run;                                                # Run unless suppressed by user or library
+  qx(timeout 30s $exec) if $run;                                                # Run unless suppressed by user or library
 
   my $er     = $?;                                                              # Execution result
   my $eTime  = time - $eStart;
@@ -18624,8 +18624,8 @@ END
 if (1) {                                                                        # Binary search on populated array
   my $a = CreateArea;
   my $t = $a->CreateTree(stringTree=>1);
-  $t->putKeyString(constantString("d"),        K(data => 1));
-  $t->putKeyString(constantString("dd"),       K(data => 2));
+  $t->putKeyString(constantString("d"),   K data => 1);
+  $t->putKeyString(constantString("dd"),  K data => 2);
   $a->dump("AA", K(depth => 7));
   $t->dump("TT");
 
@@ -19074,7 +19074,7 @@ parseReason: .... .... .... ...0
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('𝑳【】𝙆');
 
