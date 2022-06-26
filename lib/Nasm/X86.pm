@@ -5846,16 +5846,16 @@ sub DescribeTree(%)                                                             
   my $smallTree  = delete $options{smallTree};                                  # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
   my $lowTree    = delete $options{lowTree};                                    # No sub trees hanging from this tree
   my $highTree   = delete $options{highTree};                                   # All data fields in this tree represent a sub tree offset
-  my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
+# my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
   my $length     = delete $options{length};                                     # Maximum number of keys per node
   my $name       = delete $options{name};                                       # Optional name for debugging purposes
-  my $stringTree = delete $options{stringTree};                                 # Tree of strings - becoming obsolete with the implementation of string Keys
+  my $stringTree = delete $options{stringTree};                                 # Tree of strings - the key offsets designate 64 byte blocks of memory in the same area that contains the tree.  If a key string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
      $length     = 13;                                                          # Maximum number of keys per node
 
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
 
-  confess "Choose one of stringKeys and smallTree but not both"                 # String keys do not work yet with small trees
-    if $smallTree and $stringKeys;
+#  confess "Choose one of stringKeys and smallTree but not both"                 # String keys do not work yet with small trees
+#    if $smallTree and $stringKeys;
 
   confess "Choose one of lowTree and highTree but not both"                     # Low tree or high tree or indeterminate but not both
     if $lowTree and $highTree;
@@ -5899,7 +5899,7 @@ sub DescribeTree(%)                                                             
     smallTree            => $smallTree  // 0,                                   # Low keys should be placed in first block where possible
     lowTree              => $lowTree    // 0,                                   # This tree has no sub trees
     highTree             => $highTree   // 0,                                   # This tree has all sub trees
-    stringKeys           => $stringKeys // 0,                                   # String tree
+#   stringKeys           => $stringKeys // 0,                                   # String tree
     stringTree           => $stringTree // 0,                                   # String tree - now obsolete
 
     rootOffset           => $o * 0,                                             # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
@@ -5907,7 +5907,7 @@ sub DescribeTree(%)                                                             
     smallTreeBit         => 0,                                                  # Bit indicating a small tree
     lowTreeBit           => 1,                                                  # Bit indicating a low tree - a tree that does not have any sub trees
     highTreeBit          => 2,                                                  # Bit indicating a high tree - a tree where every data field represents a sub tree offset
-    stringKeysBit        => 3,                                                  # Bit indicating string key tree
+#   stringKeysBit        => 3,                                                  # Bit indicating string key tree
     sizeOffset           => $o * 2,                                             # Offset of the size field  in the first block - tells us the number of  keys in the tree
     fcControl            => $o * 3,                                             # Offset of the tree bits and present bits in the first cache of low key values for this tree.
     fcPresentOff         => $o * 3,                                             # Byte offset of word  containing present bits
@@ -5918,7 +5918,7 @@ sub DescribeTree(%)                                                             
     fcDWidth             => $b / $o - 4,                                        # Number of dwords available in the first cache.  The first cache supplies an alternate area to store the values of keys less than this value  to fill the otherwise unused space in a way that improves the performance of trees when used to represent small arrays, stacks or structures.
     middleOffset         => $o * ($l2 + 0),                                     # Offset of the middle slot in bytes
     rightOffset          => $o * ($l2 + 1),                                     # Offset of the first right slot in bytes
-    stringKeyCountOffset => $o * 4,                                             # This field is used to count the total number of keys in a string tree so that we can assign unique numbers when pushing.  This field reuses an area used by small trees - so string trees are nort allowed to be small tees - which makes sense - why store big keys in a small tree?
+    stringTreeCountOff   => $o * 4,                                             # This field is used to count the total number of keys in a string tree so that we can assign unique numbers when pushing.  This field reuses an area used by small trees - so string trees are nort allowed to be small tees - which makes sense - why store big keys in a small tree?
 
     data                 => V('data   ' => 0),                                  # Variable containing the current data
     first                => V('first  ' => 0),                                  # Variable addressing offset to first block of the tree which is the header block
@@ -5952,7 +5952,7 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   Bts rsi, $t->lowTreeBit    if $t->lowTree;
   Bts rsi, $t->highTreeBit   if $t->highTree;
   Bts rsi, $t->smallTreeBit  if $t->smallTree;
-  Bts rsi, $t->stringKeysBit if $t->stringKeys;
+#  Bts rsi, $t->stringKeysBit if $t->stringKeys;
   dRegIntoZmm rsi, $z, $t->optionsOffset;
   $a->putZmmBlock($o, $z);                                                      # Save first block with options loaded
 
@@ -8412,7 +8412,7 @@ sub Nasm::X86::Tree::delete($$)                                                 
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to delete
   @_ == 2 or confess "Two parameters";
   ref($key) =~ m(Variable) or confess "Variable required";
-  confess "No yet implemented for stringKeys" if $tree->stringKeys;
+  confess "No yet implemented for stringTrees" if $tree->stringTree;
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -9072,7 +9072,7 @@ sub Nasm::X86::Tree::uniqueKeyString($$$)                                       
   PushR my $area = r15, my $first = r14, my $count = r13;
   $tree->area->address->setReg($area);
   $tree->first->setReg($first);
-  my $o = $tree->stringKeyCountOffset;                                          # Offset of count field - long keys are stored in multiple sub trees so the conventional size field is not enough
+  my $o = $tree->stringTreeCountOff;                                            # Offset of count field - long keys are stored in multiple sub trees so the conventional size field is not enough
   Mov dWordRegister($count),"[$area+$first+$o]";                                # Number of strings so far
 
   my $c = V count => $count;
@@ -18875,7 +18875,7 @@ sub Nasm::X86::Tree::findLast($)                                                
      };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
-     name => qq(Nasm::X86::Tree::findLast-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringKeys});
+     name => qq(Nasm::X86::Tree::findLast-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree});                                        # Inline causes very long assembly times so we call instead.
  } # findLast
@@ -19090,6 +19090,8 @@ parseReason: .... .... .... ...0
 ._._【
 END
  }
+
+
 
 #latest:
 if (0) {                                                                        #TAssemble
