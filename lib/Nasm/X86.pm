@@ -5896,7 +5896,7 @@ sub DescribeTree(%)                                                             
     stringTree           => $stringTree // 0,                                   # String tree
 
     rootOffset           => $o * 0,                                             # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
-    upOffset             => $o * 1,                                             # Offset of the up field  in the first block -  points to any containing tree
+    optionsOffset        => $o * 1,                                             # Offset of the options double word in teh first block
     sizeOffset           => $o * 2,                                             # Offset of the size field  in the first block - tells us the number of  keys in the tree
     fcControl            => $o * 3,                                             # Offset of the tree bits and present bits in the first cache of low key values for this tree.
     fcPresentOff         => $o * 3,                                             # Byte offset of word  containing present bits
@@ -5932,10 +5932,6 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   my $tree = $area->DescribeTree(%options);                                     # Return a descriptor for a tree in the specified area
   my $o    = $tree->area->allocZmmBlock;                                        # Allocate header
   $tree->first->copy($o);                                                       # Install header
-
-  $tree->area->getZmmBlock($o, 31);   ####TTTT
-  K(key => 0x1111)->dIntoZ(31, $tree->upOffset);
-  $tree->area->putZmmBlock($o, 31);
 
   $tree                                                                         # Description of array
  }
@@ -6050,6 +6046,20 @@ sub Nasm::X86::Tree::root($$$)                                                  
   my $root = $t->rootFromFirst($F);                                             # Get the offset of the corresponding data block
   $root == $offset                                                              # Check whether the offset is in fact the root
  }
+
+
+sub Nasm::X86::Tree::optionsFromFirst($$)                                       #P Return a variable containing the options double word from the first block zmm register.
+ {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
+  @_ == 2 or confess "Two parameters";
+  dFromZ $zmm, $tree->optionsOffset;
+ }
+
+sub Nasm::X86::Tree::optionsIntoFirst($$$)                                      #P Put the contents of a variable into the options field of the first block of a tree  when the first block is held in a zmm register.
+ {my ($tree, $zmm, $value) = @_;                                                # Tree descriptor, number of zmm containing first block, variable containing options to put
+  @_ == 3 or confess "Three parameters";
+  $value->dIntoZ($zmm, $tree->optionsOffset);
+ }
+
 
 sub Nasm::X86::Tree::sizeFromFirst($$)                                          #P Return a variable containing the number of keys in the specified tree when the first block is held in a zmm register..
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
@@ -10985,7 +10995,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10987 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10997 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
