@@ -5599,7 +5599,7 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-    SaveFirstFour;
+#    SaveFirstFour;
     my $area = $$s{area};
     $area->address->setReg(rax);
     my $oldUsed = V("used", $used);
@@ -5616,7 +5616,7 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
 
     $$p{offset}->copy($oldUsed);                                                # Return offset of content in area
 
-    RestoreFirstFour;
+#    RestoreFirstFour;
    } structures => {area => $area},
      parameters => [qw(address size offset)],
      name       => 'Nasm::X86::Area::m';
