@@ -5851,9 +5851,14 @@ sub DescribeTree(%)                                                             
   my $name       = delete $options{name};                                       # Optional name for debugging purposes
   my $stringTree = delete $options{stringTree};                                 # Tree of strings - becoming obsolete with the implementation of string Keys
      $length     = 13;                                                          # Maximum number of keys per node
+
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
-  confess "Choose one of stringKeys and smalTree but not both"
+
+  confess "Choose one of stringKeys and smallTree but not both"                 # String keys do not work yet with small trees
     if $smallTree and $stringKeys;
+
+  confess "Choose one of lowTree and highTree but not both"                     # Low tree or high tree or indeterminate but not both
+    if $lowTree and $highTree;
 
   my $b = RegisterSize 31;                                                      # Size of a block == size of a zmm register
   my $o = RegisterSize eax;                                                     # Size of a double word
@@ -5892,9 +5897,10 @@ sub DescribeTree(%)                                                             
     maxKeysZ             => $b / $o - 2,                                        # The maximum possible number of keys in a zmm register
     maxNodesZ            => $b / $o - 1,                                        # The maximum possible number of nodes in a zmm register
     smallTree            => $smallTree  // 0,                                   # Low keys should be placed in first block where possible
-    lowTree              => $lowTree    // 0,                                   # No sub trees depend on this tree
+    lowTree              => $lowTree    // 0,                                   # This tree has no sub trees
+    highTree             => $highTree   // 0,                                   # This tree has all sub trees
     stringKeys           => $stringKeys // 0,                                   # String tree
-    stringTree           => $stringTree // 0,                                   # String tree
+    stringTree           => $stringTree // 0,                                   # String tree - now obsolete
 
     rootOffset           => $o * 0,                                             # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
     optionsOffset        => $o * 1,                                             # Offset of the options double word in the first block
@@ -5937,6 +5943,18 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   my $tree = $area->DescribeTree(%options);                                     # Return a descriptor for a tree in the specified area
   my $o    = $tree->area->allocZmmBlock;                                        # Allocate header
   $tree->first->copy($o);                                                       # Install header
+
+  my $z = zmm 1;                                                                # Load options into first block
+  my $t = $tree;
+  my $a = $t->area;
+
+  ClearRegisters rsi, $z;                                                       # At this point the first block is empty so there is no need to get it from memory because it has nothing in it.
+  Bts rsi, $t->lowTreeBit    if $t->lowTree;
+  Bts rsi, $t->highTreeBit   if $t->highTree;
+  Bts rsi, $t->smallTreeBit  if $t->smallTree;
+  Bts rsi, $t->stringKeysBit if $t->stringKeys;
+  dRegIntoZmm rsi, $z, $t->optionsOffset;
+  $a->putZmmBlock($o, $z);                                                      # Save first block with options loaded
 
   $tree                                                                         # Description of array
  }
@@ -6053,14 +6071,14 @@ sub Nasm::X86::Tree::root($$$)                                                  
  }
 
 
-sub Nasm::X86::Tree::optionsFromFirst($$)                                       #P Return a variable containing the options double word from the first block zmm register.
- {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm containing first block
+sub Nasm::X86::Tree::optionsFromFirst($$%)                                      #P Return a variable containing the options double word from the first block zmm register.
+ {my ($tree, $zmm, %options) = @_;                                              # Tree descriptor, number of zmm containing first block
   @_ == 2 or confess "Two parameters";
   dFromZ $zmm, $tree->optionsOffset;
  }
 
-sub Nasm::X86::Tree::optionsIntoFirst($$$)                                      #P Put the contents of a variable into the options field of the first block of a tree  when the first block is held in a zmm register.
- {my ($tree, $zmm, $value) = @_;                                                # Tree descriptor, number of zmm containing first block, variable containing options to put
+sub Nasm::X86::Tree::optionsIntoFirst($$$%)                                     #P Put the contents of a variable into the options field of the first block of a tree  when the first block is held in a zmm register.
+ {my ($tree, $zmm, $value, %options) = @_;                                      # Tree descriptor, number of zmm containing first block, variable containing options to put, options
   @_ == 3 or confess "Three parameters";
   $value->dIntoZ($zmm, $tree->optionsOffset);
  }
@@ -11000,7 +11018,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11002 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11020 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
