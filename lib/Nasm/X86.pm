@@ -6648,18 +6648,9 @@ sub Nasm::X86::Tree::indexEqLt($$$$$)                                           
         Cmp rdx, 0;                                                             # Set the flags to show the two keys are equals
         IfNe
         Then                                                                    # The two key strings are not equal
-         {
-#Vmovdqu64 zmm1,   "[rdi+rsi]";
-          Vpcmpub k2, $key, "[rdi+rsi]", $Vpcmp->gt;
-#PushR rdi, rdx, rsi;
-#PrintErrStringNL "AAAA";
-#PrintErrRegisterInHex zmm1, zmm($key), k2;
-#PopR;
+         {Vpcmpub k2, $key, "[rdi+rsi]", $Vpcmp->gt;
           Kmovq rdi, k2;                                                        # Greater than mask
           Tzcnt rdx, rdx;                                                       # First quad at which the zmm registers differ
-#PushR rdi, rdx, rsi;
-#PrintErrRegisterInHex rdx, rdi, rsi;
-#PopR;
           Bt rdi, rdx;                                                          # Test the next bit to determin greater than or less than
           IfC
           Then                                                                  # First byte that differs is less than the key
@@ -11018,7 +11009,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11020 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11011 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
