@@ -5944,17 +5944,17 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   my $o    = $tree->area->allocZmmBlock;                                        # Allocate header
   $tree->first->copy($o);                                                       # Install header
 
-  my $z = zmm 1;                                                                # Load options into first block
+  my ($z) = zmm 1;                                                                # Load options into first block
   my $t = $tree;
   my $a = $t->area;
 
-#  ClearRegisters rsi, $z;                                                       # At this point the first block is empty so there is no need to get it from memory because it has nothing in it.
-#  Bts rsi, $t->lowTreeBit    if $t->lowTree;
-#  Bts rsi, $t->highTreeBit   if $t->highTree;
-#  Bts rsi, $t->smallTreeBit  if $t->smallTree;
-#  Bts rsi, $t->stringKeysBit if $t->stringKeys;
-#  dRegIntoZmm rsi, $z, $t->optionsOffset;
-#  $a->putZmmBlock($o, $z);                                                      # Save first block with options loaded
+  ClearRegisters rsi, $z;                                                       # At this point the first block is empty so there is no need to get it from memory because it has nothing in it.
+  Bts rsi, $t->lowTreeBit    if $t->lowTree;
+  Bts rsi, $t->highTreeBit   if $t->highTree;
+  Bts rsi, $t->smallTreeBit  if $t->smallTree;
+  Bts rsi, $t->stringKeysBit if $t->stringKeys;
+  dRegIntoZmm rsi, $z, $t->optionsOffset;
+  $a->putZmmBlock($o, $z);                                                      # Save first block with options loaded
 
   $tree                                                                         # Description of array
  }
@@ -18193,7 +18193,7 @@ if (1) {                                                                        
 aa
 Area     Size:     4096    Used:      128
 .... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | ____ ____ ____ ____  .1__ ____ .2__ ____  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ .1__ ____  .1__ ____ .2__ ____  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
@@ -18213,7 +18213,7 @@ if (1) {                                                                        
 aa
 Area     Size:     4096    Used:      128
 .... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | ____ ____ ____ ____  .1__ ____ .2__ ____  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ .1__ ____  .1__ ____ .2__ ____  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
