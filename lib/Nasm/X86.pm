@@ -5161,6 +5161,10 @@ END
 
 sub DescribeArea(%)                                                             # Describe a relocatable area.
  {my (%options) = @_;                                                           # Optional variable addressing the start of the area
+  my $address   = delete $options{address}   // 0;                              # Address of area
+  my $stack     = delete $options{stack}     // 0;                              # Mark this area as being used as a stack
+  confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
+
   my $B = 12;                                                                   # Log2 of size of initial allocation for the area
   my $N = 2 ** $B;                                                              # Initial size of area
   my $w = RegisterSize 31;
@@ -5175,12 +5179,13 @@ sub DescribeArea(%)                                                             
   genHash(__PACKAGE__."::Area",                                                 # Definition of area
     B          => $B,                                                           # Log2 of size of initial allocation
     N          => $N,                                                           # Initial allocation
+    stack      => $stack,                                                       # MArk the area as being used as a stack
     sizeOffset => $size,                                                        # Size field offset
     usedOffset => $used,                                                        # Used field offset
     freeOffset => $free,                                                        # Free chain offset
     treeOffset => $tree,                                                        # Yggdrasil - a tree of global variables in this area
     dataOffset => $data,                                                        # The start of the data
-    address    => ($options{address} // V address => 0),                        # Variable that addresses the memory containing the area
+    address    => ($address || V address => 0),                                 # Variable that addresses the memory containing the area
     zmmBlock   => $w,                                                           # Size of a zmm block - 64 bytes
     nextOffset => $w - RegisterSize(eax),                                       # Position of next offset on free chain
    );
@@ -5188,7 +5193,7 @@ sub DescribeArea(%)                                                             
 
 sub CreateArea(%)                                                               # Create an relocatable area and returns its address in rax. We add a chain header so that 64 byte blocks of memory can be freed and reused within the area.
  {my (%options) = @_;                                                           # Free=>1 adds a free chain.
-  my $area = DescribeArea;                                                      # Describe an area
+  my $area = DescribeArea(%options);                                            # Describe an area
   my $N     = $area->N;
   my $used  = $area->usedOffset;
   my $data  = $area->dataOffset;
@@ -5841,6 +5846,7 @@ sub Nasm::X86::Area::dump($$;$)                                                 
 sub Nasm::X86::Area::push($$)                                                   # Push the contents of a variable into an area
  {my ($area, $var) = @_;                                                        # Area descriptor, variable
   @_ == 2 or confess "Two parameters";
+  confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
 
   $area->updateSpace(K size => my $w = RegisterSize rax);                       # Update space if needed
 
@@ -5861,6 +5867,7 @@ sub Nasm::X86::Area::push($$)                                                   
 sub Nasm::X86::Area::stackSize($)                                               # Size of the stack in an area being used as a stack
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
+  confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
 
   my $oldUsed = rsi, my $areaA = rax;
   my $used = "qword[$areaA+$$area{usedOffset}]";                                # Address the used field in the area
@@ -5874,6 +5881,7 @@ sub Nasm::X86::Area::stackSize($)                                               
 sub Nasm::X86::Area::pop($)                                                     # Pop a variable from the stack in an area being used as a stack
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
+  confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
 
   my $w = RegisterSize rax;                                                     # Size of a variable
   my $oldUsed = rsi, my $areaA = rax;
@@ -5894,6 +5902,7 @@ sub Nasm::X86::Area::pop($)                                                     
 sub Nasm::X86::Area::pushZmm($$)                                                # Push the contents of a zmm register into an area
  {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
   @_ == 2 or confess "Two parameters";
+  confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
 
   $area->updateSpace(K size => my $w = RegisterSize zmm1);                      # Update space if needed
 
@@ -5913,6 +5922,7 @@ sub Nasm::X86::Area::pushZmm($$)                                                
 sub Nasm::X86::Area::popZmm($$)                                                 # Pop a zmm register from the stack in an area being used as a stack
  {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
   @_ == 2 or confess "Two parameters";
+  confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
   my $w = RegisterSize zmm1;                                                    # Size of a zmm register
 
   my $oldUsed = rsi, my $areaA = rax;
@@ -9946,7 +9956,7 @@ END
     my $p = setFileExtension $f, q(pl);                                         # Perl file name
     owf $p, $c;                                                                 # Write Perl code to create parser tables file
 
-    qx(cat $p; perl -Ilib/ $p);                                                 # The position of the library folder if not other wise installed
+    say STDERR qx(cat $p; perl -Ilib/ $p);                                      # The position of the library folder if not other wise installed
    }
 
   my $area        = loadAreaIntoAssembly $f;                                    # Load the parser table area directly into the assembly
@@ -9974,9 +9984,10 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
   my $closeOpen   = $tables->closeOpen;                                         # Close top open bracket matching
   my $openClose   = $tables->openClose;                                         # Open to close bracket matching
   my $transitions = $tables->transitions;                                       # Create and load the table of lexical transitions.
-
 #  my $brackets    = CreateArea->CreateTree; #(smallTree => 1);  ## The brackets stack is temporary                        # Bracket stack - "Stuck looking for last"
-  my $brackets    = CreateArea->CreateTree(smallTree => 1);
+#  my $brackets    = CreateArea->CreateTree(smallTree => 1);
+
+  my $brackets    = CreateArea(stack=>1);                                       # Brackets stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
   my $symbols     = $area->CreateTree(stringTree=>1);                           # String tree of symbols encountered during the parse
 
@@ -10251,23 +10262,23 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
     If $alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::b),        # Match brackets
     Then                                                                        # Opening bracket
      {$openClose->find($char);                                                  # Locate corresponding closing bracket - we ought to allocate several of these at a time and use a small tree=2
-      my $t = $brackets->area->CreateTree;                                      # Tree recording the details of the opening bracket in teh same area as the brackets stack
-      $t->push($position);                                                      # Position in source
-      $t->push($char);                                                          # The opening bracket
-      $t->push($openClose->data);                                               # The corresponding closing bracket - guaranteed to exist
-      $brackets->push($t);                                                      # Save bracket description on bracket stack
+      ClearRegisters zmm1;
+      $position       ->qIntoZ(1,    0);
+      $char           ->qIntoZ(1,    8);
+      $openClose->data->qIntoZ(1, 0x10);
+      $brackets->pushZmm(zmm1);                                                 # Save bracket description on bracket stack
       $change->copy(1);                                                         # Changing because we are on a bracket
      },
     Ef {$alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::B)}
     Then                                                                        # Closing bracket
-     {my $t = $brackets->popSubTree(smallTree=>0);                              # Match with brackets stack
-      If $brackets->found > 0,                                                  # Something to match with on the brackets stack
+     {If $brackets->stackSize > 0,                                              # Something to match with on the brackets stack
       Then
-       {$t->find(K out => 2);                                                   # Expected bracket - known to be in the tree
-        If $t->data != $char,                                                   # Did not match the expected bracket
+       {$brackets->popZmm(1);
+        my $close = qFromZ(zmm1, 0x10);
+        If $close != $char,                                                     # Closing bracket did not match the closing bracket derived from the opening bracket
         Then
-         {$t->find(K position => 0);
-          $parseMatch ->copy($t->data);
+         {my $position = dFromZ(zmm1, 0);
+          $parseMatch ->copy($position);
           $parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::Mismatch);         # Mismatched bracket
           Jmp $end;
          };
@@ -10319,7 +10330,7 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
      {$next->find(K finish => Nasm::X86::Unisyn::Lex::Number::F);               # Check that we can locate the final state from the last symbol encountered
       If $next->found > 0,
       Then                                                                      # We are able to transition to the final state
-       {If $brackets->size == 0,
+       {If $brackets->stackSize == 0,                                           # Check that al the brackets have closed
         Then                                                                    # No outstanding brackets
          {&$F;
           $parseFail->copy(0);                                                  # Show success as a lack of failure
@@ -10335,7 +10346,7 @@ sub Nasm::X86::Area::ParseUnisyn($$$)                                           
      };
    });
 
-  my $parseTree = $parse->popSubTree; $parse->free; $brackets->free;            # Obtain the parse tree and free the brackets and stack trees
+  my $parseTree = $parse->popSubTree; $parse->free; $brackets->free;            # Obtain the parse tree and free the brackets stack and parse stack
 
   genHash "Nasm::X86::Unisyn::Parse",                                           # Parse results
     tree     => $parseTree,                                                     # The resulting parse tree
@@ -11189,7 +11200,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11191 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11202 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -15348,7 +15359,7 @@ if (1) {                                                                        
 
   $t->printInOrder("AAAA");
 
-  ok Assemble eq => <<END, avx512=>1, trace=>1, label=>'t3';
+  ok Assemble eq => <<END, avx512=>1, label=>'t3';
 AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 END
  }
@@ -19066,6 +19077,29 @@ if (1) {                                                                        
 END
  }
 
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString('【】');
+  my $a = CreateArea;                                                           # Area in which we will do the parse
+  my $parse = $a->ParseUnisyn($a8, $s8);                                        # Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->tree->dumpParseTree($a8);
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
+parseChar  : .... .... .... 3011
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ...6
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+【
+END
+ }
+
 #latest:;
 if (1) {                                                                        #
   my $a = CreateArea;
@@ -19136,30 +19170,6 @@ END
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString('【】');
-
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $parse = $a->ParseUnisyn($a8, $s8);                                        # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->tree->dumpParseTree($a8);
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar  : .... .... .... 3011
-parseFail  : .... .... .... ...0
-pos        : .... .... .... ...6
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-【
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('𝑳【】𝙆');
 
   my $a = CreateArea;                                                           # Area in which we will do the parse
@@ -19204,9 +19214,9 @@ Area     Size:     4096    Used:       68
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Area::push
-  my $a = CreateArea;
+  my $a = CreateArea(stack=>1);
 
   $a->dump("AA");
   $a->push(K key => 0x11111111);
