@@ -9647,16 +9647,15 @@ END
   );
  }
 
-sub Nasm::X86::Area::ParseUnisyn($$$)                                           # Parse a string of utf8 characters.
- {my ($area, $a8, $s8) = @_;                                                    # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
+sub ParseUnisyn($$)                                                             # Parse a string of utf8 characters.
+ {my ($a8, $s8) = @_;                                                           # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
 
+  my $area        = CreateArea;                                                 # The area in which the parse tree will be be built
   my $tables      = Nasm::X86::Unisyn::LoadParseTables;                         # Load parser tables
   my $alphabets   = $tables->alphabets;                                         # Create and load the table of alphabetic classifications
   my $closeOpen   = $tables->closeOpen;                                         # Close top open bracket matching
   my $openClose   = $tables->openClose;                                         # Open to close bracket matching
   my $transitions = $tables->transitions;                                       # Create and load the table of lexical transitions.
-#  my $brackets    = CreateArea->CreateTree; #(smallTree => 1);  ## The brackets stack is temporary                        # Bracket stack - "Stuck looking for last"
-#  my $brackets    = CreateArea->CreateTree(smallTree => 1);
 
   my $brackets    = CreateArea(stack=>1);                                       # Brackets stack
   my $parse       = $area->CreateTree;                                          # Parse tree stack
@@ -10871,7 +10870,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10873 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10872 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17490,15 +17489,14 @@ END
   unlink $f;
  }
 
-sub ParseUnisyn($$$)                                                            #P Test the parse of a unisyn expression.
+sub testParseUnisyn($$$)                                                        #P Test the parse of a unisyn expression.
  {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
 
   is_deeply readFile($f), $text;
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $p = $a->ParseUnisyn($a8, $s8-1);                                          # Parse the utf8 string minus the final new line
+  my $p = ParseUnisyn($a8, $s8-1);                                              # Parse the utf8 string minus the final new line
 
   $p->tree->dumpParseTree($a8);
   ok Assemble eq => $parse, avx512=>1, mix=>1;
@@ -17508,54 +17506,54 @@ sub ParseUnisyn($$$)                                                            
    }
 
   unlink $f;
- };
+ }
 
 test7: goto test8 unless $test{7};
 
 #latest:;
-ParseUnisyn '',                                        "\n",                    qq(\n\n);
-ParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
-ParseUnisyn 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
-ParseUnisyn 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
-ParseUnisyn 'va a= vb e+ vc',                          "𝗔＝𝗕＋𝗖\n",               qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
-ParseUnisyn 'va a= vb e* vc',                          "𝗔＝𝗕✕𝗖\n",              qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
-ParseUnisyn 'b( B)',                                   "【】\n",                  qq(【\n);
-ParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】\n",                qq(【\n._⟦\n);
-ParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",              qq(【\n._⟦\n._._⟨\n);
+testParseUnisyn '',                                        "\n",                    qq(\n\n);
+testParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
+testParseUnisyn 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
+testParseUnisyn 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
+testParseUnisyn 'va a= vb e+ vc',                          "𝗔＝𝗕＋𝗖\n",               qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
+testParseUnisyn 'va a= vb e* vc',                          "𝗔＝𝗕✕𝗖\n",              qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
+testParseUnisyn 'b( B)',                                   "【】\n",                  qq(【\n);
+testParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】\n",                qq(【\n._⟦\n);
+testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n",              qq(【\n._⟦\n._._⟨\n);
 
 test8: goto test9 unless $test{8};
 
-ParseUnisyn 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
-ParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
-ParseUnisyn 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",             qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
-ParseUnisyn 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",       qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
-ParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢\n",               qq();
-ParseUnisyn 'va s vb',                                 "𝗔⟢𝗕\n",                 qq(⟢\n._𝗔\n._𝗕\n);
-ParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
-ParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
-ParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖\n",               qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
+testParseUnisyn 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
+testParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
+testParseUnisyn 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",             qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
+testParseUnisyn 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",       qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
+testParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢\n",               qq();
+testParseUnisyn 'va s vb',                                 "𝗔⟢𝗕\n",                 qq(⟢\n._𝗔\n._𝗕\n);
+testParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
+testParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
+testParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖\n",               qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
 
 test9: goto test10 unless $test{9};
 
-ParseUnisyn 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
-ParseUnisyn 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
-ParseUnisyn 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
-ParseUnisyn 'va dif vb delse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖\n",           qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
-ParseUnisyn 'va a= b1 vb e+ vc B1 e* vd dif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘\n",        qq(＝\n._𝗔\n._𝐈𝐅\n._._✕\n._._._⌊\n._._._._＋\n._._._._._𝗕\n._._._._._𝗖\n._._._𝗗\n._._𝗘\n);
-ParseUnisyn 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
-ParseUnisyn 'p11 va',                                  "𝑳𝗔\n",                  qq(𝑳\n._𝗔\n);
-ParseUnisyn 'va q11',                                  "𝗔𝙇\n",                  qq(𝙇\n._𝗔\n);
+testParseUnisyn 'va a= vb e+ vc a= vd e+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘\n",           qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
+testParseUnisyn 'va a= vb e+ vc s vd a= ve e+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙\n",         qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
+testParseUnisyn 'va dif vb',                               "𝗔𝐈𝐅𝗕\n",                qq(𝐈𝐅\n._𝗔\n._𝗕\n);
+testParseUnisyn 'va dif vb delse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖\n",           qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
+testParseUnisyn 'va a= b1 vb e+ vc B1 e* vd dif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘\n",        qq(＝\n._𝗔\n._𝐈𝐅\n._._✕\n._._._⌊\n._._._._＋\n._._._._._𝗕\n._._._._._𝗖\n._._._𝗗\n._._𝗘\n);
+testParseUnisyn 'va a= vb dif vc e* vd s vA a= vB dif  vC e* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
+testParseUnisyn 'p11 va',                                  "𝑳𝗔\n",                  qq(𝑳\n._𝗔\n);
+testParseUnisyn 'va q11',                                  "𝗔𝙇\n",                  qq(𝙇\n._𝗔\n);
 
 test10: goto test11 unless $test{10};
 
 #latest:
-ParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
-ParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
-ParseUnisyn 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
-ParseUnisyn 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝙇\n._._𝗕\n);
-ParseUnisyn 'va e+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇\n",              qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
-ParseUnisyn 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",           qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
-ParseUnisyn 'va e+ p11 vb q11 dif p21 b( vc e* vd B) q22 delse ve e* vf',
+testParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆\n",                 qq(𝙆\n._𝑳\n._._𝗔\n);
+testParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆\n",                qq(𝙆\n._𝑳\n._._【\n);
+testParseUnisyn 'p21 b( va e* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒\n",             qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
+testParseUnisyn 'va e+ vb q11',                            "𝗔＋𝗕𝙇\n",                qq(＋\n._𝗔\n._𝙇\n._._𝗕\n);
+testParseUnisyn 'va e+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇\n",              qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
+testParseUnisyn 'va e+ p11 vb q11 e+ p21 b( va e* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒\n",           qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
+testParseUnisyn 'va e+ p11 vb q11 dif p21 b( vc e* vd B) q22 delse ve e* vf',
             "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙\n",                                          qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._＋\n._._._𝗔\n._._._𝙇\n._._._._𝑳\n._._._._._𝗕\n._._𝙒\n._._._𝑽\n._._._._【\n._._._._._✕\n._._._._._._𝗖\n._._._._._._𝗗\n._✕\n._._𝗘\n._._𝗙\n);
 
 test11: goto test12 unless $test{11};
@@ -17652,8 +17650,7 @@ if (1)
   is_deeply readFile($f), $text;
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $p = $a->ParseUnisyn($a8, $s8-1);                                          # Parse the utf8 string minus the final new line
+  my $p = ParseUnisyn($a8, $s8-1);                                              # Parse the utf8 string minus the final new line
 
   $p->tree->dumpParseTree($a8);
   ok Assemble eq => <<END, avx512=>1, mix=>0;
@@ -18003,12 +18000,10 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1;
 END
 
-
   my $l = ReadArea $f;                                                          # Area containing subroutine library
-  my $a = CreateArea;                                                           # Area in which we will do the parse
 
   my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
-  my $p = $a->ParseUnisyn($A, $N);                                              # Parse the utf8 string minus the final new line and zero?
+  my $p = ParseUnisyn($A, $N);                                                   # Parse the utf8 string minus the final new line and zero?
 
   $p->tree->dumpParseTree($A);                                                  # Parse tree
 
@@ -18055,8 +18050,7 @@ END
 if (1) {                                                                        # Parse a Unisyn expression
   my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
 
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $p = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
+  my $p = ParseUnisyn($s, $l);                                                  # Parse the utf8 string
   $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
 # my $q = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
 
@@ -18603,8 +18597,7 @@ END
 #latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】');
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $parse = $a->ParseUnisyn($a8, $s8);                                        # Parse the utf8 string
+  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
 
   $parse->char    ->outNL;                                                      # Print results
   $parse->fail    ->outNL;
@@ -18664,8 +18657,7 @@ END
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString("【𝗔＋𝗔＋𝗔＋𝗔】");
 
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $parse = $a->ParseUnisyn($a8, $s8);                                        # Parse the utf8 string
+  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
 
   $parse->char    ->outNL;                                                      # Print results
   $parse->fail    ->outNL;
@@ -18695,8 +18687,7 @@ END
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('𝑳【】𝙆');
 
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $parse = $a->ParseUnisyn($a8, $s8);                                        # Parse the utf8 string
+  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
 
   $parse->char    ->outNL;                                                      # Print results
   $parse->fail    ->outNL;
