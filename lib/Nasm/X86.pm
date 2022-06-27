@@ -15,6 +15,7 @@
 # Jump forwarding
 # All options checking immediately after parameters
 # Which subs do we actually need SaveFirst four on?
+# popSubTree should be removed
 package Nasm::X86;
 our $VERSION = "20220606";
 use warnings FATAL => qw(all);
@@ -5876,6 +5877,27 @@ sub Nasm::X86::Area::stackSize($)                                               
   V stackSize => $oldUsed;                                                      # Return stack size as a variable
  }
 
+sub Nasm::X86::Area::peek($$)                                                   # Peek at a variable on the stack
+ {my ($area, $back) = @_;                                                       # Area descriptor, how far back to look in the stack with the top most element being at one.
+  @_ == 2 or confess "Two parameters";
+  confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
+  confess "Constant number required" unless $back =~ m(\A\d+\Z);                # Number of variables to go back
+
+  my $w = RegisterSize rax;                                                     # Size of a variable
+  my $oldUsed = rsi, my $areaA = rax;
+  my $used = "qword[$areaA+$$area{usedOffset}]";                                # Address the used field in the area
+
+  $area->address->setReg($areaA);                                               # Address area
+  Mov $oldUsed, $used;                                                          # Record currently used space
+  Cmp $oldUsed, $area->dataOffset + $back * $w - 1;                             # Space minus header is actual space used by stack
+  IfLe                                                                          # Stack under flow
+  Then
+   {PrintErrTraceBack "Stack underflow";
+   };
+
+  V pop => "[$oldUsed + $areaA - $back * $w]";                                  # Return popped data
+ }
+
 sub Nasm::X86::Area::pop($)                                                     # Pop a variable from the stack in an area being used as a stack
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
@@ -5915,6 +5937,27 @@ sub Nasm::X86::Area::pushZmm($$)                                                
 
   $area->address->setReg($areaA);                                               # Update used field
   Mov $used, $target;
+ }
+
+sub Nasm::X86::Area::peekZmm($$$)                                               # Peek at a zmm register from the stack in an area being used as a stack
+ {my ($area, $zmm, $back) = @_;                                                 # Area descriptor, zmm number, how far back to look in the stack with the top most element being at one.
+  @_ == 3 or confess "Three parameters";
+  confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
+  confess "Constant number required" unless $back =~ m(\A\d+\Z);                # Number of variables to go back
+  my $w = RegisterSize zmm1;                                                    # Size of a zmm register
+
+  my $oldUsed = rsi, my $areaA = rax;
+  my $used = "qword[$areaA+$$area{usedOffset}]";                                # Address the used field in the area
+
+  $area->address->setReg($areaA);                                               # Address area
+  Mov $oldUsed, $used;                                                          # Record currently used space
+  Cmp $oldUsed, $area->dataOffset + $back * $w - 1;                             # Space minus header is actual space used by stack
+  IfLe                                                                          # Stack under flow
+  Then
+   {PrintErrTraceBack "Stack underflow when peeking for zmm";
+   };
+
+  Vmovdqu64 zmm($zmm), "[$oldUsed + $areaA - $back * $w]";                      # Set zmm to popped data
  }
 
 sub Nasm::X86::Area::popZmm($$)                                                 # Pop a zmm register from the stack in an area being used as a stack
@@ -10871,7 +10914,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10873 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10916 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18501,7 +18544,7 @@ end
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Area::writeLibraryHeader  #TNasm::X86::Area::readLibraryHeader
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18728,7 +18771,7 @@ Area     Size:     4096    Used:       68
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Area::push
   my $a = CreateArea(stack=>1);
 
@@ -18738,22 +18781,39 @@ if (1) {                                                                        
   $a->push(K key => 0x22222222);                                                # 12
   $a->dump("AA");
 
+  $a->peek(1)->outNL;
+  $a->peek(2)->outNL;
   $a->stackSize->outNL;
 
   my $s1 = $a->pop;                                                             #  9
      $s1->outNL;
-  $a->dump("pop1");
   my $s2 = $a->pop;
      $s2->outNL;
+  $a->dump("pop1");
   $a->dump("pop2");
+
+  ClearRegisters zmm1, zmm2;
 
   K(key => 0x22222222)->qIntoZ(1, 16);
   K(key => 0x33333333)->qIntoZ(1, 32);
   K(key => 0x44444444)->qIntoZ(1, 48);
   $a->pushZmm(1);
-  $a->dump("zmm1");
-  $a->popZmm(2);
-  PrintOutRegisterInHex zmm1;
+
+  K(key => 0x55555555)->qIntoZ(2, 16);
+  K(key => 0x66666666)->qIntoZ(2, 32);
+  K(key => 0x77777777)->qIntoZ(2, 48);
+  $a->pushZmm(2);
+
+  $a->dump("zmm 1, 2");
+  $a->peekZmm(1, 1);
+  $a->peekZmm(2, 2);
+  PrintOutStringNL "Peek";
+  PrintOutRegisterInHex zmm1, zmm2;
+
+  $a->popZmm(3);
+  $a->popZmm(4);
+  PrintOutStringNL "Pop";
+  PrintOutRegisterInHex zmm3, zmm4;
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>391;
 AA
@@ -18774,28 +18834,35 @@ Area     Size:     4096    Used:       80
 .... .... .... ..40 | 1111 1111 ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+pop: .... .... 2222 2222
+pop: .... .... 1111 1111
 stackSize: .... .... .... ..10
 pop: .... .... 2222 2222
+pop: .... .... 1111 1111
 pop1
-Area     Size:     4096    Used:       72
-.... .... .... ...0 | __10 ____ ____ ____  48__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+Area     Size:     4096    Used:       64
+.... .... .... ...0 | __10 ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..40 | 1111 1111 ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-pop: .... .... 1111 1111
 pop2
 Area     Size:     4096    Used:       64
 .... .... .... ...0 | __10 ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..40 | 1111 1111 ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-zmm1
-Area     Size:     4096    Used:      128
-.... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+zmm 1, 2
+Area     Size:     4096    Used:      192
+.... .... .... ...0 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  3333 3333 ____ ____  ____ ____ ____ ____  4444 4444 ____ ____  ____ ____ ____ ____
-.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  5555 5555 ____ ____  ____ ____ ____ ____  6666 6666 ____ ____  ____ ____ ____ ____  7777 7777 ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-  zmm1: .... .... .... ...0  .... .... 4444 4444 - .... .... .... ...0  .... .... 3333 3333 + .... .... .... ...0  .... .... 2222 2222 - .... .... .... ...0  .... .... .... ...0
+Peek
+  zmm1: .... .... .... ...0  .... .... 7777 7777 - .... .... .... ...0  .... .... 6666 6666 + .... .... .... ...0  .... .... 5555 5555 - .... .... .... ...0  .... .... .... ...0
+  zmm2: .... .... .... ...0  .... .... 4444 4444 - .... .... .... ...0  .... .... 3333 3333 + .... .... .... ...0  .... .... 2222 2222 - .... .... .... ...0  .... .... .... ...0
+Pop
+  zmm3: .... .... .... ...0  .... .... 7777 7777 - .... .... .... ...0  .... .... 6666 6666 + .... .... .... ...0  .... .... 5555 5555 - .... .... .... ...0  .... .... .... ...0
+  zmm4: .... .... .... ...0  .... .... 4444 4444 - .... .... .... ...0  .... .... 3333 3333 + .... .... .... ...0  .... .... 2222 2222 - .... .... .... ...0  .... .... .... ...0
 END
  }
 
