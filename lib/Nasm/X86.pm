@@ -5875,20 +5875,59 @@ sub Nasm::X86::Area::pop($)                                                     
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
 
+  my $w = RegisterSize rax;                                                     # Size of a variable
   my $oldUsed = rsi, my $areaA = rax;
   my $used = "qword[$areaA+$$area{usedOffset}]";                                # Address the used field in the area
 
   $area->address->setReg($areaA);                                               # Address area
   Mov $oldUsed, $used;                                                          # Record currently used space
-  Cmp $oldUsed, $area->dataOffset;                                              # Space minus header is actual space used by stack
+  Cmp $oldUsed, $area->dataOffset + $w - 1;                                     # Space minus header is actual space used by stack
   IfLe                                                                          # Stack under flow
   Then
    {PrintErrTraceBack "Stack underflow";
    };
 
-  my $w = RegisterSize rax;                                                     # Size of a variable
   Sub $used, $w;                                                                # Reduce stack by one variable
   V pop => "[$oldUsed + $areaA - $w]";                                          # Return popped data
+ }
+
+sub Nasm::X86::Area::pushZmm($$)                                                # Push the contents of a zmm register into an area
+ {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
+  @_ == 2 or confess "Two parameters";
+
+  $area->updateSpace(K size => my $w = RegisterSize zmm1);                      # Update space if needed
+
+  my $oldUsed = rsi, my $target = rdi, my $areaA = rax;
+  my $used = "qword[$areaA+$$area{usedOffset}]";                                # Address the used field in the area
+
+  $area->address->setReg($areaA);                                               # Address area
+  Mov $oldUsed, $used;                                                          # Record currently used space
+
+  Vmovdqu64 "[$oldUsed + $areaA]", zmm($zmm);                                   # Push data into the area
+  Lea $target, "[$oldUsed + $w]";                                               # Amount of space now being used
+
+  $area->address->setReg($areaA);                                               # Update used field
+  Mov $used, $target;
+ }
+
+sub Nasm::X86::Area::popZmm($$)                                                 # Pop a zmm register from the stack in an area being used as a stack
+ {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
+  @_ == 2 or confess "Two parameters";
+  my $w = RegisterSize zmm1;                                                    # Size of a zmm register
+
+  my $oldUsed = rsi, my $areaA = rax;
+  my $used = "qword[$areaA+$$area{usedOffset}]";                                # Address the used field in the area
+
+  $area->address->setReg($areaA);                                               # Address area
+  Mov $oldUsed, $used;                                                          # Record currently used space
+  Cmp $oldUsed, $area->dataOffset + $w - 1;                                     # Space minus header is actual space used by stack
+  IfLe                                                                          # Stack under flow
+  Then
+   {PrintErrTraceBack "Stack underflow when popping zmm";
+   };
+
+  Sub $used, $w;                                                                # Reduce stack by one variable
+  Vmovdqu64 zmm($zmm), "[$oldUsed + $areaA - $w]";                              # Set zmm to popped data
  }
 
 #D1 Tree                                                                        # Tree constructed as sets of blocks in an area.
@@ -11150,7 +11189,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11152 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11191 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19169,20 +19208,28 @@ latest:
 if (1) {                                                                        #TNasm::X86::Area::push
   my $a = CreateArea;
 
-     $a->dump("AA");
-     $a->push(K key => 0x11111111);
-     $a->dump("AA");
-     $a->push(K key => 0x22222222);                                             # 12
-     $a->dump("AA");
+  $a->dump("AA");
+  $a->push(K key => 0x11111111);
+  $a->dump("AA");
+  $a->push(K key => 0x22222222);                                                # 12
+  $a->dump("AA");
 
-     $a->stackSize->outNL;
+  $a->stackSize->outNL;
 
-     my $s1 = $a->pop;                                                          #  9
-        $s1->outNL;
-     $a->dump("pop1");
-     my $s2 = $a->pop;
-        $s2->outNL;
-     $a->dump("pop2");
+  my $s1 = $a->pop;                                                             #  9
+     $s1->outNL;
+  $a->dump("pop1");
+  my $s2 = $a->pop;
+     $s2->outNL;
+  $a->dump("pop2");
+
+  K(key => 0x22222222)->qIntoZ(1, 16);
+  K(key => 0x33333333)->qIntoZ(1, 32);
+  K(key => 0x44444444)->qIntoZ(1, 48);
+  $a->pushZmm(1);
+  $a->dump("zmm1");
+  $a->popZmm(2);
+  PrintOutRegisterInHex zmm1;
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>391;
 AA
@@ -19218,6 +19265,13 @@ Area     Size:     4096    Used:       64
 .... .... .... ..40 | 1111 1111 ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+zmm1
+Area     Size:     4096    Used:      128
+.... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  3333 3333 ____ ____  ____ ____ ____ ____  4444 4444 ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+  zmm1: .... .... .... ...0  .... .... 4444 4444 - .... .... .... ...0  .... .... 3333 3333 + .... .... .... ...0  .... .... 2222 2222 - .... .... .... ...0  .... .... .... ...0
 END
  }
 
