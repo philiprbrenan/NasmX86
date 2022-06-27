@@ -5919,7 +5919,7 @@ sub Nasm::X86::Area::pop($)                                                     
   V pop => "[$oldUsed + $areaA - $w]";                                          # Return popped data
  }
 
-sub Nasm::X86::Area::pushZmm($$)                                                # Push the contents of a zmm register into an area
+sub Nasm::X86::Area::pushZmm($$)                                                # Push the contents of a zmm register into an area.
  {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
   @_ == 2 or confess "Two parameters";
   confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
@@ -5937,9 +5937,11 @@ sub Nasm::X86::Area::pushZmm($$)                                                
 
   $area->address->setReg($areaA);                                               # Update used field
   Mov $used, $target;
+
+  V zmmStackOffset => $oldUsed;                                                 # Offset of the zmm in the stack
  }
 
-sub Nasm::X86::Area::peekZmm($$$)                                               # Peek at a zmm register from the stack in an area being used as a stack
+sub Nasm::X86::Area::peekZmm($$$)                                               # Peek at a zmm register from the stack in an area being used as a stack and return a variable containing its offset in the area so we can update the pushed zmm if desired.
  {my ($area, $zmm, $back) = @_;                                                 # Area descriptor, zmm number, how far back to look in the stack with the top most element being at one.
   @_ == 3 or confess "Three parameters";
   confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
@@ -5951,13 +5953,15 @@ sub Nasm::X86::Area::peekZmm($$$)                                               
 
   $area->address->setReg($areaA);                                               # Address area
   Mov $oldUsed, $used;                                                          # Record currently used space
-  Cmp $oldUsed, $area->dataOffset + $back * $w - 1;                             # Space minus header is actual space used by stack
+  Sub $oldUsed, $back * $w;                                                     # Back up
+  Cmp $oldUsed, $area->dataOffset - 1;                                          # Space minus header is actual space used by stack
   IfLe                                                                          # Stack under flow
   Then
    {PrintErrTraceBack "Stack underflow when peeking for zmm";
    };
 
-  Vmovdqu64 zmm($zmm), "[$oldUsed + $areaA - $back * $w]";                      # Set zmm to popped data
+  Vmovdqu64 zmm($zmm), "[$oldUsed + $areaA]";                                   # Set zmm to popped data
+  V offset => $oldUsed;                                                         # Return offset of zmm block
  }
 
 sub Nasm::X86::Area::popZmm($$)                                                 # Pop a zmm register from the stack in an area being used as a stack
@@ -9719,6 +9723,8 @@ sub ParseUnisyn($$)                                                             
   my $lastNew     = V 'lastNew    ' => 0;                                       # Last lexical created
   my $started;                                                                  # True after we have added the first symbol and so can have a previous symbol
 
+  my $dWidth      = RegisterSize eax;                                           # Size of a dword
+
   my $dumpStack = sub                                                           # Dump the parse stack
    {my $i = V i => 0;                                                           # Position in stack
     PrintOutStringNL "Dump parse stack";
@@ -9747,19 +9753,17 @@ sub ParseUnisyn($$)                                                             
    };
 
   my $updateLength = sub                                                        # Update the length of the previous lexical item
-   {my $t = $parse->position($lastNew);                                         # The description of the last lexical item
-
-    my $l = $position - $startPos;                                              # Length of previous item
+   {my $l = $position - $startPos;                                              # Length of previous item
     my $s = $symbols->uniqueKeyString($a8+$startPos,   $l);                     # The symbol number of the previous lexical item
-    $t->put(K(t => Nasm::X86::Unisyn::Lex::symbol), $s);                        # Record lexical symbol number of previous item in its describing tree
-    $t->put(K(t => Nasm::X86::Unisyn::Lex::length), $l);                        # Record length of previous item in its describing tree
+    $s->dintoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::symbol);                    # Record lexical symbol number of previous item in its describing tree
+    $l->dintoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::length);                    # Record length of previous item in its describing tree
+    $area->pushZmm(zmm1);                                                       # Save the stack entry
    };
 
   my $new = sub                                                                 # Create a new lexical item
-   {my $l = $area->CreateTree;                                                  # Tree to hold lexical item description
-    $l->put(K(t => Nasm::X86::Unisyn::Lex::length),   K(one => 1));             # Length so far of lexical item - not really necessary but it does aid debugging
-    $l->put(K(t => Nasm::X86::Unisyn::Lex::type),     $last);                   # Last lexical item recognized
-    $l->put(K(t => Nasm::X86::Unisyn::Lex::position), $position);               # Position of lexical item
+   {ClearRegisters zmm1;
+    $last      ->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::type);             # Last lexical item recognized
+    $position  ->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::position);         # Position of lexical item
     if ($started)
      {&$updateLength;                                                           # Update the length of the previous lexical item
       $startPos->copy($position);                                               # This item now becomes the last lexical item
@@ -9767,13 +9771,10 @@ sub ParseUnisyn($$)                                                             
     else
      {$started++                                                                # At least one item has been processed
      }
-    $lastNew ->copy($l->first);                                                 # This item now becomes the last lexical item
-    $l
    };
 
   my $push = sub                                                                # Push the current lexical item on to the stack and return its tree descriptor
-   {$parse->push(my $n = &$new);
-    $n
+   {&$new;
    };
 
   &$push for 1..3;                                                              # Initialize the parse tree with three start symbols to act as sentinels
@@ -10914,7 +10915,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10916 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10917 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18778,7 +18779,8 @@ if (1) {                                                                        
   $a->dump("AA");
   $a->push(K key => 0x11111111);
   $a->dump("AA");
-  $a->push(K key => 0x22222222);                                                # 12
+
+  $a->push(K key => 0x22222222);                                        # 12
   $a->dump("AA");
 
   $a->peek(1)->outNL;
@@ -18797,16 +18799,18 @@ if (1) {                                                                        
   K(key => 0x22222222)->qIntoZ(1, 16);
   K(key => 0x33333333)->qIntoZ(1, 32);
   K(key => 0x44444444)->qIntoZ(1, 48);
-  $a->pushZmm(1);
 
   K(key => 0x55555555)->qIntoZ(2, 16);
   K(key => 0x66666666)->qIntoZ(2, 32);
   K(key => 0x77777777)->qIntoZ(2, 48);
-  $a->pushZmm(2);
+
+  PrintOutStringNL "Push";
+  $a->pushZmm(1)->outNL;
+  $a->pushZmm(2)->outNL;
 
   $a->dump("zmm 1, 2");
-  $a->peekZmm(1, 1);
-  $a->peekZmm(2, 2);
+  $a->peekZmm(1, 1)->outNL;
+  $a->peekZmm(2, 2)->outNL;
   PrintOutStringNL "Peek";
   PrintOutRegisterInHex zmm1, zmm2;
 
@@ -18851,12 +18855,17 @@ Area     Size:     4096    Used:       64
 .... .... .... ..40 | 1111 1111 ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+Push
+zmmStackOffset: .... .... .... ..40
+zmmStackOffset: .... .... .... ..80
 zmm 1, 2
 Area     Size:     4096    Used:      192
 .... .... .... ...0 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  2222 2222 ____ ____  ____ ____ ____ ____  3333 3333 ____ ____  ____ ____ ____ ____  4444 4444 ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  5555 5555 ____ ____  ____ ____ ____ ____  6666 6666 ____ ____  ____ ____ ____ ____  7777 7777 ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+offset: .... .... .... ..80
+offset: .... .... .... ..40
 Peek
   zmm1: .... .... .... ...0  .... .... 7777 7777 - .... .... .... ...0  .... .... 6666 6666 + .... .... .... ...0  .... .... 5555 5555 - .... .... .... ...0  .... .... .... ...0
   zmm2: .... .... .... ...0  .... .... 4444 4444 - .... .... .... ...0  .... .... 3333 3333 + .... .... .... ...0  .... .... 2222 2222 - .... .... .... ...0  .... .... .... ...0
