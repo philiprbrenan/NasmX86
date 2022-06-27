@@ -6052,7 +6052,7 @@ sub Nasm::X86::Tree::describeTree($%)                                           
 
 sub Nasm::X86::Tree::position($$)                                               # Create a new tree description for a tree positioned at the specified location.
  {my ($tree, $first) = @_;                                                      # Tree descriptor, offset of tree
-  my $t = $tree->describeTree(length=>$tree->length);                           # Length of new tree must be same as old tree
+  my $t = $tree->describeTree;                                                  # Length of new tree must be same as old tree
 
   $t->first->copy($first);                                                      # Variable addressing offset to first block of keys.
   $t                                                                            # Return new descriptor
