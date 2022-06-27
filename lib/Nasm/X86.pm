@@ -10019,6 +10019,7 @@ sub ParseUnisyn($$)                                                             
   my $parseTree = $parse->popSubTree; $parse->free; $brackets->free;            # Obtain the parse tree and free the brackets stack and parse stack
 
   genHash "Nasm::X86::Unisyn::Parse",                                           # Parse results
+    area     => $area,                                                          # The area in which the parse tree was built
     tree     => $parseTree,                                                     # The resulting parse tree
     char     => $parseChar,                                                     # Last character processed
     fail     => $parseFail,                                                     # If not zero the parse has failed for some reason
@@ -10870,7 +10871,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10872 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10873 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
