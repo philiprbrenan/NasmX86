@@ -17455,8 +17455,7 @@ if (1) {                                                                        
   is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
-  my $a = CreateArea;                                                           # Area in which we will do the parse
-  my $parse = $a->ParseUnisyn($a8, $s8-1);                                      # Parse the utf8 string minus the final new line
+  my $parse = ParseUnisyn($a8, $s8-1);                                          # Parse the utf8 string minus the final new line
 
   $parse->char    ->outNL;                                                      # Print results
   $parse->fail    ->outNL;
