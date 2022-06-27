@@ -12,11 +12,9 @@
 # Replace calls to Tree::position with Tree::down
 # Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, likewise the mmx registers mm0-7, zmm 0..15 and k0..3.
 # Make a tree read only - collapse all nodes possible, remove all leaf node arrays
-# Make trees faster by using an array for small keys
 # Jump forwarding
 # All options checking immediately after parameters
 # Which subs do we actually need SaveFirst four on?
-# Add bits to trees in what is now the unusedUpdata fields to show whether the tree is a small tree, low tree etc so that print and popSubTree can test these bits.
 package Nasm::X86;
 our $VERSION = "20220606";
 use warnings FATAL => qw(all);
@@ -5947,22 +5945,11 @@ sub Nasm::X86::Area::popZmm($$)                                                 
 sub DescribeTree(%)                                                             #P Return a descriptor for a tree with the specified options.  The options from one tree get inherited by any sub trees they contain
  {my (%options)  = @_;                                                          # Tree description options
   my $area       = delete $options{area};                                       # The area containing the tree
-  my $smallTree  = delete $options{smallTree};                                  # 1 - Where possible low numbered keys should be placed in the first block. 2 - (1) and the low keys should always be considered present and not trees so there is no need to process either the present or tree bits. Fields that have not been set will return zero. This configuration make the first block behave like a conventional flat data structure.  Processing of keys beyond the first block are not affected bh this flag.
-  my $lowTree    = delete $options{lowTree};                                    # No sub trees hanging from this tree
-  my $highTree   = delete $options{highTree};                                   # All data fields in this tree represent a sub tree offset
-# my $stringKeys = delete $options{stringKeys};                                 # The key offsets designate 64 byte blocks of memory in the same area that contain the actual keys to the tree as strings.  If the actual string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
   my $length     = delete $options{length};                                     # Maximum number of keys per node
   my $name       = delete $options{name};                                       # Optional name for debugging purposes
   my $stringTree = delete $options{stringTree};                                 # Tree of strings - the key offsets designate 64 byte blocks of memory in the same area that contains the tree.  If a key string is longer than 64 bytes then the rest of it appears in the sub tree indicated by the data element.
-     $length     = 13;                                                          # Maximum number of keys per node
-
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
-
-#  confess "Choose one of stringKeys and smallTree but not both"                 # String keys do not work yet with small trees
-#    if $smallTree and $stringKeys;
-
-  confess "Choose one of lowTree and highTree but not both"                     # Low tree or high tree or indeterminate but not both
-    if $lowTree and $highTree;
+     $length     = 13;                                                          # Maximum number of keys per node
 
   my $b = RegisterSize 31;                                                      # Size of a block == size of a zmm register
   my $o = RegisterSize eax;                                                     # Size of a double word
@@ -6000,18 +5987,11 @@ sub DescribeTree(%)                                                             
     zWidthD              => $b / $o,                                            # Width of a zmm in double words being the element size
     maxKeysZ             => $b / $o - 2,                                        # The maximum possible number of keys in a zmm register
     maxNodesZ            => $b / $o - 1,                                        # The maximum possible number of nodes in a zmm register
-    smallTree            => $smallTree  // 0,                                   # Low keys should be placed in first block where possible
-    lowTree              => $lowTree    // 0,                                   # This tree has no sub trees
-    highTree             => $highTree   // 0,                                   # This tree has all sub trees
-#   stringKeys           => $stringKeys // 0,                                   # String tree
     stringTree           => $stringTree // 0,                                   # String tree - now obsolete
 
     rootOffset           => $o * 0,                                             # Offset of the root field in the first block - the root field contains the offset of the block containing the keys of the root of the tree
     optionsOffset        => $o * 1,                                             # Offset of the options double word in the first block
-    smallTreeBit         => 0,                                                  # Bit indicating a small tree
-    lowTreeBit           => 1,                                                  # Bit indicating a low tree - a tree that does not have any sub trees
-    highTreeBit          => 2,                                                  # Bit indicating a high tree - a tree where every data field represents a sub tree offset
-#   stringKeysBit        => 3,                                                  # Bit indicating string key tree
+    stringTreeBit        => 0,                                                  # Bit indicating string key tree
     sizeOffset           => $o * 2,                                             # Offset of the size field  in the first block - tells us the number of  keys in the tree
     fcControl            => $o * 3,                                             # Offset of the tree bits and present bits in the first cache of low key values for this tree.
     fcPresentOff         => $o * 3,                                             # Byte offset of word  containing present bits
@@ -6053,10 +6033,7 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   my $a = $t->area;
 
   ClearRegisters rsi, $z;                                                       # At this point the first block is empty so there is no need to get it from memory because it has nothing in it.
-  Bts rsi, $t->lowTreeBit    if $t->lowTree;
-  Bts rsi, $t->highTreeBit   if $t->highTree;
-  Bts rsi, $t->smallTreeBit  if $t->smallTree;
-#  Bts rsi, $t->stringKeysBit if $t->stringKeys;
+  Bts rsi, $t->stringTreeBit if $t->stringTree;
   dRegIntoZmm rsi, $z, $t->optionsOffset;
   $a->putZmmBlock($o, $z);                                                      # Save first block with options loaded
 
@@ -6068,9 +6045,7 @@ sub Nasm::X86::Tree::describeTree($%)                                           
   @_ >= 1 or confess "At least one parameter";
 
   $tree->area->DescribeTree                                                     # Return a descriptor for a tree
-   (smallTree  => $tree->smallTree,
-    lowTree    => $tree->lowTree,
-    stringTree => $tree->stringTree,
+   (stringTree => $tree->stringTree,
     %options
    );
  }
@@ -6645,17 +6620,15 @@ sub Nasm::X86::Tree::overWriteKeyDataTreeInLeaf($$$$$$$)                        
   $IK->setReg(rdi); Vpbroadcastd zmmM($K, 1), edi;                              # Insert value at expansion point
   $ID->setReg(rdi); Vpbroadcastd zmmM($D, 1), edi;
 
-  if (!$tree->lowTree)                                                          # Set tree bits if they are being used
-   {If $subTree > 0,                                                            # Set the inserted tree bit
-    Then
-     {Kmovq rdi, k1;
-      $tree->setTreeBit ($K, rdi);
-     },
-    Else
-     {Kmovq rdi, k1;
-      $tree->clearTreeBit($K, rdi);
-     };
-   }
+  If $subTree > 0,                                                              # Set the inserted tree bit
+  Then
+   {Kmovq rdi, k1;
+    $tree->setTreeBit ($K, rdi);
+   },
+  Else
+   {Kmovq rdi, k1;
+    $tree->clearTreeBit($K, rdi);
+   };
  } # overWriteKeyDataTreeInLeaf
 
 #D2 Insert                                                                      # Insert a key into the tree.
@@ -6797,7 +6770,7 @@ sub Nasm::X86::Tree::insertKeyDataTreeIntoLeaf($$$$$$$$)                        
 
   $t->incLengthInKeys($K);                                                      # Increment the length of this node to include the inserted value
 
-  $t->insertIntoTreeBits($K, 3, $subTree) unless $tree->lowTree;                # Set the matching tree bit depending on whether we were supplied with a tree or a variable
+  $t->insertIntoTreeBits($K, 3, $subTree);                                      # Set the matching tree bit depending on whether we were supplied with a tree or a variable
 
   $t->incSizeInFirst($F);                                                       # Update number of elements in entire tree.
  } # insertKeyDataTreeIntoLeaf
@@ -7004,32 +6977,30 @@ sub Nasm::X86::Tree::splitNotRoot($$$$$$$$$$$)                                  
     &$mask("01", -$zwk);                                                        # Copy parent offset from left to right so that the new right node  still has the same parent
     Vmovdqu32 zmmM($RD, 7), zmm($LD);
 
-    unless ($t->lowTree)                                                        # Tree bits
-     {wRegFromZmm $transfer, $LK, $tb;
-      Mov $work, $transfer;
-      And $work, (1 << $ll) - 1;
-      wRegIntoZmm $work, $LK, $tb;                                              # Left after split
+    wRegFromZmm $transfer, $LK, $tb;
+    Mov $work, $transfer;
+    And $work, (1 << $ll) - 1;
+    wRegIntoZmm $work, $LK, $tb;                                                # Left after split
 
-      Mov $work, $transfer;
-      Shr $work, $lm;
-      And $work, (1 << $lr) - 1;
-      wRegIntoZmm $work, $RK, $tb;                                              # Right after split
+    Mov $work, $transfer;
+    Shr $work, $lm;
+    And $work, (1 << $lr) - 1;
+    wRegIntoZmm $work, $RK, $tb;                                                # Right after split
 
-      Mov $work, $transfer;                                                     # Insert splitting key tree bit into parent at the location indicated by k5
-      Shr $work, $ll;
-      And  $work, 1;                                                            # Tree bit to be inserted parent at the position indicated by a single 1 in k5 in parent
-      wRegFromZmm $transfer, $PK, $tb;                                          # Tree bits from parent
+    Mov $work, $transfer;                                                       # Insert splitting key tree bit into parent at the location indicated by k5
+    Shr $work, $ll;
+    And  $work, 1;                                                              # Tree bit to be inserted parent at the position indicated by a single 1 in k5 in parent
+    wRegFromZmm $transfer, $PK, $tb;                                            # Tree bits from parent
 
-      Cmp  $work, 0;                                                            # Are we inserting a zero into the tree bits?
-      IfEq
-      Then                                                                      # Inserting zero
-       {InsertZeroIntoRegisterAtPoint k6, $transfer;                            # Insert a zero into transfer at the point indicated by k5
-       },
-      Else                                                                      # Inserting one
-       {InsertOneIntoRegisterAtPoint k6, $transfer;                             # Insert a zero into transfer at the point indicated by k5
-       };
-      wRegIntoZmm $transfer, $PK, $tb;                                          # Save parent tree bits after split
-     }
+    Cmp  $work, 0;                                                              # Are we inserting a zero into the tree bits?
+    IfEq
+    Then                                                                        # Inserting zero
+     {InsertZeroIntoRegisterAtPoint k6, $transfer;                              # Insert a zero into transfer at the point indicated by k5
+     },
+    Else                                                                        # Inserting one
+     {InsertOneIntoRegisterAtPoint k6, $transfer;                               # Insert a zero into transfer at the point indicated by k5
+     };
+    wRegIntoZmm $transfer, $PK, $tb;                                            # Save parent tree bits after split
 
     PopR;
    }
@@ -7102,11 +7073,9 @@ sub Nasm::X86::Tree::splitRoot($$$$$$$$$$$$)                                    
     Mov $transfer, 1;                                                           # Lengths
     wRegIntoZmm $transfer, $PK, $lb;                                            # Left after split
 
-    unless($tree->lowTree)                                                      # Parent tree bits
-     {wRegFromZmm $transfer, $PK, $tb;
-      And $transfer, 1;
-      wRegIntoZmm $transfer, $PK, $tb;
-     }
+    wRegFromZmm $transfer, $PK, $tb;                                            # Parent tree bits
+    And $transfer, 1;
+    wRegIntoZmm $transfer, $PK, $tb;
 
     PopR;
    }
@@ -7161,9 +7130,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
         $k->dIntoZ                ($K, 0);
         $d->dIntoZ                ($D, 0);
         $t->incLengthInKeys       ($K);
-        if (!$t->lowTree)
-         {$t->setOrClearTreeBitToMatchContent($K, K(key => 1), $S);
-         }
+        $t->setOrClearTreeBitToMatchContent($K, K(key => 1), $S);
         $t->putBlock($block,       $K, $D, $N);
         $t->rootIntoFirst         ($F, $block);
         $t->incSizeInFirst        ($F);
@@ -7205,95 +7172,22 @@ sub Nasm::X86::Tree::put($$$)                                                   
       Jmp $descend;                                                             # Descend to the next level
      };
     PopR;
-   } name => qq(Nasm::X86::Tree::put-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree}),
+   } name => qq(Nasm::X86::Tree::put-$$tree{length}-$$tree{stringTree}),
      structures => {tree=>$tree},
      parameters => [qw(key data subTree)];
 
-  Block                                                                         # Place low keys if requested and possible
-   {my ($end) = @_;                                                             # End of block
 
-    if ($tree->smallTree)                                                       # Small trees benefit from this optimization while large trees do not
-     {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
-      confess "Should be three" unless $co == 3;
-
-      if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
-       {my $k = $key->expr;                                                     # Key value
-        if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
-         {my $F = 1;                                                            # Place first block in this zmm
-          $tree->firstFromMemory($F);                                           # Load first block
-          my $p = $k * $tree->width + $tree->fcArray;                           # Offset of dword in bytes
-          ($dt ? $data->first : $data)->dIntoZ($F, $p);                         # Save dword - either the supplied data or the offset of the sub tree
-          if ($tree->smallTree == 1)                                            # Only if low key placement is enabled for this tree. Small trees benefit more than large trees from this optimization.
-           {PushR my $control = r15;                                            # Copy of the control dword
-            Pextrd $control."d", xmm1, $co;                                     # Get the control dword
-            my $b = $k+$tree->fcPresent;                                        # Present bit
-            my $B = $k+$tree->fcTreeBits;                                       # Tree bit
-            Bts $control, $b;                                                   # Set present bit
-            IfNc
-            Then                                                                # Not previously present so increase length
-             {$tree->incSizeInFirst(zmm $F);                                    # Increment the size field in the first block of a tree when the first block is held in a zmm register.
-             };                                                                 # Putting the previous code inline will enable us to use a free register and thus avoid the PushR PopR
-            if ($dt)                                                            # Tree
-             {Bts $control, $B;                                                 # Set tree bit
-             }
-            else                                                                # Not a tree
-             {Btr $control, $B;                                                 # Clear tree bit
-             }
-            dRegIntoZmm $control, zmm($F), $co * $tree->width;                  # Save control word
-            PopR;
-           }
-          $tree->firstIntoMemory($F);                                           # Save updated first block
-          Jmp $end;                                                             # Successfully saved
-         }
-       }
-
-      else                                                                      # The key is a variable, we check if it should go in the first cache
-       {ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
-        Then                                                                    # Less than the upper limit
-         {my $F = 1;                                                            # Place first block in this zmm
-          $tree->firstFromMemory($F);                                           # Load first block
-          my $p = $key * $tree->width + $tree->fcArray;                         # Offset of dword in bytes
-          ($dt ? $data->first : $data)->dIntoZ($F, $p);                         # Save dword - either the supplied data or the offset of the sub tree
-
-          if ($tree->smallTree == 1)                                            # Only if low key placement is enabled for this tree. Small trees benefit from this optimization while large trees do not
-           {PushR my $bit = r14, my $control = r15;                             # Copy of the control dword
-            Pextrd $control."d", xmm1, $co;                                     # Get the control dword
-            my $b = $key+$tree->fcPresent;                                      # Present bit
-            my $B = $key+$tree->fcTreeBits;                                     # Tree bit
-            $b->setReg($bit);                                                   # Bit to set
-            Bts $control, $bit;                                                 # Set bit and place old value in carry
-            IfNc
-            Then                                                                # Not previously present so increase length
-             {$tree->incSizeInFirst(zmm $F);                                    # Increment the size field in the first block of a tree when the first block is held in a zmm register.
-             };                                                                 # Putting the previous code inline will enable us to use a free register and thus avoid the PushR PopR
-            $B->setReg($bit);                                                   # Bit to set
-            if ($dt)                                                            # Tree
-             {Bts $control, $bit;                                               # Set tree bit
-             }
-            else                                                                # Not a tree
-             {Btr $control, $bit;                                               # Clear tree bit
-             }
-            dRegIntoZmm $control, zmm($F), $co * $tree->width;                  # Save control word
-            PopR;
-           }
-          $tree->firstIntoMemory($F);                                           # Save updated first block
-          Jmp $end;                                                             # Successfully saved
-         };
-       }
-     }
-
-    if ($dt)                                                                    # Put a sub tree
-     {$s->call(structures => {tree    => $tree},
-               parameters => {key     => $key,
-                              data    => $data->first,
-                              subTree => K(key => 1)});
-     }
-    else                                                                        # Not a usb tree
-     {$s->call(structures => {tree    => $tree},
-               parameters => {key     => $key,
-                              data    => $data,
-                              subTree => K(zero => 0)});
-     }
+  if ($dt)                                                                      # Put a sub tree
+   {$s->call(structures => {tree    => $tree},
+             parameters => {key     => $key,
+                            data    => $data->first,
+                            subTree => K(key => 1)});
+   }
+  else                                                                          # Not a usb tree
+   {$s->call(structures => {tree    => $tree},
+             parameters => {key     => $key,
+                            data    => $data,
+                            subTree => K(zero => 0)});
    }
  } # put
 
@@ -7360,10 +7254,8 @@ sub Nasm::X86::Tree::find($$)                                                   
           $t->data  ->copy(rsi);                                                # Data associated with the key
           $t->found ->copy($equals);                                            # Show found
           $t->offset->copy($Q);                                                 # Offset of the containing block
-          unless ($t->lowTree)
-           {$t->getTreeBit($K, $equals, set => rdx);                            # Get corresponding tree bit
-            $t->subTree->copy(rdx);                                             # Save corresponding tree bit
-           }
+          $t->getTreeBit($K, $equals, set => rdx);                              # Get corresponding tree bit
+          $t->subTree->copy(rdx);                                               # Save corresponding tree bit
           Jmp $success;                                                         # Return
          };
 
@@ -7381,101 +7273,9 @@ sub Nasm::X86::Tree::find($$)                                                   
     PopR;
    } parameters => [qw(key)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::find-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name       => qq(Nasm::X86::Tree::find-$$tree{length}-$$tree{stringTree});
 
-  Block                                                                         # Find low keys if possible
-   {my ($end) = @_;                                                             # End of block
-    if ($tree->smallTree)                                                       # Small trees benefit from this optimization while large trees do not
-     {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
-      confess "Should be three" unless $co == 3;
-
-      if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
-       {my $k = $key->expr;                                                     # Key is small enough to go in cache
-        if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
-         {if ($tree->smallTree == 1)                                            # The low keys are behaving just like normal keys
-           {my $F = zmm1;                                                       # Place first block in this zmm
-            $tree->firstFromMemory($F);                                         # Load first block
-            my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
-            my $d = dFromZ($F, $o);                                             # Get dword representing data
-            PushR my $control = r15;                                            # Copy of the control dword
-            Pextrd $control."d", xmm1, $co;                                     # Get the control dword
-            my $b = $k+$tree->fcPresent;                                        # Present bit
-            my $B = $k+$tree->fcTreeBits;                                       # Tree bit
-            Bt $control, $b;                                                    # Present bit for this element
-            IfC
-            Then                                                                # Found
-             {$tree->found->copy(1);                                            # Show as found
-              $tree->data->copy($d);                                            # Save found data as it is valid
-             },
-            Else                                                                # Not found
-             {$tree->found->copy(0);                                            # Show as not found
-             };
-            Bt $control, $B;                                                    # Tree bit
-            IfC
-            Then                                                                # Sub tree
-             {$tree->subTree->copy(1);
-             },
-            Else                                                                # Not sub tree
-             {$tree->subTree->copy(0);
-             };
-            PopR;
-           }
-          else                                                                  # The low keys are always present, not null and are not known to be represent sub trees
-           {my $F = zmm1;                                                       # Place first block in this zmm
-            $tree->firstFromMemory($F);                                         # Load first block
-            my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
-            dFromZ($F, $o, set=>$tree->data);                                   # Get dword representing data and place it in the indicated variable
-           }
-          Jmp $end;                                                             # Successfully saved
-         }
-       }
-
-      else                                                                      # The key is a variable, we check if it should go in the first cache
-       {ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
-        Then                                                                    # Less than the upper limit
-         {if ($tree->smallTree == 1)                                            # The low keys are behaving just like normal keys
-           {my $F = zmm1;                                                       # Place first block in this zmm
-            $tree->firstFromMemory($F);                                         # Load first block
-            my $o = $key * $tree->width + $tree->fcArray;                       # Offset if dword containing data
-            my $d = dFromZ($F, $o);                                             # Get dword representing data
-            PushR my $bit = r14, my $control = r15;                             # Bit to select, Copy of the control dword
-            Pextrd $control."d", xmm1, $co;                                     # Get the control dword
-            my $b = $key+$tree->fcPresent;                                      # Present bit
-            my $B = $key+$tree->fcTreeBits;                                     # Tree bit
-            $b->setReg($bit);
-            Bt $control, $bit;                                                  # Present bit for this element
-            IfC
-            Then                                                                # Found
-             {$tree->found->copy(1);                                            # Show as found
-              $tree->data->copy($d);                                            # SAve found data as it is valid
-             },
-            Else                                                                # Not found
-             {$tree->found->copy(0);                                            # Show as not found
-             };
-            $B->setReg($bit);
-            Bt $control, $bit;                                                  # Tree bit
-            IfC
-            Then                                                                # Sub tree
-             {$tree->subTree->copy(1);
-             },
-            Else                                                                # Not sub tree
-             {$tree->subTree->copy(0);
-             };
-            PopR;
-           }
-          else                                                                  # The low keys are always present, not null and are not known to be represent sub trees
-           {my $F = zmm1;                                                       # Place first block in this zmm
-            $tree->firstFromMemory($F);                                         # Load first block
-            my $o = $key * $tree->width + $tree->fcArray;                       # Offset in bytes of data
-            dFromZ($F, $o, set=>$tree->data);                                   # Get dword representing data and place it in the indicated variable
-           }
-          Jmp $end;                                                             # Successfully saved
-         };
-       }
-     }
-
-    $s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
-   };
+  $s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
  } # find
 
 sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree and set B<found>|B<key>|B<data>|B<subTree> to show the result.
@@ -7526,7 +7326,7 @@ sub Nasm::X86::Tree::findFirst($)                                               
      };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
-     name => qq(Nasm::X86::Tree::findFirst-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name => qq(Nasm::X86::Tree::findFirst-$$tree{length}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree});
  } # findFirst
@@ -7534,8 +7334,6 @@ sub Nasm::X86::Tree::findFirst($)                                               
 sub Nasm::X86::Tree::findLast($)                                                # Find the last key in a tree - crucial for stack like operations.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  confess "Not allowed with smallTree == 2"                                     # Only basic low keys allowed if low keys being used
-    if $tree->smallTree && $tree->smallTree != 1;
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -7551,34 +7349,7 @@ sub Nasm::X86::Tree::findLast($)                                                
 
       If $size > 0,                                                             # Non empty tree
       Then
-       {if ($tree->smallTree)                                                   # Low keys in play so the root node might not be present if all the data is now in the first block
-         {PushR my $z = r13, my $bit = r14, my $present = r15, my $pos = r12;   # The current size of the tree, the index of the present bit for the highest remaining key, the present bits
-          my $i = V key => 0;                                                   # Assume we are not in the first block
-          wFromZ $F, $t->fcPresentOff,  set=>$present;                          # Present bits
-          Popcnt $bit, $present;                                                # Number of entries in first block
-          $size->setReg($z);
-          Cmp $bit, $z;                                                         # We are in the first block entries if the number of keys present in the first block is the same as the current size of the tree
-          IfEq
-          Then
-           {Bsr $bit, $present;                                                 # Position of highest key found by reverse scan to find index of highest bit set
-            $t->key->getReg($bit);                                              # Show key found
-            Mov $pos, $bit;                                                     # Position of corresponding dword in first block
-            Shl $pos, 2;                                                        # Position in first block array of dwords
-            Add $pos, $t->fcArray;                                              # Position in first block
-            dFromZ($F, V(position => $pos), set => $t->data);                   # Save data
-            $t->found->getReg($present);                                        # Show found
-            $i->copy(1);                                                        # We are in the first block
-
-            $t->subTree->copy(0);                                               # Assume this element does not refer to a sub tree
-            wFromZ $F, $t->fcTreeBitsOff, set=>rdi;                             # Sub tree bits
-            Bt rdi, $bit;                                                       # Test sub tree present
-            IfC Then {$t->subTree->copy(1)};                                    # Show sub tree present
-           };
-          PopR;
-          If $i > 0, Then {Jmp $success};                                       # Successfully found
-         }
-
-        my $root = $t->rootFromFirst($F);                                       # Root of tree
+       {my $root = $t->rootFromFirst($F);                                       # Root of tree
 
         $t->getBlock($root, $K, $D, $N);                                        # Load root
 
@@ -7612,7 +7383,7 @@ sub Nasm::X86::Tree::findLast($)                                                
      };                                                                         # Find completed successfully
     PopR;
    } structures=>{tree=>$tree},
-     name => qq(Nasm::X86::Tree::findLast-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name => qq(Nasm::X86::Tree::findLast-$$tree{length}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree});                                        # Inline causes very long assembly times so we call instead.
  } # findLast
@@ -7677,7 +7448,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
     PopR;
    } parameters => [qw(key)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::findNext-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name       => qq(Nasm::X86::Tree::findNext-$$tree{length}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # findNext
@@ -7747,7 +7518,7 @@ sub Nasm::X86::Tree::findPrev($$)                                               
     PopR;
    } parameters => [qw(key)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::findPrev-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name       => qq(Nasm::X86::Tree::findPrev-$$tree{length}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # findPrev
@@ -8110,7 +7881,7 @@ sub Nasm::X86::Tree::extract($$$$$)                                             
     PopR;
    } parameters => [qw(point)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::extract-$K-$D-$N-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name       => qq(Nasm::X86::Tree::extract-$K-$D-$N-$$tree{length}-$$tree{stringTree});
 
   $s->inline(structures=>{tree => $tree}, parameters=>{point => $point});
  } # extract
@@ -8151,7 +7922,7 @@ sub Nasm::X86::Tree::extractFirst($$$$)                                         
 
     PopR;
    } structures=>{tree=>$tree},
-     name => qq(Nasm::X86::Tree::extractFirst-$K-$D-$N-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name => qq(Nasm::X86::Tree::extractFirst-$K-$D-$N-$$tree{length}-$$tree{stringTree});
 
   $s->call(structures=>{tree => $tree});
  } # extractFirst
@@ -8259,7 +8030,7 @@ sub Nasm::X86::Tree::mergeOrSteal($$)                                           
     PopR;
    } parameters => [qw(offset changed)],
      structures => {tree=>$tree},
-     name       => qq(Nasm::X86::Tree::mergeOrSteal-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name       => qq(Nasm::X86::Tree::mergeOrSteal-$$tree{length}-$$tree{stringTree});
 
   $s->call
    (structures => {tree   => $tree},
@@ -8590,7 +8361,7 @@ sub Nasm::X86::Tree::deleteFirstKeyAndData($$$)                                 
      };
     PopR;
    }
-  name => qq(Nasm::X86::Tree::deleteFirstKeyAndData-$K-$D-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree}),
+  name => qq(Nasm::X86::Tree::deleteFirstKeyAndData-$K-$D-$$tree{length}-$$tree{stringTree}),
   structures => {tree => $tree};
 
   $s->call(structures => {tree => $tree});
@@ -8730,107 +8501,9 @@ sub Nasm::X86::Tree::delete($$)                                                 
     PopR;
    } parameters =>[qw(key)],
      structures =>{tree=>$tree},
-     name       => qq(Nasm::X86::Tree::delete-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name       => qq(Nasm::X86::Tree::delete-$$tree{length}-$$tree{stringTree});
 
-  Block                    ## Need to detect sub tree or not                    # Delete low keys if possible
-   {my ($end) = @_;                                                             # End of block
-    if ($tree->smallTree)                                                       # Small trees benefit from this optimization while large trees do not
-     {my $co = $tree->fcControl / $tree->width;                                 # Offset of low keys control word in dwords
-      confess "Should be three" unless $co == 3;
-
-      if ($key->constant)                                                       # The key is a constant so we can check if it should go in the first cache
-       {my $k = $key->expr;                                                     # Key is small enough to go in cache
-        if ($k >= 0 and $k < $tree->fcDWidth)                                   # Key is small enough to go in cache
-         {if ($tree->smallTree == 1)                                            # The low keys are behaving just like normal keys
-           {my $F = zmm1;                                                       # Place first block in this zmm
-            $tree->firstFromMemory($F);                                         # Load first block
-            my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
-            my $d = dFromZ($F, $o);                                             # Get dword representing data
-            PushR my $control = r15;                                            # Copy of the control dword
-            Pextrd $control."d", xmm1, $co;                                     # Get the control dword
-            Btr $control, $k+$tree->fcPresent;                                  # Present bit for this element test and then clear it
-            IfC
-            Then                                                                # Found
-             {dRegIntoZmm $control, $F, $co * $tree->width;                     # Save control word
-              $tree->found->copy(1);                                            # Show as found
-              $tree->data->copy($d);                                            # Save found data as it is valid
-              Bt $control, $k+$tree->fcTreeBits;                                # Tree bit for this element
-              IfC
-              Then                                                              # This element represents a sub tree
-               {$tree->subTree->copy(1);                                        # Flag as a sub tree
-               };
-              $tree->decSizeInFirst($F);                                        # Decrement size as we have deleted an element
-              $tree->firstIntoMemory($F);                                       # Save first block
-             },
-            Else                                                                # Not found
-             {$tree->found->copy(0);                                            # Show as not found
-             };
-            PopR;
-           }
-          else                                                                  # The low keys are always present, not null and are not known to represent sub trees
-           {my $F = zmm1;                                                       # Place first block in this zmm
-            $tree->firstFromMemory($F);                                         # Load first block
-            my $o = $k * $tree->width + $tree->fcArray;                         # Offset in bytes of data
-            dFromZ($F, $o, set=>$tree->data);                                   # Get dword representing data and place it in the indicated variable
-            K(zero => 0)->dIntoZ($F, $o);                                       # Zero the field as we are ignoring the present bits
-           }
-          Jmp $end;                                                             # Successfully saved
-         }
-       }
-
-      else                                                                      # The key is a variable, we check if it should go in the first cache
-       {ifAnd [sub {$key < $tree->fcDWidth}, sub {$key >= 0}],                  # Key in range
-        Then                                                                    # Less than the upper limit
-         {if ($tree->smallTree == 1)                                            # The low keys are behaving just like normal keys
-           {my $F = zmm1;                                                       # Place first block in this zmm
-            $tree->firstFromMemory($F);                                         # Load first block
-            my $o = $key * $tree->width + $tree->fcArray;                       # Offset if dword containing data
-            my $d = dFromZ($F, $o);                                             # Get dword representing data
-            PushR my $bit = r14, my $control = r15;                             # Bit to select, Copy of the control dword
-            Pextrd $control."d", xmm1, $co;                                     # Get the control dword
-            ($key+$tree->fcPresent)->setReg($bit);                              # Present bit
-            Btr $control, $bit;                                                 # Present bit for this element - test and reset
-            IfC
-            Then                                                                # Found
-             {dRegIntoZmm $control, $F, $co * $tree->width;                     # Save control word
-              $tree->found->copy(1);                                            # Show as found
-              $tree->data->copy($d);                                            # Save found data as it is valid
-              ($key+$tree->fcTreeBits)->setReg($bit);
-              Bt $control, $bit;                                                # Tree bit for this element
-              IfC
-              Then                                                              # This element represents a sub tree
-               {$tree->subTree->copy(1);                                        # Flag as a sub tree
-               };
-              $tree->decSizeInFirst($F);                                        # Decrement size as we have deleted an element
-              $tree->firstIntoMemory($F);                                       # Save first block
-             },
-            Else                                                                # Not found
-             {$tree->found->copy(0);                                            # Show as not found
-             };
-            PopR;
-           }
-          else                                                                  # The low keys are always present, not null and are not known to be represent sub trees
-           {my $F = zmm1;                                                       # Place first block in this zmm
-            $tree->firstFromMemory($F);                                         # Load first block
-            my $o = $key * $tree->width + $tree->fcArray;                       # Offset in bytes of data
-            dFromZ($F, $o, set=>$tree->data);                                   # Get dword representing data and place it in the indicated variable
-            K(zero => 0)->dIntoZ($F, $o);                                       # Zero the field as we are ignoring the present bits
-           }
-          Jmp $end;                                                             # Successfully saved
-         };
-       }
-     }
-
-    #$s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
-    $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
-
-    if ($tree->smallTree and $tree->smallTree == 1)                             # Clear tree if it becomes empty as a result of deleting the last low key
-     {If $tree->size == 0,
-      Then
-       {$tree->clear();
-       };
-     }
-   };
+  $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
  } # delete
 
 sub Nasm::X86::Tree::clear($)                                                   # Delete everything in the tree except the first block recording any memory liberated on the free chain.
@@ -8866,7 +8539,7 @@ sub Nasm::X86::Tree::clear($)                                                   
     PopR;
    } parameters => [qw(offset)],
      structures => {tree => $tree},
-     name       => qq(Nasm::X86::Tree::clear-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name       => qq(Nasm::X86::Tree::clear-$$tree{length}-$$tree{stringTree});
 
   PushR my $F = 31;
   $tree->firstFromMemory($F);
@@ -9354,8 +9027,6 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
  {my ($tree, $title, $width, $margin, $first, $keyX, $dataX) = @_;              # Tree, title, width of offset field, the maximum width of the indented area, whether to print the offset of the tree, whether to print the key field in hex or decimal, whether to print the data field in hex or decimal
   @_ == 7 or confess "Seven parameters";
 
-  $tree->smallTree and confess "Not usable on small Trees";
-
   PushR my $F = 31;
 
   my $s = Subroutine                                                            # Print a tree
@@ -9631,7 +9302,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
     PopR;
    } parameters => [qw(offset)],
      structures => {tree => $tree},
-     name       => qq(Nasm::X86::Tree::printInOrder-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
+     name       => qq(Nasm::X86::Tree::printInOrder-$$tree{length}-$$tree{stringTree});
 
   PrintOutString $title;                                                        # Title of the piece so we do not lose it
 
@@ -9899,7 +9570,7 @@ sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        
 sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
  {my ($a) = @_;                                                                 # Area in which to create the table
   my $y = $a->yggdrasil;                                                        # Yggdrasil
-  my $t = $a->CreateTree(lowTree => 1, name => "alphabets");                    # Character as utf32 to lexical type
+  my $t = $a->CreateTree;                                                       # Character as utf32 to lexical type
   $y->put(Nasm::X86::Yggdrasil::Unisyn::Alphabets, $t);                         # Make the alphabets locate-able
 
   my @l = qw(A a b B d e p q s v);
@@ -11200,7 +10871,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11202 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10873 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -14426,7 +14097,7 @@ data   : .... .... .... ..22
 END
  }
 
-#latest:
+#latest:  ### Jim
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18362,154 +18033,6 @@ END
 test12: goto testX unless $test{12};
 
 #latest:
-if (1) {                                                                        # First cache constants
-  my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>1);
-
-  my $k = K key  => 1;
-  my $d = K data => 1;
-  $t->put($k, $d);
-  $a->dump('aa');
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
-aa
-Area     Size:     4096    Used:      128
-.... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | ____ ____ .1__ ____  .1__ ____ .2__ ____  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-END
- }
-
-#latest:
-if (1) {                                                                        # First cache variables
-  my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>1);
-
-  my $k = V key  => 1;
-  my $d = V data => 1;
-  $t->put($k, $d);
-  $a->dump('aa');
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
-aa
-Area     Size:     4096    Used:      128
-.... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | ____ ____ .1__ ____  .1__ ____ .2__ ____  ____ ____ .1__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-END
- }
-
-#latest:
-if (1) {
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-  $t->put (K(key => 1), K(key => 1));
-  $t->find(K(key => 1)); $t->found->out; PrintOutString "  "; $t->data->outNL;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
-found  : .... .... .... ...1  data   : .... .... .... ...1
-END
- }
-
-#latest:
-if (1) {                                                                        # First cache variables - constants, level 1
-  my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>1);
-
-  my $N = 3;
-
-  for my $i(1..$N)
-   {$t->put(K(key => $i), K(key => eval "0x$i$i"));
-   }
-
-  for my $i(1..$N)
-   {$t->find(K(key => $i)); $t->found->out; PrintOutString "  "; $t->data->outNL;
-   }
-  $t->put (K(key => 1), K(key => 1));                                           # 18
-  $t->find(K(key => 1));                                                        # 20
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
-found  : .... .... .... ...1  data   : .... .... .... ..11
-found  : .... .... .... ...1  data   : .... .... .... ..22
-found  : .... .... .... ...1  data   : .... .... .... ..33
-END
- }
-
-#latest:
-if (1) {                                                                        # First cache variables - variables, level 1
-  my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>1);
-
-  my $N = 3;
-
-  for my $i(1..$N)
-   {$t->put(V(key => $i), V(key => eval "0x$i$i"));
-   }
-
-  for my $i(1..$N)
-   {$t->find(K(key => $i)); $t->found->out; PrintOutString "  "; $t->data->outNL;
-   }
-#  $t->put (K(key => 1), K(key => 1));                                           # 18
-#  $t->find(K(key => 1));                                                        # 20
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks => 2037;
-found  : .... .... .... ...1  data   : .... .... .... ..11
-found  : .... .... .... ...1  data   : .... .... .... ..22
-found  : .... .... .... ...1  data   : .... .... .... ..33
-END
- }
-
-#latest:
-if (1) {                                                                        # First cache variables - constants, level 2
-  my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>2);
-
-  my $N = 3;
-
-  for my $i(1..$N)
-   {$t->put(K(key => $i), K(key => eval "0x$i$i"));
-   }
-
-  for my $i(1..$N)
-   {$t->find(K(key => $i)); $t->data->outNL;
-   }
-# $t->put (K(key => 1), K(key => 1));                                           # 18
-  $t->find(K(key => 1));                                                        # 7
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1069;
-data   : .... .... .... ..11
-data   : .... .... .... ..22
-data   : .... .... .... ..33
-END
- }
-
-#latest:
-if (1) {                                                                        # First cache variables - variables, level 2
-  my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>2);
-
-  my $N = 3;
-
-  for my $i(1..$N)
-   {$t->put(V(key => $i), V(key => eval "0x$i$i"));
-   }
-
-  for my $i(1..$N)
-   {$t->find(K(key => $i)); $t->data->outNL;
-   }
-# $t->put (K(key => 1), K(key => 1));                                           # 11
-# $t->find(K(key => 1));                                                        # 7
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>1078;
-data   : .... .... .... ..11
-data   : .... .... .... ..22
-data   : .... .... .... ..33
-END
- }
-
-#latest:
 if (1) {                                                                        # Speed test for put
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -18751,7 +18274,7 @@ if (1) {                                                                        
 AA
 Area     Size:     4096    Used:      384
 .... .... .... ...0 | __10 ____ ____ ____  80.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | C0__ ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | C0__ ____ .1__ ____  .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | 64__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | 80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .1__ ____ __.1 ____
 .... .... .... .1.. | .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40.1 ____
@@ -18783,7 +18306,7 @@ if (1) {                                                                        
 AA
 Area     Size:     4096    Used:      448
 .... .... .... ...0 | __10 ____ ____ ____  C0.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | C0__ ____ ____ ____  .2__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | C0__ ____ .1__ ____  .2__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | 6432 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | 80.1 ____ 80__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .2__ ____ __.1 ____
 .... .... .... .1.. | .1__ ____ .2__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40.1 ____
@@ -18818,7 +18341,7 @@ if (1) {                                                                        
 AA
 Area     Size:     4096    Used:      448
 .... .... .... ...0 | __10 ____ ____ ____  C0.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | C0__ ____ ____ ____  .2__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | C0__ ____ .1__ ____  .2__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | 64__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | 80__ ____ 80.1 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .2__ ____ __.1 ____
 .... .... .... .1.. | .1__ ____ .2__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40.1 ____
@@ -18869,7 +18392,7 @@ if (1) {                                                                        
 AA
 Area     Size:     4096    Used:     1280
 .... .... .... ...0 | __10 ____ ____ ____  __.5 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | C0__ ____ ____ ____  .7__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | C0__ ____ .1__ ____  .7__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | 6464 6464 3434 34__  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | 80.2 ____ __.2 ____  C0.2 ____ 40.2 ____  80__ ____ 80.1 ____  C0.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .7__ .4__ __.1 ____
 .... .... .... .1.. | .1__ ____ .2__ ____  __.3 ____ .7__ ____  .8__ ____ .9__ ____  .A__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ 40.1 ____
@@ -18880,7 +18403,7 @@ Area     Size:     4096    Used:     1280
 .... .... .... .240 | 6363 6363 3333 3333  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... .280 | 6161 6161 3131 3131  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... .2C0 | 6363 6363 3131 3131  6363 6363 3232 3232  6363 6363 3333 3333  6363 6363 3434 3434  6363 6363 3131 3131  6363 6363 3232 3232  6363 6363 3333 3333  6363 6363 3434 3434
-.... .... .... .3.. | 80.3 ____ ____ ____  .4__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... .3.. | 80.3 ____ .1__ ____  .4__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... .340 | 33__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... .380 | C0.4 ____ 80.4 ____  40.4 ____ 40.3 ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .4__ ____ C0.3 ____
 .... .... .... .3C0 | .3__ ____ .4__ ____  .5__ ____ .6__ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ __.4 ____
@@ -18984,10 +18507,10 @@ end
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        #TNasm::X86::Area::writeLibraryHeader  #TNasm::X86::Area::readLibraryHeader
   my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>1);
+  my $t = $a->CreateTree;
 
   K(loop => 16)->for(sub
    {my ($i, $start, $next, $end) = @_;
@@ -19041,7 +18564,7 @@ END
 #latest:;
 if (1) {                                                                        #TNasm::X86::Area::writeLibraryHeader  #TNasm::X86::Area::readLibraryHeader
   my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>1);
+  my $t = $a->CreateTree;
   my $T = $a->CreateTree;
   $t->push($T);
   $a->dump("AA");
@@ -19050,17 +18573,17 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>1;
 AA
-Area     Size:     4096    Used:      192
-.... .... .... ...0 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | ____ ____ .1__ ____  .1__ ____ .1__ .1__  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+Area     Size:     4096    Used:      384
+.... .... .... ...0 | __10 ____ ____ ____  80.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | C0__ ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .1__ .1__ __.1 ____
 BB
-Area     Size:     4096    Used:      192
-.... .... .... ...0 | __10 ____ ____ ____  C0__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | ____ ____ .1__ ____  ____ ____ ____ .1__  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+Area     Size:     4096    Used:      384
+.... .... .... ...0 | __10 ____ ____ ____  80.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  .1__ .1__ __.1 ____
 END
  }
 
@@ -19103,7 +18626,7 @@ END
 #latest:;
 if (1) {                                                                        #
   my $a = CreateArea;
-  my $t = $a->CreateTree(smallTree=>1);
+  my $t = $a->CreateTree;
   my $T = $a->CreateTree;
      $T->push(K key => 0x333);
 
@@ -19115,7 +18638,7 @@ if (1) {                                                                        
   $t->data->outNL;
   $t->subTree->outNL;
 
-  my $P = $t->popSubTree(smallTree => 0);
+  my $P = $t->popSubTree;
   $t->found->outNL;
   $t->data->outNL;
   $t->subTree->outNL;
