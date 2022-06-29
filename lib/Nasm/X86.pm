@@ -1944,7 +1944,7 @@ END
       my $b = $W / $w;                                                          # Number of parameters per block
       my @o;                                                                    # The offsets to load into one zmm register at a time to zap the parameter list.
 
-      Vpbroadcastq zmm0, rbp if $nd;                                            # Direct    parameters: Load the value of the stack base pointer into every cell to compute the address of each source parameter
+      Vpbroadcastq zmm0, rbp if $nd;                                            # Direct parameters: Load the value of the stack base pointer into every cell to compute the address of each source parameter
 
       my $stackOffsetForParameterBlock = 1 + $st[0][0];                         # We start to load the parameters into the new stack (first) at this location
       for my $i(keys @st)                                                       # Each source to target mapping
@@ -10066,80 +10066,75 @@ sub ParseUnisyn($$)                                                             
 
   genHash "Nasm::X86::Unisyn::Parse",                                           # Parse results
     area     => $parse,                                                         # The area in which the parse tree was built
-    tree     => $parseTree,                                                     # The resulting parse tree
+    tree     => $parseTree,                                                     # The offset of the start of the parse tree in the parse area
     char     => $parseChar,                                                     # Last character processed
     fail     => $parseFail,                                                     # If not zero the parse has failed for some reason
     position => $position,                                                      # The position reached in the input string
     match    => $parseMatch,                                                    # The position of the matching bracket  that did not match
     reason   => $parseReason,                                                   # The reason code describing the failure if any
-    symbols  => $symbols;                                                       # The symbol tree produced by the parse
+    symbols  => $symbols,                                                       # The symbol tree produced by the parse
+    length   => $a8,                                                            # The length of the source
+    source   => $s8;                                                            # The source text address
  } # Parse
 
-sub Nasm::X86::Tree::dumpParseTree($$)                                          # Dump a parse tree.
- {my ($tree, $source) = @_;                                                     # Tree, variable addressing source being parsed
-  @_ == 2 or confess "Two parameters";
+sub Nasm::X86::Unisyn::Parse::dump($)                                           # Dump a parse tree.
+ {my ($parse) = @_;                                                             # Parse
+  @_ == 1 or confess "One parameter";
+
+  my $w = RegisterSize(eax);                                                    # Width of an offset
 
   my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    my $t      = $$s{tree};                                                     # Tree
+    my $area   = $$s{area};                                                     # Area
     my $source = $$p{source};                                                   # Source
     my $depth  = $$p{depth};                                                    # Depth
-    my $area   = $t->area;                                                      # Area
+    my $offset = $$p{offset};                                                   # Offset of node of parse tree in containing area
+
     If $depth < K(key => 99),
-    Then {                                                                      # Not in a recursive loop yet ?
-                  $t->find(K pos => Nasm::X86::Unisyn::Lex::length);
-    my $length   = $t->data->clone("Length");                                   # Length of input
-
-                   $t->find(K pos => Nasm::X86::Unisyn::Lex::position);
-    my $position = $t->data->clone("Position");                                 # Position in input
-
-                   $t->find(K pos => Nasm::X86::Unisyn::Lex::type);
-    my $type     = $t->data->clone("Type");                                     # Type of operator
-
-                   $t->find(K pos => Nasm::X86::Unisyn::Lex::left);
-    my $leftF    = $t->found->clone("Left");                                    # Left operand found
-    my $left     = $t->data ->clone('left');                                    # Left operand
-
-                   $t->find(K pos => Nasm::X86::Unisyn::Lex::right);
-    my $rightF   = $t->found->clone("Right");                                   # Right operand found
-    my $right    = $t->data ->clone('right');                                   # Right operand
-
-    If $length > 0,                                                             # Source text of lexical item
     Then
-     {$depth->for(sub
-       {PrintOutString "._";
-       });
-      ($source + $position)->printOutMemoryNL($length);
-     };
+     {$area->getZmmBlock($offset, 1);                                           # Load parse tree node
 
-    If $leftF > 0,
-    Then                                                                        # There is a left sub tree
-     {$sub->call(structures => {tree  => $t->position($left)},
-                 parameters => {depth => $depth+1, source=> $source});
-     };
+      my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);            # Length of input
+      my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);          # Position in input
+      my $type     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::type);              # Type of operator
+      my $left     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::left);              # Left operand found
+      my $right    = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::right);             # Right operand found
+PrintErrStringNL "AAAA";
+PrintErrRegisterInHex zmm1;
+$length   ->d;
+$position ->d;
+$type     ->d;
+$left     ->d;
+$right    ->d;
 
-    If $rightF > 0,
-    Then                                                                        # There is a right sub tree
-     {$sub->call(structures => {tree  => $t->position($right)},
-                 parameters => {depth => $depth+1, source=> $source});
-     };
-     };
-   } structures => {tree => $tree}, parameters=>[qw(depth source)],
-     name       => "Nasm::X86::Tree::dumpParseTree";
+      If $length > 0,                                                           # Source text of lexical item
+      Then
+       {$depth->for(sub
+         {PrintOutString "._";
+         });
+        ($source + $position)->printOutMemoryNL($length);
+       };
 
-# PrintOutStringNL $title;                                                      # Title of the piece so we do not lose it
+      If $left > 0,
+      Then                                                                      # There is a left sub tree
+       {$sub->call(structures => {area => $area},
+                   parameters => {depth => $depth+1, offset => $left, source => $source});
+       };
 
-  If $tree->size == 0,                                                          # Empty tree
-  Then
-   {#PrintOutStringNL "- empty";
-   },
-  Else                                                                          # Print root node
-   {#PrintOutString ": ";
-    $s->call(structures => {tree  => $tree},
-             parameters => {depth => K(depth => 0), source=> $source});
-    #PrintOutNL;
-   };
+      If $right > 0,
+      Then                                                                      # There is a right sub tree
+       {$sub->call(structures => {area => $area},
+                   parameters => {depth => $depth+1, offset => $right, source => $source});
+       };
+     };
+   } structures => {area => $parse->area}, parameters=>[qw(depth offset source)],
+     name       => "Nasm::X86::Unisyn::Parse::dump";
+
+  $s->call(structures => {area   => $parse->area},
+           parameters => {depth  => K(depth => 0),
+                          offset => $parse->tree,
+                          source => $parse->source});
  }
 
 sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators.
@@ -10917,7 +10912,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10919 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10914 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18650,7 +18645,8 @@ if (1) {                                                                        
   $parse->position->outNL;
   $parse->match   ->outNL;
   $parse->reason  ->outNL;
-# $parse->tree->dumpParseTree($a8);
+$parse->area->dump('AA');
+#  $parse->dump;
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... .... 3011
