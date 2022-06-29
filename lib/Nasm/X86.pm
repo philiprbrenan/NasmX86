@@ -16,6 +16,7 @@
 # All options checking immediately after parameters
 # Which subs do we actually need SaveFirst four on?
 # popSubTree should be removed
+# Imporve translation to hex by using properties of the ascii table:
 package Nasm::X86;
 our $VERSION = "20220606";
 use warnings FATAL => qw(all);
@@ -5639,7 +5640,7 @@ sub Nasm::X86::Area::appendZmm($$$)                                             
   my $k = $area->allocZmmBlock;                                                 # Allocate a block to hold the content of the zmm register
 
   $area->address->setReg(rax);
-  $k->setReg(rbx);
+  $k->setReg(rbx);   ### Could use a "[rbp+$$k{addressExpr}]" to eliminate this instruction
   Vmovdqu64 "[rax+rbx]", zmm($zmm);                                             # Copy in the data held in the supplied zmm register
 
   $k                                                                            # Return offset in area
@@ -9697,16 +9698,16 @@ END
 sub ParseUnisyn($$)                                                             # Parse a string of utf8 characters.
  {my ($a8, $s8) = @_;                                                           # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
 
-  my $area        = CreateArea;                                                 # The area in which the parse tree will be be built
+  my $parse       = CreateArea;                                                 # The area in which the parse tree will be be built
   my $tables      = Nasm::X86::Unisyn::LoadParseTables;                         # Load parser tables
   my $alphabets   = $tables->alphabets;                                         # Create and load the table of alphabetic classifications
   my $closeOpen   = $tables->closeOpen;                                         # Close top open bracket matching
   my $openClose   = $tables->openClose;                                         # Open to close bracket matching
   my $transitions = $tables->transitions;                                       # Create and load the table of lexical transitions.
 
-  my $brackets    = CreateArea(stack=>1);                                       # Brackets stack
-  my $parse       = $area->CreateTree;                                          # Parse tree stack
-  my $symbols     = $area->CreateTree(stringTree=>1);                           # String tree of symbols encountered during the parse
+  my $brackets    = CreateArea(stack=>1);                                       # Brackets stack of zmm
+  my $stack       = CreateArea(stack=>1);                                       # Parse tree stack of double words
+  my $symbols     = $parse->CreateTree(stringTree=>1);                          # String tree of symbols encountered during the parse - they are stored along with the parse tree which refers to it.
 
   my $position    = V 'pos        ' => 0;                                       # Position in input string
   my $last        = V 'last       ' => Nasm::X86::Unisyn::Lex::Number::S;       # Last lexical type starting on ths start symbol
@@ -9721,14 +9722,13 @@ sub ParseUnisyn($$)                                                             
 
   my $startPos    = V 'startPos   ' => 0;                                       # Start position of the last lexical item
   my $lastNew     = V 'lastNew    ' => 0;                                       # Last lexical created
-  my $started;                                                                  # True after we have added the first symbol and so can have a previous symbol
 
   my $dWidth      = RegisterSize eax;                                           # Size of a dword
 
   my $dumpStack = sub                                                           # Dump the parse stack
    {my $i = V i => 0;                                                           # Position in stack
     PrintOutStringNL "Dump parse stack";
-    $parse->by(sub                                                              # Each item on stack
+    $stack->by(sub                                                              # Each item on stack
      {my ($T, $start, $next) = @_;
       my $t = $T->describeTree->position($T->data);                             # Assume that each stack element is a parse tree
 
@@ -9755,105 +9755,105 @@ sub ParseUnisyn($$)                                                             
   my $updateLength = sub                                                        # Update the length of the previous lexical item
    {my $l = $position - $startPos;                                              # Length of previous item
     my $s = $symbols->uniqueKeyString($a8+$startPos,   $l);                     # The symbol number of the previous lexical item
-    $s->dintoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::symbol);                    # Record lexical symbol number of previous item in its describing tree
-    $l->dintoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::length);                    # Record length of previous item in its describing tree
-    $area->pushZmm(zmm1);                                                       # Save the stack entry
+    my $o = $stack->peek(1);                                                    # Last lexical item
+    $parse->getZmmBlock($o, 0);                                                 # Reload the description of the last lexical item
+    $s->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::symbol);                    # Record lexical symbol number of previous item in its describing tree
+    $l->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::length);                    # Record length of previous item in its describing tree
+    $parse->putZmmBlock($o, 1);                                                 # Save the lexical item back into memory
    };
 
   my $new = sub                                                                 # Create a new lexical item
-   {ClearRegisters zmm1;
-    $last      ->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::type);             # Last lexical item recognized
-    $position  ->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::position);         # Position of lexical item
-    if ($started)
+   {my ($first) = @_;                                                           # Indicates that this is the first time this routine is being called in this parse
+    if (!$first)                                                                # There is no previous item to update
      {&$updateLength;                                                           # Update the length of the previous lexical item
       $startPos->copy($position);                                               # This item now becomes the last lexical item
      }
-    else
-     {$started++                                                                # At least one item has been processed
-     }
+    ClearRegisters zmm0;
+    $last      ->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::type);             # Last lexical item recognized
+    $position  ->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::position);         # Position of lexical item
+    my $o = $parse->appendZmm(0);                                               # Save the lexical item in the parse tree
+    $stack->push($o);                                                           # Save the offset of the latest lexical item on the stack
    };
 
-  my $push = sub                                                                # Push the current lexical item on to the stack and return its tree descriptor
-   {&$new;
+  &$new(1); &$new for 1..2;                                                     # Initialize the parse tree with three start symbols to act as sentinels
+
+  my $prev = sub                                                                # Lexical item and type of the previous item on the parse stack
+   {my $o = $stack->peek(1);
+    $parse->getZmmBlock($o, 1);                                                 # Reload the description of the last lexical item
+    dFromZ(1, $dWidth * Nasm::X86::Unisyn::Lex::type);                          # Lexical type
    };
 
-  &$push for 1..3;                                                              # Initialize the parse tree with three start symbols to act as sentinels
-
-  my $prev = sub                                                                # Lexical type of the previous item on the parse stack
-   {my $p = $parse->peekSubTree(K one => 1);
-    $p->find(K type => Nasm::X86::Unisyn::Lex::type);                           # Lexical type
-    $p                                                                          # Guaranteed to exist
+  my $prev2 = sub                                                               # Lexical item and type of the previous previous item on the parse stack
+   {my $o = $stack->peek(2);
+    $parse->getZmmBlock($o, 2);                                                 # Reload the description of the last lexical item
+    dFromZ(2, $dWidth * Nasm::X86::Unisyn::Lex::type);                          # Lexical type
    };
 
-  my $prev2 = sub                                                               # Lexical type of the previous previous item on the parse stack
-   {my $p = $parse->peekSubTree(K key => 2);
-    $p->find(K key => Nasm::X86::Unisyn::Lex::type);                            # Lexical type
-    $p                                                                          # Guaranteed to exist
-   };
-
-  my $double = sub                                                              # Double reduction - the right most item is placed under the second right most item
-   {my $right = $parse->popSubTree;
-    &$prev->put(K(l => Nasm::X86::Unisyn::Lex::left), $right);
+  my $double = sub                                                              # Double reduction - the right most item is placed 'left' under the second right most item
+   {my $r = $stack->pop;                                                        # Right
+    my $l = $stack->peek(1);                                                    # Left
+    $parse->getZmmBlock($l, 1);                                                 # Reload the description of the last lexical item
+    $r->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::left);                      # Address right from left via 'left' field
+    $parse->putZmmBlock($l, 1);                                                 # Update parse tree in memory
    };
 
   my $triple = sub                                                              # Triple reduction
-   {my $right = $parse->popSubTree;                                             # Right operand
-    my $op    = $parse->popSubTree;                                             # Operator
-    my $left  = $parse->popSubTree;                                             # Left operand
-    $parse->push($op);
-    $op->put(K(l => Nasm::X86::Unisyn::Lex::left ), $left);
-    $op->put(K(r => Nasm::X86::Unisyn::Lex::right), $right);
+   {my $l = $stack->pop;                                                        # Right most
+    my $o = $stack->pop;                                                        # Operator
+    my $r = $stack->pop;                                                        # Left operand
+    $parse->getZmmBlock($o, 1);                                                 # Reload the description of the last lexical item
+    $l->dIntoZ(2, $dWidth * Nasm::X86::Unisyn::Lex::left);
+    $r->dIntoZ(2, $dWidth * Nasm::X86::Unisyn::Lex::right);
+    $parse->putZmmBlock($o, 1);                                                 # Update parse tree in memory
    };
 
   my $a = sub                                                                   # Dyad2 = right to left associative
    {#PrintErrStringNL "Type: a";
     my $q = &$prev2;                                                            # Second previous item
     ifOr
-     [sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::d},               # Dyad2 preceded by dyad3 or dyad4
-      sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::e}],
+     [sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},                     # Dyad2 preceded by dyad3 or dyad4
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e}],
     Then
      {&$triple;                                                                 # Reduce
      };
-    &$push;                                                                     # Push dyad2
+    &$new;                                                                      # Push dyad2
    };
 
   my $A = sub                                                                   # Ascii
    {#PrintErrStringNL "Type: A";
     my $p = &$prev;
-    If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
-    Then                                                                        # Previous is a prefix operator
-     {$p->put(K(l => Nasm::X86::Unisyn::Lex::left), &$new);                     # Push onto prev
-     },
-    Else                                                                        # Previous is not a prefix operator
-     {&$push;                                                                   # Push ascii
-     },
+    &$new;
+    If $p == K(p => Nasm::X86::Unisyn::Lex::Number::p),
+    Then                                                                        # Previous is a prefix operator so we can append from it immediately
+     {&$double;
+     };
    };
 
   my $b = sub                                                                   # Open bracket
    {#PrintErrStringNL "Type: b";
-    &$push;                                                                     # Push open bracket
+    &$new;                                                                      # Push open bracket
    };
 
   my $B = sub                                                                   # Close bracket
    {#PrintErrStringNL "Type: B";
-    If &$prev->data == K(p => Nasm::X86::Unisyn::Lex::Number::s),               # Pointless statement separator
+    my $p = &$prev;
+    If $p == K(p => Nasm::X86::Unisyn::Lex::Number::s),                         # Pointless statement separator
     Then
-     {$parse->pop;
+     {$stack->pop;
      };
     Block                                                                       # Non empty pair of brackets - a single intervening bracket represents a previously collapsed bracketed expression
      {my ($end, $start) = @_;
-      my $p = &$prev2;
-      If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::b),
+      If $p == K(p => Nasm::X86::Unisyn::Lex::Number::b),
       Then                                                                      # Single item in brackets
        {&$double;
        },
-      Ef {$p->data != K(p => Nasm::X86::Unisyn::Lex::Number::S)}
+      Ef {$p != K(p => Nasm::X86::Unisyn::Lex::Number::S)}
       Then                                                                      # Triple reduce back to start
        {&$triple;
         Jmp $start;                                                             # Keep on reducing until we meet the matching opening bracket
        };
      };
-    If &$prev2->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),              # Prefix operator preceding brackets
+    If &$prev2 == K(p => Nasm::X86::Unisyn::Lex::Number::p),                    # Prefix operator preceding brackets
     Then
      {&$double;
      };
@@ -9862,31 +9862,30 @@ sub ParseUnisyn($$)                                                             
   my $d = sub                                                                   # Dyad3
    {my $q = &$prev2;                                                            # Second previous item
     ifOr
-     [sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::d},               # Dyad3 preceded by dyad3 or dyad4
-      sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::e}],
+     [sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},                     # Dyad3 preceded by dyad3 or dyad4
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e}],
     Then
      {&$triple;                                                                 # Reduce
      };
-    &$push;                                                                     # Push dyad3
+    &$new;                                                                      # Push dyad3
    };
 
   my $e = sub                                                                   # Dyad4
    {#PrintErrStringNL "Type: e";
     my $q = &$prev2;                                                            # Second previous item
-    If $q->data == K(p => Nasm::X86::Unisyn::Lex::Number::e),
+    If $q == K(p => Nasm::X86::Unisyn::Lex::Number::e),
     Then                                                                        # Dyad4 preceded by dyad4
      {&$triple;                                                                 # Reduce
      };
-    &$push;                                                                     # Push dyad4
+    &$new;                                                                      # Push dyad4
    };
 
   my $F = sub                                                                   # Final: at this point there are no brackets left.
    {#PrintErrStringNL "Type: F";
     &$updateLength;                                                             # Update the length of the previous lexical item - if there were none it will the length of the start symbol that is updated
-    $parse->size->for(sub                                                       # Reduce
+    $stack->size->for(sub                                                       # Reduce
      {my ($index, $start, $next, $end) = @_;
-      my $p = &$prev2;
-      If $p->data != K(p => Nasm::X86::Unisyn::Lex::Number::S),
+      If &$prev2 != K(p => Nasm::X86::Unisyn::Lex::Number::S),
       Then                                                                      # Not at the end yet
        {&$triple;
        },
@@ -9894,21 +9893,22 @@ sub ParseUnisyn($$)                                                             
        {Jmp $end;
        };
      });
-    my $top = $parse->popSubTree;                                               # Top of the parse tree
-    $parse->clear;
-    $parse->push($top);                                                         # New top of the parse tree
+    my $top = $stack->pop;                                                      # Top of the parse tree
+    $stack->clear;
+    $stack->push($top);                                                         # New top of the parse tree
    };
 
   my $p = sub                                                                   # Prefix
    {#PrintErrStringNL "Type: p";
-    &$push;                                                                     # Push prefix
+    &$new;                                                                      # Push prefix
    };
 
   my $q = sub                                                                   # Suffix
    {#PrintErrStringNL "Type: q";
-    my $t = $parse->popSubTree;                                                 # Pop existing item description
-    my $p = &$push;                                                             # Push suffix
-    $p->push($t);                                                               # Restore previous item but now under suffix
+    my $v = $stack->pop;                                                        # Pop currently top item
+    &$new;                                                                      # Push suffix operator
+    $stack->push($v);                                                           # Restore current item to top
+    &$double;                                                                   # Place top under previous item leaving previous item on top of the stack
    };
 
   my $s = sub                                                                   # Statement separator
@@ -9917,23 +9917,23 @@ sub ParseUnisyn($$)                                                             
      {my ($end, $start) = @_;
       my $p = &$prev;                                                           # Previous item
       ifOr                                                                      # Separator preceded by open or start - do nothing
-       [sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::b},
-        sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::s},
-        sub {$p->data == K p => Nasm::X86::Unisyn::Lex::Number::S}],
+       [sub {$p == K p => Nasm::X86::Unisyn::Lex::Number::b},
+        sub {$p == K p => Nasm::X86::Unisyn::Lex::Number::s},
+        sub {$p == K p => Nasm::X86::Unisyn::Lex::Number::S}],
       Then                                                                      # Eliminate useless statement separator
        {Jmp $end;
        };
       my $q = &$prev2;                                                          # Second previous item
-      If $q->data == K(p => Nasm::X86::Unisyn::Lex::Number::s),
+      If $q == K(p => Nasm::X86::Unisyn::Lex::Number::s),
       Then                                                                      # Second previous is a statement separator
        {&$triple;                                                               # Reduce
         Jmp $end;                                                               # No need to push as we already have a statement separator on top of the stack
        };
       ifOr
-       [sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::b},             # Statement separator preceded by singleton
-        sub {$q->data == K p => Nasm::X86::Unisyn::Lex::Number::S}],
+       [sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::b},                   # Statement separator preceded by singleton
+        sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::S}],
       Then
-       {&$push;                                                                 # Push statement separator after singleton
+       {&$new;                                                                  # Push statement separator after singleton
         Jmp $end;
        };
       &$triple;                                                                 # An operator at a higher level than statement separator so we can reduce
@@ -9944,19 +9944,19 @@ sub ParseUnisyn($$)                                                             
   my $v = sub                                                                   # Variable
    {#PrintErrStringNL "Type: v";
     my $p = &$prev;
-    If $p->data == K(p => Nasm::X86::Unisyn::Lex::Number::p),
+    &$new;
+    If $p == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator
-     {$p->put(K(l => Nasm::X86::Unisyn::Lex::left), &$new);                     # Push onto prev
-     },
-    Else                                                                        # Previous is not a prefix operator
-     {&$push;                                                                   # Push variable
-     },
+     {&$double;                                                                  # Push onto prev
+     };
    };
 
   $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
-
+#PrintErrStringNL "AAAA";
+#$char->d;
+#$position->d;
     $parseChar->copy($char);                                                    # Copy the current character
     If $fail > 0,
     Then                                                                        # Failed to convert a utf8 character
@@ -9977,7 +9977,7 @@ sub ParseUnisyn($$)                                                             
     Then                                                                        # Opening bracket
      {$openClose->find($char);                                                  # Locate corresponding closing bracket - we ought to allocate several of these at a time and use a small tree=2
       ClearRegisters zmm1;
-      $position       ->qIntoZ(1,    0);
+      $position       ->qIntoZ(1,    0);                                        # Details of opening bracket
       $char           ->qIntoZ(1,    8);
       $openClose->data->qIntoZ(1, 0x10);
       $brackets->pushZmm(zmm1);                                                 # Save bracket description on bracket stack
@@ -9987,7 +9987,7 @@ sub ParseUnisyn($$)                                                             
     Then                                                                        # Closing bracket
      {If $brackets->stackSize > 0,                                              # Something to match with on the brackets stack
       Then
-       {$brackets->popZmm(1);
+       {$brackets->popZmm(1);                                                   # Details of matching bracket
         my $close = qFromZ(zmm1, 0x10);
         If $close != $char,                                                     # Closing bracket did not match the closing bracket derived from the opening bracket
         Then
@@ -10011,6 +10011,7 @@ sub ParseUnisyn($$)                                                             
     Then                                                                        # Statement separator is always one character wide as more would be pointless
      {$change->copy(1);                                                         # Changing because we are on a different lexical item
      };
+
     If $change > 0,                                                             # Check the transition from the previous item
     Then                                                                        # Change of current lexical item
      {$next->find($alphabets->data);                                            # Locate next lexical item in the tree of possible transitions for the last lexical item
@@ -10027,12 +10028,13 @@ sub ParseUnisyn($$)                                                             
         Jmp $end;
        };
 
-      my $l = &$new;                                                            # Description of the lexical item
-
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
-        for my $l(qw(a A b B d e F p q s S v))
-         {eval qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
+#       for my $l(qw(a A b B d e F p q s S v))
+        for my $l(qw(a A b B d e F p q s v))
+         {my $c = qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
+          eval $c;
+          confess "$@\n$c\n" if $@;
          }
         PrintErrTraceBack "Unexpected lexical type" if $DebugMode;              # Something unexpected came along
        };
@@ -10060,10 +10062,10 @@ sub ParseUnisyn($$)                                                             
      };
    });
 
-  my $parseTree = $parse->popSubTree; $parse->free; $brackets->free;            # Obtain the parse tree and free the brackets stack and parse stack
+  my $parseTree = $stack->pop; $stack->free; $brackets->free;                   # Obtain the parse tree (which is not a conventional tree) and free the brackets stack and parse stack
 
   genHash "Nasm::X86::Unisyn::Parse",                                           # Parse results
-    area     => $area,                                                          # The area in which the parse tree was built
+    area     => $parse,                                                         # The area in which the parse tree was built
     tree     => $parseTree,                                                     # The resulting parse tree
     char     => $parseChar,                                                     # Last character processed
     fail     => $parseFail,                                                     # If not zero the parse has failed for some reason
@@ -10915,7 +10917,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10917 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10919 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18638,7 +18640,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】');
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -18648,7 +18650,7 @@ if (1) {                                                                        
   $parse->position->outNL;
   $parse->match   ->outNL;
   $parse->reason  ->outNL;
-  $parse->tree->dumpParseTree($a8);
+# $parse->tree->dumpParseTree($a8);
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... .... 3011
