@@ -9781,9 +9781,12 @@ sub ParseUnisyn($$)                                                             
 
   my $updateLength = sub                                                        # Update the length of the previous lexical item
    {my $l = $position - $startPos;                                              # Length of previous item
+#PrintErrStringNL "BBBB";
+#$l->d;
     my $s = $symbols->uniqueKeyString($a8+$startPos,   $l);                     # The symbol number of the previous lexical item
     my $o = $stack->peek(1);                                                    # Last lexical item
     $parse->getZmmBlock($o, 0);                                                 # Reload the description of the last lexical item
+#$o->d;
     $s->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::symbol);                    # Record lexical symbol number of previous item in its describing tree
     $l->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::length);                    # Record length of previous item in its describing tree
     $parse->putZmmBlock($o, 0);                                                 # Save the lexical item back into memory
@@ -9820,6 +9823,15 @@ sub ParseUnisyn($$)                                                             
     $parse->putZmmBlock($l, 1);                                                 # Update parse tree in memory
    };
 
+  my $doubleSwap = sub                                                          # Double reduction - the left most item is placed 'left' under the right most item keeping the right hand opernd on teh stack so its length can be updated - annoying.
+   {my $r = $stack->pop;                                                        # Right
+    my $l = $stack->pop;                                                        # Left
+    $parse->getZmmBlock($r, 1);                                                 # Reload the description of the last lexical item
+    $l->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::left);                      # Address right from left via 'left' field
+    $parse->putZmmBlock($r, 1);                                                 # Update parse tree in memory
+    $stack->push($r);
+   };
+
   my $triple = sub                                                              # Triple reduction
    {my $r = $stack->pop;                                                        # Right most
     my $o = $stack->pop;                                                        # Operator
@@ -9849,7 +9861,7 @@ sub ParseUnisyn($$)                                                             
     &$new;
     If $p == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator so we can append from it immediately
-     {&$double;
+     {&$doubleSwap;
      };
    };
 
@@ -9941,10 +9953,10 @@ sub ParseUnisyn($$)                                                             
 
   my $q = sub                                                                   # Suffix
    {#PrintErrStringNL "Type: q";
-    my $v = $stack->pop;                                                        # Pop currently top item
+#   my $v = $stack->pop;                                                        # Pop currently top item
     &$new;                                                                      # Push suffix operator
-    $stack->push($v);                                                           # Restore current item to top
-    &$double;                                                                   # Place top under previous item leaving previous item on top of the stack
+#   $stack->push($v);                                                           # Restore current item to top
+    &$doubleSwap;                                                               # Place top under previous item leaving previous item on top of the stack
    };
 
   my $s = sub                                                                   # Statement separator
@@ -9983,7 +9995,7 @@ sub ParseUnisyn($$)                                                             
     &$new;
     If $p == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator
-     {&$double;                                                                 # Push onto prev
+     {&$doubleSwap;                                                             # Push onto prev
      };
    };
 
@@ -10130,6 +10142,8 @@ sub Nasm::X86::Unisyn::Parse::dump($)                                           
   @_ == 1 or confess "One parameter";
 
   my $w = RegisterSize(eax);                                                    # Width of an offset
+
+#$parse->area->dump("PPPP", 20);
 
   my $s = Subroutine                                                            # Print a tree
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -10965,7 +10979,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10967 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10981 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17601,11 +17615,11 @@ sub testParseUnisyn($$$)                                                        
 
   unlink $f;
  }
-
+                                     ## Remove new lines
 test7: goto test8 unless $test{7};
 
 #latest:;
-testParseUnisyn '',                                        "\n",                    qq(\n\n);
+testParseUnisyn '',                                        "\n",                    qq();
 testParseUnisyn 'va',                                      "𝗔\n",                   qq(𝗔\n);
 testParseUnisyn 'va a= va',                                "𝗔＝𝗔\n",                 qq(＝\n._𝗔\n._𝗔\n);
 testParseUnisyn 'va e+ vb',                                "𝗔＋𝗕\n",                 qq(＋\n._𝗔\n._𝗕\n);
@@ -17617,11 +17631,12 @@ testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】\n
 
 test8: goto test9 unless $test{8};
 
+#latest:;
 testParseUnisyn 'b( va B)',                                "【𝗔】\n",                 qq(【\n._𝗔\n);
 testParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】\n",               qq(【\n._⟦\n._._𝗔\n);
 testParseUnisyn 'b( b[ va e+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】\n",             qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
 testParseUnisyn 'b( b[ va e+ vb B] e* b[ va e+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】\n",       qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
-testParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢\n",               qq();
+testParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢\n",               qq(⟢\n);  ##Should produce nothing
 testParseUnisyn 'va s vb',                                 "𝗔⟢𝗕\n",                 qq(⟢\n._𝗔\n._𝗕\n);
 testParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕\n",                qq(⟢\n._𝗔\n._𝗕\n);
 testParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢\n",            qq(⟢\n._𝗔\n._𝗕\n);
@@ -18675,7 +18690,7 @@ Area     Size:     4096    Used:      384
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   Mov rax, 0x2222;
   dRegIntoZmm(rax, 31, 8);
@@ -18869,6 +18884,79 @@ parseReason: .... .... .... ...0
 ._._𝗔
 ._._𝗕
 ._𝗖
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString("𝑳𝗔");
+
+  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->dump;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>41_769;
+parseChar  : .... .... ...1 D5D4
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ...8
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+𝗔
+._𝑳
+END
+ }
+
+latest:
+if (1) { ### Fails because L is beiong written as three bytes when it should be four                                                                       #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString('𝗔𝙆');
+
+  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->dump;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
+parseChar  : .... .... ...1 D646
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ...8
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+𝙆
+._𝗔
+END
+ }
+
+latest:
+if (1) { ### Fails because L is beiong written as three bytes when it should be four                                                                       #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString('𝑳𝗔𝙆');
+
+  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->dump;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
+parseChar  : .... .... ...1 D646
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ...C
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+𝙆
+._𝗔
+._._𝑳
 END
  }
 
