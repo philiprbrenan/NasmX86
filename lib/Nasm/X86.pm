@@ -5838,7 +5838,7 @@ sub Nasm::X86::Area::dump($$;$)                                                 
      name => "Nasm::X86::Area::dump";
 
   PrintOutStringNL $title;
-  $s->call(structures=>{area=>$area}, parameters=>{depth => ($depth // V('depth', 4))});
+  $s->call(structures=>{area=>$area}, parameters=>{depth => defined($depth) ? (ref($depth) ? $depth : V(depth => $depth)) : V('depth', 4)});
  }
 
 #D2 Areas as Stacks                                                             # Use an area as a stack. If the area is simultaneouls used for other operations confusion will ensue.
@@ -5914,6 +5914,19 @@ sub Nasm::X86::Area::stackVariable($$)                                          
   V pop => "[$Area+$w*$Index+$$area{dataOffset}]";                              # Return popped data
  }
 
+sub Nasm::X86::Area::stackVariableSize($)                                       # Size of a stack of variables in an area.
+ {my ($area) = @_;                                                              # Area descriptor
+  @_ == 1 or confess "One parameter";
+  confess "Not a stack" unless $area->stack;                                    # Check that we are using the area as a stack
+
+  $area ->address->setReg(rax);                                                 # Address area
+
+  Mov rax, "[rax+$$area{usedOffset}]";                                          # Used area in bytes
+  Sub rax, $area->dataOffset;                                                   # Header space
+  Shr rax, 3;                                                                   # Used area in quads
+  V size => rax;                                                                # Return size in quads
+ }
+
 sub Nasm::X86::Area::pop($)                                                     # Pop a variable from the stack in an area being used as a stack
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
@@ -5925,8 +5938,8 @@ sub Nasm::X86::Area::pop($)                                                     
 
   $area->address->setReg($areaA);                                               # Address area
   Mov $oldUsed, $used;                                                          # Record currently used space
-  Cmp $oldUsed, $area->dataOffset + $w - 1;                                     # Space minus header is actual space used by stack
-  IfLe                                                                          # Stack under flow
+  Cmp $oldUsed, $area->dataOffset + $w;                                         # Space minus header is actual space used by stack
+  IfLt                                                                          # Stack under flow
   Then
    {PrintErrTraceBack "Stack underflow";
    };
@@ -9744,8 +9757,7 @@ sub ParseUnisyn($$)                                                             
    {my $i = V i => 0;                                                           # Position in stack
     PrintOutStringNL "Dump parse stack";
 
-    my $n = $stack->used >> K(key => 3);
-    $n->for(sub                                                                 # Each item on stack
+    $stack->stackVariableSize->for(sub                                          # Each item on stack
      {my ($i, $start, $next, $end) = @_;
       my $o = $stack->stackVariable($i);
       $parse->getZmmBlock($o, 4);
@@ -9770,7 +9782,7 @@ sub ParseUnisyn($$)                                                             
   my $updateLength = sub                                                        # Update the length of the previous lexical item
    {my $l = $position - $startPos;                                              # Length of previous item
     my $s = $symbols->uniqueKeyString($a8+$startPos,   $l);                     # The symbol number of the previous lexical item
-    my $o = $stack->peek(0);                                                    # Last lexical item
+    my $o = $stack->peek(1);                                                    # Last lexical item
     $parse->getZmmBlock($o, 0);                                                 # Reload the description of the last lexical item
     $s->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::symbol);                    # Record lexical symbol number of previous item in its describing tree
     $l->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::length);                    # Record length of previous item in its describing tree
@@ -9779,18 +9791,14 @@ sub ParseUnisyn($$)                                                             
    };
 
   my $new = sub                                                                 # Create a new lexical item
-   {my ($first) = @_;                                                           # Indicates that this is the first time this routine is being called in this parse
-    if (!$first)                                                                # There is no previous item to update
-     {&$updateLength;                                                           # Update the length of the previous lexical item
-     }
-    ClearRegisters zmm0;
+   {ClearRegisters zmm0;
     $last      ->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::type);             # Last lexical item recognized
     $position  ->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::position);         # Position of lexical item
     my $o = $parse->appendZmm(0);                                               # Save the lexical item in the parse tree
     $stack->push($o);                                                           # Save the offset of the latest lexical item on the stack
    };
 
-  &$new(1); &$new for 1..2;                                                     # Initialize the parse tree with three start symbols to act as sentinels
+  &$new for 1..3;                                                               # Initialize the parse tree with three start symbols to act as sentinels
 
   my $prev = sub                                                                # Lexical item and type of the previous item on the parse stack
    {my $o = $stack->peek(1);
@@ -9813,13 +9821,14 @@ sub ParseUnisyn($$)                                                             
    };
 
   my $triple = sub                                                              # Triple reduction
-   {my $l = $stack->pop;                                                        # Right most
+   {my $r = $stack->pop;                                                        # Right most
     my $o = $stack->pop;                                                        # Operator
-    my $r = $stack->pop;                                                        # Left operand
+    my $l = $stack->pop;                                                        # Left operand
     $parse->getZmmBlock($o, 1);                                                 # Reload the description of the last lexical item
-    $l->dIntoZ(2, $dWidth * Nasm::X86::Unisyn::Lex::left);
-    $r->dIntoZ(2, $dWidth * Nasm::X86::Unisyn::Lex::right);
+    $l->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::left);
+    $r->dIntoZ(1, $dWidth * Nasm::X86::Unisyn::Lex::right);
     $parse->putZmmBlock($o, 1);                                                 # Update parse tree in memory
+    $stack->push($o);
    };
 
   my $a = sub                                                                   # Dyad2 = right to left associative
@@ -9829,7 +9838,7 @@ sub ParseUnisyn($$)                                                             
      [sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},                     # Dyad2 preceded by dyad3 or dyad4
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e}],
     Then
-     {&$triple;                                                                 # Reduce
+     {&$triple;                                                                 # Reduce the stack before adding the assignment
      };
     &$new;                                                                      # Push dyad2
    };
@@ -9851,16 +9860,18 @@ sub ParseUnisyn($$)                                                             
 
   my $B = sub                                                                   # Close bracket
    {#PrintErrStringNL "Type: B";
-
-    &$updateLength;                                                             # We do not capture this bracket but we do need to move up over it
-
     my $p = &$prev;
     If $p == K(p => Nasm::X86::Unisyn::Lex::Number::s),                         # Pointless statement separator
     Then
      {$stack->pop;
      };
+    Ef {$p == K(p => Nasm::X86::Unisyn::Lex::Number::b)}                        # Empty bracket pair
+    Then
+     {
+     };
     Block                                                                       # Non empty pair of brackets - a single intervening bracket represents a previously collapsed bracketed expression
      {my ($end, $start) = @_;
+      my $p = &$prev2;
       If $p == K(p => Nasm::X86::Unisyn::Lex::Number::b),
       Then                                                                      # Single item in brackets
        {&$double;
@@ -9900,17 +9911,24 @@ sub ParseUnisyn($$)                                                             
 
   my $F = sub                                                                   # Final: at this point there are no brackets left.
    {#PrintErrStringNL "Type: F";
-    &$updateLength;                                                             # Update the length of the previous lexical item - if there were none it will the length of the start symbol that is updated
-    $stack->size->for(sub                                                       # Reduce
-     {my ($index, $start, $next, $end) = @_;
+    &$updateLength;                                                             # Update the length of the previous lexical item
+
+    Block                                                                       # Reduce all the remaining items on the stack
+     {my ($end, $start) = @_;
       If &$prev2 != K(p => Nasm::X86::Unisyn::Lex::Number::S),
-      Then                                                                      # Not at the end yet
+      Then                                                                      # Not at the end yet and room for a triple reduction
        {&$triple;
-       },
-      Else                                                                      # Down to the start line
-       {Jmp $end;
+        Jmp $start;
        };
-     });
+#     If &$prev2 == K(p => Nasm::X86::Unisyn::Lex::Number::S),
+#     Then                                                                      # Not at the end yet with room for a final double reduction
+#      {PrintErrStringNL "FFFF111";
+#       &$prev2;
+#       $stack->stackVariableSize->d;
+#       &$double;
+#       $stack->stackVariableSize->d;
+#      };
+     };
     my $top = $stack->pop;                                                      # Top of the parse tree
     $stack->clear;
     $stack->push($top);                                                         # New top of the parse tree
@@ -9965,13 +9983,24 @@ sub ParseUnisyn($$)                                                             
     &$new;
     If $p == K(p => Nasm::X86::Unisyn::Lex::Number::p),
     Then                                                                        # Previous is a prefix operator
-     {&$double;                                                                  # Push onto prev
+     {&$double;                                                                 # Push onto prev
      };
    };
 
   $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+
+    if (0)                                                                      # Debug
+     {PrintOutStringNL "AAAA";
+      $index->outNL;
+      $char->outNL;
+      PrintErrStringNL "AAAA";
+      $index->d;
+      $char->d;
+      $stack->dump("Stack");
+      $parse->dump("Parse", 20);
+     };
 
     $parseChar->copy($char);                                                    # Copy the current character
 
@@ -9981,7 +10010,7 @@ sub ParseUnisyn($$)                                                             
       Jmp $end;
      };
 
-    $alphabets->find($char);                                                    # Classify character
+    $alphabets->find($char);        ### Need a hash of bytes here               # Classify character
     If $alphabets->found == 0,
     Then                                                                        # Failed to classify character
      {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidChar);
@@ -10045,10 +10074,12 @@ sub ParseUnisyn($$)                                                             
         Jmp $end;
        };
 
+      &$updateLength;                                                           # Update the length of the previous lexical item
+
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
 #       for my $l(qw(a A b B d e F p q s S v))
-        for my $l(qw(a A b B d e F p q s v))
+        for my $l(qw(a A b B d e F p q s v))  ## Remove finish                  # We can never arrive on the start symbol.
          {my $c = qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
           eval $c;
           confess "$@\n$c\n" if $@;
@@ -10063,7 +10094,7 @@ sub ParseUnisyn($$)                                                             
      {$next->find(K finish => Nasm::X86::Unisyn::Lex::Number::F);               # Check that we can locate the final state from the last symbol encountered
       If $next->found > 0,
       Then                                                                      # We are able to transition to the final state
-       {If $brackets->stackSize == 0,                                           # Check that al the brackets have closed
+       {If $brackets->stackSize == 0,                                           # Check that all the brackets have closed
         Then                                                                    # No outstanding brackets
          {&$F;
           $parseFail->copy(0);                                                  # Show success as a lack of failure
@@ -10118,12 +10149,24 @@ sub Nasm::X86::Unisyn::Parse::dump($)                                           
       my $left     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::left);              # Left operand found
       my $right    = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::right);             # Right operand found
 
+#PrintErrStringNL "BBBB";
+#$offset->d;
+#PrintErrRegisterInHex zmm1;
+#$type    ->errNL("Type:     ");
+#$position->errNL("Position: ");
+#$length  ->errNL("Length:   ");
+
       If $length > 0,                                                           # Source text of lexical item
       Then
        {$depth->for(sub
          {PrintOutString "._";
          });
-        ($source + $position)->printOutMemoryNL($length);
+#PrintErrStringNL "AAAA";
+#$offset->d;
+#$source->d;
+#$position->d;
+#$length->d;
+       ($source + $position)->printOutMemoryNL($length);
        };
 
       If $left > 0,
@@ -10142,7 +10185,7 @@ sub Nasm::X86::Unisyn::Parse::dump($)                                           
      name       => "Nasm::X86::Unisyn::Parse::dump";
 
   $s->call(structures => {area   => $parse->area},
-           parameters => {depth  => K(depth => -1),
+           parameters => {depth  => K(depth => 0),
                           offset => $parse->tree,
                           source => $parse->source});
  }
@@ -10922,7 +10965,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10924 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10967 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17514,7 +17557,7 @@ if (1) {                                                                        
   $parse->position->outNL;
   $parse->match   ->outNL;
   $parse->reason  ->outNL;
-  $parse->tree->dumpParseTree($a8);
+  $parse->dump;
 
 # 1_369_790
 # Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
@@ -17549,7 +17592,7 @@ sub testParseUnisyn($$$)                                                        
 
   my $p = ParseUnisyn($a8, $s8-1);                                              # Parse the utf8 string minus the final new line
 
-  $p->tree->dumpParseTree($a8);
+  $p->dump;
   ok Assemble eq => $parse, avx512=>1, mix=>1;
 
   if (-e $programOut and $homeTest)                                             # Print parse tree
@@ -17703,7 +17746,7 @@ if (1)
 
   my $p = ParseUnisyn($a8, $s8-1);                                              # Parse the utf8 string minus the final new line
 
-  $p->tree->dumpParseTree($a8);
+  $p->dump;
   ok Assemble eq => <<END, avx512=>1, mix=>0;
 ⟢
 ._＝
@@ -18054,9 +18097,9 @@ END
   my $l = ReadArea $f;                                                          # Area containing subroutine library
 
   my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
-  my $p = ParseUnisyn($A, $N);                                                   # Parse the utf8 string minus the final new line and zero?
+  my $p = ParseUnisyn($A, $N);                                                  # Parse the utf8 string minus the final new line and zero?
 
-  $p->tree->dumpParseTree($A);                                                  # Parse tree
+  $p->dump;                                                                     # Parse tree
 
   my $i = $l->readLibraryHeader($p->symbols);                                   # Create a tree mapping the subroutine numbers to subroutine offsets
 
@@ -18102,7 +18145,7 @@ if (1) {                                                                        
   my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
 
   my $p = ParseUnisyn($s, $l);                                                  # Parse the utf8 string
-  $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
+  $p->dump;                                                                     # Dump the parse tree
 # my $q = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
 
 # Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
@@ -18632,7 +18675,7 @@ Area     Size:     4096    Used:      384
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   Mov rax, 0x2222;
   dRegIntoZmm(rax, 31, 8);
@@ -18645,7 +18688,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】');
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -18704,10 +18747,108 @@ data   : .... .... .... .333
 END
  }
 
-latest:
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString("𝗔");
+
+  my $parse = ParseUnisyn($a8, $s8);                                            # 5441 Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->dump;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
+parseChar  : .... .... ...1 D5D4
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ...4
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+𝗔
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString("【𝗔】");
 
+  my $parse = ParseUnisyn($a8, $s8);                                            # 5441 Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->dump;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
+parseChar  : .... .... .... 3011
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ...A
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+【
+._𝗔
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString("𝗔＋𝗕");
+
+  my $parse = ParseUnisyn($a8, $s8);                                            # 5441 Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->dump;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
+parseChar  : .... .... ...1 D5D5
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ...B
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+＋
+._𝗔
+._𝗕
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString("【𝗔＋𝗕】");
+
+  my $parse = ParseUnisyn($a8, $s8);                                            # 5441 Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->dump;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
+parseChar  : .... .... .... 3011
+parseFail  : .... .... .... ...0
+pos        : .... .... .... ..11
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+【
+._＋
+._._𝗔
+._._𝗕
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString("𝗔＋𝗕＋𝗖");
+
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
 
   $parse->char    ->outNL;                                                      # Print results
@@ -18718,54 +18859,21 @@ if (1) {                                                                        
   $parse->dump;
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>41_769;
-parseChar  : .... .... .... 3011
+parseChar  : .... .... ...1 D5D6
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ..1F
+pos        : .... .... .... ..12
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
-【
+＋
 ._＋
-._._＋
-._._._＋
-._._._._𝗔
-._._._._𝗔
-._._._𝗔
 ._._𝗔
+._._𝗕
+._𝗖
 END
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString("【𝗔＋𝗔＋𝗔＋𝗔】");
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>41_769;
-parseChar  : .... .... .... 3011
-parseFail  : .... .... .... ...0
-pos        : .... .... .... ..1F
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-【
-._＋
-._._＋
-._._._＋
-._._._._𝗔
-._._._._𝗔
-._._._𝗔
-._._𝗔
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+latest:
+if (0) { ### Fails because L is beiong written as three bytes when it should be four                                                                       #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('𝑳【】𝙆');
 
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -18775,7 +18883,7 @@ if (1) {                                                                        
   $parse->position->outNL;
   $parse->match   ->outNL;
   $parse->reason  ->outNL;
-  $parse->tree->dumpParseTree($a8);
+  $parse->dump;
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... ...1 D646
@@ -18813,16 +18921,21 @@ latest:
 if (1) {                                                                        #TNasm::X86::Area::push
   my $a = CreateArea(stack=>1);
 
+  $a->stackVariableSize->outNL;
   $a->dump("AA");
   $a->push(K key => 0x11111111);
+  $a->stackVariableSize->outNL;
   $a->dump("AA");
 
   $a->push(K key => 0x22222222);                                                # 12
+  $a->stackVariableSize->outNL;
   $a->dump("AA");
 
   PrintOutStringNL "Peek";
   $a->peek(1)->outNL;
+  $a->stackVariableSize->outNL;
   $a->peek(2)->outNL;
+  $a->stackVariableSize->outNL;
   $a->stackSize->outNL;
 
   PrintOutStringNL "stackVariable";
@@ -18832,8 +18945,10 @@ if (1) {                                                                        
   PrintOutStringNL "Pop";
   my $s1 = $a->pop;                                                             #  9
      $s1->outNL;
+  $a->stackVariableSize->outNL;
   my $s2 = $a->pop;
      $s2->outNL;
+  $a->stackVariableSize->outNL;
   $a->dump("pop1");
   $a->dump("pop2");
 
@@ -18863,18 +18978,21 @@ if (1) {                                                                        
   PrintOutRegisterInHex zmm3, zmm4;
 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>391;
+size: .... .... .... ...0
 AA
 Area     Size:     4096    Used:       64
 .... .... .... ...0 | __10 ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..40 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+size: .... .... .... ...1
 AA
 Area     Size:     4096    Used:       72
 .... .... .... ...0 | __10 ____ ____ ____  48__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..40 | 1111 1111 ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+size: .... .... .... ...2
 AA
 Area     Size:     4096    Used:       80
 .... .... .... ...0 | __10 ____ ____ ____  50__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -18883,14 +19001,18 @@ Area     Size:     4096    Used:       80
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 Peek
 pop: .... .... 2222 2222
+size: .... .... .... ...2
 pop: .... .... 1111 1111
+size: .... .... .... ...2
 stackSize: .... .... .... ..10
 stackVariable
 pop: .... .... 1111 1111
 pop: .... .... 2222 2222
 Pop
 pop: .... .... 2222 2222
+size: .... .... .... ...1
 pop: .... .... 1111 1111
+size: .... .... .... ...0
 pop1
 Area     Size:     4096    Used:       64
 .... .... .... ...0 | __10 ____ ____ ____  40__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
