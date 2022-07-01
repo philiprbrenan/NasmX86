@@ -17350,18 +17350,6 @@ END
 test6: goto test7 unless $test{6};
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitions
-  my $a = CreateArea;
-  my ($o, $c) = Nasm::X86::Unisyn::Lex::OpenClose($a);
-  $o->printInOrder('OC');
-  $c->printInOrder('CO');
-  ok Assemble eq => <<END, avx512=>1;
-OC  38: 2308230A23292768276A276C276E27702772277427E627E827EA27EC27EE2983298529872989298B298D298F299129932995299729FC2E283008300A3010301430163018301AFD3EFF08FF5F
-CO  38: 2309230B232A2769276B276D276F27712773277527E727E927EB27ED27EF298429862988298A298C298E2990299229942996299829FD2E293009300B3011301530173019301BFD3FFF09FF60
-END
- }
-
-#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
