@@ -15,8 +15,7 @@
 # Jump forwarding
 # All options checking immediately after parameters
 # Which subs do we actually need SaveFirst four on?
-# popSubTree should be removed
-# Imporve translation to hex by using properties of the ascii table:
+# Binary search tighhten up reghister saves
 package Nasm::X86;
 our $VERSION = "20220606";
 use warnings FATAL => qw(all);
@@ -10948,7 +10947,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10950 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10949 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18031,7 +18030,8 @@ sub BinarySearchD(%)                                                            
   Block
    {my ($end, $start) = @_;                                                     # End, start label
 
-    PushR my $low = r15, my $high = r14;                                        # Work registers modified by this routine
+    PushR my $low = r15, my $high = r14,                                        # Work registers modified by this routine
+      my $loop = r13, my $mid = r12;
 
     Mov $low,  0;                                                               # Closed start of current range to search
     &$Size($high);                                                              # Open end of current range to search
@@ -18074,8 +18074,6 @@ sub BinarySearchD(%)                                                            
         &$Before;
         Jmp $end;
        };
-
-      PushR my $loop = r13, my $mid = r12;
 
       uptoNTimes                                                                # Search a reasonable number of times now that we knoe that the key to be found is between the lower and upper limits of the array
        {Mov $mid, $low;                                                         # Find new mid point
@@ -18133,10 +18131,8 @@ sub BinarySearchD(%)                                                            
          };
        } $loop, 999;                                                            # Enough to search all the particles in the universe if they could be ordered by some means
       pop @PushR;                                                               # This assembly code is unreachable so we only reduce the stack record in Perl rather than the stack in assembler
-      PopR;
      };
    };
-
   PopR;
  }
 
@@ -19023,7 +19019,6 @@ if (1)
  {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
 #    $t = $t x (1e4/length $t);
 
-$TraceMode = 1;
   my $p = &ParseUnisyn(constantString $t);
   ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>42_291;
 END
