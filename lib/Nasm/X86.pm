@@ -9574,51 +9574,6 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
   writeTempFile $s                                                              # Composed string to temporary file
  }
 
-sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           # Create and load the tree of lexical transitions.
- {my ($area) = @_;                                                              # Area in which to create the table
-  my $y = $area->yggdrasil;                                                     # Yggdrasil
-  my $t = $area->CreateTree;
-
-  my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
-  my $A = Nasm::X86::Unisyn::Lex::Number::A;                                    # Ascii
-  my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
-  my $B = Nasm::X86::Unisyn::Lex::Number::B;                                    # Close
-  my $d = Nasm::X86::Unisyn::Lex::Number::d;                                    # Dyad-3   - left to right
-  my $e = Nasm::X86::Unisyn::Lex::Number::e;                                    # Dyad-4   - left to right
-  my $F = Nasm::X86::Unisyn::Lex::Number::F;                                    # Finish
-  my $p = Nasm::X86::Unisyn::Lex::Number::p;                                    # Prefix
-  my $q = Nasm::X86::Unisyn::Lex::Number::q;                                    # Suffix
-  my $s = Nasm::X86::Unisyn::Lex::Number::s;                                    # Semicolon-1
-  my $S = Nasm::X86::Unisyn::Lex::Number::S;                                    # Start
-  my $v = Nasm::X86::Unisyn::Lex::Number::v;                                    # Variable
-
-  my %x = (                                                                     # The transitions table: this tells us which combinations of lexical items are valid.  The table is augmented with start and end symbols so that we know where to start and end.
-    $a => [    $A, $b,                             $v],
-    $A => [$a,         $B, $d, $e, $F,     $q, $s,   ],
-    $b => [    $A, $b, $B,             $p,     $s, $v],
-    $B => [$a,         $B, $d, $e, $F,     $q, $s    ],
-    $d => [    $A, $b, $B,             $p,         $v],
-    $e => [    $A, $b,                 $p,         $v],
-    $p => [    $A, $b,                             $v],
-    $q => [$a, $A,     $B, $d, $e, $F,         $s    ],
-    $s => [    $A, $b, $B,         $F, $p,     $s, $v],
-    $S => [    $A, $b,             $F, $p,     $s, $v],
-    $v => [$a,         $B, $d, $e, $F,     $q, $s    ],
-  );
-
-  my $T = $area->CreateTree;                                                    # Tree of transition trees
-  $y->put(Nasm::X86::Yggdrasil::Unisyn::Transitions,  $T);                      # Locate transitions between alphabets
-
-  for my $x(sort keys %x)                                                       # Each source lexical item
-   {my @y = $x{$x}->@*;
-    my $t = $area->CreateTree;                                                  # A tree containing each target lexical item for the source item
-    $t->put(K(next => $_), K key => 1) for @y;                                  # Load target set
-    $T->put(K(key => $x), $t);                                                  # Save target set
-   }
-
-  $T                                                                            # Tree of source to target
- }
-
 sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       # Create and load the table of lexical transitions.
  {my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
   my $A = Nasm::X86::Unisyn::Lex::Number::A;                                    # Ascii
@@ -9661,52 +9616,6 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
   Rb(@t)                                                                        # Return label of array of transitions
  }
 
-sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        # Create and load the table of open to close bracket mappings.
- {my ($area) = @_;                                                              # Area in which to create the table
-  my $y = $area->yggdrasil;                                                     # Yggdrasil
-  my $o = $area->CreateTree;                                                    # Open to close
-  my $c = $area->CreateTree;                                                    # Close to open
-
-  $y->put(Nasm::X86::Yggdrasil::Unisyn::Open,  $o);                             # Locate open to close mapping
-  $y->put(Nasm::X86::Yggdrasil::Unisyn::Close, $c);                             # Locate close to open mapping
-
-  my @b = Nasm::X86::Unisyn::Lex::Letter::b;                                    # Open
-  my @B = Nasm::X86::Unisyn::Lex::Letter::B;                                    # Close
-
-  @b == @B or confess "Bracket lengths mismatched";
-
-  for my $i(keys @b)                                                            # Each open/close
-   {my $O = K open  => $b[$i];
-    my $C = K close => $B[$i];
-    $o->put($O, $C);
-    $c->put($C, $O);
-   }
-
-  ($o, $c)                                                                      # Open close tree, close open tree
- }
-
-sub Nasm::X86::Unisyn::Lex::LoadAlphabets($)                                    # Create and load the table of lexical alphabets.
- {my ($a) = @_;                                                                 # Area in which to create the table
-  my $y = $a->yggdrasil;                                                        # Yggdrasil
-  my $t = $a->CreateTree;                                                       # Character as utf32 to lexical type
-  $y->put(Nasm::X86::Yggdrasil::Unisyn::Alphabets, $t);                         # Make the alphabets locate-able
-
-  my @l = qw(A a b B d e p q s v);
-  for my $l(@l)
-   {my $n = K lex   => eval "Nasm::X86::Unisyn::Lex::Number::$l";
-    my @c =            eval "Nasm::X86::Unisyn::Lex::Letter::$l";
-    my $c = K count => scalar(@c);
-    my $d = K(chars => Rd(@c));
-
-    $c->for(sub
-     {my ($i, $start, $next, $end) = @_;
-      my  $e = ($d + $i * 4)->dereference;
-      $t->put($e, $n);
-     });
-   }
-  $t
- }
-
 sub Nasm::X86::Unisyn::Lex::Reason::Success           {0};                      # Successful parse.
 sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      # Bad utf8 character encountered.
 sub Nasm::X86::Unisyn::Lex::Reason::InvalidChar       {2};                      # Character not part of Earl Zero.
@@ -9724,46 +9633,6 @@ sub Nasm::X86::Unisyn::Lex::right    {4};                                       
 sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       # Symbol.
 
 sub Nasm::X86::Unisyn::LoadParseTablesFromFile{"zzzParserTablesArea.data"}      # Load parser tables from a file
-
-sub Nasm::X86::Unisyn::LoadParseTables()                                        # Load parser tables into an area
- {my $f = Nasm::X86::Unisyn::LoadParseTablesFromFile;                           # File containing area containing parser tables
-
-  if (!-e $f)                                                                   # Create the parser table file if not already present
-   {my $c = <<'END';                                                            # Generate missing parser tables
-use Nasm::X86 qw(:all);
-
-my $area = CreateArea;                                                          # Area in which to create the tables
-
-Nasm::X86::Unisyn::Lex::OpenClose              $area;                           # Open to close bracket matching
-Nasm::X86::Unisyn::Lex::PermissibleTransitions $area;                           # Create and load the table of lexical transitions.
-Nasm::X86::Unisyn::Lex::LoadAlphabets          $area;                           # Create and load the table of alphabetic classifications
-
-$area->write(K(file => Rutf8 "XXXX"));                                          # Write area to named file
-Assemble;
-END
-    $c =~ s(XXXX) ($f);                                                         # Insert file name
-    my $p = setFileExtension $f, q(pl);                                         # Perl file name
-    owf $p, $c;                                                                 # Write Perl code to create parser tables file
-
-    say STDERR qx(cat $p; perl -Ilib/ $p);                                      # The position of the library folder if not other wise installed
-   }
-
-  my $area        = loadAreaIntoAssembly $f;                                    # Load the parser table area directly into the assembly
-  my $y           = $area->yggdrasil;
-
-  my $alphabets   = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Alphabets);   # Alphabets
-  my $openClose   = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Open);        # Open to close brackets
-  my $closeOpen   = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Close);       # Close to open brackets
-  my $transitions = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Transitions); # Transitions
-
-  genHash("Nasm::X86::Area::Unisyn::ParserTables",
-    area        => $area,                                                       # Area containing parser tables
-    alphabets   => $alphabets,                                                  # Alphabetic classifications
-    closeOpen   => $closeOpen,                                                  # Close to open bracket matching
-    openClose   => $openClose,                                                  # Open to close bracket matching
-    transitions => $transitions,                                                # Permissible transitions
-  );
- }
 
 sub ParseUnisyn($$)                                                             # Parse a string of utf8 characters.
  {my ($a8, $s8) = @_;                                                           # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
@@ -10156,8 +10025,7 @@ sub ParseUnisyn($$)                                                             
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
-#       for my $l(qw(a A b B d e F p q s S v))
-        for my $l(qw(a A b B d e p q s v))  ## Remove finish                  # We can never arrive on the start symbol.
+        for my $l(qw(a A b B d e p q s v))                                      # We can never arrive on the start symbol.
          {my $c = qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
           eval $c;
           confess "$@\n$c\n" if $@;
@@ -10173,7 +10041,7 @@ sub ParseUnisyn($$)                                                             
       Shl rsi, 4;
       Add rsi, Nasm::X86::Unisyn::Lex::Number::F;                               # Check we can transition to the final state
 
-      Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+      Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;             # Look up transition in allowed transition tables
       Add rsi, rax;
       Mov al, "[rsi]";
 
@@ -11057,7 +10925,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11059 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10927 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
