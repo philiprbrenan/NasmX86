@@ -10109,24 +10109,13 @@ sub Nasm::X86::Unisyn::Parse::dump($)                                           
       my $left     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::left);              # Left operand found
       my $right    = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::right);             # Right operand found
 
-#PrintErrStringNL "BBBB";
-#$offset->d;
-#PrintErrRegisterInHex zmm1;
-#$type    ->errNL("Type:     ");
-#$position->errNL("Position: ");
-#$length  ->errNL("Length:   ");
-
       If $length > 0,                                                           # Source text of lexical item
       Then
        {$depth->for(sub
          {PrintOutString "._";
          });
-#PrintErrStringNL "AAAA";
-#$offset->d;
-#$source->d;
-#$position->d;
-#$length->d;
-       ($source + $position)->printOutMemoryNL($length);
+
+       ($source + $position)->printOutMemoryNL($length);                        # Write source text corresponding to the source lexical item
        };
 
       If $left > 0,
@@ -10925,7 +10914,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10927 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10916 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
