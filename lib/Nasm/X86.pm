@@ -9574,7 +9574,7 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
   writeTempFile $s                                                              # Composed string to temporary file
  }
 
-sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           # Create and load the table of lexical transitions.
+sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           # Create and load the tree of lexical transitions.
  {my ($area) = @_;                                                              # Area in which to create the table
   my $y = $area->yggdrasil;                                                     # Yggdrasil
   my $t = $area->CreateTree;
@@ -9617,6 +9617,48 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitions($)                           
    }
 
   $T                                                                            # Tree of source to target
+ }
+
+sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       # Create and load the table of lexical transitions.
+ {my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
+  my $A = Nasm::X86::Unisyn::Lex::Number::A;                                    # Ascii
+  my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
+  my $B = Nasm::X86::Unisyn::Lex::Number::B;                                    # Close
+  my $d = Nasm::X86::Unisyn::Lex::Number::d;                                    # Dyad-3   - left to right
+  my $e = Nasm::X86::Unisyn::Lex::Number::e;                                    # Dyad-4   - left to right
+  my $F = Nasm::X86::Unisyn::Lex::Number::F;                                    # Finish
+  my $p = Nasm::X86::Unisyn::Lex::Number::p;                                    # Prefix
+  my $q = Nasm::X86::Unisyn::Lex::Number::q;                                    # Suffix
+  my $s = Nasm::X86::Unisyn::Lex::Number::s;                                    # Semicolon-1
+  my $S = Nasm::X86::Unisyn::Lex::Number::S;                                    # Start
+  my $v = Nasm::X86::Unisyn::Lex::Number::v;                                    # Variable
+
+  my %x = (                                                                     # The transitions table: this tells us which combinations of lexical items are valid.  The table is augmented with start and end symbols so that we know where to start and end.
+    $a => [    $A, $b,                             $v],
+    $A => [$a,         $B, $d, $e, $F,     $q, $s,   ],
+    $b => [    $A, $b, $B,             $p,     $s, $v],
+    $B => [$a,         $B, $d, $e, $F,     $q, $s    ],
+    $d => [    $A, $b, $B,             $p,         $v],
+    $e => [    $A, $b,                 $p,         $v],
+    $p => [    $A, $b,                             $v],
+    $q => [$a, $A,     $B, $d, $e, $F,         $s    ],
+    $s => [    $A, $b, $B,         $F, $p,     $s, $v],
+    $S => [    $A, $b,             $F, $p,     $s, $v],
+    $v => [$a,         $B, $d, $e, $F,     $q, $s    ],
+  );
+
+  my @t;                                                                        # The transitions table will be held as an array of bytes
+
+  for my $x(sort keys %x)                                                       # Each source lexical item
+   {my @y = $x{$x}->@*;
+    for my $y(@y)                                                               # Each permissible transition
+     {$t[($x << 4) + $y] = 1;                                                   # Possible transition
+     }
+   }
+
+  $t[$_] //= -1 for 0..$#t;                                                     # Mark disallowed transitions
+
+  Rb(@t)                                                                        # Return label of array of transitions
  }
 
 sub Nasm::X86::Unisyn::Lex::OpenClose($)                                        # Create and load the table of open to close bracket mappings.
@@ -9739,9 +9781,6 @@ sub ParseUnisyn($$)                                                             
 
   my $position    = V 'pos        ' => 0;                                       # Position in input string
   my $last        = V 'last       ' => Nasm::X86::Unisyn::Lex::Number::S;       # Last lexical type starting on ths start symbol
-  my $next        = $transitions->cloneDescriptor;                              # Clone the transitions table so we can step down it without losing the original table
-     $next->find($last);                                                        # Locate the current classification
-     $next->down;                                                               # Tree of possible transitions on lexical type
 
   my $parseFail   = V 'parseFail  ' =>  1;                                      # If not zero the parse has failed for some reason
   my $parseReason = V 'parseReason' =>  0;                                      # The reason code describing the failure
@@ -9992,6 +10031,10 @@ sub ParseUnisyn($$)                                                             
      };
    };
 
+  PushR my $lexType = r15, my $next = r14;
+
+  Mov $next, Nasm::X86::Unisyn::Lex::Number::S;                                 # Start symbol
+
   $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
@@ -10015,8 +10058,16 @@ sub ParseUnisyn($$)                                                             
       Jmp $end;
      };
 
-    $alphabets->find($char);        ### Need a hash of bytes here               # Classify character
-    If $alphabets->found == 0,
+#    $alphabets->find($char);        ### Need a hash of bytes here               # Classify character
+#    my $charToAlphabet = Nasm::X86::Unisyn::alphabetsArray;
+
+    Mov $lexType, &Nasm::X86::Unisyn::alphabetsArray;                           # Classify a character into an alphabet
+    Add $lexType, $char->addressExpr;                                           # Position in alphabets array
+    Mov byteRegister $lexType, "[$lexType]";                                    # Classify letter
+    And $lexType, 0xFF;                                                         # Clear rest of register
+
+    Cmp $lexType, -1;                                                           # Check found
+    IfEq
     Then                                                                        # Failed to classify character
      {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidChar);
       Jmp $end;
@@ -10024,55 +10075,74 @@ sub ParseUnisyn($$)                                                             
 
     my $change = V change => 0;                                                 # Changing from one lexical item to the next
 
-    If $alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::b),        # Match brackets
-    Then                                                                        # Opening bracket
-     {$openClose->find($char);                                                  # Locate corresponding closing bracket - we ought to allocate several of these at a time and use a small tree=2
-      ClearRegisters zmm1;
-      $position       ->qIntoZ(1,    0);                                        # Details of opening bracket
-      $char           ->qIntoZ(1,    8);
-      $openClose->data->qIntoZ(1, 0x10);
-      $brackets->pushZmm(zmm1);                                                 # Save bracket description on bracket stack
-      $change->copy(1);                                                         # Changing because we are on a bracket
-     },
-    Ef {$alphabets->data == K(open => Nasm::X86::Unisyn::Lex::Number::B)}
-    Then                                                                        # Closing bracket
-     {If $brackets->stackSize > 0,                                              # Something to match with on the brackets stack
-      Then
-       {$brackets->popZmm(1);                                                   # Details of matching bracket
-        my $close = qFromZ(zmm1, 0x10);
-        If $close != $char,                                                     # Closing bracket did not match the closing bracket derived from the opening bracket
+    Block                                                                       # Classify character
+     {my ($endClassify) = @_;                                                   # Code with labels supplied
+
+      Cmp $lexType, Nasm::X86::Unisyn::Lex::Number::b;
+      IfEq
+      Then                                                                      # Opening bracket
+       {$openClose->find($char);                                                # Locate corresponding closing bracket - we ought to allocate several of these at a time and use a small tree=2
+        ClearRegisters zmm1;
+        $position       ->qIntoZ(1,    0);                                      # Details of opening bracket
+        $char           ->qIntoZ(1,    8);
+        $openClose->data->qIntoZ(1, 0x10);
+        $brackets->pushZmm(zmm1);                                               # Save bracket description on bracket stack
+        $change->copy(1);                                                       # Changing because we are on a bracket
+        Jmp $endClassify;
+       };
+
+      Cmp $lexType, Nasm::X86::Unisyn::Lex::Number::B;
+      IfEq
+      Then                                                                      # Closing bracket
+       {If $brackets->stackSize > 0,                                            # Something to match with on the brackets stack
         Then
-         {my $position = dFromZ(zmm1, 0);
-          $parseMatch ->copy($position);
-          $parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::Mismatch);         # Mismatched bracket
+         {$brackets->popZmm(1);                                                 # Details of matching bracket
+          my $close = qFromZ(zmm1, 0x10);
+          If $close != $char,                                                   # Closing bracket did not match the closing bracket derived from the opening bracket
+          Then
+           {my $position = dFromZ(zmm1, 0);
+            $parseMatch ->copy($position);
+            $parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::Mismatch);       # Mismatched bracket
+            Jmp $end;
+           };
+          $change->copy(1);                                                     # Changing because we are on a bracket
+         },
+        Else
+         {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::TrailingClose);
           Jmp $end;
          };
-        $change->copy(1);                                                       # Changing because we are on a bracket
-       },
-      Else
-       {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::TrailingClose);
-        Jmp $end;
+        Jmp $endClassify;
        };
-     },
-    Ef {$alphabets->data != $last}
-    Then                                                                        # Change of current lexical item
-     {$change->copy(1);                                                         # Changing because we are on a different lexical item
-     },
-    Ef {$alphabets->data == K(sep => Nasm::X86::Unisyn::Lex::Number::s)}
-    Then                                                                        # Statement separator is always one character wide as more would be pointless
-     {$change->copy(1);                                                         # Changing because we are on a different lexical item
+
+      Cmp $lexType, $last->addressExpr;
+      IfNe
+      Then                                                                      # Change of current lexical item
+       {$change->copy(1);                                                       # Changing because we are on a different lexical item
+        Jmp $endClassify;
+       };
+
+      Cmp $lexType, Nasm::X86::Unisyn::Lex::Number::s;
+      IfEq
+      Then                                                                      # Statement separator is always one character wide as more would be pointless
+       {$change->copy(1);                                                       # Changing because we are on a different lexical item
+       };
      };
 
     If $change > 0,                                                             # Check the transition from the previous item
     Then                                                                        # Change of current lexical item
-     {$next->find($alphabets->data);                                            # Locate next lexical item in the tree of possible transitions for the last lexical item
+     {Mov rsi, $next;
+      Shl rsi, 4;
+      Add rsi, $lexType;                                                        # The index into the allowed transitions array
 
-      If $next->found > 0,
+      Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+      Add rsi, rax;
+      Mov al, "[rsi]";
+
+      Cmp al, 0;
+      IfGt
       Then                                                                      # The transition on this lexical type was a valid transition
-       {$next->copyDescriptor($transitions);                                    # Restart at the top of the transitions tree
-        $next->find($alphabets->data);                                          # Tree of possible transitions on this lexical type
-        $next->down;                                                            # Tree of possible transitions on lexical type
-        $last->copy($alphabets->data);                                          # Treat unbroken sequences of a symbol as one lexical item
+       {Mov $next, $lexType;                                                    # New lexical tyoe we will be transitioning on
+        $last->copy($lexType);                                                  # Treat unbroken sequences of a symbol as one lexical item
        },
       Else                                                                      # The transition on this lexical type was an invalid transition
        {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidTransition);
@@ -10096,8 +10166,16 @@ sub ParseUnisyn($$)                                                             
     $position->copy($position + $size);                                         # Point to next character to be parsed
     If $position >= $s8,
     Then                                                                        # We have reached the end of the input
-     {$next->find(K finish => Nasm::X86::Unisyn::Lex::Number::F);               # Check that we can locate the final state from the last symbol encountered
-      If $next->found > 0,
+     {Mov rsi, $next;
+      Shl rsi, 4;
+      Add rsi, Nasm::X86::Unisyn::Lex::Number::F;                               # Check we can transition to the final state
+
+      Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+      Add rsi, rax;
+      Mov al, "[rsi]";
+
+      Cmp al, 0;
+      IfGt
       Then                                                                      # We are able to transition to the final state
        {If $brackets->stackSize == 0,                                           # Check that all the brackets have closed
         Then                                                                    # No outstanding brackets
@@ -10114,6 +10192,8 @@ sub ParseUnisyn($$)                                                             
       Jmp $end;                                                                 # Cannot parse further
      };
    });
+
+  PopR;
 
   my $parseTree = $stack->pop; $stack->free; $brackets->free;                   # Obtain the parse tree (which is not a conventional tree) and free the brackets stack and parse stack
 
@@ -10974,7 +11054,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10976 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11056 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17760,7 +17840,7 @@ if (1)
   my $p = ParseUnisyn($a8, $s8-1);                                              # Parse the utf8 string minus the final new line
 
   $p->dump;
-  ok Assemble eq => <<END, avx512=>1, mix=>0;
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
 ⟢
 ._＝
 ._._𝗔
@@ -19006,8 +19086,8 @@ parseReason: .... .... .... ...0
 END
  }
 
-latest:
-if (1) { ### Fails because L is beiong written as three bytes when it should be four                                                                       #TNasm::X86::Unisyn::Lex::composeUnisyn
+#latest:
+if (1) {
   my ($a8, $s8) = constantString('𝑳【】𝙆');
 
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -19176,6 +19256,85 @@ Peek
 Pop
   zmm3: .... .... .... ...0  .... .... 7777 7777 - .... .... .... ...0  .... .... 6666 6666 + .... .... .... ...0  .... .... 5555 5555 - .... .... .... ...0  .... .... .... ...0
   zmm4: .... .... .... ...0  .... .... 4444 4444 - .... .... .... ...0  .... .... 3333 3333 + .... .... .... ...0  .... .... 2222 2222 - .... .... .... ...0  .... .... .... ...0
+END
+ }
+
+#latest:;
+if (1)
+ {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
+     $t = $t x 45;
+  say STDERR length($t);
+
+  my $p = &ParseUnisyn(constantString $t);
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
+END
+ }
+
+sub Nasm::X86::Unisyn::alphabetsArray   ## Need a check on the upper limit of the array    # Create a hash table for the alphabet characters
+ {my %a = (
+Nasm::X86::Unisyn::Lex::Number::A => [Nasm::X86::Unisyn::Lex::Letter::A],,
+Nasm::X86::Unisyn::Lex::Number::d => [Nasm::X86::Unisyn::Lex::Letter::d],,
+Nasm::X86::Unisyn::Lex::Number::p => [Nasm::X86::Unisyn::Lex::Letter::p],,
+Nasm::X86::Unisyn::Lex::Number::a => [Nasm::X86::Unisyn::Lex::Letter::a],,
+Nasm::X86::Unisyn::Lex::Number::v => [Nasm::X86::Unisyn::Lex::Letter::v],,
+Nasm::X86::Unisyn::Lex::Number::q => [Nasm::X86::Unisyn::Lex::Letter::q],,
+Nasm::X86::Unisyn::Lex::Number::s => [Nasm::X86::Unisyn::Lex::Letter::s],,
+Nasm::X86::Unisyn::Lex::Number::e => [Nasm::X86::Unisyn::Lex::Letter::e],,
+Nasm::X86::Unisyn::Lex::Number::b => [Nasm::X86::Unisyn::Lex::Letter::b],,
+Nasm::X86::Unisyn::Lex::Number::B => [Nasm::X86::Unisyn::Lex::Letter::B],
+);
+
+  my @a;
+  for my $n(sort keys %a)
+   {my @c = $a{$n}->@*;
+    for my $c(@c)
+     {$a[$c] = $n;
+     }
+   }
+
+  $a[$_] //= -1 for 0..$#a;                                                     # Mark disallowed characters
+
+  Rb(@a);                                                                       # Allowed utf32 characters array
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::alphabetsArray
+  Mov rax, Nasm::X86::Unisyn::alphabetsArray;
+  Add rax, ord('𝝰');
+  Mov al, "[rax]";
+  And rax, 0xff;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, Nasm::X86::Unisyn::alphabetsArray;
+  Add rax, ord('𝔸');
+  Mov al, "[rax]";
+  And rax, 0xff;
+  PrintOutRegisterInHex rax;
+  ok Assemble eq => <<END, avx512=>1;
+   rax: .... .... .... ...6
+   rax: .... .... .... ..FF
+END
+ }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitionsArray
+  my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
+  my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
+
+  Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+  Add rax, ($a << 4) + $a;
+  Mov al, "[rax]";
+  And rax, 0xff;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+  Add rax, ($b << 4) + $b;
+  Mov al, "[rax]";
+  And rax, 0xff;
+  PrintOutRegisterInHex rax;
+  ok Assemble eq => <<END, avx512=>1;
+   rax: .... .... .... ..FF
+   rax: .... .... .... ...1
 END
  }
 
