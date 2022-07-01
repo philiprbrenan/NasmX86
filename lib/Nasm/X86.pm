@@ -9770,9 +9770,9 @@ sub ParseUnisyn($$)                                                             
 
   my $parse       = CreateArea;                                                 # The area in which the parse tree will be be built
   my $tables      = Nasm::X86::Unisyn::LoadParseTables;                         # Load parser tables
-  my $alphabets   = $tables->alphabets;                                         # Create and load the table of alphabetic classifications
-  my $closeOpen   = $tables->closeOpen;                                         # Close top open bracket matching
-  my $openClose   = $tables->openClose;                                         # Open to close bracket matching
+  my $alphabets   = $tables->alphabets; ## Gone                                        # Create and load the table of alphabetic classifications
+  my $closeOpen   = $tables->closeOpen; ## Not used                                        # Close top open bracket matching
+  my $openClose   = $tables->openClose; ## Not used                                        # Open to close bracket matching
   my $transitions = $tables->transitions;                                       # Create and load the table of lexical transitions.
 
   my $brackets    = CreateArea(stack=>1);                                       # Brackets stack of zmm
@@ -10081,11 +10081,11 @@ sub ParseUnisyn($$)                                                             
       Cmp $lexType, Nasm::X86::Unisyn::Lex::Number::b;
       IfEq
       Then                                                                      # Opening bracket
-       {$openClose->find($char);                                                # Locate corresponding closing bracket - we ought to allocate several of these at a time and use a small tree=2
+       {#$openClose->find($char);                                                # Locate corresponding closing bracket - we ought to allocate several of these at a time and use a small tree=2
         ClearRegisters zmm1;
-        $position       ->qIntoZ(1,    0);                                      # Details of opening bracket
-        $char           ->qIntoZ(1,    8);
-        $openClose->data->qIntoZ(1, 0x10);
+        $position      ->qIntoZ(1,    0);                                       # Details of opening bracket
+        $char          ->qIntoZ(1,    8);                                       # Open
+       ($char+1)       ->qIntoZ(1, 0x10);                                       # Close
         $brackets->pushZmm(zmm1);                                               # Save bracket description on bracket stack
         $change->copy(1);                                                       # Changing because we are on a bracket
         Jmp $endClassify;
@@ -17326,7 +17326,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::popSubTree
+if (1) {                                                                        #TNasm::X86::Tree::dump8xx
   my $a = CreateArea;
   my $t = $a->CreateTree;
   my $T = $a->CreateTree;
@@ -18804,7 +18804,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #
+if (1) {                                                                        #TNasm::X86::Tree::popSubTree
   my $a = CreateArea;
   my $t = $a->CreateTree;
   my $T = $a->CreateTree;
@@ -18840,7 +18840,7 @@ data   : .... .... .... .333
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString("𝗔");
 
@@ -19263,7 +19263,6 @@ END
 if (1)
  {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
      $t = $t x 45;
-  say STDERR length($t);
 
   my $p = &ParseUnisyn(constantString $t);
   ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
@@ -19316,7 +19315,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitionsArray
   my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
   my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
@@ -19336,6 +19335,17 @@ if (1) {                                                                        
    rax: .... .... .... ..FF
    rax: .... .... .... ...1
 END
+ }
+
+latest:
+if (1) {                                                                        # Confirm that closing brackets are always one more than opening brackets
+  my @b = Nasm::X86::Unisyn::Lex::Letter::b;                                    # Open
+  my @B = Nasm::X86::Unisyn::Lex::Letter::B;                                    # Close
+
+  confess unless @b == @B;
+  for my $i(keys @b)
+   {confess "Mismatch at $i " unless $b[$i] + 1 == $B[$i];
+   }
  }
 
 #latest:
