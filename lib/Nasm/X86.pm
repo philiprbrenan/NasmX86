@@ -1037,7 +1037,7 @@ sub CreateArea(%);
 sub K($$);
 sub PrintErrStringNL(@);
 sub Subroutine(&%);
-sub V($$);
+sub V($;$);
 
 #D1 Structured Programming                                                      # Structured programming constructs
 
@@ -2973,7 +2973,7 @@ sub R($)                                                                        
   $r                                                                            # Size of the referenced variable
  }
 
-sub V($$)                                                                       # Define a variable.
+sub V($;$)                                                                      # Define a variable.
  {my ($name, $expr) = @_;                                                       # Name of variable, initializing expression
   &Variable(@_)
  }
@@ -6080,12 +6080,19 @@ sub DescribeTree(%)                                                             
     rightOffset          => $o * ($l2 + 1),                                     # Offset of the first right slot in bytes
     stringTreeCountOff   => $o * 4,                                             # This field is used to count the total number of keys in a string tree so that we can assign unique numbers when pushing.  This field reuses an area used by small trees - so string trees are nort allowed to be small tees - which makes sense - why store big keys in a small tree?
 
-    data                 => V('data   ' => 0),                                  # Variable containing the current data
-    first                => V('first  ' => 0),                                  # Variable addressing offset to first block of the tree which is the header block
-    found                => V('found  ' => 0),                                  # Variable indicating whether the last find was successful or not
-    key                  => V('key    ' => 0),                                  # Variable containing the current key
-    offset               => V('offset ' => 0),                                  # Variable containing the offset of the block containing the current key
-    subTree              => V('subTree' => 0),                                  # Variable indicating whether the last find found a sub tree
+    data                 => V('data   '),                                       # Variable containing the current data
+    first                => V('first  '),                                       # Variable addressing offset to first block of the tree which is the header block
+    found                => V('found  '),                                       # Variable indicating whether the last find was successful or not
+    key                  => V('key    '),                                       # Variable containing the current key
+    offset               => V('offset '),                                       # Variable containing the offset of the block containing the current key
+    subTree              => V('subTree'),                                       # Variable indicating whether the last find found a sub tree
+
+#    data                 => V('data   ' => 0),                                  # Variable containing the current data
+#    first                => V('first  ' => 0),                                  # Variable addressing offset to first block of the tree which is the header block
+#    found                => V('found  ' => 0),                                  # Variable indicating whether the last find was successful or not
+#    key                  => V('key    ' => 0),                                  # Variable containing the current key
+#    offset               => V('offset ' => 0),                                  # Variable containing the offset of the block containing the current key
+#    subTree              => V('subTree' => 0),                                  # Variable indicating whether the last find found a sub tree
    );
  }
 
@@ -10252,7 +10259,7 @@ sub Extern(@)                                                                   
  }
 
 sub Link(@)                                                                     # Libraries to link with.
- {my (@libraries) = @_;                                                         # External references
+ {my (@libraries) = @_;                                                         # Link library names which will be looked for on LIBPATH
   push @link, @_;
  }
 
@@ -10914,7 +10921,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10916 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10923 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17517,7 +17524,7 @@ sub testParseUnisyn($$$)                                                        
 
   unlink $f;
  }
-                                     ## Remove new lines
+
 test7: goto test8 unless $test{7};
 
 #latest:;
@@ -18503,7 +18510,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】');
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -18981,14 +18988,15 @@ Pop
 END
  }
 
-#latest:;
+latest:;
 if (1)
  {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
-     $t = $t x 45;
+#    $t = $t x 45;
 
   my $p = &ParseUnisyn(constantString $t);
   ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
 END
+exit;
  }
 
 sub Nasm::X86::Unisyn::alphabetsArray   ## Need a check on the upper limit of the array    # Create a hash table for the alphabet characters
