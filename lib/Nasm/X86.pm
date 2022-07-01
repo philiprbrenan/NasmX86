@@ -18030,15 +18030,14 @@ sub BinarySearchD(%)                                                            
   Block
    {my ($end, $start) = @_;                                                     # End, start label
 
-    PushR my $low = r15, my $high = r14,                                        # Work registers modified by this routine
-      my $loop = r13, my $mid = r12;
+    PushR my $low = r15, my $high = r14;                                        # Work registers modified by this routine
 
     Mov $low,  0;                                                               # Closed start of current range to search
     &$Size($high);                                                              # Open end of current range to search
     Cmp $high, 0;                                                               # Check we have a none empty array to search
     IfEq
     Then                                                                        # Empty array
-     {PopRR $PushR[-1]->@*;
+     {PopRR $PushR[-$_]->@* for 1..1;
       &$Empty;
       Jmp $end;
      },
@@ -18049,13 +18048,13 @@ sub BinarySearchD(%)                                                            
       IfEq
       Then                                                                      # Found
        {Mov rax, $high;
-        PopRR $PushR[-1]->@*;
+        PopRR $PushR[-$_]->@* for 1..1;
         &$Found;
         Jmp $end;
        };
       IfGt
       Then                                                                      # After end of array
-       {PopRR $PushR[-1]->@*;
+       {PopRR $PushR[-$_]->@* for 1..1;
         &$After;
         Jmp $end;
        };
@@ -18064,16 +18063,18 @@ sub BinarySearchD(%)                                                            
       IfEq
       Then                                                                      # Found
        {Mov rax, $low;
-        PopRR $PushR[-1]->@*;
+        PopRR $PushR[-$_]->@* for 1..1;
         &$Found;
         Jmp $end;
        };
       IfLt
       Then                                                                      # Before start of array
-       {PopRR $PushR[-1]->@*;
+       {PopRR $PushR[-$_]->@* for 1..1;
         &$Before;
         Jmp $end;
        };
+
+      PushR my $loop = r13, my $mid = r12;
 
       uptoNTimes                                                                # Search a reasonable number of times now that we knoe that the key to be found is between the lower and upper limits of the array
        {Mov $mid, $low;                                                         # Find new mid point
@@ -18085,7 +18086,7 @@ sub BinarySearchD(%)                                                            
         Then                                                                    # Found
          {Mov rax, $mid;
           Popfq;
-          PopRR $PushR[-1]->@*;
+          PopRR $PushR[-$_]->@* for 1..2;
           &$Found;
           Jmp $end;
          };
@@ -18101,7 +18102,7 @@ sub BinarySearchD(%)                                                            
           Then                                                                  # Found at high end of final range
            {Mov rax, $high;
             Popfq;
-            PopRR $PushR[-1]->@*;
+            PopRR $PushR[-$_]->@* for 1..2;
             &$Found;
             Jmp $end;
            };
@@ -18110,13 +18111,13 @@ sub BinarySearchD(%)                                                            
           Then                                                                  # Found at low end of final range
            {Mov rax, $low;
             Popfq;
-            PopRR $PushR[-1]->@*;
+            PopRR $PushR[-$_]->@* for 1..2;
             &$Found;
             Jmp $end;
            };
           Mov rax, $low;
           Popfq;
-          PopRR $PushR[-1]->@*;
+          PopRR $PushR[-$_]->@* for 1..2;
           &$Between;                                                            # Not found in final range so must be between the low element and the next element above it
           Jmp $end;
          };
@@ -18130,7 +18131,7 @@ sub BinarySearchD(%)                                                            
          {Mov $high, $mid;                                                      # New upper limit limit
          };
        } $loop, 999;                                                            # Enough to search all the particles in the universe if they could be ordered by some means
-      pop @PushR;                                                               # This assembly code is unreachable so we only reduce the stack record in Perl rather than the stack in assembler
+      pop @PushR  for 1..2;                                                     # This assembly code is unreachable so we only reduce the stack record in Perl rather than the stack in assembler
      };
    };
   PopR;
