@@ -9769,11 +9769,6 @@ sub ParseUnisyn($$)                                                             
  {my ($a8, $s8) = @_;                                                           # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
 
   my $parse       = CreateArea;                                                 # The area in which the parse tree will be be built
-  my $tables      = Nasm::X86::Unisyn::LoadParseTables;                         # Load parser tables
-  my $alphabets   = $tables->alphabets; ## Gone                                        # Create and load the table of alphabetic classifications
-  my $closeOpen   = $tables->closeOpen; ## Not used                                        # Close top open bracket matching
-  my $openClose   = $tables->openClose; ## Not used                                        # Open to close bracket matching
-  my $transitions = $tables->transitions;                                       # Create and load the table of lexical transitions.
 
   my $brackets    = CreateArea(stack=>1);                                       # Brackets stack of zmm
   my $stack       = CreateArea(stack=>1);                                       # Parse tree stack of double words
@@ -10058,9 +10053,6 @@ sub ParseUnisyn($$)                                                             
       Jmp $end;
      };
 
-#    $alphabets->find($char);        ### Need a hash of bytes here               # Classify character
-#    my $charToAlphabet = Nasm::X86::Unisyn::alphabetsArray;
-
     my ($alphabetN, $alphabetA) = &Nasm::X86::Unisyn::alphabetsArray;           # Classify a character into an alphabet
     $char->setReg(rsi);                                                         # Character
     Mov rdi, "[$alphabetN]";                                                    # Limit of alphabet array
@@ -10093,8 +10085,7 @@ sub ParseUnisyn($$)                                                             
       Cmp $lexType, Nasm::X86::Unisyn::Lex::Number::b;
       IfEq
       Then                                                                      # Opening bracket
-       {#$openClose->find($char);                                                # Locate corresponding closing bracket - we ought to allocate several of these at a time and use a small tree=2
-        ClearRegisters zmm1;
+       {ClearRegisters zmm1;
         $position      ->qIntoZ(1,    0);                                       # Details of opening bracket
         $char          ->qIntoZ(1,    8);                                       # Open
        ($char+1)       ->qIntoZ(1, 0x10);                                       # Close
@@ -10166,7 +10157,7 @@ sub ParseUnisyn($$)                                                             
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
 #       for my $l(qw(a A b B d e F p q s S v))
-        for my $l(qw(a A b B d e F p q s v))  ## Remove finish                  # We can never arrive on the start symbol.
+        for my $l(qw(a A b B d e p q s v))  ## Remove finish                  # We can never arrive on the start symbol.
          {my $c = qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
           eval $c;
           confess "$@\n$c\n" if $@;
@@ -11066,7 +11057,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11068 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11059 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18793,7 +18784,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】');
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
