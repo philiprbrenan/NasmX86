@@ -10061,10 +10061,22 @@ sub ParseUnisyn($$)                                                             
 #    $alphabets->find($char);        ### Need a hash of bytes here               # Classify character
 #    my $charToAlphabet = Nasm::X86::Unisyn::alphabetsArray;
 
-    Mov $lexType, &Nasm::X86::Unisyn::alphabetsArray;                           # Classify a character into an alphabet
-    Add $lexType, $char->addressExpr;                                           # Position in alphabets array
-    Mov byteRegister $lexType, "[$lexType]";                                    # Classify letter
-    And $lexType, 0xFF;                                                         # Clear rest of register
+    my ($alphabetN, $alphabetA) = &Nasm::X86::Unisyn::alphabetsArray;           # Classify a character into an alphabet
+    $char->setReg(rsi);                                                         # Character
+    Mov rdi, "[$alphabetN]";                                                    # Limit of alphabet array
+
+    Cmp rsi, rdi;                                                               # Compare with alphabet array limit
+
+    IfGe
+    Then                                                                        # Utf32 character is out of range of the alphabets array
+     {Mov $lexType, -1;                                                         # Show invalid character
+     },
+    Else                                                                        # Character is in range
+     {Mov $lexType, $alphabetA;                                                 # Classify character into an alphabet
+      Add $lexType, $char->addressExpr;                                         # Position in alphabets array
+      Mov byteRegister $lexType, "[$lexType]";                                  # Classify letter
+      And $lexType, 0xFF;                                                       # Clear rest of register
+     };
 
     Cmp $lexType, -1;                                                           # Check found
     IfEq
@@ -11054,7 +11066,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11056 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11068 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18840,7 +18852,7 @@ data   : .... .... .... .333
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString("𝗔");
 
@@ -19293,23 +19305,27 @@ Nasm::X86::Unisyn::Lex::Number::B => [Nasm::X86::Unisyn::Lex::Letter::B],
 
   $a[$_] //= -1 for 0..$#a;                                                     # Mark disallowed characters
 
-  Rb(@a);                                                                       # Allowed utf32 characters array
+  (Rq(scalar @a), Rb(@a))                                                       # Allowed utf32 characters array
  }
 
 latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::alphabetsArray
-  Mov rax, Nasm::X86::Unisyn::alphabetsArray;
+  my ($N, $A) = Nasm::X86::Unisyn::alphabetsArray;
+  Mov rax, "[$N]";
+  PrintOutRegisterInHex rax;
+  Mov rax, $A;
   Add rax, ord('𝝰');
   Mov al, "[rax]";
   And rax, 0xff;
   PrintOutRegisterInHex rax;
 
-  Mov rax, Nasm::X86::Unisyn::alphabetsArray;
+  Mov rax, $A;
   Add rax, ord('𝔸');
   Mov al, "[rax]";
   And rax, 0xff;
   PrintOutRegisterInHex rax;
   ok Assemble eq => <<END, avx512=>1;
+   rax: .... .... ...1 EEF2
    rax: .... .... .... ...6
    rax: .... .... .... ..FF
 END
