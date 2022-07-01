@@ -17843,111 +17843,6 @@ if (1) {                                                                        
 END
  }
 
-#     Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
-#  2,623,415         177,952       2,623,415         177,952      0.429488          0.16
-#  2,611,013         177,952       2,611,013         177,952      0.398965          0.16  Improved allocZmmBlock
-#  2,567,867         188,504       2,567,867         188,504      0.387131          0.18  allocZmmtest3
-#  2,483,860         190,264       2,483,860         190,264      0.468558          0.18  IndexXX increment
-#  2,464,180         189,112       2,464,180         189,112      0.442693          0.16  InsertZeroIntoRegisterAtPoint
-#  2,424,676         186,952       2,424,676         186,952      0.643831          0.25  Arithmetic no longer pushes
-#  2,306,838         186,112       2,306,838         186,112      0.459047          0.16  booleanZF
-#  2,236,846         186,016       2,236,846         186,016      0.373041          0.15  dFromPointInZ
-#  2,231,346         185,872       2,282,555       1,568,592      0.369545          0.13  updateSpace free registers
-#  2,223,930         189,248       2,223,930         189,248      0.349471          0.15  ditto
-#  2,181,550         187,664       2,181,550         187,664      0.361091          0.15  Improved parameter passing
-#  2,181,530         187,616       2,181,530         187,616      0.371322          0.15  rcx free
-#  1,844,718         186,104       1,844,718         186,104      0.372534          0.15  rcx in indexx
-#  1,793,868         181,576       1,793,868         181,576      0.349532          0.15  k7 becomes k1 and so avoids the push
-#  1,792,946         181,336       1,792,946         181,336      0.358092          0.15  tree::allocBlock
-#  1,787,294         181,264       1,787,294         181,264      0.343509          0.15  Inc length in keys
-#  1,752,298         181,216       1,752,298         181,216      0.486707          0.16  dFromPointInZ
-#  1,680,124         180,952       1,680,124         180,952      0.333127          0.15  Index uses mask array not calculation
-#  1,658,167         180,976       1,658,167         180,976      0.331838          0.17  Index uses preloaded keys
-#  1,640,669         180,952       1,640,669         180,952      0.333896          0.16  Elided three instructions in put loop
-#  1,605,947         180,880       1,605,947         180,880      0.334369          0.14  search key preloaded into zmm
-#  1,597,198         192,760       1,597,525         192,760      0.387688          0.17  Optimized reloads out
-#  1,584,214         180,144       1,584,214         180,144      0.359084          0.16  Better inc/dec
-#  1,580,599         180,088       1,580,599         180,088      0.339057          0.15  Copy constant
-#  1,500,463         171,696       1,500,749         171,696      0.458875          0.16  Remove checks
-#  1,375,167         158,096       1,375,167         158,096      0.357263          0.16  Better boolean tests
-#  1,341,795         115,616       1,341,795         115,616      0.309691          0.16  Debug mode around all PrintErr
-#  1,317,737         128,024       1,317,926         128,024      0.353775          0.20  IndexXX eliminate lea
-#  1,326,635         127,648       1,326,635         127,648      0.316558          0.17  Changes to indexxx and related have pushed put up but improved find
-#  1,326,486         115,616       1,326,486         115,616      0.310844          0.15
-#  1,318,100         115,016       1,318,100         115,016      0.378936          0.18  Used free zmm registers
-#  1,312,445         110,552       1,312,445         110,552      0.413603          0.18  Removed unused variable fields in Tree
-#  1,259,647         110,160       1,259,647         110,160     12.314457          0.17  Cmp against memory
-#  1_066_780         108_856       1_066_780         108_856        0.1625          0.11  More optimal put
-#  1_041_355         108_744       1_041_355         108_744        0.1614          0.11  Used $setLt in leaf insert
-#    980_660         108_640         980_660         108_640        0.1587          0.11  Register for leafFromNodes
-#    968_631         108_632         968_631         108_632        0.2838          0.13  Register for length from keys
-#    950_171         107_816         950_171         107_816        0.1970          0.12  getLoop register
-#    903_671         107_080         903_671         107_080        0.3483          0.11  incSizeInKeys
-#    892_549         106_024         892_549         106_024        0.1696          0.12  wRegFrom/IntoZ
-#    882_084         105_448         882_084         105_448        0.1682          0.11  Used free zmm registers in splitNode
-#    811_799         132_992         811_799         132_992        0.1528          0.17  Low tree suppresses tree bits
-#    794_039         127_256         794_039         127_256        0.1455          0.19  Reparent loop in splitNonRootNode
-#latest:;
-if (1) {
-  my $a = CreateArea;
-  my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
-  $t->size->outRightInDecNL(K width => 4);
-# $t->put (K(key => 0xffffff), K(key => 1));                                    # 364 347 282 273 252 248 244 229 227 208
-# $t->find(K key => 0xffffff);                                                  # 370 129 127
-
-  my @l = map{eval "Nasm::X86::Unisyn::Lex::Letter::$_"}qw(A d p a v q s e b B);# All the letters
-  my %l = map {$_=>1} @l;                                                       # All the unique letters
-  my $l = @l;
-  $l == keys %l or confess "Duplicate letters in alphabets";                    # Check that each alphabet is unique
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 1, clocks=>794_039, trace=>0;
-$l
-END
-}
-
-#latest:;
-if (1) {                                                                        #TNasm::X86::Area::yggdrasil
-  my $f = q(zzzArea.data);
-
-  if (1)                                                                        # Create alphabets and write to a file
-   {my $a = CreateArea;
-    my $t = Nasm::X86::Unisyn::Lex::LoadAlphabets $a;
-    $t->find(K key => 0x27e2);
-    $t->data->outNL;
-
-    $a->write(V file => Rs $f);
-    $a->free;
-   }
-
-  if (2)                                                                        # Load alphabets from a file
-   {my $a = ReadArea $f;
-    my $y = $a->yggdrasil;
-    my $t = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Alphabets);
-    $t->find(K key => 0x27e2);
-    $t->data->outNL;
-   }
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
-data   : .... .... .... ...8
-data   : .... .... .... ...8
-END
-  ok -e $f;
-  is_deeply fileSize($f), 88512;
-
-  if (3)                                                                        # Incorporate alphabets in an an assembly
-   {my $a = loadAreaIntoAssembly $f;
-    my $y = $a->yggdrasil;
-    my $t = $y->findSubTree(Nasm::X86::Yggdrasil::Unisyn::Alphabets);
-    $t->find(K key => 0x27e2);
-    $t->data->outNL;
-   }
-
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
-data   : .... .... .... ...8
-END
-  unlink $f;
- }
-
 #latest:;
 if (1) {                                                                        # Create and use a library
   unlink my $f = q(zzzArea.data);
@@ -18029,7 +17924,7 @@ END
  }
 
 #latest:
-if (0) {     ### NOt all expressions parse                                                                   #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
+if (0) {     ### Traverse parse tree calling matching routines                  #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
   my $f = "zzzOperators.lib";
 
   my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
