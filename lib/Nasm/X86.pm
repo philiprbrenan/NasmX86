@@ -9623,6 +9623,33 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
   Rb(@t)                                                                        # Return label of array of transitions
  }
 
+sub Nasm::X86::Unisyn::alphabetsArray                                           # Create an array of utf32 to alphabet number.
+ {my %a =
+   (Nasm::X86::Unisyn::Lex::Number::A => [Nasm::X86::Unisyn::Lex::Letter::A],,
+    Nasm::X86::Unisyn::Lex::Number::d => [Nasm::X86::Unisyn::Lex::Letter::d],,
+    Nasm::X86::Unisyn::Lex::Number::p => [Nasm::X86::Unisyn::Lex::Letter::p],,
+    Nasm::X86::Unisyn::Lex::Number::a => [Nasm::X86::Unisyn::Lex::Letter::a],,
+    Nasm::X86::Unisyn::Lex::Number::v => [Nasm::X86::Unisyn::Lex::Letter::v],,
+    Nasm::X86::Unisyn::Lex::Number::q => [Nasm::X86::Unisyn::Lex::Letter::q],,
+    Nasm::X86::Unisyn::Lex::Number::s => [Nasm::X86::Unisyn::Lex::Letter::s],,
+    Nasm::X86::Unisyn::Lex::Number::e => [Nasm::X86::Unisyn::Lex::Letter::e],,
+    Nasm::X86::Unisyn::Lex::Number::b => [Nasm::X86::Unisyn::Lex::Letter::b],,
+    Nasm::X86::Unisyn::Lex::Number::B => [Nasm::X86::Unisyn::Lex::Letter::B],
+   );
+
+  my @a;
+  for my $n(sort keys %a)
+   {my @c = $a{$n}->@*;
+    for my $c(@c)
+     {$a[$c] = $n;
+     }
+   }
+
+  $a[$_] //= -1 for 0..$#a;                                                     # Mark disallowed characters
+
+  (Rq(scalar @a), Rb(@a))                                                       # Allowed utf32 characters array
+ }
+
 sub Nasm::X86::Unisyn::Lex::Reason::Success           {0};                      # Successful parse.
 sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      # Bad utf8 character encountered.
 sub Nasm::X86::Unisyn::Lex::Reason::InvalidChar       {2};                      # Character not part of Earl Zero.
@@ -10921,7 +10948,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10923 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10950 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18004,8 +18031,7 @@ sub BinarySearchD(%)                                                            
   Block
    {my ($end, $start) = @_;                                                     # End, start label
 
-    PushR my $low = r15, my $high = r14,                                        # Work registers modified by this routine
-      my $loop = r13, my $mid = r12;
+    PushR my $low = r15, my $high = r14;                                        # Work registers modified by this routine
 
     Mov $low,  0;                                                               # Closed start of current range to search
     &$Size($high);                                                              # Open end of current range to search
@@ -18048,6 +18074,8 @@ sub BinarySearchD(%)                                                            
         &$Before;
         Jmp $end;
        };
+
+      PushR my $loop = r13, my $mid = r12;
 
       uptoNTimes                                                                # Search a reasonable number of times now that we knoe that the key to be found is between the lower and upper limits of the array
        {Mov $mid, $low;                                                         # Find new mid point
@@ -18105,8 +18133,10 @@ sub BinarySearchD(%)                                                            
          };
        } $loop, 999;                                                            # Enough to search all the particles in the universe if they could be ordered by some means
       pop @PushR;                                                               # This assembly code is unreachable so we only reduce the stack record in Perl rather than the stack in assembler
+      PopR;
      };
    };
+
   PopR;
  }
 
@@ -18993,37 +19023,11 @@ if (1)
  {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
 #    $t = $t x (1e4/length $t);
 
+$TraceMode = 1;
   my $p = &ParseUnisyn(constantString $t);
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>42_291;
 END
 exit unless onGitHub;
- }
-
-sub Nasm::X86::Unisyn::alphabetsArray   ## Need a check on the upper limit of the array    # Create a hash table for the alphabet characters
- {my %a = (
-Nasm::X86::Unisyn::Lex::Number::A => [Nasm::X86::Unisyn::Lex::Letter::A],,
-Nasm::X86::Unisyn::Lex::Number::d => [Nasm::X86::Unisyn::Lex::Letter::d],,
-Nasm::X86::Unisyn::Lex::Number::p => [Nasm::X86::Unisyn::Lex::Letter::p],,
-Nasm::X86::Unisyn::Lex::Number::a => [Nasm::X86::Unisyn::Lex::Letter::a],,
-Nasm::X86::Unisyn::Lex::Number::v => [Nasm::X86::Unisyn::Lex::Letter::v],,
-Nasm::X86::Unisyn::Lex::Number::q => [Nasm::X86::Unisyn::Lex::Letter::q],,
-Nasm::X86::Unisyn::Lex::Number::s => [Nasm::X86::Unisyn::Lex::Letter::s],,
-Nasm::X86::Unisyn::Lex::Number::e => [Nasm::X86::Unisyn::Lex::Letter::e],,
-Nasm::X86::Unisyn::Lex::Number::b => [Nasm::X86::Unisyn::Lex::Letter::b],,
-Nasm::X86::Unisyn::Lex::Number::B => [Nasm::X86::Unisyn::Lex::Letter::B],
-);
-
-  my @a;
-  for my $n(sort keys %a)
-   {my @c = $a{$n}->@*;
-    for my $c(@c)
-     {$a[$c] = $n;
-     }
-   }
-
-  $a[$_] //= -1 for 0..$#a;                                                     # Mark disallowed characters
-
-  (Rq(scalar @a), Rb(@a))                                                       # Allowed utf32 characters array
  }
 
 latest:
