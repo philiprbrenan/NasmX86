@@ -5640,7 +5640,7 @@ sub Nasm::X86::Area::appendZmm($$$)                                             
   my $k = $area->allocZmmBlock;                                                 # Allocate a block to hold the content of the zmm register
 
   $area->address->setReg(rax);
-  $k->setReg(rbx);   ### Could use a "[rbp+$$k{addressExpr}]" to eliminate this instruction
+  $k->setReg(rbx);
   Vmovdqu64 "[rax+rbx]", zmm($zmm);                                             # Copy in the data held in the supplied zmm register
 
   $k                                                                            # Return offset in area
@@ -18996,7 +18996,7 @@ if (1)
   my $p = &ParseUnisyn(constantString $t);
   ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
 END
-exit;
+exit unless onGitHub;
  }
 
 sub Nasm::X86::Unisyn::alphabetsArray   ## Need a check on the upper limit of the array    # Create a hash table for the alphabet characters
