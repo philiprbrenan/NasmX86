@@ -511,6 +511,11 @@ sub RegisterSize($)                                                             
   eval "${r}Size()";
  }
 
+sub qSize {8}                                                                   # Size of a quad word in bytes
+sub dSize {4}                                                                   # Size of a double word in bytes
+sub wSize {2}                                                                   # Size of a word in bytes
+sub bSize {1}                                                                   # Size of a byte in bytes
+
 #D2 Push, Pop, Peek                                                             # Generic versions of push, pop, peek
 
 sub PushRR(@)                                                                   #P Push registers onto the stack without tracking.
@@ -1567,7 +1572,7 @@ sub Subroutine(&%)                                                              
     %rodata           = ();                                                     # New set of read only elements
     %rodatasSaved     = %rodatas;                                               # Current set of read only strings
     %rodatas          = ();                                                     # New set of read only strings
-    $LibraryMode      = 1;                                                      # Please do not try to create a library while creating another library - create them one after the other.
+    $LibraryMode      = 1;                                                      # Please do not try to create a library while creating another library - create them one after the other in separate processes.
    }
 
   $name or confess "Name required for subroutine, use name=>";
@@ -1593,7 +1598,7 @@ sub Subroutine(&%)                                                              
   my $end   =    Label; Jmp $end;                                               # End label.  Subroutines are only ever called - they are not executed in-line so we jump over the implementation of the subroutine.  This can cause several forward jumps in a row if a number of subroutines are defined together.
   my $start = SetLabel;                                                         # Start label
 
-  my $s = $subroutines{$name} = genHash(__PACKAGE__."::Subroutine",             # Subroutine definition
+  my $s = $subroutines{$name} = genHash(__PACKAGE__."::Subroutine",             # Subroutine definition. If we are creating a library the outer sub is also included in the library.
     block              => $block,                                               # Block used to generate this subroutine
     end                => $end,                                                 # End label for this subroutine
     export             => $export,                                              # File this subroutine was exported to if any
@@ -5158,7 +5163,7 @@ END
 
 #D2 Constructors                                                                # Construct an area either in memory or by reading it from a file or by incorporating it into an assembly.
 
-sub DescribeArea(%)                                                             # Describe a relocatable area.
+sub DescribeArea(%)                                                             # Describe a relocatable area.  By describing an areas, we allocate space with which to describe it in the current stack frame but we do not allocate memory for the area itself in the heap.
  {my (%options) = @_;                                                           # Optional variable addressing the start of the area
   my $address   = delete $options{address}   // 0;                              # Address of area
   my $stack     = delete $options{stack}     // 0;                              # Mark this area as being used as a stack
@@ -5643,6 +5648,14 @@ sub Nasm::X86::Area::appendZmm($$$)                                             
   Vmovdqu64 "[rax+rbx]", zmm($zmm);                                             # Copy in the data held in the supplied zmm register
 
   $k                                                                            # Return offset in area
+ }
+
+sub Nasm::X86::Area::appendVar($$)                                              # Append the contents of a variable to the specified area
+ {my ($area, $var) = @_;                                                        # Area descriptor, variable
+  @_ == 2 or confess "Two parameters";
+
+  Lea rax, $var->addressExpr;
+  $area->appendMemory(V(address => rax), V size => qSize)                       # Return offset in area
  }
 
 sub Nasm::X86::Area::q($$)                                                      # Append a constant string to the area.
@@ -9621,10 +9634,10 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
 
   $t[$_] //= -1 for 0..$#t;                                                     # Mark disallowed transitions
 
-  Rb(@t)                                                                        # Return label of array of transitions
+  (Rq(scalar @t), Rb(@t))                                                       # Return size of transitions array and array content
  }
 
-sub Nasm::X86::Unisyn::alphabetsArray                                           # Create an array of utf32 to alphabet number.
+sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                           # Create an array of utf32 to alphabet number.
  {my %a =
    (Nasm::X86::Unisyn::Lex::Number::A => [Nasm::X86::Unisyn::Lex::Letter::A],,
     Nasm::X86::Unisyn::Lex::Number::d => [Nasm::X86::Unisyn::Lex::Letter::d],,
@@ -9957,7 +9970,7 @@ sub ParseUnisyn($$)                                                             
       Jmp $end;
      };
 
-    my ($alphabetN, $alphabetA) = &Nasm::X86::Unisyn::alphabetsArray;           # Classify a character into an alphabet
+    my ($alphabetN, $alphabetA) = &Nasm::X86::Unisyn::Lex::AlphabetsArray;           # Classify a character into an alphabet
     $char->setReg(rsi);                                                         # Character
     Mov rdi, "[$alphabetN]";                                                    # Limit of alphabet array
 
@@ -10041,7 +10054,8 @@ sub ParseUnisyn($$)                                                             
       Shl rsi, 4;
       Add rsi, $lexType;                                                        # The index into the allowed transitions array
 
-      Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+      my ($tN, $tA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;      # Load permissible transitions
+      Mov rax, $tA;
       Add rsi, rax;
       Mov al, "[rsi]";
 
@@ -10076,7 +10090,8 @@ sub ParseUnisyn($$)                                                             
       Shl rsi, 4;
       Add rsi, Nasm::X86::Unisyn::Lex::Number::F;                               # Check we can transition to the final state
 
-      Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;             # Look up transition in allowed transition tables
+      my ($tN, $tA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;      # Load permissible transitions
+      Mov rax, $tA;
       Add rsi, rax;
       Mov al, "[rsi]";
 
@@ -10949,7 +10964,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10951 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10966 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17535,17 +17550,41 @@ END
  }
 
 #latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::AlphabetsArray
+  my ($N, $A) = Nasm::X86::Unisyn::Lex::AlphabetsArray;
+  Mov rax, "[$N]";
+  PrintOutRegisterInHex rax;
+  Mov rax, $A;
+  Add rax, ord('𝝰');
+  Mov al, "[rax]";
+  And rax, 0xff;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, $A;
+  Add rax, ord('𝔸');
+  Mov al, "[rax]";
+  And rax, 0xff;
+  PrintOutRegisterInHex rax;
+  ok Assemble eq => <<END, avx512=>1;
+   rax: .... .... ...1 EEF2
+   rax: .... .... .... ...6
+   rax: .... .... .... ..FF
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitionsArray
   my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
   my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
 
-  Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+  my ($N, $A) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+  Mov rax, $A;
   Add rax, ($a << 4) + $a;
   Mov al, "[rax]";
   And rax, 0xff;
   PrintOutRegisterInHex rax;
 
-  Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+  Mov rax, $A;
   Add rax, ($b << 4) + $b;
   Mov al, "[rax]";
   And rax, 0xff;
@@ -19050,29 +19089,6 @@ Pop
 END
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::alphabetsArray
-  my ($N, $A) = Nasm::X86::Unisyn::alphabetsArray;
-  Mov rax, "[$N]";
-  PrintOutRegisterInHex rax;
-  Mov rax, $A;
-  Add rax, ord('𝝰');
-  Mov al, "[rax]";
-  And rax, 0xff;
-  PrintOutRegisterInHex rax;
-
-  Mov rax, $A;
-  Add rax, ord('𝔸');
-  Mov al, "[rax]";
-  And rax, 0xff;
-  PrintOutRegisterInHex rax;
-  ok Assemble eq => <<END, avx512=>1;
-   rax: .... .... ...1 EEF2
-   rax: .... .... .... ...6
-   rax: .... .... .... ..FF
-END
- }
-
 #latest:;
 if (1)
  {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
@@ -19083,7 +19099,7 @@ if (1)
 END
  }
 
-latest:;
+#latest:;
 if (1)
  {my $a = CreateArea;
   $a->appendMemory(constantString((join '', map {chr $_} 0..255)x10));
@@ -19092,7 +19108,7 @@ if (1)
 END
  }
 
-latest:;
+#latest:;
 if (1)
  {my $a = loadAreaIntoAssembly "z123.txt";
   $a->address->setReg(rax);
@@ -19102,6 +19118,24 @@ if (1)
   PrintOutRegisterInHex rax;
   ok Assemble eq => <<END;
    rax: .... .... .... ..61
+END
+ }
+
+latest:;
+if (1)                                                                          # Place parser tables into an area
+ {my $a = CreateArea;
+  my ($alphabetN,    $alphabetA)    = Nasm::X86::Unisyn::Lex::AlphabetsArray;
+  my ($transitionsN, $transitionsA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+
+  $a->appendVar(V address => "[$transitionsN]");
+  $a->appendVar(V address => "[$alphabetN]");                                   # Save sizes at start if area where they can be easily found
+
+  $a->appendMemory(V(address => $transitionsA), V size => "[$transitionsN]");   # Save transitions
+$a->q("AAAA");
+  $a->appendMemory(V(address => $alphabetA),    V size => "[$alphabetN]");      # Save alphabets classification
+
+  $a->write("z123.txt");                                                        # Save the area to the named file
+  ok Assemble eq => <<END;
 END
  }
 
