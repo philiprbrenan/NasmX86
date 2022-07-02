@@ -5754,7 +5754,9 @@ sub Nasm::X86::Area::write($$)                                                  
     RestoreFirstFour;
    } parameters=>[qw(file address)], name => 'Nasm::X86::Area::write';
 
-  $s->call(parameters=>{address => $area->address, file => $file});
+  my $f = ref($file) ? $file : V file => Rs $file;                              # Convert constant string to zero terminated string
+
+  $s->call(parameters=>{address => $area->address, file => $f});
  }
 
 sub Nasm::X86::Area::out($)                                                     # Print the specified area on sysout.
@@ -10947,7 +10949,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10949 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 10951 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17532,6 +17534,39 @@ END
   unlink $f;
  }
 
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitionsArray
+  my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
+  my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
+
+  Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+  Add rax, ($a << 4) + $a;
+  Mov al, "[rax]";
+  And rax, 0xff;
+  PrintOutRegisterInHex rax;
+
+  Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
+  Add rax, ($b << 4) + $b;
+  Mov al, "[rax]";
+  And rax, 0xff;
+  PrintOutRegisterInHex rax;
+  ok Assemble eq => <<END, avx512=>1;
+   rax: .... .... .... ..FF
+   rax: .... .... .... ...1
+END
+ }
+
+#latest:
+if (1) {                                                                        # Confirm that closing brackets are always one more than opening brackets
+  my @b = Nasm::X86::Unisyn::Lex::Letter::b;                                    # Open
+  my @B = Nasm::X86::Unisyn::Lex::Letter::B;                                    # Close
+
+  confess unless @b == @B;
+  for my $i(keys @b)
+   {confess "Mismatch at $i " unless $b[$i] + 1 == $B[$i];
+   }
+ }
+
 sub testParseUnisyn($$$)                                                        #P Test the parse of a unisyn expression.
  {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
@@ -19015,18 +19050,7 @@ Pop
 END
  }
 
-latest:;
-if (1)
- {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
-#    $t = $t x (1e4/length $t);
-
-  my $p = &ParseUnisyn(constantString $t);
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>42_291;
-END
-exit unless onGitHub;
- }
-
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::alphabetsArray
   my ($N, $A) = Nasm::X86::Unisyn::alphabetsArray;
   Mov rax, "[$N]";
@@ -19049,37 +19073,36 @@ if (1) {                                                                        
 END
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitionsArray
-  my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
-  my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
+#latest:;
+if (1)
+ {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
+#    $t = $t x (1e4/length $t);
 
-  Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
-  Add rax, ($a << 4) + $a;
-  Mov al, "[rax]";
-  And rax, 0xff;
-  PrintOutRegisterInHex rax;
-
-  Mov rax, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
-  Add rax, ($b << 4) + $b;
-  Mov al, "[rax]";
-  And rax, 0xff;
-  PrintOutRegisterInHex rax;
-  ok Assemble eq => <<END, avx512=>1;
-   rax: .... .... .... ..FF
-   rax: .... .... .... ...1
+  my $p = &ParseUnisyn(constantString $t);
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>42_291;
 END
  }
 
-latest:
-if (1) {                                                                        # Confirm that closing brackets are always one more than opening brackets
-  my @b = Nasm::X86::Unisyn::Lex::Letter::b;                                    # Open
-  my @B = Nasm::X86::Unisyn::Lex::Letter::B;                                    # Close
+latest:;
+if (1)
+ {my $a = CreateArea;
+  $a->appendMemory(constantString((join '', map {chr $_} 0..255)x10));
+  $a->write("z123.txt");                                                        # Save the area to the named file
+  ok Assemble eq => <<END;
+END
+ }
 
-  confess unless @b == @B;
-  for my $i(keys @b)
-   {confess "Mismatch at $i " unless $b[$i] + 1 == $B[$i];
-   }
+latest:;
+if (1)
+ {my $a = loadAreaIntoAssembly "z123.txt";
+  $a->address->setReg(rax);
+  Add rax, $a->dataOffset + ord('a');
+  Mov al, "[rax]";
+  And rax, 0xff;
+  PrintOutRegisterInHex rax;
+  ok Assemble eq => <<END;
+   rax: .... .... .... ..61
+END
  }
 
 #latest:
