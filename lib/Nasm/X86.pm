@@ -5252,6 +5252,13 @@ sub Nasm::X86::Area::free($)                                                    
   FreeMemory($area->address, $area->size)
  }
 
+sub Nasm::X86::Area::copyDescriptor($$)                                         # Copy the description of one area into another
+ {my ($target, $source) = @_;                                                   # Target area, source area
+
+  $target->address->copy($source->address);                                     # target now addresses same area as source
+  $target
+ }
+
 #D2 Memory                                                                      # Manage memory controlled by an area.
 
 sub Nasm::X86::Area::used($)                                                    # Return the currently used size of an area as a variable.
@@ -6172,7 +6179,8 @@ sub Nasm::X86::Tree::cloneDescriptor($)                                         
 sub Nasm::X86::Tree::copyDescriptor($$)                                         # Copy the description of one tree into another.
  {my ($target, $source) = @_;                                                   # The target of the copy, the source of the copy
   @_ == 2 or confess "Two parameters";
-  $target->first->copy($source->first);                                         # Load the target from the source
+  $target->first->copy($source->first);                                         # Load the target first block from the source block
+  $target->area->copyDescriptor($source->area);                                 # Load the target area description from the source area description
   $target                                                                       # Return target
  }
 
@@ -9680,10 +9688,47 @@ sub Nasm::X86::Unisyn::Lex::left     {3};                                       
 sub Nasm::X86::Unisyn::Lex::right    {4};                                       # Right operand.
 sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       # Symbol.
 
-sub Nasm::X86::Unisyn::LoadParseTablesFromFile{"zzzParserTablesArea.data"}      # Load parser tables from a file
+sub Nasm::X86::Unisyn::DescribeParse()                                          # Describe a parse - create a description on the stack to receive the results of a parse
+ {genHash("Nasm::X86::Unisyn::Parse",                                           # Parse results
+    area     => DescribeArea,                                                   # The area in which the parse tree was built
+    tree     => V('tree       '),                                               # The offset of the start of the parse tree in the parse area
+    char     => V('parseChar  '),                                               # Last character processed
+    fail     => V('parseFail  '),                                               # If not zero the parse has failed for some reason
+    position => V('position   '),                                               # The position reached in the input string
+    match    => V('parseMatch '),                                               # The position of the matching bracket  that did not match
+    reason   => V('parseReason'),                                               # The reason code describing the failure if any
+    symbols  => DescribeTree,                                                   # The symbol tree produced by the parse
+    length   => V('s8         '),                                               # The length of the source
+    source   => V('a8         '),                                               # The source text address
+   );
+ }
 
 sub ParseUnisyn($$)                                                             # Parse a string of utf8 characters.
- {my ($a8, $s8) = @_;                                                           # Area in which to create the parse tree, address of utf8 string, size of the utf8 string in bytes
+ {my ($a8, $s8) = @_;                                                           # Address of utf8 source string, size of utf8 source string in bytes
+
+  my $p = Nasm::X86::Unisyn::DescribeParse;                                     # Describe a parse - create a description of the parse on the stack
+     $p->source->copy($a8);                                                     # Source
+     $p->length->copy($s8);                                                     # Length
+
+  my $s = Subroutine                                                            # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    &Nasm::X86::Unisyn::Parse($$s{parse});
+
+   } structures => {parse => $p}, name => qq(Nasm::X86::Unisyn::Parse);
+
+
+  $s->call(structures=>{parse => $p});
+
+  $p
+ }
+
+sub Nasm::X86::Unisyn::Parse($)                                                 # Parse a string of utf8 characters.
+ {my ($pd) = @_;                                                                # Parse descriptor
+  @_ == 1 or confess "One parameter";
+
+  my $a8 = $pd->source;                                                         # Source to parse
+  my $s8 = $pd->length;                                                         # Length of source in bytes
 
   my $parse       = CreateArea;                                                 # The area in which the parse tree will be be built
 
@@ -10120,17 +10165,15 @@ sub ParseUnisyn($$)                                                             
 
 #$parse->dump("AA");
 
-  genHash "Nasm::X86::Unisyn::Parse",                                           # Parse results
-    area     => $parse,                                                         # The area in which the parse tree was built
-    tree     => $parseTree,                                                     # The offset of the start of the parse tree in the parse area
-    char     => $parseChar,                                                     # Last character processed
-    fail     => $parseFail,                                                     # If not zero the parse has failed for some reason
-    position => $position,                                                      # The position reached in the input string
-    match    => $parseMatch,                                                    # The position of the matching bracket  that did not match
-    reason   => $parseReason,                                                   # The reason code describing the failure if any
-    symbols  => $symbols,                                                       # The symbol tree produced by the parse
-    length   => $s8,                                                            # The length of the source
-    source   => $a8;                                                            # The source text address
+  $pd->area->copyDescriptor($parse);                                            # The area in which the parse tree was built
+  $pd->tree     ->copy($parseTree);                                             # The offset of the start of the parse tree in the parse area - this is niot a conventional Tree as defined elsewhere - it is specific to parsing.
+  $pd->char     ->copy($parseChar);                                             # Last character processed
+  $pd->fail     ->copy($parseFail);                                             # If not zero the parse has failed for some reason
+  $pd->position ->copy($position);                                              # The position reached in the input string
+  $pd->match    ->copy($parseMatch);                                            # The position of the matching bracket  that did not match
+  $pd->reason   ->copy($parseReason);                                           # The reason code describing the failure if any
+  $pd->symbols->copyDescriptor($symbols);                                       # The symbol tree produced by the parse
+
  } # Parse
 
 sub Nasm::X86::Unisyn::Parse::dump($)                                           # Dump a parse tree.
@@ -10964,7 +11007,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 10966 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11009 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17532,7 +17575,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... ...1 D5D8
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ..2B
+position   : .... .... .... ..2B
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 ＝
@@ -18611,7 +18654,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】');
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -18626,7 +18669,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... .... 3011
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...6
+position   : .... .... .... ...6
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 【
@@ -18686,7 +18729,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
 parseChar  : .... .... ...1 D5D4
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...4
+position   : .... .... .... ...4
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 𝗔
@@ -18709,7 +18752,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;             # 41_769
 parseChar  : .... .... .... 3011
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...A
+position   : .... .... .... ...A
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 【
@@ -18733,7 +18776,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
 parseChar  : .... .... ...1 D5D5
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...B
+position   : .... .... .... ...B
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 ＋
@@ -18758,7 +18801,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
 parseChar  : .... .... .... 3011
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ..11
+position   : .... .... .... ..11
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 【
@@ -18784,7 +18827,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>41_769;
 parseChar  : .... .... ...1 D5D6
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ..12
+position   : .... .... .... ..12
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 ＋
@@ -18811,7 +18854,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>41_769;
 parseChar  : .... .... ...1 D5D4
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...8
+position   : .... .... .... ...8
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 𝑳
@@ -18835,7 +18878,7 @@ if (1) { ### Fails because L is beiong written as three bytes when it should be 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... ...1 D646
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...8
+position   : .... .... .... ...8
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 𝙆
@@ -18859,7 +18902,7 @@ if (1) { ### Fails because L is beiong written as three bytes when it should be 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... ...1 D646
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...C
+position   : .... .... .... ...C
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 𝙆
@@ -18884,7 +18927,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... .... 3011
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...A
+position   : .... .... .... ...A
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 𝑳
@@ -18908,7 +18951,7 @@ if (1) { ### Fails because L is beiong written as three bytes when it should be 
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... ...1 D646
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...A
+position   : .... .... .... ...A
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 𝙆
@@ -18932,7 +18975,7 @@ if (1) {
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
 parseChar  : .... .... ...1 D646
 parseFail  : .... .... .... ...0
-pos        : .... .... .... ...E
+position   : .... .... .... ...E
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 𝙆
@@ -19089,7 +19132,7 @@ Pop
 END
  }
 
-#latest:;
+latest:;
 if (1)
  {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
 #    $t = $t x (1e4/length $t);
