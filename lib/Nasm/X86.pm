@@ -18051,8 +18051,8 @@ END
   unlink $f;
  }
 
-latest:
-if (1) {     ### Traverse parse tree calling matching routines                  #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
   my $f = "zzzOperators.lib";
 
   my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
@@ -18874,7 +18874,7 @@ END
  }
 
 #latest:
-if (1) { ### Fails because L is beiong written as three bytes when it should be four                                                                       #TNasm::X86::Unisyn::Lex::composeUnisyn
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('𝗔𝙆');
 
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -18898,7 +18898,7 @@ END
  }
 
 #latest:
-if (1) { ### Fails because L is beiong written as three bytes when it should be four                                                                       #TNasm::X86::Unisyn::Lex::composeUnisyn
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('𝑳𝗔𝙆');
 
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -18947,7 +18947,7 @@ END
  }
 
 #latest:
-if (1) { ### Fails because L is beiong written as three bytes when it should be four                                                                       #TNasm::X86::Unisyn::Lex::composeUnisyn
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】𝙆');
 
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -19185,7 +19185,6 @@ if (1)                                                                          
   $a->appendVar(V address => "[$alphabetN]");                                   # Save sizes at start if area where they can be easily found
 
   $a->appendMemory(V(address => $transitionsA), V size => "[$transitionsN]");   # Save transitions
-$a->q("AAAA");
   $a->appendMemory(V(address => $alphabetA),    V size => "[$alphabetN]");      # Save alphabets classification
 
   $a->write("z123.txt");                                                        # Save the area to the named file
