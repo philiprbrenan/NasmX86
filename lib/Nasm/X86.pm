@@ -1715,18 +1715,18 @@ sub Nasm::X86::Area::writeLibraryHeader($$)                                     
 
   my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
   my $o = $a->appendMemory(V(address => rsp), V size => $l);                    # Load stack into area
-  $y->put(&Nasm::X86::Yggdrasil::SubroutineOffsets, $o);                         # Save subroutine offsets
+  $y->put(&Nasm::X86::Yggdrasil::SubroutineOffsets, $o);                        # Save subroutine offsets
 
   Add rsp, $l;                                                                  # Restores stack
 
   $o                                                                            # Return the offset of the library header in the area
  }
 
-sub Nasm::X86::Area::readLibraryHeader($$)                                      # Create a tree mapping the numbers assigned to subtoutine names to the offsets of the corresponding routines in a library
- {my ($area, $uniqueStrings) = @_;                                              # Area containing subroutines, unique strings
+sub Nasm::X86::Area::readLibraryHeader($$)                                      # Create a tree mapping the numbers assigned to subroutine names to the offsets of the corresponding routines in a library returning the intersection so formed an a string tree of all the routines in the library
+ {my ($area, $uniqueStrings) = @_;                                              # Area containing subroutine library, unique strings from parse
 
   my $a = $area;
-  my $u = $uniqueStrings;                                                       # Unique strings
+  my $u = $uniqueStrings;                                                       # Unique strings from parse
   my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
   $y->find(&Nasm::X86::Yggdrasil::SubroutineOffsets);                           # Find subroutine offsets
 
@@ -1735,20 +1735,26 @@ sub Nasm::X86::Area::readLibraryHeader($$)                                      
    {PrintErrTraceBack "Not a library";
    };
 
-  PushR my $count = r15, my $sub = r14, my $name = r13, my $library = r12;      # Number of subroutines, offset and anme length block, name address
+  PushR my $count = r15, my $sub = r14, my $name = r13, my $library = r12;      # Number of subroutines, offset and name length block, name address
   my $w = RegisterSize $count;
   ($a->address + $y->data)->setReg($library);
   Mov $count, "[$library]";                                                     # The number of subroutines
   Lea $sub,   "[$library+$w]";                                                  # Address of offset, name length array
   Add $library, $w;                                                             # Skip count field
   Mov $name, $count;
-  Shl $name, 4;                                                                 # Offsets of names
-  Add $name, $library;                                                          # Address in library
+  Shl $name, 4;                                                                 # Size of offset, name block
+  Add $name, $library;                                                          # Address in library of first name - they are all concatenated together one after the other
 
-  my $t = $uniqueStrings->area->CreateTree;                                     # Resulting mapping
+  my $A = CreateArea;                                                           # Area to contain mapping
+  my $t = $A->CreateTree;                                                       # Resulting mapping
+  my $s = $A->CreateTree(stringTree=>1);                                        # String keys tree mapping routine names to offsets
 
   ToZero                                                                        # Each subroutine
-   {$u->getKeyString(V(address => $name), V length => "[$sub+$w]");             # Check whether the sub routine name matches any string in the key string tree.
+   {$s->putKeyString(V(address => $name), V(length => "[$sub+$w]"),             # Routine name to subroutine offset mapping
+             my $o = V(offset  =>"[$sub]"));
+    $s->getKeyString(V(address => $name), V(length => "[$sub+$w]"));
+
+    $u->getKeyString(V(address => $name), V(length => "[$sub+$w]"));            # Check whether the subroutine name matches any string in the key string tree.
     If $u->found > 0,
     Then                                                                        # Subroutine name matches a unique string so record the mapping between string number and subroutine offset
      {$t->put($u->data, V offset => "[$sub]");
@@ -1759,7 +1765,7 @@ sub Nasm::X86::Area::readLibraryHeader($$)                                      
 
   PopR;
 
-  $t                                                                            # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
+ ($t, $s)                                                                            # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
  }
 
 sub Nasm::X86::Subroutine::subroutineDefinition($$$)                            # Get the definition of a subroutine from an area.
@@ -10238,19 +10244,22 @@ sub Nasm::X86::Unisyn::Parse::dump($)                                           
                           source => $parse->source});
  }
 
-sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             # Traverse a parse tree applying a library of operators.
- {my ($parse, $library, $intersection) = @_;                                    # Parse tree, area containing a library, intersection of parse tree with library
-  @_ == 3 or confess "Three parameters";
+sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              # Traverse a parse tree applying a library of operators.
+ {my ($parse, $library) = @_;                                                   # Parse tree, area containing a library
+  @_ == 2 or confess "Two parameters";
+
+  my ($intersection, $subroutines) =                                            # Create a tree mapping the subroutine numbers to subroutine offsets
+    $library->readLibraryHeader($parse->symbols);
 
   my $s = Subroutine                                                            # Print a tree
    {my ($parameters, $structures, $sub) = @_;                                   # Parameters, structures, subroutine definition
-    my $parse   = $$structures{parse};                                          # Parse tree
-    my $inter   = $$structures{intersection};                                   # Intersection
-    my $library = $$structures{library};                                        # Library
-    my $offset  = $$parameters{offset};                                         # The offset in the containg area of the current node of the parse tree
+    my $parse       = $$structures{parse};                                      # Parse tree
+    my $inter       = $$structures{intersection};                               # Intersection
+    my $subroutines = $$structures{subroutines};                                # Intersection
+    my $library     = $$structures{library};                                    # Library
+    my $offset      = $$parameters{offset};                                     # The offset in the containg area of the current node of the parse tree
 
     $parse->area->getZmmBlock($offset, 1);                                      # Load parse tree node
-
     my $w = dSize;
     my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);              # Length of input
     my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);            # Position in input
@@ -10262,32 +10271,41 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
     If $left > 0,
     Then                                                                        # There is a left sub tree
      {$sub->call(structures => {parse        => $parse,
-                                intersection => $inter,
-                                library      => $library},
+                                library      => $library,
+                                intersection => $intersection,
+                                subroutines  => $subroutines},
                  parameters => {offset       => $left});
      };
 
     if (1)                                                                      # Process the lexical type associated with this node of the parse tree.
      {my $d = my $p = my $a = my $v = my $q = my $s = my $b = my $B = sub {};   # Default lexical item processors
 
+      my $sub = Subroutine {}                                                   # Subroutine definition
+        structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+        parameters => [qw(offset)];
+
       my $A = sub                                                               # Ascii
-       {PrintOutStringNL "Ascii";
+       {my ($parameters, $structures, $subroutine) = @_;                        # Parameters, structures, subroutine definition
+
+        $subroutines->getKeyString(constantString("Ascii"));
+        If $subroutines->found > 0,
+        Then                                                                    # Located the subroutine for ascii
+         {$sub->call(override => $library->address + $subroutines->data,        # Call the library routine
+            parameters => {offset => $offset},
+            structures => {parse  => $parse});
+         };
        };
 
       my $e = sub                                                               # Operator
-       {PrintOutStringNL "Operator";
+       {$inter->find($symbol);                                                  # Lexical item number to library routine offset
 
-        $inter->find($symbol);                                                   # Lexical item number to library routine offset
-
-        my $sub = Subroutine {}                                                 # Subroutine definition
-          structures => {parse => Nasm::X86::Unisyn::DescribeParse},
-          parameters => [qw(offset)];
-
-        $sub->call(override => $library->address + $inter->data,                # Call the library routine
-           parameters => {offset => $offset},
-           structures => {parse  => $parse});
+        If $inter->found > 0,
+        Then
+         {$sub->call(override => $library->address + $inter->data,              # Call the library routine
+            parameters => {offset => $offset},
+            structures => {parse  => $parse});
+         };
        };
-                                                                                # Process lexical from parse tree
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$A};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d), Then {&$d};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::p), Then {&$p};
@@ -10302,20 +10320,23 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
 
     If $right > 0,
     Then                                                                        # There is a right sub tree
-     {$sub->call(structures => {parse        => $parse,
-                                intersection => $inter,
-                                library      => $library},
-                 parameters => {offset       => $right});
+     {$sub->call(structures => {parse       => $parse,
+                               library      => $library,
+                               intersection => $intersection,
+                               subroutines  => $subroutines},
+                               parameters   => {offset => $right});
      };
    } structures => {parse       => $parse,
+                   library      => $library,
                    intersection => $intersection,
-                   library      => $library},
+                   subroutines  => $subroutines},
      parameters => [qw(offset)],
      name       => "Nasm::X86::Tree::traverseApplyingLibraryOperators";
 
   $s->call(structures => {parse        => $parse,
+                          library      => $library,
                           intersection => $intersection,
-                          library      => $library},
+                          subroutines  => $subroutines},
            parameters=>  {offset       => $parse->tree});
  }
 
@@ -10323,7 +10344,8 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
 
 sub CallC($@)                                                                   # Call a C subroutine.
  {my ($sub, @parameters) = @_;                                                  # Name of the sub to call, parameters
-  my @order = (rdi, rsi, rdx, rcx, r8, r9, r15);
+  my
+  @order = (rdi, rsi, rdx, rcx, r8, r9, r15);
   PushR @order;
 
   for my $i(keys @parameters)                                                   # Load parameters into designated registers
@@ -11024,7 +11046,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11026 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11048 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18012,25 +18034,25 @@ if (1) {                                                                        
 
   if (1)                                                                        # Read a library and call the subroutines there-in
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-    my $l = $a->readLibraryHeader(mapSubroutines);                              # Create a tree mapping the subroutine numbers to subroutine offsets
+    my ($inter, $symbols) = $a->readLibraryHeader(mapSubroutines);              # Create a tree mapping the subroutine numbers to subroutine offsets
 
-    $l->find(K sub => 1);                                                       # Look up the offset of the first subroutine
+    $inter->find(K sub => 1);                                                   # Look up the offset of the first subroutine
 
-    If $l->found > 0,
+    If $inter->found > 0,
     Then
-     {$t->call(parameters=>{a        => K key => 0x9999},                       # Call position independent code
-                            override => $a->address + $l->data);
+     {$inter->call(parameters=>{a        => K key => 0x9999},                   # Call position independent code
+                                override => $a->address + $inter->data);
      },
     Else
      {PrintOutStringNL "Unable to locate subroutine 'a'";
      };
 
-    $l->find(K sub => 2);                                                       # Look  up the offset of the second subroutine
+    $inter->find(K sub => 2);                                                   # Look  up the offset of the second subroutine
 
-    If $l->found > 0,
+    If $inter->found > 0,
     Then
      {$t->call(parameters=>{a        => K key => 0x9999},                       # Call position independent code
-                            override => $a->address + $l->data);
+                            override => $a->address + $inter->data);
      },
     Else
      {PrintOutStringNL "Unable to locate subroutine 'b'";
@@ -18072,15 +18094,33 @@ END
 
 latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
-  my $f = "zzzOperators.lib";
+  my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
 
   my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
    {my ($p, $s, $sub) = @_;
 
+    my $Ascii = Subroutine                                                      # The contained routine that we wish to call
+     {my ($p, $s, $sub) = @_;
+      PrintOutString "Ascii: ";
+
+      my $parse  = $$s{parse};                                                  # Parse
+      my $source = $parse->source;                                              # Source
+
+      $parse->area->getZmmBlock($$p{offset}, 1);                                # Load current parse tree node
+
+      my $w = dSize;
+      my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);            # Length of ascii
+      my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);          # Position in source
+
+     ($source+$position)->printOutMemoryNL($length);                            # Print the ascii string
+
+     } name => "Ascii",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+
     my $add = Subroutine                                                        # The contained routine that we wish to call
      {my ($p, $s, $sub) = @_;
-#      my $c = $$p{a} + $$p{b};
-#      $$p{c}->copy($c);
       PrintOutStringNL "Add";
      } name => "＋",
        structures => {parse => Nasm::X86::Unisyn::DescribeParse},
@@ -18094,22 +18134,19 @@ END
   my $l = ReadArea $f;                                                          # Area containing subroutine library
 
   my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
-  my $p = ParseUnisyn($A, $N);                                                  # Parse the utf8 string minus the final new line and zero?
+  my $p = ParseUnisyn($A, $N);                                                  # Parse utf8 string
 
-  $p->dump;                                                                     # Parse tree
+  $p->dump;                                                                     # Print parse tree
 
-  my $i = $l->readLibraryHeader($p->symbols);                                   # Create a tree mapping the subroutine numbers to subroutine offsets
-
-  $p->traverseApplyingLibraryOperators($l, $i);                                 # Traverse a parse tree applying a library of operators wher they intersect with lexical items in the parse tree
+  $p->traverseApplyingLibraryOperators($l);                                     # Traverse a parse tree applying a library of operators where they intersect with lexical items in the parse tree
 
   ok Assemble eq => <<END, avx512=>1;
 ＋
 ._1
 ._2
-Ascii
-Operator
+Ascii: 1
 Add
-Ascii
+Ascii: 2
 END
   unlink $f;
 exit unless onGitHub;
