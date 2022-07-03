@@ -289,7 +289,7 @@ END
 #   return unless $TraceMode and $i =~ m(\Amov\Z);                              # Trace just these instructions and only when tracing is enabled
     return unless                $i =~ m(\Amov\Z);                              # Trace just these instructions and only when tracing is enabled
     my @c;
-confess if
+confess if $source eq "zmm31";
     push @text, <<END;                                                          # Tracing destroys mm0 so that we can use r11
   movq mm0, r11;
 END
@@ -7332,7 +7332,9 @@ sub Nasm::X86::Tree::find($$)                                                   
       my $t = $$s{tree};                                                        # Tree to search
       $t->zero;                                                                 # Clear search fields
 
-      $t->key->copy(my $k = $$p{key});                                         # Copy in key so we know what was searched for
+      if (ref($$p{key}))                                                        # Does not apply to string trees whichuses zmm registers to pass inthe keys.
+       {$t->key->copy(my $k = $$p{key});                                        # Copy in key so we know what was searched for
+       }
 
       $t->firstFromMemory      ($F);                                            # Load first block
 
@@ -11024,7 +11026,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11026 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11028 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17569,7 +17571,7 @@ DDDD22
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
