@@ -1576,7 +1576,7 @@ sub Subroutine(&%)                                                              
     $LibraryMode      = 1;                                                      # Please do not try to create a library while creating another library - create them one after the other in separate processes.
    }
 
-  $name or confess "Name required for subroutine, use name=>";
+# $name or confess "Name required for subroutine, use name=>";
   if ($name and my $s = $subroutines{$name})                                    # Return the label of a pre-existing copy of the code possibly after running the subroutine. Make sure that the subroutine name is different for different subs as otherwise the unexpected results occur.
    {return $s unless $TraceMode and $trace and !$export;                        # If we are tracing and this subroutine is marked as traceable we always generate a new version of it so that we can trace each specific instance to get the exact context in which this subroutine was called rather than the context in which the original copy was called.
    }
@@ -1591,20 +1591,20 @@ sub Subroutine(&%)                                                              
 
   my %structureCopies;                                                          # Copies of the structures being passed that can be use inside the subroutine to access their variables in the stack frame of the subroutine
   if ($structures)                                                              # Structure provided in the parameter list
-   {for my $name(sort keys %$structures)                                        # Each structure passed
-     {$structureCopies{$name} = copyStructureMinusVariables($$structures{$name})# A new copy of the structure with its variables left in place
+   {for my $n(sort keys %$structures)                                           # Each structure passed
+     {$structureCopies{$n} = copyStructureMinusVariables($$structures{$n})      # A new copy of the structure with its variables left in place
      }
    }
 
   my $end   =    Label; Jmp $end;                                               # End label.  Subroutines are only ever called - they are not executed in-line so we jump over the implementation of the subroutine.  This can cause several forward jumps in a row if a number of subroutines are defined together.
   my $start = SetLabel;                                                         # Start label
 
-  my $s = $subroutines{$name} = genHash(__PACKAGE__."::Subroutine",             # Subroutine definition. If we are creating a library the outer sub is also included in the library.
+  my $s = genHash(__PACKAGE__."::Subroutine",                                   # Subroutine definition. If we are creating a library the outer sub is also included in the library.
     block              => $block,                                               # Block used to generate this subroutine
     end                => $end,                                                 # End label for this subroutine
     export             => $export,                                              # File this subroutine was exported to if any
     name               => $name,                                                # Name of the subroutine from which the entry label is located
-    nameString         => Rutf8($name),                                         # Name of the sub as a string constant in read only storage
+#   nameString         => Rutf8($name),                                         # Name of the sub as a string constant in read only storage
     offset             => undef,                                                # The offset of this routine in its library if it is in a library
     options            => \%options,                                            # Options used by the author of the subroutine
     parameters         => $parameters,                                          # Parameters definitions supplied by the author of the subroutine which get mapped in to parameter variables.
@@ -1614,6 +1614,8 @@ sub Subroutine(&%)                                                              
     variables          => {%parameters},                                        # Map parameters to references at known positions in the sub
     vars               => $VariableStack[-1],                                   # Number of variables in subroutine
    );
+
+  $subroutines{$name} = $s if $name;
 
   $s->mapStructureVariables(\%structureCopies) if $structures;                  # Map structures before we generate code so that we can put the parameters first in the new stack frame
   my $E = @text;                                                                # Code entry that will contain the Enter instruction
@@ -1636,7 +1638,7 @@ END
     %subroutines = %subroutinesSaved;                                           # Save current set of subroutines
     %rodata      = %rodataSaved;                                                # Restore current set of read only elements
     %rodatas     = %rodatasSaved;                                               # Restore current set of read only strings
-    $subroutines{$name} = $s;                                                   # Save current subroutine so we do not regenerate it
+    $subroutines{$name} = $s if $name;                                          # Save current subroutine so we do not regenerate it
     $LibraryMode = 0;                                                           # Please do not try to create a library while creating another library - create them one after the other.
    }
 
@@ -1911,7 +1913,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
 
   my $w = RegisterSize r15;                                                     # Size of a parameter
   PushR 15;                                                                     # Use this register to transfer between the current frame and the next frame
-  Mov "dword[rsp  -$w*3]", Rs($sub->name);                                      # Point to subroutine name
+  Mov "dword[rsp  -$w*3]", Rs($sub->name // 'anon');                            # Point to subroutine name
   Mov "byte [rsp-1-$w*2]", $sub->vars;                                          # Number of parameters to enable trace back with parameters
 
   for my $name(sort keys $parameters->%*)                                       # Upload the variables referenced by the parameters to the new stack frame
@@ -1924,7 +1926,7 @@ sub Nasm::X86::Subroutine::call($%)                                             
 
   if ($structures)                                                              # Upload the variables of each referenced structure to the new stack frame
    {push @text, <<END;                                                          # A comment we can reverse up to if we decide to use a zmm to transfer the parameters
-;AAAAAAAA $name
+;AAAAAAAA
 END
     $sub->uploadStructureVariablesToNewStackFrame
      (my $structureVariables = [], $structures);
@@ -10242,12 +10244,12 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
 
   my $s = Subroutine                                                            # Print a tree
    {my ($parameters, $structures, $sub) = @_;                                   # Parameters, structures, subroutine definition
-    my $p = $$structures{parse};                                                # Parse tree
-    my $i = $$structures{intersection};                                         # Intersection
-    my $l = $$structures{library};                                              # Library
-    my $o = $$parameters{offset};
+    my $parse   = $$structures{parse};                                          # Parse tree
+    my $inter   = $$structures{intersection};                                   # Intersection
+    my $library = $$structures{library};                                        # Library
+    my $offset  = $$parameters{offset};                                         # The offset in the containg area of the current node of the parse tree
 
-    $p->area->getZmmBlock($o, 1);                                               # Load parse tree node
+    $parse->area->getZmmBlock($offset, 1);                                      # Load parse tree node
 
     my $w = dSize;
     my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);              # Length of input
@@ -10259,9 +10261,9 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
 
     If $left > 0,
     Then                                                                        # There is a left sub tree
-     {$sub->call(structures => {parse        => $p,
-                                intersection => $i,
-                                library      => $l},
+     {$sub->call(structures => {parse        => $parse,
+                                intersection => $inter,
+                                library      => $library},
                  parameters => {offset       => $left});
      };
 
@@ -10275,15 +10277,15 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
       my $e = sub                                                               # Operator
        {PrintOutStringNL "Operator";
 
-        my $y = $l->yggdrasil;                                                  # Yggdrasil for the parse tree area
-        my $o = $y->findSubTree(Nasm::X86::Yggdrasil::SubroutineOffsets);       # Offsets of subroutines in library
-        $i->find($symbol);                                                      # Lexical item number to library routine offset
+        $inter->find($symbol);                                                   # Lexical item number to library routine offset
 
-        my $t = Subroutine {}                                                   # Subroutine definition
-          name       => "Nasm::X86::Unisyn::Operator:plus",
-          parameters => [qw()];
+        my $sub = Subroutine {}                                                 # Subroutine definition
+          structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+          parameters => [qw(offset)];
 
-        $t->call(override => $l->address + $i->data);
+        $sub->call(override => $library->address + $inter->data,                # Call the library routine
+           parameters => {offset => $offset},
+           structures => {parse  => $parse});
        };
                                                                                 # Process lexical from parse tree
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$A};
@@ -10300,9 +10302,9 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$$)             
 
     If $right > 0,
     Then                                                                        # There is a right sub tree
-     {$sub->call(structures => {parse        => $p,
-                                intersection => $i,
-                                library      => $l},
+     {$sub->call(structures => {parse        => $parse,
+                                intersection => $inter,
+                                library      => $library},
                  parameters => {offset       => $right});
      };
    } structures => {parse       => $parse,
@@ -11022,7 +11024,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11024 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11026 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17975,7 +17977,7 @@ if (1) {                                                                        
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        # Create and use a library demonstrating that we can place the containing subroutine in an area, reload that area and call both the containing and the contained subroutines.
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
@@ -18069,7 +18071,7 @@ END
   unlink $f;
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
   my $f = "zzzOperators.lib";
 
@@ -18081,7 +18083,9 @@ if (1) {                                                                        
 #      my $c = $$p{a} + $$p{b};
 #      $$p{c}->copy($c);
       PrintOutStringNL "Add";
-     } name => "＋", parameters=>[qw(a b c)];
+     } name => "＋",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
 
    } name => "operators",  parameters=>[qw(a b c)], export => $f;
 
@@ -18097,8 +18101,6 @@ END
 
   my $i = $l->readLibraryHeader($p->symbols);                                   # Create a tree mapping the subroutine numbers to subroutine offsets
 
-#  $i->dump8xx('ii');                                                           # Intersection of parse strings with library strings
-#  $o->dump8xx('oo');                                                           # Subroutine offsets
   $p->traverseApplyingLibraryOperators($l, $i);                                 # Traverse a parse tree applying a library of operators wher they intersect with lexical items in the parse tree
 
   ok Assemble eq => <<END, avx512=>1;
@@ -18111,6 +18113,7 @@ Add
 Ascii
 END
   unlink $f;
+exit unless onGitHub;
  };
 
 test12: goto testX unless $test{12};
