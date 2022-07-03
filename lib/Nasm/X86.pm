@@ -13316,7 +13316,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        # R11 being disturbed by syscall 1
+if (0) {                                                                        # R11 being disturbed by syscall 1
   Push 0x0a61;                                                                  # A followed by new line on the stack
   Mov  rax, rsp;
   Mov  rdx, 2;                                                                  # Length of string
@@ -13330,7 +13330,6 @@ if (1) {                                                                        
   ok Assemble(debug => 0, eq => <<END, avx512=>0);
 a
    rax: .... .... .... .2.2
-   r11: .... .... .... .2.2
 END
  }
 
