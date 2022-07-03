@@ -1348,7 +1348,7 @@ sub ForIn(&$$$$)                                                                
   Add   $register, $increment;                                                  # Add increment
   Cmp   $register, $limitRegister;                                              # Test that we have room for increment
   PopR  $register;                                                              # Remove increment
-  Jg   $end;   #### Wsa je
+  Jg   $end;
 
   &$full;
 
@@ -3951,7 +3951,7 @@ sub Nasm::X86::Variable::putBwdqIntoMm($$$$)                                    
 
   my $o;                                                                        # The offset into the mm register
   if (ref $offset)                                                              # The offset is being passed in a variable
-   {$offset->setReg($o = rdi);   ## rsi
+   {$offset->setReg($o = rdi);
    }
   else                                                                          # The offset is being passed as a register expression
    {$o = $offset;
@@ -3960,7 +3960,7 @@ sub Nasm::X86::Variable::putBwdqIntoMm($$$$)                                    
       confess "Out of range" if $offset =~ m(\A\d+\Z);                          # Check the offset if it is a number
    }
 
-  $content->setReg(rsi);         ## rsi
+  $content->setReg(rsi);
   my $w = RegisterSize $mm;                                                     # Size of mm register
   Vmovdqu32 "[rsp-$w]", $mm;                                                    # Write below the stack
   Mov "[rsp+$o-$w]",  byteRegister(rsi) if $size =~ m(b);                       # Write byte register
@@ -7331,7 +7331,7 @@ sub Nasm::X86::Tree::find($$)                                                   
       my $t = $$s{tree};                                                        # Tree to search
       $t->zero;                                                                 # Clear search fields
 
-#      $t->key->copy(my $k = $$p{key});                                         # Copy in key so we know what was searched for
+      $t->key->copy(my $k = $$p{key});                                          # Copy in key so we know what was searched for
 
       $t->firstFromMemory      ($F);                                            # Load first block
 
@@ -7352,10 +7352,12 @@ sub Nasm::X86::Tree::find($$)                                                   
        {my (undef, $start) = @_;
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
+Comment "CCCC1111";
         $t->indexEqLt($zKey, $K, $equals, $insert);                             # The position of a key in a zmm equal to the specified key as a point in a variable.
         IfNz                                                                    # Result mask is non zero so we must have found the key
         Then
          {dFromPointInZ $equals, $D, set=>rsi;                                  # Get the corresponding data
+Comment "CCCC2222";
           $t->data  ->copy(rsi);                                                # Data associated with the key
           $t->found ->copy($equals);                                            # Show found
           $t->offset->copy($Q);                                                 # Offset of the containing block
@@ -7363,6 +7365,7 @@ sub Nasm::X86::Tree::find($$)                                                   
           $t->subTree->copy(rdx);                                               # Save corresponding tree bit
           Jmp $success;                                                         # Return
          };
+Comment "CCCC3333";
 
         $t->leafFromNodes($N, set=>rsi),                                        # Check whether this is a leaf by looking at the first sub node - if it is zero this must be a leaf as no node van have a zero offset in an area
         Cmp rsi, 0;                                                             # Leaf if zero
@@ -7507,7 +7510,6 @@ sub Nasm::X86::Tree::findNext($$)                                               
       my $t = $$s{tree}->zero;                                                  # Tree to search
       my $k = $$p{key};                                                         # Key to find
       $t->key->copy($k);                                                        # Copy in key so we know what was searched for
-
       $t->firstFromMemory      ($F);                                            # Load first block
       my $Q = $t->rootFromFirst($F);                                            # Start the search from the root
       If $Q == 0,
@@ -8874,7 +8876,7 @@ sub Nasm::X86::Tree::substring($$$)                                             
       If $string->found > 0,
       Then                                                                      # Start exists
        {$string->size->for(sub                                                  # Each key in range
-         {my ($i, $start, $next, $end) = @_;
+         {my ($i, undef, $next, $end) = @_;
           $t->put($string->key, $string->data);
           $string->findNext($string->key);
           If $string->key == $finish, Then {Jmp $end};                          # End of range
@@ -11018,7 +11020,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11020 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11022 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -14244,7 +14246,7 @@ data   : .... .... .... ..22
 END
  }
 
-#latest:  ### Jim
+#latest:
 if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
@@ -17179,7 +17181,7 @@ END
  }
 
 #latest:
-if (0) {           ## Fails for some weird reason                               #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
@@ -17563,7 +17565,7 @@ DDDD22
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
