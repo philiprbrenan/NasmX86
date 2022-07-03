@@ -15,7 +15,7 @@
 # Jump forwarding
 # All options checking immediately after parameters
 # Which subs do we actually need SaveFirst four on?
-# Binary search tighhten up reghister saves
+# Binary search tighten up register saves
 package Nasm::X86;
 our $VERSION = "20220606";
 use warnings FATAL => qw(all);
@@ -6163,11 +6163,11 @@ sub Nasm::X86::Tree::position($$)                                               
   $t                                                                            # Return new descriptor
  }
 
-sub Nasm::X86::Tree::reposition($$)                                             # Reposition an existing tree at the specified location.
- {my ($tree, $first) = @_;                                                      # Tree descriptor, offset to reposition on
-  $tree->first->copy($first);                                                   # Variable addressing offset to first block of keys.
-  $tree                                                                         # Return existing tree descriptor
- }
+#sub Nasm::X86::Tree::reposition($$)                                             # Reposition an existing tree at the specified location.
+# {my ($tree, $first) = @_;                                                      # Tree descriptor, offset to reposition on
+#  $tree->first->copy($first);                                                   # Variable addressing offset to first block of keys.
+#  $tree                                                                         # Return existing tree descriptor
+# }
 
 sub Nasm::X86::Tree::cloneDescriptor($)                                         # Clone the descriptor of a tree to make a new tree descriptor.
  {my ($tree) = @_;                                                              # Tree descriptor
@@ -7773,7 +7773,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
   $d
  } # depth
 
-##D2 Sub trees                                                                  # Construct trees of trees - all private.
+#D2 Sub trees                                                                   # Construct trees of trees - all private.
 
 sub Nasm::X86::Tree::isTree($$$)                                                #P Set the Zero Flag to oppose the tree bit in the numbered zmm register holding the keys of a node to indicate whether the data element indicated by the specified register is an offset to a sub tree in the containing area or not.
 {my ($t, $zmm, $point) = @_;                                                    # Tree descriptor, numbered zmm register holding the keys for a node in the tree, register showing point to test
@@ -8746,7 +8746,7 @@ sub Nasm::X86::Tree::peekSubTree($$)                                            
   Then                                                                          # Found an element
    {If $tree->subTree > 0,
     Then                                                                        # Found a sub tree
-     {$t->reposition($tree->data);                                              # Reposition on sub tree
+     {$t->first->copy($tree->data);                                             # Reposition on sub tree
       $t->found->copy(1);
      };
    };
