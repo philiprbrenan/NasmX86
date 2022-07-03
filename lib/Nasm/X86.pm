@@ -240,7 +240,7 @@ END
        sub $I(\@)
         {my (\$target, \$source) = \@_;
          \@_ == 2 or confess "Two arguments required, not ".scalar(\@_);
-         &traceInstruction(q($i));
+         &traceInstruction(q($i), \$source, \$target);
          push \@text, qq($i \$target, \$source\\n);
         }
 END
@@ -284,11 +284,12 @@ END
     confess $@ if $@;
    }
 
-  sub traceInstruction($)                                                       # Trace the location of this instruction in  the source code
-   {my ($i) = @_;                                                               # Instruction
-    return unless $TraceMode and $i =~ m(\Amov\Z);                              # Trace just these instructions and only when tracing is enabled
+  sub traceInstruction($$$)                                                     # Trace the location of this instruction in  the source code
+   {my ($i, $source, $target) = @_;                                             # Instruction
+#   return unless $TraceMode and $i =~ m(\Amov\Z);                              # Trace just these instructions and only when tracing is enabled
+    return unless                $i =~ m(\Amov\Z);                              # Trace just these instructions and only when tracing is enabled
     my @c;
-
+confess if
     push @text, <<END;                                                          # Tracing destroys mm0 so that we can use r11
   movq mm0, r11;
 END
@@ -7331,7 +7332,7 @@ sub Nasm::X86::Tree::find($$)                                                   
       my $t = $$s{tree};                                                        # Tree to search
       $t->zero;                                                                 # Clear search fields
 
-      $t->key->copy(my $k = $$p{key});                                          # Copy in key so we know what was searched for
+      $t->key->copy(my $k = $$p{key});                                         # Copy in key so we know what was searched for
 
       $t->firstFromMemory      ($F);                                            # Load first block
 
@@ -7352,12 +7353,10 @@ sub Nasm::X86::Tree::find($$)                                                   
        {my (undef, $start) = @_;
         $t->getBlock($Q, $K, $D, $N);                                           # Get the keys/data/nodes
 
-Comment "CCCC1111";
         $t->indexEqLt($zKey, $K, $equals, $insert);                             # The position of a key in a zmm equal to the specified key as a point in a variable.
         IfNz                                                                    # Result mask is non zero so we must have found the key
         Then
          {dFromPointInZ $equals, $D, set=>rsi;                                  # Get the corresponding data
-Comment "CCCC2222";
           $t->data  ->copy(rsi);                                                # Data associated with the key
           $t->found ->copy($equals);                                            # Show found
           $t->offset->copy($Q);                                                 # Offset of the containing block
@@ -7365,7 +7364,6 @@ Comment "CCCC2222";
           $t->subTree->copy(rdx);                                               # Save corresponding tree bit
           Jmp $success;                                                         # Return
          };
-Comment "CCCC3333";
 
         $t->leafFromNodes($N, set=>rsi),                                        # Check whether this is a leaf by looking at the first sub node - if it is zero this must be a leaf as no node van have a zero offset in an area
         Cmp rsi, 0;                                                             # Leaf if zero
@@ -7510,6 +7508,7 @@ sub Nasm::X86::Tree::findNext($$)                                               
       my $t = $$s{tree}->zero;                                                  # Tree to search
       my $k = $$p{key};                                                         # Key to find
       $t->key->copy($k);                                                        # Copy in key so we know what was searched for
+
       $t->firstFromMemory      ($F);                                            # Load first block
       my $Q = $t->rootFromFirst($F);                                            # Start the search from the root
       If $Q == 0,
@@ -8801,6 +8800,7 @@ sub Nasm::X86::Tree::get($$)                                                    
  {my ($tree, $key) = @_;                                                        # Tree descriptor, zero based index
   @_ == 2 or confess "Two parameters";
   $tree->find($key);
+  $tree->key->copy($key);
  }
 
 #D2 Trees as Strings                                                            # Use trees as strings of dwords.  The size of the tree is the length of the string. Each dword is consider as an indivisible unit. This arrangement allows the normal string operations of concatenation and substring to be performed easily.
@@ -8838,6 +8838,10 @@ sub Nasm::X86::Tree::append($$)                                                 
   $ls->for(sub                                                                  # Look up each character
    {my ($i, $start, $next, $end) = @_;
     $string->get($i);
+PrintErrStringNL "AAAA";
+$i->d;
+$string->key->d;
+$string->data->d;
     $string->put($lt+$string->key, $string->data);
    });
   $string                                                                       # Chain from the target string
@@ -8876,7 +8880,7 @@ sub Nasm::X86::Tree::substring($$$)                                             
       If $string->found > 0,
       Then                                                                      # Start exists
        {$string->size->for(sub                                                  # Each key in range
-         {my ($i, undef, $next, $end) = @_;
+         {my ($i, $start, $next, $end) = @_;
           $t->put($string->key, $string->data);
           $string->findNext($string->key);
           If $string->key == $finish, Then {Jmp $end};                          # End of range
@@ -11020,7 +11024,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11022 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11026 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
