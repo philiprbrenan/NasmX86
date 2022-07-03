@@ -17975,8 +17975,8 @@ if (1) {                                                                        
 END
  }
 
-#latest:;
-if (1) {                                                                        # Create and use a library
+latest:;
+if (1) {                                                                        # Create and use a library demonstrating that we can place the containing subroutine in an area, reload that area and call both the containing and the contained subroutines.
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
 
@@ -17995,14 +17995,17 @@ if (1) {                                                                        
       PrintOutRegisterInHex rax;
      } name => 'b', parameters=>[qw(a)];
 
+    PrintOutStringNL "abcd";
+    $$p{a}->outNL;
    } name => $sub, parameters=>[qw(a)], export => $f;                           # Export the library
 
   my $t = Subroutine {} name => "t", parameters=>[qw(a)];
 
   my sub mapSubroutines                                                         # Create a string tree mapping subroutine names to subroutine numbers
    {my $n = CreateArea->CreateTree(stringTree=>1);
-    $n->putKeyString(constantString("a"), K offset => 1);
-    $n->putKeyString(constantString("b"), K offset => 2);
+    $n->putKeyString(constantString("abcd"), K offset => 0);
+    $n->putKeyString(constantString("a"),    K offset => 1);
+    $n->putKeyString(constantString("b"),    K offset => 2);
     $n
    }
 
@@ -18042,13 +18045,24 @@ END
   if (1)                                                                        # Include a library in a program
    {my $a = loadAreaIntoAssembly $f;                                            # Load the library from the file it was exported to
     my $l = $a->readLibraryHeader(mapSubroutines);                              # Create a tree mapping the subroutine numbers to subroutine offsets
-       $l->find(K sub => 2);                                                    # Look  up the offset of the second subroutine
 
+    $l->find(K sub => 0);                                                       # Look  up the offset of the containing subroutine
+    $t->call(parameters=>{a        => K key => 0x6666},                         # Call position independent code
+                          override => $a->address + $l->data);
+
+    $l->find(K sub => 1);                                                       # Look  up the offset of the first subroutine
+    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
+                          override => $a->address + $l->data);
+
+    $l->find(K sub => 2);                                                       # Look  up the offset of the second subroutine
     $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
                           override => $a->address + $l->data);
    }
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+abcd
+a: .... .... .... 6666
+   rax: .... .... .... .111
    rax: .... .... .... 8888
 END
 
