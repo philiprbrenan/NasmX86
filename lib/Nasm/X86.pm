@@ -7318,7 +7318,7 @@ sub Nasm::X86::Tree::zero($)                                                    
  }
 
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and tests whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
- {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for which cn either be a variable containing a double word for a normal tree or a zmm register containing the key to be sought for a stringTree.
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for which can either be a variable containing a double word for a normal tree or a zmm register containing the key to be sought for a stringTree.
   @_ == 2 or confess "Two parameters";
 
   if ($tree->stringTree)                                                        # Key in variable
@@ -18040,7 +18040,7 @@ if (1) {                                                                        
 
     If $inter->found > 0,
     Then
-     {$inter->call(parameters=>{a        => K key => 0x9999},                   # Call position independent code
+     {$t->call(parameters=>{a        => K key => 0x9999},                   # Call position independent code
                                 override => $a->address + $inter->data);
      },
     Else
@@ -18067,19 +18067,19 @@ END
 
   if (1)                                                                        # Include a library in a program
    {my $a = loadAreaIntoAssembly $f;                                            # Load the library from the file it was exported to
-    my $l = $a->readLibraryHeader(mapSubroutines);                              # Create a tree mapping the subroutine numbers to subroutine offsets
+    my ($inter, $subroutines) = $a->readLibraryHeader(mapSubroutines);          # Create a tree mapping the subroutine numbers to subroutine offsets
 
-    $l->find(K sub => 0);                                                       # Look  up the offset of the containing subroutine
+    $inter->find(K sub => 0);                                                   # Look  up the offset of the containing subroutine
     $t->call(parameters=>{a        => K key => 0x6666},                         # Call position independent code
-                          override => $a->address + $l->data);
+                          override => $a->address + $inter->data);
 
-    $l->find(K sub => 1);                                                       # Look  up the offset of the first subroutine
+    $inter->find(K sub => 1);                                                   # Look  up the offset of the first subroutine
     $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
-                          override => $a->address + $l->data);
+                          override => $a->address + $inter->data);
 
-    $l->find(K sub => 2);                                                       # Look  up the offset of the second subroutine
+    $inter->find(K sub => 2);                                                   # Look  up the offset of the second subroutine
     $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
-                          override => $a->address + $l->data);
+                          override => $a->address + $inter->data);
    }
 
   ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
@@ -18149,7 +18149,6 @@ Add
 Ascii: 2
 END
   unlink $f;
-exit unless onGitHub;
  };
 
 test12: goto testX unless $test{12};
@@ -18615,13 +18614,13 @@ if (1) {                                                                        
   my %s = (ab => 2, 𝕒𝕒 =>8, 𝗮𝗮𝗮=>12, 𝝰𝝰𝝰𝝰=>16);                                 # Subroutine names and offsets
 
   $a->writeLibraryHeader({%s});
-  my $t = $a->readLibraryHeader($u);
+  my ($inter, $subroutines) = $a->readLibraryHeader($u);
 
-  $t->dump("TT");
+  $inter->dump("TT");
 
   ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0, clocks=>4374;
 TT
-At:  3B0                    length:    2,  data:  3F0,  nodes:  430,  first:  370, root, leaf
+At:  1C0                    length:    2,  data:  200,  nodes:  240,  first:   40, root, leaf
   Index:    0    1
   Keys :    1    4
   Data :    2    8
