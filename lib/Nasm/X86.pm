@@ -286,10 +286,10 @@ END
 
   sub traceInstruction($$$)                                                     # Trace the location of this instruction in  the source code
    {my ($i, $source, $target) = @_;                                             # Instruction
-#   return unless $TraceMode and $i =~ m(\Amov\Z);                              # Trace just these instructions and only when tracing is enabled
-    return unless                $i =~ m(\Amov\Z);                              # Trace just these instructions and only when tracing is enabled
+    return unless $TraceMode and $i =~ m(\Amov\Z);                              # Trace just these instructions and only when tracing is enabled
     my @c;
-confess if $source eq "zmm31";
+    confess "zmm register in mov" if $source =~ m(\Azmm);                       # A particularly difficult error to track down
+
     push @text, <<END;                                                          # Tracing destroys mm0 so that we can use r11
   movq mm0, r11;
 END
@@ -8840,10 +8840,6 @@ sub Nasm::X86::Tree::append($$)                                                 
   $ls->for(sub                                                                  # Look up each character
    {my ($i, $start, $next, $end) = @_;
     $string->get($i);
-PrintErrStringNL "AAAA";
-$i->d;
-$string->key->d;
-$string->data->d;
     $string->put($lt+$string->key, $string->data);
    });
   $string                                                                       # Chain from the target string
@@ -11026,7 +11022,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11028 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11024 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -16949,7 +16945,7 @@ data   : .... .... .... ...E
 found  : .... .... .... ..40
 found  : .... .... .... ...0
 size of tree: .... .... .... ..10
-f: .... .... .... ...2 i: .... .... .... ...E data   : .... .... .... ...8
+f: .... .... .... ...2 i: .... .... .... ...8 data   : .... .... .... ...8
 f: .... .... .... ...1 i: .... .... .... ...F data   : .... .... .... ...F
 f: .... .... .... ...1 i: .... .... .... ...E data   : .... .... .... ...E
 f: .... .... .... ...1 i: .... .... .... ...D data   : .... .... .... ...D
