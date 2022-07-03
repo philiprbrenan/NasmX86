@@ -4819,7 +4819,7 @@ sub Hash()                                                                      
    {Comment "Hash";
 
     PushR rax, rdi, k1, zmm0, zmm1;                                             # Save registers
-    PushR 15;
+    PushR 15;                                                                   # Return register
     Vpbroadcastq zmm0, rdi;                                                     # Broadcast length through ymm0
     Vcvtuqq2pd   zmm0, zmm0;                                                    # Convert to lengths to float
     Vgetmantps   zmm0, zmm0, 4;                                                 # Normalize to 1 to 2, see: https://hjlebbink.github.io/x86doc/html/VGETMANTPD.html
@@ -7767,7 +7767,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
       parameters => [qw(node depth)],
       name       => qq(Nasm::X86::Tree::depth-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
-  $s->call(structures => {tree => $tree->copyDescription},
+  $s->call(structures => {tree => $tree->copyDescriptor},
            parameters => {node => $node, depth => my $d = V depth => 0});
 
   $d
