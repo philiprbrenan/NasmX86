@@ -17703,7 +17703,7 @@ END
   unlink $f;
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::AlphabetsArray
   my ($N, $A) = Nasm::X86::Unisyn::Lex::AlphabetsArray;
   Mov rax, "[$N]";
@@ -17722,7 +17722,7 @@ if (1) {                                                                        
   ok Assemble eq => <<END, avx512=>1;
    rax: .... .... ...1 EEF2
    rax: .... .... .... ...6
-   rax: .... .... .... ..FF
+   rax: .... .... .... ..13
 END
  }
 
