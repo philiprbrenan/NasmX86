@@ -9564,6 +9564,49 @@ sub Nasm::X86::Unisyn::Lex::Letter::B                                           
  {(0x2309,0x230b,0x232a,0x2769,0x276b,0x276d,0x276f,0x2771,0x2773,0x2775,0x27e7,0x27e9,0x27eb,0x27ed,0x27ef,0x2984,0x2986,0x2988,0x298a,0x298c,0x298e,0x2990,0x2992,0x2994,0x2996,0x2998,0x29fd,0x2e29,0x3009,0x300b,0x3011,0x3015,0x3017,0x3019,0x301b,0xfd3f,0xff09,0xff60)
  }
 
+sub Nasm::X86::Unisyn::Lex::Number::d5 {12}
+sub Nasm::X86::Unisyn::Lex::Letter::d5                                          # Dyad 5
+ {(0x1d5a0..0x1d5a0+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d6 {13}
+sub Nasm::X86::Unisyn::Lex::Letter::d6                                          # Dyad 6
+ {(0x1d608..0x1d608+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d7 {14}
+sub Nasm::X86::Unisyn::Lex::Letter::d7                                          # Dyad 7
+ {(0x1d49c..0x1d49c+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d8 {15}
+sub Nasm::X86::Unisyn::Lex::Letter::d8                                          # Dyad 8
+ {(0x1d4d0..0x1d4d0+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d9 {16}
+sub Nasm::X86::Unisyn::Lex::Letter::d9                                          # Dyad 9
+ {(0x1d504..0x1d504+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d10{17}
+sub Nasm::X86::Unisyn::Lex::Letter::d10                                         # Dyad 10
+ {(0x1d56c..0x1d56c+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d11{18}
+sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad 11
+ {(0x1d670..0x1d670+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d12{19}
+sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad 12
+ {(0x1d538..0x1d538+51)
+ }
+
+# Add: 1d5a0 ,  0x1d608,   0x1d49c,  0x1d4d0,  0x1d504,     0x1d56c,  0x1d670,  0x1d538
+
+
 sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    # Compose phrases of Earl Zero, write them to a temporary file, return the temporary file name.
  {my ($words) = @_;                                                             # String of words
   my $s = '';
@@ -9629,12 +9672,21 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
   my $S = Nasm::X86::Unisyn::Lex::Number::S;                                    # Start
   my $v = Nasm::X86::Unisyn::Lex::Number::v;                                    # Variable
 
+  my $d5  = Nasm::X86::Unisyn::Lex::Number::d5;
+  my $d6  = Nasm::X86::Unisyn::Lex::Number::d6;
+  my $d7  = Nasm::X86::Unisyn::Lex::Number::d7;
+  my $d8  = Nasm::X86::Unisyn::Lex::Number::d8;
+  my $d9  = Nasm::X86::Unisyn::Lex::Number::d9;
+  my $d10 = Nasm::X86::Unisyn::Lex::Number::d10;
+  my $d11 = Nasm::X86::Unisyn::Lex::Number::d11;
+  my $d12 = Nasm::X86::Unisyn::Lex::Number::d12;
+
   my %x = (                                                                     # The transitions table: this tells us which combinations of lexical items are valid.  The table is augmented with start and end symbols so that we know where to start and end.
     $a => [    $A, $b,                             $v],
     $A => [$a,         $B, $d, $e, $F,     $q, $s,   ],
     $b => [    $A, $b, $B,             $p,     $s, $v],
     $B => [$a,         $B, $d, $e, $F,     $q, $s    ],
-    $d => [    $A, $b, $B,             $p,         $v],
+    $d => [    $A, $b,                 $p,         $v],
     $e => [    $A, $b,                 $p,         $v],
     $p => [    $A, $b,                             $v],
     $q => [$a, $A,     $B, $d, $e, $F,         $s    ],
@@ -9659,16 +9711,25 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
 
 sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                           # Create an array of utf32 to alphabet number.
  {my %a =
-   (Nasm::X86::Unisyn::Lex::Number::A => [Nasm::X86::Unisyn::Lex::Letter::A],,
-    Nasm::X86::Unisyn::Lex::Number::d => [Nasm::X86::Unisyn::Lex::Letter::d],,
-    Nasm::X86::Unisyn::Lex::Number::p => [Nasm::X86::Unisyn::Lex::Letter::p],,
-    Nasm::X86::Unisyn::Lex::Number::a => [Nasm::X86::Unisyn::Lex::Letter::a],,
-    Nasm::X86::Unisyn::Lex::Number::v => [Nasm::X86::Unisyn::Lex::Letter::v],,
-    Nasm::X86::Unisyn::Lex::Number::q => [Nasm::X86::Unisyn::Lex::Letter::q],,
-    Nasm::X86::Unisyn::Lex::Number::s => [Nasm::X86::Unisyn::Lex::Letter::s],,
-    Nasm::X86::Unisyn::Lex::Number::e => [Nasm::X86::Unisyn::Lex::Letter::e],,
-    Nasm::X86::Unisyn::Lex::Number::b => [Nasm::X86::Unisyn::Lex::Letter::b],,
-    Nasm::X86::Unisyn::Lex::Number::B => [Nasm::X86::Unisyn::Lex::Letter::B],
+   (Nasm::X86::Unisyn::Lex::Number::A   => [Nasm::X86::Unisyn::Lex::Letter::A],
+    Nasm::X86::Unisyn::Lex::Number::d   => [Nasm::X86::Unisyn::Lex::Letter::d],
+    Nasm::X86::Unisyn::Lex::Number::p   => [Nasm::X86::Unisyn::Lex::Letter::p],
+    Nasm::X86::Unisyn::Lex::Number::a   => [Nasm::X86::Unisyn::Lex::Letter::a],
+    Nasm::X86::Unisyn::Lex::Number::v   => [Nasm::X86::Unisyn::Lex::Letter::v],
+    Nasm::X86::Unisyn::Lex::Number::q   => [Nasm::X86::Unisyn::Lex::Letter::q],
+    Nasm::X86::Unisyn::Lex::Number::s   => [Nasm::X86::Unisyn::Lex::Letter::s],
+    Nasm::X86::Unisyn::Lex::Number::e   => [Nasm::X86::Unisyn::Lex::Letter::e],
+    Nasm::X86::Unisyn::Lex::Number::b   => [Nasm::X86::Unisyn::Lex::Letter::b],
+    Nasm::X86::Unisyn::Lex::Number::B   => [Nasm::X86::Unisyn::Lex::Letter::B],
+
+    Nasm::X86::Unisyn::Lex::Number::d5  => [Nasm::X86::Unisyn::Lex::Letter::d5],
+    Nasm::X86::Unisyn::Lex::Number::d6  => [Nasm::X86::Unisyn::Lex::Letter::d6],
+    Nasm::X86::Unisyn::Lex::Number::d7  => [Nasm::X86::Unisyn::Lex::Letter::d7],
+    Nasm::X86::Unisyn::Lex::Number::d8  => [Nasm::X86::Unisyn::Lex::Letter::d8],
+    Nasm::X86::Unisyn::Lex::Number::d9  => [Nasm::X86::Unisyn::Lex::Letter::d9],
+    Nasm::X86::Unisyn::Lex::Number::d10 => [Nasm::X86::Unisyn::Lex::Letter::d10],
+    Nasm::X86::Unisyn::Lex::Number::d11 => [Nasm::X86::Unisyn::Lex::Letter::d11],
+    Nasm::X86::Unisyn::Lex::Number::d12 => [Nasm::X86::Unisyn::Lex::Letter::d12],
    );
 
   my @a;
@@ -10318,6 +10379,15 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::q), Then {&$byType("Suffix");    Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::s), Then {&$byType("Separator"); Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::v), Then {&$byType("Variable");  Jmp $end};
+
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d5  ), Then {&$byName("Dyad5 "); Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d6  ), Then {&$byName("Dyad6 "); Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d7  ), Then {&$byName("Dyad7 "); Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d8  ), Then {&$byName("Dyad8 "); Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d9  ), Then {&$byName("Dyad9 "); Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d10 ), Then {&$byName("Dyad10"); Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d11 ), Then {&$byName("Dyad11"); Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d12 ), Then {&$byName("Dyad12"); Jmp $end};
      };
 
     If $right > 0,
@@ -11049,7 +11119,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11051 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11121 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
