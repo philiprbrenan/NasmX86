@@ -18095,65 +18095,6 @@ END
   unlink $f;
  }
 
-latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
-  my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
-
-  my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
-   {my ($p, $s, $sub) = @_;
-
-    my $Ascii = Subroutine                                                      # The contained routine that we wish to call
-     {my ($p, $s, $sub) = @_;
-      PrintOutString "Ascii: ";
-
-      my $parse  = $$s{parse};                                                  # Parse
-      my $source = $parse->source;                                              # Source
-
-      $parse->area->getZmmBlock($$p{offset}, 1);                                # Load current parse tree node
-
-      my $w = dSize;
-      my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);            # Length of ascii
-      my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);          # Position in source
-
-     ($source+$position)->printOutMemoryNL($length);                            # Print the ascii string
-
-     } name => "Ascii",
-       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
-       parameters => [qw(offset)];
-
-
-    my $add = Subroutine                                                        # The contained routine that we wish to call
-     {my ($p, $s, $sub) = @_;
-      PrintOutStringNL "Add";
-     } name => "＋",
-       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
-       parameters => [qw(offset)];
-
-   } name => "operators",  parameters=>[qw(a b c)], export => $f;
-
-  ok Assemble eq => <<END, avx512=>1;
-END
-
-  my $l = ReadArea $f;                                                          # Area containing subroutine library
-
-  my ($A, $N) = constantString  qq(1＋2);                                        # Utf8 string to parse
-  my $p = ParseUnisyn($A, $N);                                                  # Parse utf8 string
-
-  $p->dump;                                                                     # Print parse tree
-
-  $p->traverseApplyingLibraryOperators($l);                                     # Traverse a parse tree applying a library of operators where they intersect with lexical items in the parse tree
-
-  ok Assemble eq => <<END, avx512=>1;
-＋
-._1
-._2
-Ascii: 1
-Add
-Ascii: 2
-END
-  unlink $f;
- };
-
 test12: goto testX unless $test{12};
 
 #latest:
@@ -18724,7 +18665,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString('【】');
   my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
@@ -19202,7 +19143,7 @@ Pop
 END
  }
 
-latest:;
+#latest:;
 if (1)
  {my $t = "𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔✕𝗔";
 #    $t = $t x (1e4/length $t);
@@ -19234,7 +19175,7 @@ if (1)
 END
  }
 
-latest:;
+#latest:;
 if (1)                                                                          # Place parser tables into an area
  {my $a = CreateArea;
   my ($alphabetN,    $alphabetA)    = Nasm::X86::Unisyn::Lex::AlphabetsArray;
@@ -19250,6 +19191,125 @@ if (1)                                                                          
   ok Assemble eq => <<END;
 END
  }
+
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
+  my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
+
+  my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
+   {my ($p, $s, $sub) = @_;
+
+    Subroutine                                                                  # The contained routine that we wish to call
+     {my ($p, $s, $sub) = @_;
+      PrintOutString "Ascii: ";
+
+      my $parse  = $$s{parse};                                                  # Parse
+      my $source = $parse->source;                                              # Source
+
+      $parse->area->getZmmBlock($$p{offset}, 1);                                # Load current parse tree node
+
+      my $w = dSize;
+      my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);            # Length of ascii
+      my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);          # Position in source
+
+     ($source+$position)->printOutMemoryNL($length);                            # Print the ascii string
+
+     } name => "Ascii",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+    Subroutine                                                                  # The contained routine that we wish to call
+     {my ($p, $s, $sub) = @_;
+      PrintOutStringNL "Add";
+     } name => "＋",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+    Subroutine                                                                  # The contained routine that we wish to call
+     {my ($p, $s, $sub) = @_;
+      PrintOutStringNL "Times";
+     } name => "✕",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+
+    Subroutine                                                                  # The contained routine that we wish to call
+     {my ($p, $s, $sub) = @_;
+      PrintOutString "Variable: ";
+
+      my $parse  = $$s{parse};                                                  # Parse
+      my $source = $parse->source;                                              # Source
+
+      $parse->area->getZmmBlock($$p{offset}, 1);                                # Load current parse tree node
+
+      my $w = dSize;
+      my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);            # Length of ascii
+      my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);          # Position in source
+
+     ($source+$position)->printOutMemoryNL($length);                            # Print the ascii string
+
+     } name => "Variable",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+   } name => "operators",  parameters=>[qw(a b c)], export => $f;
+
+  ok Assemble eq => <<END, avx512=>1;
+END
+
+  my $l = ReadArea $f;                                                          # Area containing subroutine library
+
+  my ($A, $N) = constantString  qq(1＋𝗔✕𝗕＋𝗖＋2✕𝗔＋𝗕＋𝗖);                            # Utf8 string to parse
+  my $p = ParseUnisyn($A, $N);                                                  # Parse utf8 string
+
+  $p->char    ->outNL;                                                          # Print results
+  $p->fail    ->outNL;
+  $p->position->outNL;
+  $p->match   ->outNL;
+  $p->reason  ->outNL;
+  $p->dump;
+
+  $p->traverseApplyingLibraryOperators($l);                                     # Traverse a parse tree applying a library of operators where they intersect with lexical items in the parse tree
+
+  ok Assemble eq => <<END, avx512=>1;
+parseChar  : .... .... ...1 D5D6
+parseFail  : .... .... .... ...0
+position   : .... .... .... ..2F
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+＋
+._＋
+._._✕
+._._._＋
+._._._._＋
+._._._._._✕
+._._._._._._＋
+._._._._._._._1
+._._._._._._._𝗔
+._._._._._._𝗕
+._._._._._𝗖
+._._._._2
+._._._𝗔
+._._𝗕
+._𝗖
+Ascii: 1
+Add
+Variable: 𝗔
+Times
+Variable: 𝗕
+Add
+Variable: 𝗖
+Add
+Ascii: 2
+Times
+Variable: 𝗔
+Add
+Variable: 𝗕
+Add
+Variable: 𝗖
+END
+  unlink $f;
+ };
 
 #latest:
 if (0) {                                                                        #TAssemble
