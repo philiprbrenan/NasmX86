@@ -18,7 +18,7 @@
 # Binary search tighten up register saves
 # github.com/<username>/<repo_name>/compare/<commit1>...<commit2>
 # https://github.com/philiprbrenan/NasmX86/compare/9bb6e05..09d1ec9
-
+# Remove home test
 package Nasm::X86;
 our $VERSION = "20220606";
 use warnings FATAL => qw(all);
@@ -42,7 +42,6 @@ my @text;                                                                       
 my @extern;                                                                     # External symbols imports for linking with C libraries
 my @link;                                                                       # Specify libraries which to link against in the final assembly stage
 my $interpreter  = q(-I /usr/lib64/ld-linux-x86-64.so.2);                       # The ld command needs an interpreter if we are linking with C.
-my $develop      = -e q(/home/phil/);                                           # Developing
 our $sdeMixOut   = q(sde-mix-out.txt);                                          # Emulator hot spot output file
 our $sdeTraceOut = q(sde-debugtrace-out.txt);                                   # Emulator trace output file
 our $sdePtrCheck = q(sde-ptr-check.out.txt);                                    # Emulator pointer check file
@@ -9568,42 +9567,42 @@ sub Nasm::X86::Unisyn::Lex::Letter::B                                           
  }
 
 sub Nasm::X86::Unisyn::Lex::Number::d5 {12}
-sub Nasm::X86::Unisyn::Lex::Letter::d5                                          # Dyad 5
+sub Nasm::X86::Unisyn::Lex::Letter::d5                                          # Dyad 5 - Sans-serif Normal
  {(0x1d5a0..0x1d5a0+51)
  }
 
 sub Nasm::X86::Unisyn::Lex::Number::d6 {13}
-sub Nasm::X86::Unisyn::Lex::Letter::d6                                          # Dyad 6
+sub Nasm::X86::Unisyn::Lex::Letter::d6                                          # Dyad 6 - Sans-serif Bold
  {(0x1d608..0x1d608+51)
  }
 
 sub Nasm::X86::Unisyn::Lex::Number::d7 {14}
-sub Nasm::X86::Unisyn::Lex::Letter::d7                                          # Dyad 7
+sub Nasm::X86::Unisyn::Lex::Letter::d7                                          # Dyad 7  - Calligraphy - normal
  {(0x1d49c..0x1d49c+51)
  }
 
 sub Nasm::X86::Unisyn::Lex::Number::d8 {15}
-sub Nasm::X86::Unisyn::Lex::Letter::d8                                          # Dyad 8
+sub Nasm::X86::Unisyn::Lex::Letter::d8                                          # Dyad 8 - Calligraphy - bold
  {(0x1d4d0..0x1d4d0+51)
  }
 
 sub Nasm::X86::Unisyn::Lex::Number::d9 {16}
-sub Nasm::X86::Unisyn::Lex::Letter::d9                                          # Dyad 9
+sub Nasm::X86::Unisyn::Lex::Letter::d9                                          # Dyad 9 - Fraktur - Normal
  {(0x1d504..0x1d504+51)
  }
 
 sub Nasm::X86::Unisyn::Lex::Number::d10{17}
-sub Nasm::X86::Unisyn::Lex::Letter::d10                                         # Dyad 10
+sub Nasm::X86::Unisyn::Lex::Letter::d10                                         # Dyad 10 - Fraktur - bold
  {(0x1d56c..0x1d56c+51)
  }
 
 sub Nasm::X86::Unisyn::Lex::Number::d11{18}
-sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad 11
+sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad 11 - Mono
  {(0x1d670..0x1d670+51)
  }
 
 sub Nasm::X86::Unisyn::Lex::Number::d12{19}
-sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad 12
+sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad 12 - Double struck
  {(0x1d538..0x1d538+51)
  }
 
@@ -9969,7 +9968,83 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      };
    };
 
-  my $d = sub                                                                   # Dyad3
+  my $d5 = sub {my $q = &$prev2; ifOr [                                         # List all the operators that have higher priority than the operator mentioned
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d5},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d6},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d7},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d8},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
+      ], Then {&$triple}; &$new};
+
+  my $d6 = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d6},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d7},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d8},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
+      ], Then {&$triple}; &$new};
+
+  my $d7 = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d7},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d8},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
+      ], Then {&$triple}; &$new};
+
+  my $d8 = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d8},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
+      ], Then {&$triple}; &$new};
+
+  my $d9 = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
+      ], Then {&$triple}; &$new};
+
+  my $d10 = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
+      ], Then {&$triple}; &$new};
+
+  my $d11 = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
+      ], Then {&$triple}; &$new};
+
+  my $d12 = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
+      ], Then {&$triple}; &$new};
+
+  my $d = sub                                                                   # Dyad3. THis dyad and all dyads of higher priority
    {my $q = &$prev2;                                                            # Second previous item
     ifOr
      [sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},                     # Dyad3 preceded by dyad3 or dyad4
@@ -11126,7 +11201,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11128 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11203 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
