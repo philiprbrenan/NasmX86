@@ -9659,27 +9659,28 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
  }
 
 sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       # Create and load the table of lexical transitions.
- {my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
-  my $A = Nasm::X86::Unisyn::Lex::Number::A;                                    # Ascii
-  my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
-  my $B = Nasm::X86::Unisyn::Lex::Number::B;                                    # Close
-  my $d = Nasm::X86::Unisyn::Lex::Number::d;                                    # Dyad-3   - left to right
-  my $e = Nasm::X86::Unisyn::Lex::Number::e;                                    # Dyad-4   - left to right
-  my $F = Nasm::X86::Unisyn::Lex::Number::F;                                    # Finish
-  my $p = Nasm::X86::Unisyn::Lex::Number::p;                                    # Prefix
-  my $q = Nasm::X86::Unisyn::Lex::Number::q;                                    # Suffix
-  my $s = Nasm::X86::Unisyn::Lex::Number::s;                                    # Semicolon-1
-  my $S = Nasm::X86::Unisyn::Lex::Number::S;                                    # Start
-  my $v = Nasm::X86::Unisyn::Lex::Number::v;                                    # Variable
+ {my $a =  Nasm::X86::Unisyn::Lex::Number::a;                                   # Assign-2 - right to left
+  my $A =  Nasm::X86::Unisyn::Lex::Number::A;                                   # Ascii
+  my $b =  Nasm::X86::Unisyn::Lex::Number::b;                                   # Open
+  my $B =  Nasm::X86::Unisyn::Lex::Number::B;                                   # Close
+  my $d =  Nasm::X86::Unisyn::Lex::Number::d;                                   # Dyad-3   - left to right
+  my $e =  Nasm::X86::Unisyn::Lex::Number::e;                                   # Dyad-4   - left to right
+  my $F =  Nasm::X86::Unisyn::Lex::Number::F;                                   # Finish
+  my $p =  Nasm::X86::Unisyn::Lex::Number::p;                                   # Prefix
+  my $q =  Nasm::X86::Unisyn::Lex::Number::q;                                   # Suffix
+  my $s =  Nasm::X86::Unisyn::Lex::Number::s;                                   # Semicolon-1
+  my $S =  Nasm::X86::Unisyn::Lex::Number::S;                                   # Start
+  my $v =  Nasm::X86::Unisyn::Lex::Number::v;                                   # Variable
 
-  my $d5  = Nasm::X86::Unisyn::Lex::Number::d5;
-  my $d6  = Nasm::X86::Unisyn::Lex::Number::d6;
-  my $d7  = Nasm::X86::Unisyn::Lex::Number::d7;
-  my $d8  = Nasm::X86::Unisyn::Lex::Number::d8;
-  my $d9  = Nasm::X86::Unisyn::Lex::Number::d9;
-  my $d10 = Nasm::X86::Unisyn::Lex::Number::d10;
-  my $d11 = Nasm::X86::Unisyn::Lex::Number::d11;
-  my $d12 = Nasm::X86::Unisyn::Lex::Number::d12;
+  my @d = (Nasm::X86::Unisyn::Lex::Number::e,
+           Nasm::X86::Unisyn::Lex::Number::d5,
+           Nasm::X86::Unisyn::Lex::Number::d6,
+           Nasm::X86::Unisyn::Lex::Number::d7,
+           Nasm::X86::Unisyn::Lex::Number::d8,
+           Nasm::X86::Unisyn::Lex::Number::d9,
+           Nasm::X86::Unisyn::Lex::Number::d10,
+           Nasm::X86::Unisyn::Lex::Number::d11,
+           Nasm::X86::Unisyn::Lex::Number::d12);
 
   my %x = (                                                                     # The transitions table: this tells us which combinations of lexical items are valid.  The table is augmented with start and end symbols so that we know where to start and end.
     $a => [    $A, $b,                             $v],
@@ -9687,13 +9688,16 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
     $b => [    $A, $b, $B,             $p,     $s, $v],
     $B => [$a,         $B, $d, $e, $F,     $q, $s    ],
     $d => [    $A, $b,                 $p,         $v],
-    $e => [    $A, $b,                 $p,         $v],
+#   $e => [    $A, $b,                 $p,         $v],
     $p => [    $A, $b,                             $v],
     $q => [$a, $A,     $B, $d, $e, $F,         $s    ],
     $s => [    $A, $b, $B,         $F, $p,     $s, $v],
     $S => [    $A, $b,             $F, $p,     $s, $v],
     $v => [$a,         $B, $d, $e, $F,     $q, $s    ],
   );
+
+  $x{$_} = $x{$d} for @d;                                                       # The dyads all have the same sequencing
+
 
   my @t;                                                                        # The transitions table will be held as an array of bytes
 
@@ -11119,7 +11123,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11121 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11125 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
