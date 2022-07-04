@@ -16,6 +16,9 @@
 # All options checking immediately after parameters
 # Which subs do we actually need SaveFirst four on?
 # Binary search tighten up register saves
+# github.com/<username>/<repo_name>/compare/<commit1>...<commit2>
+# https://github.com/philiprbrenan/NasmX86/compare/9bb6e05..09d1ec9
+
 package Nasm::X86;
 our $VERSION = "20220606";
 use warnings FATAL => qw(all);
@@ -9713,7 +9716,7 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
   (Rq(scalar @t), Rb(@t))                                                       # Return size of transitions array and array content
  }
 
-sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                           # Create an array of utf32 to alphabet number.
+sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      # Create an array of utf32 to alphabet number.
  {my %a =
    (Nasm::X86::Unisyn::Lex::Number::A   => [Nasm::X86::Unisyn::Lex::Letter::A],
     Nasm::X86::Unisyn::Lex::Number::d   => [Nasm::X86::Unisyn::Lex::Letter::d],
@@ -10196,7 +10199,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
-        for my $l(qw(a A b B d e p q s v))                                      # We can never arrive on the start symbol.
+        for my $l(qw(a A b B d e p q s v d5 d6 d7 d8 d9 d10 d11 d12))           # We can never arrive on the start symbol.
          {my $c = qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
           eval $c;
           confess "$@\n$c\n" if $@;
@@ -11123,7 +11126,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11125 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11128 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
