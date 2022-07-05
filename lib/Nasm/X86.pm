@@ -17821,7 +17821,7 @@ END
   unlink $f;
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::AlphabetsArray
   my ($N, $A) = Nasm::X86::Unisyn::Lex::AlphabetsArray;
   Mov rax, "[$N]";
@@ -17845,7 +17845,7 @@ if (1) {                                                                        
    rax: .... .... .... ...6
    rax: .... .... .... ..$a
 END
-exit unless onGitHub;
+#exit unless onGitHub;
  }
 
 #latest:
