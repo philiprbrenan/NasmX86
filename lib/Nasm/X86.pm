@@ -17854,13 +17854,13 @@ if (1) {                                                                        
 
   my ($N, $A) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
   Mov rax, $A;
-  Add rax, ($a << 4) + $a;
+  Add rax, ($a << Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits) + $a;
   Mov al, "[rax]";
   And rax, 0xff;
   PrintOutRegisterInHex rax;
 
   Mov rax, $A;
-  Add rax, ($b << 4) + $b;
+  Add rax, ($b << Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits) + $b;
   Mov al, "[rax]";
   And rax, 0xff;
   PrintOutRegisterInHex rax;
