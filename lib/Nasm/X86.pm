@@ -9516,9 +9516,9 @@ sub Nasm::X86::Tree::dec($)                                                     
 
 sub compactRangeIntoHex(@)                                                      #P Compact a range of numbers into hexadecimal.
  {my (@P) = @_;                                                                 # Numbers to compact
-  my @p = sort {$a <=> $b} @P;
+  my @p = sort @P;
 
-  confess "Unsoirted range" unless dump(@p) eq dump(@P);
+  confess "Unsorted range" unless dump(@p) eq dump(@P);
   my @r;
 
   my sub format(@)                                                              # Format a range
