@@ -10074,8 +10074,9 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
       ], Then {&$triple}; &$new};
 
-  my $d = sub                                                                   # Dyad3. THis dyad and all dyads of higher priority
-   {my $q = &$prev2;                                                            # Second previous item
+  my $l = sub                                                                   # Dyad3. THis dyad and all dyads of higher priority
+   {#PrintErrStringNL "Type: l";
+    my $q = &$prev2;                                                            # Second previous item
     ifOr
      [sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},                     # Dyad3 preceded by dyad3 or dyad4
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m}],
@@ -10085,8 +10086,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
     &$new;                                                                      # Push dyad3
    };
 
-  my $e = sub                                                                   # Dyad4
-   {#PrintErrStringNL "Type: e";
+  my $m = sub                                                                   # Dyad4
+   {#PrintErrStringNL "Type: m";
     my $q = &$prev2;                                                            # Second previous item
     If $q == K(p => Nasm::X86::Unisyn::Lex::Number::m),
     Then                                                                        # Dyad4 preceded by dyad4
@@ -10304,8 +10305,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
-        for my $l(qw(a A b B l m p q s v d5 d6 d7 d8 d9 d10 d11 d12))           # We can never arrive on the start symbol.
-         {my $c = qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
+        for my $L(qw(a A b B l m p q s v d5 d6 d7 d8 d9 d10 d11 d12))           # We can never arrive on the start symbol.
+         {my $c = qq(If \$last == K($L => Nasm::X86::Unisyn::Lex::Number::$L), Then {&\$$L; Jmp \$end});
           eval $c;
           confess "$@\n$c\n" if $@;
          }
@@ -11231,7 +11232,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11233 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11234 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18918,7 +18919,7 @@ data   : .... .... .... .333
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my ($a8, $s8) = constantString("𝗔");
 
