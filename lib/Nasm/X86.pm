@@ -9629,12 +9629,12 @@ sub Nasm::X86::Unisyn::Lex::Letter::d10                                         
  {(0x1d56c..0x1d56c+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d11{23}
+sub Nasm::X86::Unisyn::Lex::Number::d11{13}
 sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad 11 - Mono
  {(0x1d670..0x1d670+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d12{24}
+sub Nasm::X86::Unisyn::Lex::Number::d12{12}
 sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad 12 - Double struck
  {(0x1d538..0x1d538+51)
  }
