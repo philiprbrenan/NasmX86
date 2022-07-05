@@ -9748,12 +9748,11 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
 sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      # Create an array of utf32 to alphabet number.
  {my %a =
    (Nasm::X86::Unisyn::Lex::Number::A   => [Nasm::X86::Unisyn::Lex::Letter::A],
-    Nasm::X86::Unisyn::Lex::Number::l   => [Nasm::X86::Unisyn::Lex::Letter::l],
     Nasm::X86::Unisyn::Lex::Number::p   => [Nasm::X86::Unisyn::Lex::Letter::p],
     Nasm::X86::Unisyn::Lex::Number::v   => [Nasm::X86::Unisyn::Lex::Letter::v],
     Nasm::X86::Unisyn::Lex::Number::q   => [Nasm::X86::Unisyn::Lex::Letter::q],
     Nasm::X86::Unisyn::Lex::Number::s   => [Nasm::X86::Unisyn::Lex::Letter::s],
-    Nasm::X86::Unisyn::Lex::Number::m   => [Nasm::X86::Unisyn::Lex::Letter::m],
+
     Nasm::X86::Unisyn::Lex::Number::b   => [Nasm::X86::Unisyn::Lex::Letter::b],
     Nasm::X86::Unisyn::Lex::Number::B   => [Nasm::X86::Unisyn::Lex::Letter::B],
 
@@ -11209,7 +11208,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11211 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11210 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
