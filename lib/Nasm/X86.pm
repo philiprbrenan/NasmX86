@@ -17821,7 +17821,7 @@ END
   unlink $f;
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::AlphabetsArray
   my ($N, $A) = Nasm::X86::Unisyn::Lex::AlphabetsArray;
   Mov rax, "[$N]";
@@ -17838,12 +17838,14 @@ if (1) {                                                                        
   And rax, 0xff;
   PrintOutRegisterInHex rax;
 
-  my $a = sprintf "%2x", Nasm::X86::Unisyn::Lex::Number::d12;
+  my $n = Nasm::X86::Unisyn::Lex::Number::d12;
+  my $a = $n >= 0x10 ? printf("%2X", $n) : sprintf(".%1X", $n);
   ok Assemble eq => <<END, avx512=>1;
    rax: .... .... ...1 EEF2
    rax: .... .... .... ...6
    rax: .... .... .... ..$a
 END
+exit unless onGitHub;
  }
 
 #latest:
