@@ -9999,7 +9999,28 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      };
    };
 
-  my $f = sub {my $q = &$prev2; ifOr [                                          # List all the operators that have higher priority than the operator mentioned
+  my $d = sub {my $q = &$prev2; ifOr [                                          # List all the operators that have higher priority than the operator mentioned
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+      ], Then {&$triple}; &$new};
+
+  my $e = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+      ], Then {&$triple}; &$new};
+
+  my $f = sub {my $q = &$prev2; ifOr [
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::f},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::g},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
@@ -11208,7 +11229,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11210 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11231 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
