@@ -10304,7 +10304,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
-        for my $l(qw(a A b B d e p q s v d5 d6 d7 d8 d9 d10 d11 d12))           # We can never arrive on the start symbol.
+        for my $l(qw(a A b B l m p q s v d5 d6 d7 d8 d9 d10 d11 d12))           # We can never arrive on the start symbol.
          {my $c = qq(If \$last == K($l => Nasm::X86::Unisyn::Lex::Number::$l), Then {&\$$l; Jmp \$end});
           eval $c;
           confess "$@\n$c\n" if $@;
