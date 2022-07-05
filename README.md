@@ -33,6 +33,7 @@ In particular position independent [X86-64](https://en.wikipedia.org/wiki/X86-64
 indexed by a 6/13 [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) and then reloaded as a library of functions for reuse
 elsewhere at a later date to make [code](https://en.wikipedia.org/wiki/Computer_program) generation efficient.
 
+
 ![5/13 Multiway Tree using avx512](http://prb.appaapps.com/MultiWayTree2.svg)
 
 Such [relocatable](https://en.wikipedia.org/wiki/Relocation_%28computing%29) areas work well with parallel processing: each child [sub](https://perldoc.perl.org/perlsub.html) [task](http://docs.oasis-open.org/dita/dita/v1.3/errata02/os/complete/part3-all-inclusive/langRef/technicalContent/task.html#task) can run in a separate [process](https://en.wikipedia.org/wiki/Process_management_(computing)) that creates an area of dynamic data structures
