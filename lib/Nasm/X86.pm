@@ -9999,80 +9999,44 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      };
    };
 
-  my $d = sub {my $q = &$prev2; ifOr [                                          # List all the operators that have higher priority than the operator mentioned
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::f},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::g},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+  my $d = sub {my $q = &$prev2; ifAnd [                                         # List all the operators that have higher priority than the operator mentioned
+      sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::d},
+      sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
       ], Then {&$triple}; &$new};
 
-  my $e = sub {my $q = &$prev2; ifOr [
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::e},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::f},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::g},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+  my $e = sub {my $q = &$prev2; ifAnd [
+      sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::e},
+      sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
       ], Then {&$triple}; &$new};
 
-  my $f = sub {my $q = &$prev2; ifOr [
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::f},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::g},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+  my $f = sub {my $q = &$prev2; ifAnd [
+      sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::f},
+      sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
       ], Then {&$triple}; &$new};
 
-  my $g = sub {my $q = &$prev2; ifOr [
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::g},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+  my $g = sub {my $q = &$prev2; ifAnd [
+      sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::g},
+      sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
       ], Then {&$triple}; &$new};
 
-  my $h = sub {my $q = &$prev2; ifOr [
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+  my $h = sub {my $q = &$prev2; ifAnd [
+      sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::h},
+      sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
       ], Then {&$triple}; &$new};
 
-  my $i = sub {my $q = &$prev2; ifOr [
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+  my $i = sub {my $q = &$prev2; ifAnd [
+      sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::i},
+      sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
       ], Then {&$triple}; &$new};
 
-  my $j = sub {my $q = &$prev2; ifOr [
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+  my $j = sub {my $q = &$prev2; ifAnd [
+      sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::j},
+      sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
       ], Then {&$triple}; &$new};
 
-  my $k = sub {my $q = &$prev2; ifOr [
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
+  my $k = sub {my $q = &$prev2; ifAnd [
+      sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::k},
+      sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
       ], Then {&$triple}; &$new};
 
   my $l = sub                                                                   # Dyad3. THis dyad and all dyads of higher priority
@@ -11233,7 +11197,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11235 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11199 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
