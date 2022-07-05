@@ -9551,34 +9551,78 @@ sub Nasm::X86::Unisyn::Lex::Number::F {1}                                       
 sub Nasm::X86::Unisyn::Lex::Number::A {2}                                       # ASCII characters extended with circled characters to act as escape sequences.
 sub Nasm::X86::Unisyn::Lex::Letter::A {(0x0..0x7f, 0x24b6..0x24e9)}             # ASCII characters extended with circled characters to act as escape sequences.
 
-
-sub Nasm::X86::Unisyn::Lex::Number::d {24}                                      # Infix operator with left to right binding at priority 3.
-sub Nasm::X86::Unisyn::Lex::Letter::d {(0x1d400..0x1d433,0x1d6a8..0x1d6e1)}     # Infix operator with left to right binding at priority 3.
-
-
-
-sub Nasm::X86::Unisyn::Lex::Number::p {4}                                       # Prefix operator - applies only to the following variable or bracketed term.
+sub Nasm::X86::Unisyn::Lex::Number::p {3}                                       # Prefix operator - applies only to the following variable or bracketed term.
 sub Nasm::X86::Unisyn::Lex::Letter::p {(0x1d468...0x1d49b, 0x1d71c..0x1d755)}   # Prefix operator - applies only to the following variable or bracketed term.
 
+sub Nasm::X86::Unisyn::Lex::Number::v {4}                                       # Variable names.
+sub Nasm::X86::Unisyn::Lex::Letter::v {(0x1d5d4...0x1d607, 0x1d756..0x1d78f)}   # Variable names.
 
-sub Nasm::X86::Unisyn::Lex::Number::a {17}                                      # Assign infix operator with right to left binding at priority 2.
+sub Nasm::X86::Unisyn::Lex::Number::q {5}                                       # Suffix operator - applies only to the preceding variable or bracketed term.
+sub Nasm::X86::Unisyn::Lex::Letter::q {(0x1d63c...0x1d66f,0x1d790..0x1d7c9)}    # Suffix operator - applies only to the preceding variable or bracketed term.
+
+sub Nasm::X86::Unisyn::Lex::Number::s {6}                                      # Infix operator with left to right binding at priority 1.
+sub Nasm::X86::Unisyn::Lex::Letter::s {(0x27e2)}                                # Infix operator with left to right binding at priority 1.
+
+sub Nasm::X86::Unisyn::Lex::Number::b {7}                                      # Open.
+sub Nasm::X86::Unisyn::Lex::Letter::b                                           # Open.
+ {(0x2308,0x230a,0x2329,0x2768,0x276a,0x276c,0x276e,0x2770,0x2772,0x2774,0x27e6,0x27e8,0x27ea,0x27ec,0x27ee,0x2983,0x2985,0x2987,0x2989,0x298b,0x298d,0x298f,0x2991,0x2993,0x2995,0x2997,0x29fc,0x2e28,0x3008,0x300a,0x3010,0x3014,0x3016,0x3018,0x301a,0xfd3e,0xff08,0xff5f)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::B {8}                                      # Close.
+sub Nasm::X86::Unisyn::Lex::Letter::B                                           # Close.
+ {(0x2309,0x230b,0x232a,0x2769,0x276b,0x276d,0x276f,0x2771,0x2773,0x2775,0x27e7,0x27e9,0x27eb,0x27ed,0x27ef,0x2984,0x2986,0x2988,0x298a,0x298c,0x298e,0x2990,0x2992,0x2994,0x2996,0x2998,0x29fd,0x2e29,0x3009,0x300b,0x3011,0x3015,0x3017,0x3019,0x301b,0xfd3f,0xff09,0xff60)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d12{9}
+sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad 12 - Double struck
+ {(0x1d538..0x1d538+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d11{10}
+sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad 11 - Mono
+ {(0x1d670..0x1d670+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::a {11}                                      # Assign infix operator with right to left binding at priority 2.
 sub Nasm::X86::Unisyn::Lex::Letter::a                                           # Assign infix operator with right to left binding at priority 2.
  {(0x210e, 0x2190..0x21fe, 0xff1d, 0x1d434..0x1d454,
    0x1d456..0x1d467, 0x1d6e2..0x1d71b)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::v {6}                                       # Variable names.
-sub Nasm::X86::Unisyn::Lex::Letter::v {(0x1d5d4...0x1d607, 0x1d756..0x1d78f)}   # Variable names.
+sub Nasm::X86::Unisyn::Lex::Number::d5 {12}
+sub Nasm::X86::Unisyn::Lex::Letter::d5                                          # Dyad 5 - Sans-serif Normal
+ {(0x1d5a0..0x1d5a0+51)
+ }
 
-sub Nasm::X86::Unisyn::Lex::Number::q {7}                                       # Suffix operator - applies only to the preceding variable or bracketed term.
-sub Nasm::X86::Unisyn::Lex::Letter::q {(0x1d63c...0x1d66f,0x1d790..0x1d7c9)}    # Suffix operator - applies only to the preceding variable or bracketed term.
+sub Nasm::X86::Unisyn::Lex::Number::d6 {13}
+sub Nasm::X86::Unisyn::Lex::Letter::d6                                          # Dyad 6 - Sans-serif Bold
+ {(0x1d608..0x1d608+51)
+ }
 
+sub Nasm::X86::Unisyn::Lex::Number::d7 {14}
+sub Nasm::X86::Unisyn::Lex::Letter::d7                                          # Dyad 7  - Calligraphy - normal
+ {(0x1d49c..0x1d49c+51)
+ }
 
+sub Nasm::X86::Unisyn::Lex::Number::d8 {15}
+sub Nasm::X86::Unisyn::Lex::Letter::d8                                          # Dyad 8 - Calligraphy - bold
+ {(0x1d4d0..0x1d4d0+51)
+ }
 
-sub Nasm::X86::Unisyn::Lex::Number::s {14}                                      # Infix operator with left to right binding at priority 1.
-sub Nasm::X86::Unisyn::Lex::Letter::s {(0x27e2)}                                # Infix operator with left to right binding at priority 1.
+sub Nasm::X86::Unisyn::Lex::Number::d9 {16}
+sub Nasm::X86::Unisyn::Lex::Letter::d9                                          # Dyad 9 - Fraktur - Normal
+ {(0x1d504..0x1d504+51)
+ }
 
-sub Nasm::X86::Unisyn::Lex::Number::e {25}                                      # Infix operator with left to right binding at priority 4.
+sub Nasm::X86::Unisyn::Lex::Number::d10{17}
+sub Nasm::X86::Unisyn::Lex::Letter::d10                                         # Dyad 10 - Fraktur - bold
+ {(0x1d56c..0x1d56c+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d {18}                                      # Infix operator with left to right binding at priority 3.
+sub Nasm::X86::Unisyn::Lex::Letter::d {(0x1d400..0x1d433,0x1d6a8..0x1d6e1)}     # Infix operator with left to right binding at priority 3.
+
+sub Nasm::X86::Unisyn::Lex::Number::e {19}                                      # Infix operator with left to right binding at priority 4.
 sub Nasm::X86::Unisyn::Lex::Letter::e                                           # Infix operator with left to right binding at priority 4.
  {(0xac, 0xb1, 0xd7, 0xf7, 0x3f6, 0x606..0x608, 0x200b..0x2044, 0x2047..0x2061,
    0x2065..0x2069, 0x207a..0x207c, 0x208a..0x208c, 0x2118, 0x2140..0x2144,
@@ -9587,56 +9631,6 @@ sub Nasm::X86::Unisyn::Lex::Letter::e                                           
    0x29fe..0x2b58, 0x2e00..0x2e1f, 0x2e2a..0x2e30, 0xfb29, 0xfe62,
    0xfe64..0xfe66, 0xff0b, 0xff1c, 0xff1e, 0xff5c, 0xff5e, 0xffe2,
    0x1eef0..0x1eef1)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::b {10}                                      # Open.
-sub Nasm::X86::Unisyn::Lex::Letter::b                                           # Open.
- {(0x2308,0x230a,0x2329,0x2768,0x276a,0x276c,0x276e,0x2770,0x2772,0x2774,0x27e6,0x27e8,0x27ea,0x27ec,0x27ee,0x2983,0x2985,0x2987,0x2989,0x298b,0x298d,0x298f,0x2991,0x2993,0x2995,0x2997,0x29fc,0x2e28,0x3008,0x300a,0x3010,0x3014,0x3016,0x3018,0x301a,0xfd3e,0xff08,0xff5f)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::B {11}                                      # Close.
-sub Nasm::X86::Unisyn::Lex::Letter::B                                           # Close.
- {(0x2309,0x230b,0x232a,0x2769,0x276b,0x276d,0x276f,0x2771,0x2773,0x2775,0x27e7,0x27e9,0x27eb,0x27ed,0x27ef,0x2984,0x2986,0x2988,0x298a,0x298c,0x298e,0x2990,0x2992,0x2994,0x2996,0x2998,0x29fd,0x2e29,0x3009,0x300b,0x3011,0x3015,0x3017,0x3019,0x301b,0xfd3f,0xff09,0xff60)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d5 {18}
-sub Nasm::X86::Unisyn::Lex::Letter::d5                                          # Dyad 5 - Sans-serif Normal
- {(0x1d5a0..0x1d5a0+51)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d6 {19}
-sub Nasm::X86::Unisyn::Lex::Letter::d6                                          # Dyad 6 - Sans-serif Bold
- {(0x1d608..0x1d608+51)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d7 {20}
-sub Nasm::X86::Unisyn::Lex::Letter::d7                                          # Dyad 7  - Calligraphy - normal
- {(0x1d49c..0x1d49c+51)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d8 {21}
-sub Nasm::X86::Unisyn::Lex::Letter::d8                                          # Dyad 8 - Calligraphy - bold
- {(0x1d4d0..0x1d4d0+51)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d9 {22}
-sub Nasm::X86::Unisyn::Lex::Letter::d9                                          # Dyad 9 - Fraktur - Normal
- {(0x1d504..0x1d504+51)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d10{23}
-sub Nasm::X86::Unisyn::Lex::Letter::d10                                         # Dyad 10 - Fraktur - bold
- {(0x1d56c..0x1d56c+51)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d11{16}
-sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad 11 - Mono
- {(0x1d670..0x1d670+51)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d12{15}
-sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad 12 - Double struck
- {(0x1d538..0x1d538+51)
  }
 
 # Add: 1d5a0 ,  0x1d608,   0x1d49c,  0x1d4d0,  0x1d504,     0x1d56c,  0x1d670,  0x1d538
@@ -11237,7 +11231,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11239 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11233 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17838,12 +17832,17 @@ if (1) {                                                                        
   And rax, 0xff;
   PrintOutRegisterInHex rax;
 
-  my $n = Nasm::X86::Unisyn::Lex::Number::d12;
-  my $a = $n >= 0x10 ? printf("%2X", $n) : sprintf(".%1X", $n);
+  my sub expect($)
+   {my ($n) = @_;                                                               # Parameters
+    $n >= 0x10 ? sprintf("%2X", $n) : sprintf(".%1X", $n)
+   }
+
+  my $a = expect Nasm::X86::Unisyn::Lex::Number::v;
+  my $b = expect Nasm::X86::Unisyn::Lex::Number::d12;
   ok Assemble eq => <<END, avx512=>1;
    rax: .... .... ...1 EEF2
-   rax: .... .... .... ...6
    rax: .... .... .... ..$a
+   rax: .... .... .... ..$b
 END
 #exit unless onGitHub;
  }
