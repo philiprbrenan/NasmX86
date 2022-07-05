@@ -9540,7 +9540,7 @@ sub compactRangeIntoHex(@)                                                      
    }
   format @f if @f;                                                              # Last range if any
 
-  say STDERR join ', ', @r;                                                     # Print range
+  join ', ', @r;                                                                # Range as a string
  }
 
 #D2 Lex                                                                         # Lexical Analysis
@@ -18003,7 +18003,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Subroutine::inline
   my $s = Subroutine                                                            # Load and print rax
    {my ($p, $s, $sub) = @_;
@@ -18019,8 +18019,8 @@ ppp: .... .... .... ..AA
 END
  }
 
-is_deeply [compactRangeIntoHex qw(0x1 0x2 0x3 0x5 0x7 0x8 0x9 0xb)],
-                                 [0x1..0x3, 0x5, 0x7..0x9, 0xb];
+ok compactRangeIntoHex(qw(0x1 0x2 0x3 0x5 0x7 0x8 0x9 0xb)) eq
+                       "0x1..0x3, 0x5, 0x7..0x9, 0xb";
 
 #   16,948,886  with 64 byte moves
 #   16,885,371  with 4K byte moves
