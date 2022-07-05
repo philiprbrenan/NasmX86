@@ -9573,13 +9573,13 @@ sub Nasm::X86::Unisyn::Lex::Letter::B                                           
  {(0x2309,0x230b,0x232a,0x2769,0x276b,0x276d,0x276f,0x2771,0x2773,0x2775,0x27e7,0x27e9,0x27eb,0x27ed,0x27ef,0x2984,0x2986,0x2988,0x298a,0x298c,0x298e,0x2990,0x2992,0x2994,0x2996,0x2998,0x29fd,0x2e29,0x3009,0x300b,0x3011,0x3015,0x3017,0x3019,0x301b,0xfd3f,0xff09,0xff60)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d12{9}
-sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad 12 - Double struck
+sub Nasm::X86::Unisyn::Lex::Number::d{9}
+sub Nasm::X86::Unisyn::Lex::Letter::d                                           # Dyad 12 - Double struck
  {(0x1d538..0x1d538+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d11{10}
-sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad 11 - Mono
+sub Nasm::X86::Unisyn::Lex::Number::e{10}
+sub Nasm::X86::Unisyn::Lex::Letter::e                                           # Dyad 11 - Mono
  {(0x1d670..0x1d670+51)
  }
 
@@ -9589,33 +9589,33 @@ sub Nasm::X86::Unisyn::Lex::Letter::a                                           
    0x1d456..0x1d467, 0x1d6e2..0x1d71b)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d5 {12}
-sub Nasm::X86::Unisyn::Lex::Letter::d5                                          # Dyad 5 - Sans-serif Normal
+sub Nasm::X86::Unisyn::Lex::Number::f {12}
+sub Nasm::X86::Unisyn::Lex::Letter::f                                           # Dyad 5 - Sans-serif Normal
  {(0x1d5a0..0x1d5a0+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d6 {13}
-sub Nasm::X86::Unisyn::Lex::Letter::d6                                          # Dyad 6 - Sans-serif Bold
+sub Nasm::X86::Unisyn::Lex::Number::g {13}
+sub Nasm::X86::Unisyn::Lex::Letter::g                                           # Dyad 6 - Sans-serif Bold
  {(0x1d608..0x1d608+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d7 {14}
-sub Nasm::X86::Unisyn::Lex::Letter::d7                                          # Dyad 7  - Calligraphy - normal
+sub Nasm::X86::Unisyn::Lex::Number::h {14}
+sub Nasm::X86::Unisyn::Lex::Letter::h                                           # Dyad 7  - Calligraphy - normal
  {(0x1d49c..0x1d49c+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d8 {15}
-sub Nasm::X86::Unisyn::Lex::Letter::d8                                          # Dyad 8 - Calligraphy - bold
+sub Nasm::X86::Unisyn::Lex::Number::i {15}
+sub Nasm::X86::Unisyn::Lex::Letter::i                                           # Dyad 8 - Calligraphy - bold
  {(0x1d4d0..0x1d4d0+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d9 {16}
-sub Nasm::X86::Unisyn::Lex::Letter::d9                                          # Dyad 9 - Fraktur - Normal
+sub Nasm::X86::Unisyn::Lex::Number::j {16}
+sub Nasm::X86::Unisyn::Lex::Letter::j                                           # Dyad 9 - Fraktur - Normal
  {(0x1d504..0x1d504+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d10{17}
-sub Nasm::X86::Unisyn::Lex::Letter::d10                                         # Dyad 10 - Fraktur - bold
+sub Nasm::X86::Unisyn::Lex::Number::k{17}
+sub Nasm::X86::Unisyn::Lex::Letter::k                                           # Dyad 10 - Fraktur - bold
  {(0x1d56c..0x1d56c+51)
  }
 
@@ -9704,14 +9704,14 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
   my $v =  Nasm::X86::Unisyn::Lex::Number::v;                                   # Variable
 
   my @d = (Nasm::X86::Unisyn::Lex::Number::m,
-           Nasm::X86::Unisyn::Lex::Number::d5,
-           Nasm::X86::Unisyn::Lex::Number::d6,
-           Nasm::X86::Unisyn::Lex::Number::d7,
-           Nasm::X86::Unisyn::Lex::Number::d8,
-           Nasm::X86::Unisyn::Lex::Number::d9,
-           Nasm::X86::Unisyn::Lex::Number::d10,
-           Nasm::X86::Unisyn::Lex::Number::d11,
-           Nasm::X86::Unisyn::Lex::Number::d12);
+           Nasm::X86::Unisyn::Lex::Number::f,
+           Nasm::X86::Unisyn::Lex::Number::g,
+           Nasm::X86::Unisyn::Lex::Number::h,
+           Nasm::X86::Unisyn::Lex::Number::i,
+           Nasm::X86::Unisyn::Lex::Number::j,
+           Nasm::X86::Unisyn::Lex::Number::k,
+           Nasm::X86::Unisyn::Lex::Number::l,
+           Nasm::X86::Unisyn::Lex::Number::m);
 
   my %x = (                                                                     # The transitions table: this tells us which combinations of lexical items are valid.  The table is augmented with start and end symbols so that we know where to start and end.
     $a => [    $A, $b,                             $v],
@@ -9750,7 +9750,6 @@ sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      
    (Nasm::X86::Unisyn::Lex::Number::A   => [Nasm::X86::Unisyn::Lex::Letter::A],
     Nasm::X86::Unisyn::Lex::Number::l   => [Nasm::X86::Unisyn::Lex::Letter::l],
     Nasm::X86::Unisyn::Lex::Number::p   => [Nasm::X86::Unisyn::Lex::Letter::p],
-    Nasm::X86::Unisyn::Lex::Number::a   => [Nasm::X86::Unisyn::Lex::Letter::a],
     Nasm::X86::Unisyn::Lex::Number::v   => [Nasm::X86::Unisyn::Lex::Letter::v],
     Nasm::X86::Unisyn::Lex::Number::q   => [Nasm::X86::Unisyn::Lex::Letter::q],
     Nasm::X86::Unisyn::Lex::Number::s   => [Nasm::X86::Unisyn::Lex::Letter::s],
@@ -9758,14 +9757,17 @@ sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      
     Nasm::X86::Unisyn::Lex::Number::b   => [Nasm::X86::Unisyn::Lex::Letter::b],
     Nasm::X86::Unisyn::Lex::Number::B   => [Nasm::X86::Unisyn::Lex::Letter::B],
 
-    Nasm::X86::Unisyn::Lex::Number::d5  => [Nasm::X86::Unisyn::Lex::Letter::d5],
-    Nasm::X86::Unisyn::Lex::Number::d6  => [Nasm::X86::Unisyn::Lex::Letter::d6],
-    Nasm::X86::Unisyn::Lex::Number::d7  => [Nasm::X86::Unisyn::Lex::Letter::d7],
-    Nasm::X86::Unisyn::Lex::Number::d8  => [Nasm::X86::Unisyn::Lex::Letter::d8],
-    Nasm::X86::Unisyn::Lex::Number::d9  => [Nasm::X86::Unisyn::Lex::Letter::d9],
-    Nasm::X86::Unisyn::Lex::Number::d10 => [Nasm::X86::Unisyn::Lex::Letter::d10],
-    Nasm::X86::Unisyn::Lex::Number::d11 => [Nasm::X86::Unisyn::Lex::Letter::d11],
-    Nasm::X86::Unisyn::Lex::Number::d12 => [Nasm::X86::Unisyn::Lex::Letter::d12],
+    Nasm::X86::Unisyn::Lex::Number::d   => [Nasm::X86::Unisyn::Lex::Letter::d],
+    Nasm::X86::Unisyn::Lex::Number::e   => [Nasm::X86::Unisyn::Lex::Letter::e],
+    Nasm::X86::Unisyn::Lex::Number::a   => [Nasm::X86::Unisyn::Lex::Letter::a],
+    Nasm::X86::Unisyn::Lex::Number::f   => [Nasm::X86::Unisyn::Lex::Letter::f],
+    Nasm::X86::Unisyn::Lex::Number::g   => [Nasm::X86::Unisyn::Lex::Letter::g],
+    Nasm::X86::Unisyn::Lex::Number::h   => [Nasm::X86::Unisyn::Lex::Letter::h],
+    Nasm::X86::Unisyn::Lex::Number::i   => [Nasm::X86::Unisyn::Lex::Letter::i],
+    Nasm::X86::Unisyn::Lex::Number::j   => [Nasm::X86::Unisyn::Lex::Letter::j],
+    Nasm::X86::Unisyn::Lex::Number::k   => [Nasm::X86::Unisyn::Lex::Letter::k],
+    Nasm::X86::Unisyn::Lex::Number::l   => [Nasm::X86::Unisyn::Lex::Letter::l],
+    Nasm::X86::Unisyn::Lex::Number::m   => [Nasm::X86::Unisyn::Lex::Letter::m],
    );
 
   my @a;
@@ -9998,80 +10000,55 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      };
    };
 
-  my $d5 = sub {my $q = &$prev2; ifOr [                                         # List all the operators that have higher priority than the operator mentioned
+  my $f = sub {my $q = &$prev2; ifOr [                                          # List all the operators that have higher priority than the operator mentioned
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::f},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::g},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d5},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d6},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d7},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d8},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
       ], Then {&$triple}; &$new};
 
-  my $d6 = sub {my $q = &$prev2; ifOr [
+  my $g = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::g},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d6},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d7},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d8},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
       ], Then {&$triple}; &$new};
 
-  my $d7 = sub {my $q = &$prev2; ifOr [
+  my $h = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::h},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d7},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d8},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
       ], Then {&$triple}; &$new};
 
-  my $d8 = sub {my $q = &$prev2; ifOr [
+  my $i = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::i},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d8},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
       ], Then {&$triple}; &$new};
 
-  my $d9 = sub {my $q = &$prev2; ifOr [
+  my $j = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::j},
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d9},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
       ], Then {&$triple}; &$new};
 
-  my $d10 = sub {my $q = &$prev2; ifOr [
+  my $k = sub {my $q = &$prev2; ifOr [
+      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::k},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
       sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d10},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
-      ], Then {&$triple}; &$new};
-
-  my $d11 = sub {my $q = &$prev2; ifOr [
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d11},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
-      ], Then {&$triple}; &$new};
-
-  my $d12 = sub {my $q = &$prev2; ifOr [
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::l},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::m},
-      sub {$q == K p => Nasm::X86::Unisyn::Lex::Number::d12},
       ], Then {&$triple}; &$new};
 
   my $l = sub                                                                   # Dyad3. THis dyad and all dyads of higher priority
@@ -10305,7 +10282,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
-        for my $L(qw(a A b B l m p q s v d5 d6 d7 d8 d9 d10 d11 d12))           # We can never arrive on the start symbol.
+        for my $L(qw(a A b B l m p q s v d e f g h i j k))           # We can never arrive on the start symbol.
          {my $c = qq(If \$last == K($L => Nasm::X86::Unisyn::Lex::Number::$L), Then {&\$$L; Jmp \$end});
           eval $c;
           confess "$@\n$c\n" if $@;
@@ -10482,25 +10459,25 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
 
     Block                                                                       # Process lexical item by type
      {my ($end) = @_;
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::a), Then {&$byName("Assign");    Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::A), Then {&$byType("Ascii");     Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::b), Then {&$byType("Open");      Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::B), Then {&$byType("Close");     Jmp $end};
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::l), Then {&$byName("Dyad3");     Jmp $end};
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::m), Then {&$byName("Dyad4");     Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::p), Then {&$byType("Prefix");    Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::q), Then {&$byType("Suffix");    Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::s), Then {&$byType("Separator"); Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::v), Then {&$byType("Variable");  Jmp $end};
 
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d5  ), Then {&$byName("Dyad5 "); Jmp $end};
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d6  ), Then {&$byName("Dyad6 "); Jmp $end};
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d7  ), Then {&$byName("Dyad7 "); Jmp $end};
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d8  ), Then {&$byName("Dyad8 "); Jmp $end};
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d9  ), Then {&$byName("Dyad9 "); Jmp $end};
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d10 ), Then {&$byName("Dyad10"); Jmp $end};
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d11 ), Then {&$byName("Dyad11"); Jmp $end};
-      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d12 ), Then {&$byName("Dyad12"); Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::d), Then {&$byName("Dyad5 ");    Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::e), Then {&$byName("Dyad6 ");    Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::a), Then {&$byName("Assign");    Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::f), Then {&$byName("Dyad7 ");    Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::g), Then {&$byName("Dyad8 ");    Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::h), Then {&$byName("Dyad9 ");    Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::i), Then {&$byName("Dyad10");    Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::j), Then {&$byName("Dyad11");    Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::k), Then {&$byName("Dyad12");    Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::l), Then {&$byName("Dyad3");     Jmp $end};
+      If $type == K(type => Nasm::X86::Unisyn::Lex::Number::m), Then {&$byName("Dyad4");     Jmp $end};
      };
 
     If $right > 0,
@@ -11232,7 +11209,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11234 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11211 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17816,7 +17793,7 @@ END
   unlink $f;
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::AlphabetsArray
   my ($N, $A) = Nasm::X86::Unisyn::Lex::AlphabetsArray;
   Mov rax, "[$N]";
@@ -17839,13 +17816,13 @@ if (1) {                                                                        
    }
 
   my $a = expect Nasm::X86::Unisyn::Lex::Number::v;
-  my $b = expect Nasm::X86::Unisyn::Lex::Number::d12;
+  my $b = expect Nasm::X86::Unisyn::Lex::Number::d;
   ok Assemble eq => <<END, avx512=>1;
    rax: .... .... ...1 EEF2
    rax: .... .... .... ..$a
    rax: .... .... .... ..$b
 END
-#exit unless onGitHub;
+exit unless onGitHub;
  }
 
 #latest:
