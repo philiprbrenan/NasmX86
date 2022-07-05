@@ -9552,7 +9552,7 @@ sub Nasm::X86::Unisyn::Lex::Number::A {2}                                       
 sub Nasm::X86::Unisyn::Lex::Letter::A {(0x0..0x7f, 0x24b6..0x24e9)}             # ASCII characters extended with circled characters to act as escape sequences.
 
 
-sub Nasm::X86::Unisyn::Lex::Number::d {16}                                       # Infix operator with left to right binding at priority 3.
+sub Nasm::X86::Unisyn::Lex::Number::d {24}                                      # Infix operator with left to right binding at priority 3.
 sub Nasm::X86::Unisyn::Lex::Letter::d {(0x1d400..0x1d433,0x1d6a8..0x1d6e1)}     # Infix operator with left to right binding at priority 3.
 
 
@@ -9561,7 +9561,7 @@ sub Nasm::X86::Unisyn::Lex::Number::p {4}                                       
 sub Nasm::X86::Unisyn::Lex::Letter::p {(0x1d468...0x1d49b, 0x1d71c..0x1d755)}   # Prefix operator - applies only to the following variable or bracketed term.
 
 
-sub Nasm::X86::Unisyn::Lex::Number::a {15}                                       # Assign infix operator with right to left binding at priority 2.
+sub Nasm::X86::Unisyn::Lex::Number::a {17}                                      # Assign infix operator with right to left binding at priority 2.
 sub Nasm::X86::Unisyn::Lex::Letter::a                                           # Assign infix operator with right to left binding at priority 2.
  {(0x210e, 0x2190..0x21fe, 0xff1d, 0x1d434..0x1d454,
    0x1d456..0x1d467, 0x1d6e2..0x1d71b)
@@ -9575,10 +9575,10 @@ sub Nasm::X86::Unisyn::Lex::Letter::q {(0x1d63c...0x1d66f,0x1d790..0x1d7c9)}    
 
 
 
-sub Nasm::X86::Unisyn::Lex::Number::s {14}                                       # Infix operator with left to right binding at priority 1.
+sub Nasm::X86::Unisyn::Lex::Number::s {14}                                      # Infix operator with left to right binding at priority 1.
 sub Nasm::X86::Unisyn::Lex::Letter::s {(0x27e2)}                                # Infix operator with left to right binding at priority 1.
 
-sub Nasm::X86::Unisyn::Lex::Number::e {9}                                       # Infix operator with left to right binding at priority 4.
+sub Nasm::X86::Unisyn::Lex::Number::e {25}                                      # Infix operator with left to right binding at priority 4.
 sub Nasm::X86::Unisyn::Lex::Letter::e                                           # Infix operator with left to right binding at priority 4.
  {(0xac, 0xb1, 0xd7, 0xf7, 0x3f6, 0x606..0x608, 0x200b..0x2044, 0x2047..0x2061,
    0x2065..0x2069, 0x207a..0x207c, 0x208a..0x208c, 0x2118, 0x2140..0x2144,
@@ -9599,42 +9599,42 @@ sub Nasm::X86::Unisyn::Lex::Letter::B                                           
  {(0x2309,0x230b,0x232a,0x2769,0x276b,0x276d,0x276f,0x2771,0x2773,0x2775,0x27e7,0x27e9,0x27eb,0x27ed,0x27ef,0x2984,0x2986,0x2988,0x298a,0x298c,0x298e,0x2990,0x2992,0x2994,0x2996,0x2998,0x29fd,0x2e29,0x3009,0x300b,0x3011,0x3015,0x3017,0x3019,0x301b,0xfd3f,0xff09,0xff60)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d5 {17}
+sub Nasm::X86::Unisyn::Lex::Number::d5 {18}
 sub Nasm::X86::Unisyn::Lex::Letter::d5                                          # Dyad 5 - Sans-serif Normal
  {(0x1d5a0..0x1d5a0+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d6 {18}
+sub Nasm::X86::Unisyn::Lex::Number::d6 {19}
 sub Nasm::X86::Unisyn::Lex::Letter::d6                                          # Dyad 6 - Sans-serif Bold
  {(0x1d608..0x1d608+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d7 {19}
+sub Nasm::X86::Unisyn::Lex::Number::d7 {20}
 sub Nasm::X86::Unisyn::Lex::Letter::d7                                          # Dyad 7  - Calligraphy - normal
  {(0x1d49c..0x1d49c+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d8 {20}
+sub Nasm::X86::Unisyn::Lex::Number::d8 {21}
 sub Nasm::X86::Unisyn::Lex::Letter::d8                                          # Dyad 8 - Calligraphy - bold
  {(0x1d4d0..0x1d4d0+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d9 {21}
+sub Nasm::X86::Unisyn::Lex::Number::d9 {22}
 sub Nasm::X86::Unisyn::Lex::Letter::d9                                          # Dyad 9 - Fraktur - Normal
  {(0x1d504..0x1d504+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d10{22}
+sub Nasm::X86::Unisyn::Lex::Number::d10{23}
 sub Nasm::X86::Unisyn::Lex::Letter::d10                                         # Dyad 10 - Fraktur - bold
  {(0x1d56c..0x1d56c+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d11{13}
+sub Nasm::X86::Unisyn::Lex::Number::d11{16}
 sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad 11 - Mono
  {(0x1d670..0x1d670+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d12{12}
+sub Nasm::X86::Unisyn::Lex::Number::d12{15}
 sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad 12 - Double struck
  {(0x1d538..0x1d538+51)
  }
