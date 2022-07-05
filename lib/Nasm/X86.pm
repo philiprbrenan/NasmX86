@@ -17837,10 +17837,12 @@ if (1) {                                                                        
   Mov al, "[rax]";
   And rax, 0xff;
   PrintOutRegisterInHex rax;
+
+  my $a = sprintf "%2x", Nasm::X86::Unisyn::Lex::Number::d12;
   ok Assemble eq => <<END, avx512=>1;
    rax: .... .... ...1 EEF2
    rax: .... .... .... ...6
-   rax: .... .... .... ..13
+   rax: .... .... .... ..$a
 END
  }
 
