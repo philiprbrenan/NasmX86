@@ -9599,47 +9599,48 @@ sub Nasm::X86::Unisyn::Lex::Letter::B                                           
  {(0x2309,0x230b,0x232a,0x2769,0x276b,0x276d,0x276f,0x2771,0x2773,0x2775,0x27e7,0x27e9,0x27eb,0x27ed,0x27ef,0x2984,0x2986,0x2988,0x298a,0x298c,0x298e,0x2990,0x2992,0x2994,0x2996,0x2998,0x29fd,0x2e29,0x3009,0x300b,0x3011,0x3015,0x3017,0x3019,0x301b,0xfd3f,0xff09,0xff60)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d11{11}
-sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad - Double struck
- {(0x1d538..0x1d538+51)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d12{12}
-sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad - Mono
- {(0x1d670..0x1d670+51)
- }
-
-sub Nasm::X86::Unisyn::Lex::Number::d5 {14}
-sub Nasm::X86::Unisyn::Lex::Letter::d5                                          # Dyad - Sans-serif Normal
+sub Nasm::X86::Unisyn::Lex::Number::d5 {12}
+sub Nasm::X86::Unisyn::Lex::Letter::d5                                          # Dyad 5 - Sans-serif Normal
  {(0x1d5a0..0x1d5a0+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d6 {15}
-sub Nasm::X86::Unisyn::Lex::Letter::d6                                          # Dyad - Sans-serif Bold
+sub Nasm::X86::Unisyn::Lex::Number::d6 {13}
+sub Nasm::X86::Unisyn::Lex::Letter::d6                                          # Dyad 6 - Sans-serif Bold
  {(0x1d608..0x1d608+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d7 {16}
-sub Nasm::X86::Unisyn::Lex::Letter::d7                                          # Dyad - Calligraphy - normal
+sub Nasm::X86::Unisyn::Lex::Number::d7 {14}
+sub Nasm::X86::Unisyn::Lex::Letter::d7                                          # Dyad 7  - Calligraphy - normal
  {(0x1d49c..0x1d49c+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d8 {17}
-sub Nasm::X86::Unisyn::Lex::Letter::d8                                          # Dyad - Calligraphy - bold
+sub Nasm::X86::Unisyn::Lex::Number::d8 {15}
+sub Nasm::X86::Unisyn::Lex::Letter::d8                                          # Dyad 8 - Calligraphy - bold
  {(0x1d4d0..0x1d4d0+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d9 {18}
-sub Nasm::X86::Unisyn::Lex::Letter::d9                                          # Dyad - Fraktur - Normal
+sub Nasm::X86::Unisyn::Lex::Number::d9 {16}
+sub Nasm::X86::Unisyn::Lex::Letter::d9                                          # Dyad 9 - Fraktur - Normal
  {(0x1d504..0x1d504+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d10{19}
-sub Nasm::X86::Unisyn::Lex::Letter::d10                                         # Dyad - Fraktur - bold
+sub Nasm::X86::Unisyn::Lex::Number::d10{17}
+sub Nasm::X86::Unisyn::Lex::Letter::d10                                         # Dyad 10 - Fraktur - bold
  {(0x1d56c..0x1d56c+51)
  }
 
+sub Nasm::X86::Unisyn::Lex::Number::d11{18}
+sub Nasm::X86::Unisyn::Lex::Letter::d11                                         # Dyad 11 - Mono
+ {(0x1d670..0x1d670+51)
+ }
+
+sub Nasm::X86::Unisyn::Lex::Number::d12{19}
+sub Nasm::X86::Unisyn::Lex::Letter::d12                                         # Dyad 12 - Double struck
+ {(0x1d538..0x1d538+51)
+ }
+
 # Add: 1d5a0 ,  0x1d608,   0x1d49c,  0x1d4d0,  0x1d504,     0x1d56c,  0x1d670,  0x1d538
+
 
 sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    # Compose phrases of Earl Zero, write them to a temporary file, return the temporary file name.
  {my ($words) = @_;                                                             # String of words
@@ -11236,7 +11237,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11238 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11239 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
