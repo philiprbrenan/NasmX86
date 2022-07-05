@@ -9552,7 +9552,7 @@ sub Nasm::X86::Unisyn::Lex::Number::A {2}                                       
 sub Nasm::X86::Unisyn::Lex::Letter::A {(0x0..0x7f, 0x24b6..0x24e9)}             # ASCII characters extended with circled characters to act as escape sequences.
 
 
-sub Nasm::X86::Unisyn::Lex::Number::d {3}                                       # Infix operator with left to right binding at priority 3.
+sub Nasm::X86::Unisyn::Lex::Number::d {16}                                       # Infix operator with left to right binding at priority 3.
 sub Nasm::X86::Unisyn::Lex::Letter::d {(0x1d400..0x1d433,0x1d6a8..0x1d6e1)}     # Infix operator with left to right binding at priority 3.
 
 
@@ -9561,7 +9561,7 @@ sub Nasm::X86::Unisyn::Lex::Number::p {4}                                       
 sub Nasm::X86::Unisyn::Lex::Letter::p {(0x1d468...0x1d49b, 0x1d71c..0x1d755)}   # Prefix operator - applies only to the following variable or bracketed term.
 
 
-sub Nasm::X86::Unisyn::Lex::Number::a {5}                                       # Assign infix operator with right to left binding at priority 2.
+sub Nasm::X86::Unisyn::Lex::Number::a {15}                                       # Assign infix operator with right to left binding at priority 2.
 sub Nasm::X86::Unisyn::Lex::Letter::a                                           # Assign infix operator with right to left binding at priority 2.
  {(0x210e, 0x2190..0x21fe, 0xff1d, 0x1d434..0x1d454,
    0x1d456..0x1d467, 0x1d6e2..0x1d71b)
@@ -9575,7 +9575,7 @@ sub Nasm::X86::Unisyn::Lex::Letter::q {(0x1d63c...0x1d66f,0x1d790..0x1d7c9)}    
 
 
 
-sub Nasm::X86::Unisyn::Lex::Number::s {8}                                       # Infix operator with left to right binding at priority 1.
+sub Nasm::X86::Unisyn::Lex::Number::s {14}                                       # Infix operator with left to right binding at priority 1.
 sub Nasm::X86::Unisyn::Lex::Letter::s {(0x27e2)}                                # Infix operator with left to right binding at priority 1.
 
 sub Nasm::X86::Unisyn::Lex::Number::e {9}                                       # Infix operator with left to right binding at priority 4.
