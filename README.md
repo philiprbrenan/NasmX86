@@ -48,6 +48,15 @@ Other notable features provided by this repository include a parser for
 languages that can make extensive use of the operators and alphabets provide by
 the [Unicode](https://en.wikipedia.org/wiki/Unicode) standard.
 
+# Unisyn
+
+The Unisyn programming languages allows you to define new [infix](https://en.wikipedia.org/wiki/Infix_notation) operators using [Unicode](https://en.wikipedia.org/wiki/Unicode) . Each such new [infix](https://en.wikipedia.org/wiki/Infix_notation) operator may have one of 12 precedence levels.
+The precedence level for each operator is determined by tyhe alphabet rfom
+which its letters are drawn.
+
+For example, the [infix](https://en.wikipedia.org/wiki/Infix_notation) operator:  𝕒𝕟𝕕 if defined would have a priority of 3,
+whilst ✕ would have a priority of 12.
+
 
 # Useful links
 
