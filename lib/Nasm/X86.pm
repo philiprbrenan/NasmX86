@@ -10148,9 +10148,13 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      };
    };
 
-  PushR my $lexType = r15, my $prevLexType = r14;                                      # Current lexical type current, previous lexical item
+  my $w = sub                                                                   # Whitespace - ignore it
+   {#PrintErrStringNL "Type: w";
+   };
 
-  Mov $prevLexType, Nasm::X86::Unisyn::Lex::Number::S;                                 # Start symbol
+  PushR my $lexType = r15, my $prevLexType = r14;                               # Current lexical type current, previous lexical item
+
+  Mov $prevLexType, Nasm::X86::Unisyn::Lex::Number::S;                          # Start symbol
 
   $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
@@ -10175,7 +10179,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       Jmp $end;
      };
 
-    my ($alphabetN, $alphabetA) = &Nasm::X86::Unisyn::Lex::AlphabetsArray;      # Classify a character into an alphabet
+    my ($alphabetN, $alphabetA) = Nasm::X86::Unisyn::Lex::AlphabetsArray;      # Classify a character into an alphabet
     $char->setReg(rsi);                                                         # Character
     Mov rdi, "[$alphabetN]";                                                    # Limit of alphabet array
 
@@ -10186,13 +10190,20 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      {Mov $lexType, -1;                                                         # Show invalid character
      },
     Else                                                                        # Character is in range
-     {Mov $lexType, $alphabetA;                                                 # Classify character into an alphabet
-      Add $lexType, $char->addressExpr;                                         # Position in alphabets array
-      Mov byteRegister $lexType, "[$lexType]";                                  # Classify letter
-      And $lexType, 0xFF;                                                       # Clear rest of register
+     {Cmp rsi, Nasm::X86::Unisyn::Lex::Number::w;
+      IfEq
+      Then                                                                      # Character is whitespace
+       {
+       },
+      Else                                                                      # Character is not whitespace
+       {Mov $lexType, $alphabetA;                                               # Classify character into an alphabet
+        Add $lexType, $char->addressExpr;                                       # Position in alphabets array
+        Mov byteRegister $lexType, "[$lexType]";                                # Classify letter
+        And $lexType, 0xFF;                                                     # Clear rest of register
+       };
      };
 
-    Cmp $lexType, -1;                                                           # Check found
+    Cmp $lexType, -1;                                                           # Check found - performance is not at issue because we terminate the parse if the character has not been found
     IfEq
     Then                                                                        # Failed to classify character
      {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidChar);
@@ -10255,31 +10266,36 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
     If $change > 0,                                                             # Check the transition from the previous item
     Then                                                                        # Change of current lexical item
-     {Mov rsi, $prevLexType;
-      Shl rsi, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits;
-      Add rsi, $lexType;                                                        # The index into the allowed transitions array
+     {Cmp $lexType, Nasm::X86::Unisyn::Lex::Number::w;                          # Do not transition on white space
 
-      my ($tN, $tA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;      # Load permissible transitions
-      Mov rax, $tA;
-      Add rsi, rax;
-      Mov al, "[rsi]";                                                          # Place transition symbol in low byte
+      IfNe
+      Then                                                                      # Not white space
+       {Mov rsi, $prevLexType;
+        Shl rsi, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits;
+        Add rsi, $lexType;                                                      # The index into the allowed transitions array
 
-      Cmp al, 0;                                                                # Test transitionin low byte
-      IfGt
-      Then                                                                      # The transition on this lexical type was a valid transition
-       {Mov $prevLexType, $lexType;                                             # New lexical tyoe we will be transitioning on
-        $last->copy($lexType);                                                  # Treat unbroken sequences of a symbol as one lexical item
-       },
-      Else                                                                      # The transition on this lexical type was an invalid transition
-       {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidTransition);
-        Jmp $end;
+        my ($tN, $tA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;    # Load permissible transitions
+        Mov rax, $tA;
+        Add rsi, rax;
+        Mov al, "[rsi]";                                                        # Place transition symbol in low byte
+
+        Cmp al, 0;                                                              # Test transitionin low byte
+        IfGt
+        Then                                                                    # The transition on this lexical type was a valid transition
+         {Mov $prevLexType, $lexType;                                           # New lexical tyoe we will be transitioning on
+          $last->copy($lexType);                                                # Treat unbroken sequences of a symbol as one lexical item
+         },
+        Else                                                                    # The transition on this lexical type was an invalid transition
+         {$parseReason->copy(Nasm::X86::Unisyn::Lex::Reason::InvalidTransition);
+          Jmp $end;
+         };
        };
 
       &$updateLength;                                                           # Update the length of the previous lexical item
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
-        for my $L(qw(a A b B l m p q s v d e f g h i j k))                      # We can never arrive on the start or end symbols via transitions on the current character
+        for my $L(qw(w a A b B l m p q s v d e f g h i j k))                    # We can never arrive on the start or end symbols via transitions on the current character. The processing of a lexical item is performed as soon as its first character is recognized, additional characters are attached once we transition to the next lexical item.
          {my $c = qq(If \$last == K($L => Nasm::X86::Unisyn::Lex::Number::$L), Then {&\$$L; Jmp \$end});
           eval $c;
           confess "$@\n$c\n" if $@;
@@ -11206,7 +11222,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11208 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11224 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
