@@ -9694,8 +9694,7 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
   my $A =  Nasm::X86::Unisyn::Lex::Number::A;                                   # Ascii
   my $b =  Nasm::X86::Unisyn::Lex::Number::b;                                   # Open
   my $B =  Nasm::X86::Unisyn::Lex::Number::B;                                   # Close
-  my $d =  Nasm::X86::Unisyn::Lex::Number::l;                                   # Dyad-3   - left to right
-  my $e =  Nasm::X86::Unisyn::Lex::Number::m;                                   # Dyad-4   - left to right
+  my $d =  Nasm::X86::Unisyn::Lex::Number::d;                                   # Dyad
   my $F =  Nasm::X86::Unisyn::Lex::Number::F;                                   # Finish
   my $p =  Nasm::X86::Unisyn::Lex::Number::p;                                   # Prefix
   my $q =  Nasm::X86::Unisyn::Lex::Number::q;                                   # Suffix
@@ -9703,7 +9702,8 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
   my $S =  Nasm::X86::Unisyn::Lex::Number::S;                                   # Start
   my $v =  Nasm::X86::Unisyn::Lex::Number::v;                                   # Variable
 
-  my @d = (Nasm::X86::Unisyn::Lex::Number::m,
+  my @d = (Nasm::X86::Unisyn::Lex::Number::a,
+           Nasm::X86::Unisyn::Lex::Number::e,
            Nasm::X86::Unisyn::Lex::Number::f,
            Nasm::X86::Unisyn::Lex::Number::g,
            Nasm::X86::Unisyn::Lex::Number::h,
@@ -9714,28 +9714,28 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
            Nasm::X86::Unisyn::Lex::Number::m);
 
   my %x = (                                                                     # The transitions table: this tells us which combinations of lexical items are valid.  The table is augmented with start and end symbols so that we know where to start and end.
-    $a => [    $A, $b,                             $v],
-    $A => [$a,         $B, $d, $e, $F,     $q, $s,   ],
-    $b => [    $A, $b, $B,             $p,     $s, $v],
-    $B => [$a,         $B, $d, $e, $F,     $q, $s    ],
-    $d => [    $A, $b,                 $p,         $v],
-#   $e => [    $A, $b,                 $p,         $v],
-    $p => [    $A, $b,                             $v],
-    $q => [$a, $A,     $B, $d, $e, $F,         $s    ],
-    $s => [    $A, $b, $B,         $F, $p,     $s, $v],
-    $S => [    $A, $b,             $F, $p,     $s, $v],
-    $v => [$a,         $B, $d, $e, $F,     $q, $s    ],
+    $A => [$a,         $B, $d, $F,     $q, $s,   ],
+    $b => [    $A, $b, $B,         $p,     $s, $v],
+    $B => [$a,         $B, $d, $F,     $q, $s    ],
+    $d => [    $A, $b,             $p,         $v],
+    $p => [    $A, $b,                         $v],
+    $q => [$a, $A,     $B, $d, $F,         $s    ],
+    $s => [    $A, $b, $B,     $F, $p,     $s, $v],
+    $S => [    $A, $b,         $F, $p,     $s, $v],
+    $v => [$a,         $B, $d, $F,     $q, $s    ],
   );
 
   $x{$_} = $x{$d} for @d;                                                       # The dyads all have the same sequencing
-
+  for (@d)
+   {push $x{$_}->@*, @d if $x{$_} == $d;                                        # If something can be followed by a dyad then it can be followed by any dyad
+   }
 
   my @t;                                                                        # The transitions table will be held as an array of bytes
 
-  for my $x(sort keys %x)                                                       # Each source lexical item
-   {my @y = $x{$x}->@*;
+  for my $x(keys %x)                                                            # Each source lexical item
+   {my @y = $x{$x}->@*;                                                         # The lexical items that can follow the current lexical item. If there are duplicates they are squashed out by assigning them to the same index in the target array
     for my $y(@y)                                                               # Each permissible transition
-     {$t[($x << Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits) +      # Possible transition
+     {$t[($x << Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits) +      # Two dimensional index
           $y] = 1;
      }
    }
@@ -10139,9 +10139,9 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      };
    };
 
-  PushR my $lexType = r15, my $next = r14;
+  PushR my $lexType = r15, my $prevLexType = r14;                                      # Current lexical type current, previous lexical item
 
-  Mov $next, Nasm::X86::Unisyn::Lex::Number::S;                                 # Start symbol
+  Mov $prevLexType, Nasm::X86::Unisyn::Lex::Number::S;                                 # Start symbol
 
   $s8->for(sub                                                                  # Process up to the maximum number of characters
    {my ($index, undef, undef, $end) = @_;
@@ -10166,7 +10166,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       Jmp $end;
      };
 
-    my ($alphabetN, $alphabetA) = &Nasm::X86::Unisyn::Lex::AlphabetsArray;           # Classify a character into an alphabet
+    my ($alphabetN, $alphabetA) = &Nasm::X86::Unisyn::Lex::AlphabetsArray;      # Classify a character into an alphabet
     $char->setReg(rsi);                                                         # Character
     Mov rdi, "[$alphabetN]";                                                    # Limit of alphabet array
 
@@ -10246,19 +10246,19 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
     If $change > 0,                                                             # Check the transition from the previous item
     Then                                                                        # Change of current lexical item
-     {Mov rsi, $next;
+     {Mov rsi, $prevLexType;
       Shl rsi, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits;
       Add rsi, $lexType;                                                        # The index into the allowed transitions array
 
       my ($tN, $tA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;      # Load permissible transitions
       Mov rax, $tA;
       Add rsi, rax;
-      Mov al, "[rsi]";
+      Mov al, "[rsi]";                                                          # Place transition symbol in low byte
 
-      Cmp al, 0;
+      Cmp al, 0;                                                                # Test transitionin low byte
       IfGt
       Then                                                                      # The transition on this lexical type was a valid transition
-       {Mov $next, $lexType;                                                    # New lexical tyoe we will be transitioning on
+       {Mov $prevLexType, $lexType;                                             # New lexical tyoe we will be transitioning on
         $last->copy($lexType);                                                  # Treat unbroken sequences of a symbol as one lexical item
        },
       Else                                                                      # The transition on this lexical type was an invalid transition
@@ -10270,7 +10270,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
-        for my $L(qw(a A b B l m p q s v d e f g h i j k))           # We can never arrive on the start symbol.
+        for my $L(qw(a A b B l m p q s v d e f g h i j k))                      # We can never arrive on the start or end symbols via transitions on the current character
          {my $c = qq(If \$last == K($L => Nasm::X86::Unisyn::Lex::Number::$L), Then {&\$$L; Jmp \$end});
           eval $c;
           confess "$@\n$c\n" if $@;
@@ -10282,9 +10282,9 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
     $position->copy($position + $size);                                         # Point to next character to be parsed
     If $position >= $s8,
     Then                                                                        # We have reached the end of the input
-     {Mov rsi, $next;
-      Shl rsi, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits;
-      Add rsi, Nasm::X86::Unisyn::Lex::Number::F;                               # Check we can transition to the final state
+     {Mov rsi, $prevLexType;                                                    # Lexical type to transition from
+      Shl rsi, Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits;         # Two dimensional index
+      Add rsi, Nasm::X86::Unisyn::Lex::Number::F;                               # Check we can transition to the final state from the current state
 
       my ($tN, $tA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;      # Load permissible transitions
       Mov rax, $tA;
@@ -17781,7 +17781,7 @@ END
   unlink $f;
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::AlphabetsArray
   my ($N, $A) = Nasm::X86::Unisyn::Lex::AlphabetsArray;
   Mov rax, "[$N]";
@@ -17810,7 +17810,6 @@ if (1) {                                                                        
    rax: .... .... .... ..$a
    rax: .... .... .... ..$b
 END
-exit unless onGitHub;
  }
 
 #latest:
@@ -18036,6 +18035,31 @@ if (1)
 ._._._._𝝳
 END
   unlink $f;
+ }
+
+latest:
+if (1)
+ {my $p = &ParseUnisyn(constantString "𝗔＝𝗕𝕒𝕟𝕕𝗖＝𝗗");                             # Parse the utf8 string minus the final new line
+  $p->char    ->outNL;                                                          # Print results
+  $p->fail    ->outNL;
+  $p->position->outNL;
+  $p->match   ->outNL;
+  $p->reason  ->outNL;
+  $p->dump;
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
+parseChar  : .... .... ...1 D5D7
+parseFail  : .... .... .... ...0
+position   : .... .... .... ..22
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+𝕒𝕟𝕕
+._＝
+._._𝗔
+._._𝗕
+._＝
+._._𝗖
+._._𝗗
+END
  }
 
 #latest:
@@ -19102,6 +19126,30 @@ position   : .... .... .... ...A
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
 𝑳
+._【
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+  my ($a8, $s8) = constantString('【】𝙆');
+
+  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+  $parse->dump;
+
+  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
+parseChar  : .... .... ...1 D646
+parseFail  : .... .... .... ...0
+position   : .... .... .... ...A
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+𝙆
 ._【
 END
  }
