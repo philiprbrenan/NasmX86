@@ -9549,7 +9549,7 @@ sub Nasm::X86::Unisyn::Lex::Number::S {0}                                       
 sub Nasm::X86::Unisyn::Lex::Number::F {1}                                       # End symbol.
 
 sub Nasm::X86::Unisyn::Lex::Number::A {2}                                       # ASCII characters extended with circled characters to act as escape sequences.
-sub Nasm::X86::Unisyn::Lex::Letter::A {(0x0..0xc, 0xe..0x7f, 0x24b6..0x24e9)}   # Transfer carriage return to white space because Geany recognizes it as a new line leaving "new line" available as an ascii chaarcter
+sub Nasm::X86::Unisyn::Lex::Letter::A {(0x0..0x7f, 0x24b6..0x24e9)}
 
 sub Nasm::X86::Unisyn::Lex::Number::p {3}                                       # Prefix operator - applies only to the following variable or bracketed term.
 sub Nasm::X86::Unisyn::Lex::Letter::p {(0x1d468...0x1d49b, 0x1d71c..0x1d755)}
@@ -9635,7 +9635,7 @@ sub Nasm::X86::Unisyn::Lex::Letter::m
 
 sub Nasm::X86::Unisyn::Lex::Number::w {20}                                      # White space
 sub Nasm::X86::Unisyn::Lex::Letter::w
- {(0xd, 0x1680, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007,
+ {(0x1680, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007,
    0x2008, 0x2009, 0x200A, 0x202F, 0x205F, 0x3000)
  }
 
