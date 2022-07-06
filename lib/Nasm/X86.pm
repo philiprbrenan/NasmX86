@@ -18061,7 +18061,11 @@ END
 
 latest:
 if (1)
- {my $p = &ParseUnisyn(constantString "𝗔　＝　𝗕　𝕒𝕟𝕕　𝗖　＝　𝗗");                       # Parse the utf8 string minus the final new line
+ {my $s2 = chr(0x205F).chr(0x205F);
+  my $p = &ParseUnisyn(constantString substr <<END, 0, -1);
+𝗔${s2}＝${s2}𝗕${s2}𝕒𝕟𝕕${s2}𝗖${s2}＝${s2}𝗗
+END
+
   $p->char    ->outNL;                                                          # Print results
   $p->fail    ->outNL;
   $p->position->outNL;
@@ -18071,15 +18075,15 @@ if (1)
   ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
 parseChar  : .... .... ...1 D5D7
 parseFail  : .... .... .... ...0
-position   : .... .... .... ..34
+position   : .... .... .... ..46
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
-𝕒𝕟𝕕　
-._＝　
-._._𝗔　
-._._𝗕　
-._＝　
-._._𝗖　
+𝕒𝕟𝕕  
+._＝  
+._._𝗔  
+._._𝗕  
+._＝  
+._._𝗖  
 ._._𝗗
 END
  }
