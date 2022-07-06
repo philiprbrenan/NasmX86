@@ -109,7 +109,7 @@ END
   my @i2 =  split /\s+/, <<END;                                                 # Double operand instructions
 add and bsf bsr bt btc btr bts
 cmova cmovae cmovb cmovbe cmovc cmove cmovg cmovge cmovl cmovle
-cmovna cmovnae cmovnb cmp
+cmovna cmovnae cmovnb cmovne cmp
 enter
 imul
 kmov knot kortest ktest lea lzcnt mov movd movq movw  movdqa
@@ -9776,6 +9776,7 @@ sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      
     Nasm::X86::Unisyn::Lex::Number::k   => [Nasm::X86::Unisyn::Lex::Letter::k],
     Nasm::X86::Unisyn::Lex::Number::l   => [Nasm::X86::Unisyn::Lex::Letter::l],
     Nasm::X86::Unisyn::Lex::Number::m   => [Nasm::X86::Unisyn::Lex::Letter::m],
+    Nasm::X86::Unisyn::Lex::Number::w   => [Nasm::X86::Unisyn::Lex::Letter::w],
    );
 
   my @a;
@@ -9859,7 +9860,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
   my $last        = V 'last       ' => Nasm::X86::Unisyn::Lex::Number::S;       # Last lexical type starting on ths start symbol
 
   my $parseFail   = V 'parseFail  ' =>  1;                                      # If not zero the parse has failed for some reason
-  my $parseReason = V 'parseReason' =>  0;                                      # The reason code describing the failure
+  my $parseReason = V 'parseReason' =>  0;                                      # The reason code describing the failure if parseFail is not zero - we could probably merge these two fields
   my $parseMatch  = V 'parseMatch ' =>  0;                                      # The position of the bracket we failed to match
   my $parseChar   = V 'parseChar  ' =>  0;                                      # The last character recognized
 
@@ -10179,7 +10180,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       Jmp $end;
      };
 
-    my ($alphabetN, $alphabetA) = Nasm::X86::Unisyn::Lex::AlphabetsArray;      # Classify a character into an alphabet
+    my ($alphabetN, $alphabetA) = Nasm::X86::Unisyn::Lex::AlphabetsArray;       # Classify a character into an alphabet
     $char->setReg(rsi);                                                         # Character
     Mov rdi, "[$alphabetN]";                                                    # Limit of alphabet array
 
@@ -10190,17 +10191,13 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      {Mov $lexType, -1;                                                         # Show invalid character
      },
     Else                                                                        # Character is in range
-     {Cmp rsi, Nasm::X86::Unisyn::Lex::Number::w;
-      IfEq
-      Then                                                                      # Character is whitespace
-       {
-       },
-      Else                                                                      # Character is not whitespace
-       {Mov $lexType, $alphabetA;                                               # Classify character into an alphabet
-        Add $lexType, $char->addressExpr;                                       # Position in alphabets array
-        Mov byteRegister $lexType, "[$lexType]";                                # Classify letter
-        And $lexType, 0xFF;                                                     # Clear rest of register
-       };
+     {Mov rdx, $alphabetA;                                                      # Classify character into an alphabet
+      Add rdx, $char->addressExpr;                                              # Position in alphabets array
+      Mov byteRegister rdx, "[rdx]";                                            # Classify letter
+      And rdx, 0xFF;                                                            # Clear rest of register
+
+      Cmp rdx, Nasm::X86::Unisyn::Lex::Number::w;                               # Check for white space
+      Cmovne $lexType, rdx;                                                     # Update lexical type unless it is white space which is being ignored
      };
 
     Cmp $lexType, -1;                                                           # Check found - performance is not at issue because we terminate the parse if the character has not been found
@@ -11222,7 +11219,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11224 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11221 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17766,7 +17763,7 @@ DDDD22
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
@@ -18064,7 +18061,7 @@ END
 
 latest:
 if (1)
- {my $p = &ParseUnisyn(constantString "𝗔＝𝗕𝕒𝕟𝕕𝗖＝𝗗");                             # Parse the utf8 string minus the final new line
+ {my $p = &ParseUnisyn(constantString "𝗔　＝　𝗕　𝕒𝕟𝕕　𝗖　＝　𝗗");                       # Parse the utf8 string minus the final new line
   $p->char    ->outNL;                                                          # Print results
   $p->fail    ->outNL;
   $p->position->outNL;
@@ -18074,15 +18071,15 @@ if (1)
   ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
 parseChar  : .... .... ...1 D5D7
 parseFail  : .... .... .... ...0
-position   : .... .... .... ..22
+position   : .... .... .... ..34
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
-𝕒𝕟𝕕
-._＝
-._._𝗔
-._._𝗕
-._＝
-._._𝗖
+𝕒𝕟𝕕　
+._＝　
+._._𝗔　
+._._𝗕　
+._＝　
+._._𝗖　
 ._._𝗗
 END
  }
