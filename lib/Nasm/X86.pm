@@ -9633,6 +9633,11 @@ sub Nasm::X86::Unisyn::Lex::Letter::m                                           
    0x1eef0..0x1eef1)
  }
 
+sub Nasm::X86::Unisyn::Lex::Number::w {20}                                      # White space
+sub Nasm::X86::Unisyn::Lex::Letter::w
+ {()
+ }
+
 # Add: 1d5a0 ,  0x1d608,   0x1d49c,  0x1d4d0,  0x1d504,     0x1d56c,  0x1d670,  0x1d538
 
 
@@ -9714,27 +9719,30 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
            Nasm::X86::Unisyn::Lex::Number::m);
 
   my %x = (                                                                     # The transitions table: this tells us which combinations of lexical items are valid.  The table is augmented with start and end symbols so that we know where to start and end.
-    $A => [$a,         $B, $d, $F,     $q, $s,   ],
-    $b => [    $A, $b, $B,         $p,     $s, $v],
-    $B => [$a,         $B, $d, $F,     $q, $s    ],
-    $d => [    $A, $b,             $p,         $v],
-    $p => [    $A, $b,                         $v],
-    $q => [$a, $A,     $B, $d, $F,         $s    ],
-    $s => [    $A, $b, $B,     $F, $p,     $s, $v],
-    $S => [    $A, $b,         $F, $p,     $s, $v],
-    $v => [$a,         $B, $d, $F,     $q, $s    ],
+    $A => {map {$_=>1} $a,         $B, $d, $F,     $q, $s,   },
+    $b => {map {$_=>1}     $A, $b, $B,         $p,     $s, $v},
+    $B => {map {$_=>1} $a,         $B, $d, $F,     $q, $s    },
+    $d => {map {$_=>1}     $A, $b,             $p,         $v},
+    $p => {map {$_=>1}     $A, $b,                         $v},
+    $q => {map {$_=>1} $a, $A,     $B, $d, $F,         $s    },
+    $s => {map {$_=>1}     $A, $b, $B,     $F, $p,     $s, $v},
+    $S => {map {$_=>1}     $A, $b,         $F, $p,     $s, $v},
+    $v => {map {$_=>1} $a,         $B, $d, $F,     $q, $s    },
   );
 
   $x{$_} = $x{$d} for @d;                                                       # The dyads all have the same sequencing
-  for (@d)
-   {push $x{$_}->@*, @d if $x{$_} == $d;                                        # If something can be followed by a dyad then it can be followed by any dyad
+
+  for my $x(keys %x)
+   {if ($x{$x}{$d})                                                             # If something can be followed by a dyad then it can be followed by any dyad
+     {$x{$x}{$_} = 1 for @d;
+     }
    }
 
   my @t;                                                                        # The transitions table will be held as an array of bytes
 
   for my $x(keys %x)                                                            # Each source lexical item
-   {my @y = $x{$x}->@*;                                                         # The lexical items that can follow the current lexical item. If there are duplicates they are squashed out by assigning them to the same index in the target array
-    for my $y(@y)                                                               # Each permissible transition
+   {my %y = $x{$x}->%*;                                                         # The lexical items that can follow the current lexical item. If there are duplicates they are squashed out by assigning them to the same index in the target array
+    for my $y(keys %y)                                                          # Each permissible transition
      {$t[($x << Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits) +      # Two dimensional index
           $y] = 1;
      }
@@ -10148,14 +10156,14 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
     my ($char, $size, $fail) = GetNextUtf8CharAsUtf32 $a8 + $position;          # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
 
     if (0)                                                                      # Debug
-     {PrintOutStringNL "AAAA";
-      $index->outNL;
-      $char->outNL;
+     {#PrintOutStringNL "AAAA";
+      #$index->outNL;
+      #$char->outNL;
       PrintErrStringNL "AAAA";
       $index->d;
       $char->d;
-      $stack->dump("Stack");
-      $parse->dump("Parse", 20);
+      #$stack->dump("Stack");
+      #$parse->dump("Parse", 20);
      };
 
     $parseChar->copy($char);                                                    # Copy the current character
@@ -11197,7 +11205,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11199 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11207 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17741,7 +17749,7 @@ DDDD22
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
    ('va a= b( vb e+ vc B) e* vd dif ve');
