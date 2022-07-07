@@ -11046,8 +11046,7 @@ END
          }
        }
       $testsThatFailed++;
-      confess "Test failed" unless onGitHub;                                    # Report failure
-      cluck   "Test failed" if     onGitHub;
+      confess "Test failed" unless onGitHub;                                    # Test failed unless we are debugging test failures
      }
     else                                                                        # Runs that passed
      {$testsThatPassed++;
@@ -11219,7 +11218,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11221 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11220 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -11230,6 +11229,7 @@ unlink my $resultFile = "zzzStatus.txt";                                        
 bail_on_fail unless onGitHub;
 
 my $localTest = ((caller(1))[0]//'Nasm::X86') eq "Nasm::X86";                   # Local testing mode
+my $homeTest  = -e q(/home/phil/);                                              # Testing on a local machine
 
 Test::More->builder->output("/dev/null") if $localTest;                         # Reduce number of confirmation messages during testing
 
@@ -11244,7 +11244,6 @@ else
  }
 
 my $start = time;                                                               # Tests
-goto testX;
 
 eval {goto latest} unless onGitHub;                                             # Latest test if visible and testing locally
 
@@ -11801,7 +11800,7 @@ if (1) {                                                                        
    }
  }
 
-if (!onGitHub) {                                                                #TGetUid
+if ($homeTest) {                                                                #TGetUid
   GetUid;                                                                       # Userid
   PrintOutRegisterInHex rax;
 
@@ -12030,7 +12029,7 @@ END
  }
 
 #latest:;
-if (onGitHub) {                                                                 #TReadFile #TPrintMemory
+if (!$homeTest) {                                                               #TReadFile #TPrintMemory
   my $file = V(file => Rs $0);
   my ($address, $size) = ReadFile $file;                                        # Read file into memory
   $address->setReg(rax);                                                        # Address of file in memory
@@ -12242,7 +12241,7 @@ END
  }
 
 #latest:;
-if (onGitHub) {                                                                 # Print this file - slow -  #TArea::read #TArea::z #TArea::q
+if (!$homeTest) {                                                               # Print this file - slow -  #TArea::read #TArea::z #TArea::q
   my $s = CreateArea;                                                           # Create a string
   $s->read(K file => Rs($0));
   $s->out;
@@ -12266,7 +12265,7 @@ END
  }
 
 #latest:;
-if (0) {                                                                        # Execute the content of an area #TexecuteFileViaBash #TArea::write #TArea::out #TunlinkFile #TArea::ql
+if (0 and $homeTest) {                                                          # Execute the content of an area #TexecuteFileViaBash #TArea::write #TArea::out #TunlinkFile #TArea::ql
   my $s = CreateArea;                                                           # Create a string
   $s->ql(<<END);                                                                # Write code to execute
 #!/usr/bin/bash
@@ -17869,22 +17868,18 @@ if (1) {                                                                        
  }
 
 sub testParseUnisyn($$$)                                                        #P Test the parse of a unisyn expression.
- {my ($compose, $text, $Parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
+ {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
 
-  my $parse = $Parse =~ s(((._)+)) (\n$1)gsr;
-     $parse .= "\n" if $Parse;
-
-  confess "Got text: ".readFile($f)."\n Expected: $text"                        # Check composition
-    unless readFile($f) eq "$text\n";
-
+  is_deeply readFile($f), "$text\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
-  &ParseUnisyn(constantString $text)->dump;                                     # Parse the utf8 string minus the final new line
+  my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
 
-  Assemble eq => $parse, avx512=>1, mix=>1;
+  $p->dump;
+  ok Assemble eq => $parse, avx512=>1, mix=>1;
 
-  if (-e $programOut and !onGitHub)                                             # Print parse tree
+  if (-e $programOut and $homeTest)                                             # Print parse tree
    {say STDERR readFile($programOut) =~ s(\n) (\\n)gsr
    }
 
@@ -17895,58 +17890,59 @@ test7: goto test8 unless $test{7};
 
 #latest:;
 testParseUnisyn '',                                        "",                  qq();
-testParseUnisyn 'va',                                      "𝗔",                 qq(𝗔);
-testParseUnisyn 'va a= va',                                "𝗔＝𝗔",               qq(＝._𝗔._𝗔);
-testParseUnisyn 'va m+ vb',                                "𝗔＋𝗕",               qq(＋._𝗔._𝗕);
-testParseUnisyn 'va a= vb m+ vc',                          "𝗔＝𝗕＋𝗖",             qq(＝._𝗔._＋._._𝗕._._𝗖);
-testParseUnisyn 'va a= vb m* vc',                          "𝗔＝𝗕✕𝗖",             qq(＝._𝗔._✕._._𝗕._._𝗖);
-testParseUnisyn 'b( B)',                                   "【】",                qq(【);
-testParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】",              qq(【._⟦);
-testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】",            qq(【._⟦._._⟨);
+testParseUnisyn 'va',                                      "𝗔",                 qq(𝗔\n);
+testParseUnisyn 'va a= va',                                "𝗔＝𝗔",               qq(＝\n._𝗔\n._𝗔\n);
+testParseUnisyn 'va m+ vb',                                "𝗔＋𝗕",               qq(＋\n._𝗔\n._𝗕\n);
+testParseUnisyn 'va a= vb m+ vc',                          "𝗔＝𝗕＋𝗖",             qq(＝\n._𝗔\n._＋\n._._𝗕\n._._𝗖\n);
+testParseUnisyn 'va a= vb m* vc',                          "𝗔＝𝗕✕𝗖",             qq(＝\n._𝗔\n._✕\n._._𝗕\n._._𝗖\n);
+testParseUnisyn 'b( B)',                                   "【】",                qq(【\n);
+testParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】",              qq(【\n._⟦\n);
+testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】",            qq(【\n._⟦\n._._⟨\n);
 
 test8: goto test9 unless $test{8};
 
 #latest:;
-testParseUnisyn 'b( va B)',                                "【𝗔】",               qq(【._𝗔);
-testParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】",             qq(【._⟦._._𝗔);
-testParseUnisyn 'b( b[ va m+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】",           qq(【._⟦._._＋._._._𝗔._._._𝗕);
-testParseUnisyn 'b( b[ va m+ vb B] m* b[ va m+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】",     qq(【._✕._._⟦._._._＋._._._._𝗔._._._._𝗕._._⟦._._._＋._._._._𝗔._._._._𝗕);
+testParseUnisyn 'b( va B)',                                "【𝗔】",               qq(【\n._𝗔\n);
+testParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】",             qq(【\n._⟦\n._._𝗔\n);
+testParseUnisyn 'b( b[ va m+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】",           qq(【\n._⟦\n._._＋\n._._._𝗔\n._._._𝗕\n);
+testParseUnisyn 'b( b[ va m+ vb B] m* b[ va m+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】",     qq(【\n._✕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n._._⟦\n._._._＋\n._._._._𝗔\n._._._._𝗕\n);
 testParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢",             qq();
-testParseUnisyn 'va s vb',                                 "𝗔⟢𝗕",               qq(⟢._𝗔._𝗕);
-testParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕",              qq(⟢._𝗔._𝗕);
-testParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢",          qq(⟢._𝗔._𝗕);
-testParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖",             qq(＝._𝗔._＝._._𝗕._._𝗖);
+testParseUnisyn 'va s vb',                                 "𝗔⟢𝗕",               qq(⟢\n._𝗔\n._𝗕\n);
+testParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕",              qq(⟢\n._𝗔\n._𝗕\n);
+testParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢",          qq(⟢\n._𝗔\n._𝗕\n);
+testParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖",             qq(＝\n._𝗔\n._＝\n._._𝗕\n._._𝗖\n);
 
 test9: goto test10 unless $test{9};
 
 #latest:;
-testParseUnisyn 'va a= vb m+ vc a= vd m+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘",         qq(＝._𝗔._＝._._＋._._._𝗕._._._𝗖._._＋._._._𝗗._._._𝗘);
-testParseUnisyn 'va a= vb m+ vc s vd a= ve m+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙",       qq(⟢._＝._._𝗔._._＋._._._𝗕._._._𝗖._＝._._𝗗._._＋._._._𝗘._._._𝗙);
-testParseUnisyn 'va lif vb',                               "𝗔𝐈𝐅𝗕",              qq(𝐈𝐅._𝗔._𝗕);
-testParseUnisyn 'va lif vb lelse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖",         qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._𝗔._._𝗕._𝗖);
-testParseUnisyn 'va a= b1 vb m+ vc B1 m* vd lif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘",      qq(＝._𝗔._𝐈𝐅._._✕._._._⌊._._._._＋._._._._._𝗕._._._._._𝗖._._._𝗗._._𝗘);
-testParseUnisyn 'va a= vb lif vc m* vd s vA a= vB lif  vC m* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢",  qq(⟢._＝._._𝗔._._𝐈𝐅._._._𝗕._._._✕._._._._𝗖._._._._𝗗._＝._._𝝰._._𝐈𝐅._._._𝝱._._._✕._._._._𝝲._._._._𝝳);
+testParseUnisyn 'va a= vb m+ vc a= vd m+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘",         qq(＝\n._𝗔\n._＝\n._._＋\n._._._𝗕\n._._._𝗖\n._._＋\n._._._𝗗\n._._._𝗘\n);
+testParseUnisyn 'va a= vb m+ vc s vd a= ve m+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙",       qq(⟢\n._＝\n._._𝗔\n._._＋\n._._._𝗕\n._._._𝗖\n._＝\n._._𝗗\n._._＋\n._._._𝗘\n._._._𝗙\n);
+testParseUnisyn 'va lif vb',                               "𝗔𝐈𝐅𝗕",              qq(𝐈𝐅\n._𝗔\n._𝗕\n);
+testParseUnisyn 'va lif vb melse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖",         qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._𝗔\n._._𝗕\n._𝗖\n);
+testParseUnisyn 'va a= b1 vb m+ vc B1 m* vd lif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘",      qq(＝\n._𝗔\n._𝐈𝐅\n._._✕\n._._._⌊\n._._._._＋\n._._._._._𝗕\n._._._._._𝗖\n._._._𝗗\n._._𝗘\n);
+testParseUnisyn 'va a= vb lif vc m* vd s vA a= vB lif  vC m* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢",  qq(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
 
 #latest:;
-testParseUnisyn 'p11 va',                                  "𝑳𝗔",                qq(𝑳._𝗔);
-testParseUnisyn 'va q11',                                  "𝗔𝙇",                qq(𝙇._𝗔);
+testParseUnisyn 'p11 va',                                  "𝑳𝗔",                qq(𝑳\n._𝗔\n);
+testParseUnisyn 'va q11',                                  "𝗔𝙇",                qq(𝙇\n._𝗔\n);
 
 test10: goto test11 unless $test{10};
 
 #latest:
-testParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆",               qq(𝙆._𝑳._._𝗔);
-testParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆",              qq(𝙆._𝑳._._【);
-testParseUnisyn 'p21 b( va m* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒",           qq(𝙒._𝑽._._【._._._✕._._._._𝗔._._._._𝗕);
-testParseUnisyn 'va m+ vb q11',                            "𝗔＋𝗕𝙇",              qq(＋._𝗔._𝙇._._𝗕);
-testParseUnisyn 'va m+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇",             qq(＋._𝗔._𝙇._._𝑳._._._𝗕);
-testParseUnisyn 'va m+ p11 vb q11 m+ p21 b( va m* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒", qq(＋._＋._._𝗔._._𝙇._._._𝑳._._._._𝗕._𝙒._._𝑽._._._【._._._._✕._._._._._𝗔._._._._._𝗕);
-testParseUnisyn 'va m+ p11 vb q11 lif p21 b( vc m* vd B) q22 lelse ve m* vf',
-            "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙",                                            qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._＋._._._𝗔._._._𝙇._._._._𝑳._._._._._𝗕._._𝙒._._._𝑽._._._._【._._._._._✕._._._._._._𝗖._._._._._._𝗗._✕._._𝗘._._𝗙);
+testParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆",               qq(𝙆\n._𝑳\n._._𝗔\n);
+testParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆",              qq(𝙆\n._𝑳\n._._【\n);
+testParseUnisyn 'p21 b( va m* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒",           qq(𝙒\n._𝑽\n._._【\n._._._✕\n._._._._𝗔\n._._._._𝗕\n);
+testParseUnisyn 'va m+ vb q11',                            "𝗔＋𝗕𝙇",              qq(＋\n._𝗔\n._𝙇\n._._𝗕\n);
+testParseUnisyn 'va m+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇",             qq(＋\n._𝗔\n._𝙇\n._._𝑳\n._._._𝗕\n);
+testParseUnisyn 'va m+ p11 vb q11 m+ p21 b( va m* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒", qq(＋\n._＋\n._._𝗔\n._._𝙇\n._._._𝑳\n._._._._𝗕\n._𝙒\n._._𝑽\n._._._【\n._._._._✕\n._._._._._𝗔\n._._._._._𝗕\n);
+testParseUnisyn 'va m+ p11 vb q11 lif p21 b( vc m* vd B) q22 melse ve m* vf',
+            "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙",                                            qq(𝐄𝐋𝐒𝐄\n._𝐈𝐅\n._._＋\n._._._𝗔\n._._._𝙇\n._._._._𝑳\n._._._._._𝗕\n._._𝙒\n._._._𝑽\n._._._._【\n._._._._._✕\n._._._._._._𝗖\n._._._._._._𝗗\n._✕\n._._𝗘\n._._𝗙\n);
 
 test11: goto test12 unless $test{11};
 
 latest:
-testParseUnisyn 'va land vb',                              '𝗔𝐀𝐍𝐃𝗕',             qq(𝐀𝐍𝐃._𝗔._𝗕);
+testParseUnisyn 'va land vb',                              '𝗔𝐀𝐍𝐃𝗕',             qq(𝐀𝐍𝐃\n._𝗔\n._𝗕\n);
+exit;
 
 #latest:
 if (1) {                                                                        #TTraceMode
@@ -19567,7 +19563,7 @@ done_testing;
 if (1)                                                                          # Summary of processing
  {my $s = $testsThatFailed == 0 ? 'SUCCESS' : sprintf("FAIL:%3d", $testsThatFailed);
 
-   my $t = <<END;
+   my $t = <<END,
 #    Tests        Fails     Passes    Assemblies            Time           Bytes          Clocks
 END
   my $r = sprintf(<<END,
@@ -19585,8 +19581,7 @@ END
   appendFile $resultFile, $r;                                                   # Result from this test
 
   say STDERR "\n$t$r";
-say STDERR dump("AAAA", $testsThatFailed, $@, $?, $!);
-  exit($testsThatFailed ? 1 : 0);                                               # Show failure on gitHub
+  exit(1) if $testsThatFailed;                                                  # Show failure on gitHub
  }
 
 # podDocumentation
