@@ -50,12 +50,25 @@ the [Unicode](https://en.wikipedia.org/wiki/Unicode) standard.
 
 # Unisyn
 
-The Unisyn programming languages allows you to define new [infix](https://en.wikipedia.org/wiki/Infix_notation) operators using [Unicode](https://en.wikipedia.org/wiki/Unicode) . Each such new [infix](https://en.wikipedia.org/wiki/Infix_notation) operator may have one of 12 precedence levels.
-The precedence level for each operator is determined by tyhe alphabet rfom
-which its letters are drawn.
+The [UniSyn](https://github.com/philiprbrenan/UnisynParse) programming languages enables the definition of [infix](https://en.wikipedia.org/wiki/Infix_notation) operators
+using [Unicode](https://en.wikipedia.org/wiki/Unicode) points . Each such new [infix](https://en.wikipedia.org/wiki/Infix_notation) operator may have one of 12
+precedence levels. The precedence level for each operator is determined by the
+alphabet from within [Unicode](https://en.wikipedia.org/wiki/Unicode) from which its letters are drawn.
 
-For example, the [infix](https://en.wikipedia.org/wiki/Infix_notation) operator:  𝕒𝕟𝕕 if defined would have a priority of 3,
-whilst ✕ would have a priority of 12.
+For example, the [infix](https://en.wikipedia.org/wiki/Infix_notation) operator:  𝕒𝕟𝕕  if defined would have a priority of 3,
+whilst 𝐀𝐍𝐃  would have a priority of 11.
+
+The type of each lexical item in a [UniSyn](https://github.com/philiprbrenan/UnisynParse) [program](https://en.wikipedia.org/wiki/Computer_program) can be determined immediately
+by examining any character used in its construction.
+
+For example, the canonical "Hello World" is written in Unisyn as:
+
+```Hello World```
+
+No quotes are needed because the use of letters drawn from [Ascii](https://en.wikipedia.org/wiki/ASCII) indicate that
+these characters are part of a [string](https://en.wikipedia.org/wiki/String_(computer_science)).  [UniSyn](https://github.com/philiprbrenan/UnisynParse) prints such [strings](https://en.wikipedia.org/wiki/String_(computer_science)) on
+```stdout``` if they are followed by an explicit or implied statement
+separator.
 
 
 # Useful links
