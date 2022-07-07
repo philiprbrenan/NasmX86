@@ -48,29 +48,26 @@ area.
 A parser for the [UniSyn](https://github.com/philiprbrenan/UnisynParse) programming language has been built in [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) using
 this software.
 
-**unisyn** is a generic, universal, [utf8](https://en.wikipedia.org/wiki/UTF-8) based syntax for constructing
-programming languages that makes extensive use of the operators and alphabets
-provide by the [Unicode](https://en.wikipedia.org/wiki/Unicode) standard.
+**unisyn** implements a generic, universal, [utf8](https://en.wikipedia.org/wiki/UTF-8) based syntax suitable for
+constructing programming languages that make extensive use of [infix](https://en.wikipedia.org/wiki/Infix_notation) operators.
 
-The [UniSyn](https://github.com/philiprbrenan/UnisynParse) programming languages enables the definition of [infix](https://en.wikipedia.org/wiki/Infix_notation) operators
-using [Unicode](https://en.wikipedia.org/wiki/Unicode) points . Each such new [infix](https://en.wikipedia.org/wiki/Infix_notation) operator may have one of 12
-precedence levels. The precedence level for each operator is determined by the
-alphabet from within [Unicode](https://en.wikipedia.org/wiki/Unicode) from which its letters are drawn.
+**unisyn** enables the definition of new [infix](https://en.wikipedia.org/wiki/Infix_notation) operators using selected [Unicode](https://en.wikipedia.org/wiki/Unicode) points. Each such new [infix](https://en.wikipedia.org/wiki/Infix_notation) operator may have one of 12 precedence levels. The
+precedence level for each [infix](https://en.wikipedia.org/wiki/Infix_notation) operator is determined by the alphabet from
+within [Unicode](https://en.wikipedia.org/wiki/Unicode) from which its letters are drawn.
 
-For example, the [infix](https://en.wikipedia.org/wiki/Infix_notation) operator: 𝕒𝕟𝕕  if defined would have a priority of 3,
+For example, the [infix](https://en.wikipedia.org/wiki/Infix_notation) operator: 𝕒𝕟𝕕  would have a priority of 3,
 whilst 𝗮𝗻𝗱  would have a priority of 11.
 
 The type of each lexical item in a [UniSyn](https://github.com/philiprbrenan/UnisynParse) [program](https://en.wikipedia.org/wiki/Computer_program) can be determined immediately
 by examining any character used in its construction.
 
-For example, the canonical "Hello World" is written in Unisyn as:
+The canonical "Hello World" in Unisyn is:
 
 ```Hello World```
 
 No quotes are needed because the use of letters drawn from [Ascii](https://en.wikipedia.org/wiki/ASCII) indicate that
 these characters are part of a [string](https://en.wikipedia.org/wiki/String_(computer_science)).  [UniSyn](https://github.com/philiprbrenan/UnisynParse) prints such [strings](https://en.wikipedia.org/wiki/String_(computer_science)) on
-```stdout``` if they are followed by an explicit or implied statement
-separator.
+```stdout``` if they are followed by a statement separator.
 
 
 # Useful links
