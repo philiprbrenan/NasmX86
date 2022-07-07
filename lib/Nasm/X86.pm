@@ -17942,7 +17942,6 @@ test11: goto test12 unless $test{11};
 
 latest:
 testParseUnisyn 'va land vb',                              '𝗔𝐀𝐍𝐃𝗕',             qq(𝐀𝐍𝐃\n._𝗔\n._𝗕\n);
-exit;
 
 #latest:
 if (1) {                                                                        #TTraceMode
