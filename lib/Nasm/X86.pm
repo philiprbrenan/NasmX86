@@ -11244,6 +11244,7 @@ else
  }
 
 my $start = time;                                                               # Tests
+goto testX;
 
 eval {goto latest} unless onGitHub;                                             # Latest test if visible and testing locally
 
@@ -19566,7 +19567,7 @@ done_testing;
 if (1)                                                                          # Summary of processing
  {my $s = $testsThatFailed == 0 ? 'SUCCESS' : sprintf("FAIL:%3d", $testsThatFailed);
 
-   my $t = <<END,
+   my $t = <<END;
 #    Tests        Fails     Passes    Assemblies            Time           Bytes          Clocks
 END
   my $r = sprintf(<<END,
