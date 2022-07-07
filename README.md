@@ -43,20 +43,22 @@ interpreted by the parent regardless of the location in [memory](https://en.wiki
 child [process](https://en.wikipedia.org/wiki/Process_management_(computing)) created the dynamic data structures contained in the transmitted
 area.
 
-Other notable features provided by this repository include a parser for
-**Unisyn** a generic, universal, [utf8](https://en.wikipedia.org/wiki/UTF-8) based syntax for constructing programming
-languages that can make extensive use of the operators and alphabets provide by
-the [Unicode](https://en.wikipedia.org/wiki/Unicode) standard.
-
 # Unisyn
+
+A parser for the [UniSyn](https://github.com/philiprbrenan/UnisynParse) programming language has been built in [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) using
+this software.
+
+**unisyn** is a generic, universal, [utf8](https://en.wikipedia.org/wiki/UTF-8) based syntax for constructing
+programming languages that makes extensive use of the operators and alphabets
+provide by the [Unicode](https://en.wikipedia.org/wiki/Unicode) standard.
 
 The [UniSyn](https://github.com/philiprbrenan/UnisynParse) programming languages enables the definition of [infix](https://en.wikipedia.org/wiki/Infix_notation) operators
 using [Unicode](https://en.wikipedia.org/wiki/Unicode) points . Each such new [infix](https://en.wikipedia.org/wiki/Infix_notation) operator may have one of 12
 precedence levels. The precedence level for each operator is determined by the
 alphabet from within [Unicode](https://en.wikipedia.org/wiki/Unicode) from which its letters are drawn.
 
-For example, the [infix](https://en.wikipedia.org/wiki/Infix_notation) operator:  𝕒𝕟𝕕  if defined would have a priority of 3,
-whilst 𝐀𝐍𝐃  would have a priority of 11.
+For example, the [infix](https://en.wikipedia.org/wiki/Infix_notation) operator: 𝕒𝕟𝕕  if defined would have a priority of 3,
+whilst 𝗮𝗻𝗱  would have a priority of 11.
 
 The type of each lexical item in a [UniSyn](https://github.com/philiprbrenan/UnisynParse) [program](https://en.wikipedia.org/wiki/Computer_program) can be determined immediately
 by examining any character used in its construction.
