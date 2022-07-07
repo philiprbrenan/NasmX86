@@ -11229,7 +11229,6 @@ unlink my $resultFile = "zzzStatus.txt";                                        
 bail_on_fail unless onGitHub;
 
 my $localTest = ((caller(1))[0]//'Nasm::X86') eq "Nasm::X86";                   # Local testing mode
-my $homeTest  = -e q(/home/phil/);                                              # Testing on a local machine
 
 Test::More->builder->output("/dev/null") if $localTest;                         # Reduce number of confirmation messages during testing
 
@@ -11800,7 +11799,7 @@ if (1) {                                                                        
    }
  }
 
-if ($homeTest) {                                                                #TGetUid
+if (!onGitHub) {                                                                #TGetUid
   GetUid;                                                                       # Userid
   PrintOutRegisterInHex rax;
 
@@ -12029,7 +12028,7 @@ END
  }
 
 #latest:;
-if (!$homeTest) {                                                               #TReadFile #TPrintMemory
+if (!!onGitHub) {                                                               #TReadFile #TPrintMemory
   my $file = V(file => Rs $0);
   my ($address, $size) = ReadFile $file;                                        # Read file into memory
   $address->setReg(rax);                                                        # Address of file in memory
@@ -12241,7 +12240,7 @@ END
  }
 
 #latest:;
-if (!$homeTest) {                                                               # Print this file - slow -  #TArea::read #TArea::z #TArea::q
+if (!!onGitHub) {                                                               # Print this file - slow -  #TArea::read #TArea::z #TArea::q
   my $s = CreateArea;                                                           # Create a string
   $s->read(K file => Rs($0));
   $s->out;
@@ -12265,7 +12264,7 @@ END
  }
 
 #latest:;
-if (0 and $homeTest) {                                                          # Execute the content of an area #TexecuteFileViaBash #TArea::write #TArea::out #TunlinkFile #TArea::ql
+if (0 and !onGitHub) {                                                          # Execute the content of an area #TexecuteFileViaBash #TArea::write #TArea::out #TunlinkFile #TArea::ql
   my $s = CreateArea;                                                           # Create a string
   $s->ql(<<END);                                                                # Write code to execute
 #!/usr/bin/bash
@@ -17879,7 +17878,7 @@ sub testParseUnisyn($$$)                                                        
   $p->dump;
   ok Assemble eq => $parse, avx512=>1, mix=>1;
 
-  if (-e $programOut and $homeTest)                                             # Print parse tree
+  if (-e $programOut and !onGitHub)                                             # Print parse tree
    {say STDERR readFile($programOut) =~ s(\n) (\\n)gsr
    }
 
