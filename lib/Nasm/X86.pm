@@ -9646,15 +9646,9 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
  {my ($words) = @_;                                                             # String of words
   my $s = '';
 
-  my $dyad = sub                                                                # Variable name
-   {my ($chars) = @_;                                                           # Characters
-    my @c = Nasm::X86::Unisyn::Lex::Letter::l;
-    $s .= chr $c[ord($_) - ord('a')] for split //, $chars;
-   };
-
-  my $var = sub                                                                 # Variable name
-   {my ($chars) = @_;                                                           # Characters
-    my @c = Nasm::X86::Unisyn::Lex::Letter::v;
+  my sub w($$)                                                                  # Variable name
+   {my ($chars, $alpha) = @_;                                                   # Characters
+    my @c = eval "Nasm::X86::Unisyn::Lex::Letter::$alpha";                      # Alphabet in array context
     $s .= chr $c[ord($_) - ord('a')] for split //, $chars;
    };
 
@@ -9666,28 +9660,33 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
 
 
   for my $w(split /\s+/, $words)
-   {if    ($w =~ m(\AA(.*)))  {$s .= $1}                                        # Ascii - normal letters where possible
-    elsif ($w =~ m(\Aa=))     {$s .= "＝"}                                       # Assign chosen by number
-    elsif ($w =~ m(\Aa(\d+))) {$s .= c $1, "a"}                                 # Assign chosen by number
-    elsif ($w =~ m/\Ab\(/)    {$s .= '【'}                                       # Open bracket
-    elsif ($w =~ m/\Ab\[/)    {$s .= '⟦'}                                       # Open bracket
-    elsif ($w =~ m/\Ab\</)    {$s .= '⟨'}                                       # Open bracket
-    elsif ($w =~ m(\Ab(\d+))) {$s .= c $1, "b"}                                 # Open bracket
-    elsif ($w =~ m/\AB\)/)    {$s .= '】'}                                       # Open bracket
-    elsif ($w =~ m/\AB\]/)    {$s .= '⟧'}                                       # Open bracket
-    elsif ($w =~ m/\AB\>/)    {$s .= '⟩'}                                       # Open bracket
-    elsif ($w =~ m(\AB(\d+))) {$s .= c $1, "B"}                                 # Close bracket
-    elsif ($w =~ m(\Ad(\d+))) {$s .= c $1, "d"}                                 # Dyad   chosen by number
-    elsif ($w =~ m(\Ad(\w+))) {$s .= $dyad->($1)}                               # Dyad-1 name
-    elsif ($w =~ m(\Ae\*))    {$s .= "✕"}                                       # Multiply
-    elsif ($w =~ m(\Ae\+))    {$s .= "＋"}                                       # Plus
-    elsif ($w =~ m(\Ae(\d+))) {$s .= c $1, "e"}                                 # Dyad2  chosen by number
-    elsif ($w =~ m(\Ap(\d+))) {$s .= c $1, "p"}                                 # Prefix chosen by number
-    elsif ($w =~ m(\Aq(\d+))) {$s .= c $1, "q"}                                 # Suffix chosen by number
-    elsif ($w =~ m(\As\Z))    {$s .= c 0, "s"}                                  # Semicolon
-    elsif ($w =~ m(\AS\Z))    {$s .= ' '}                                       # Space
-    elsif ($w =~ m(\Av(\w+))) {$s .= $var ->($1)}                               # Variable name
-    else {confess "Cannot create Unisyn from $w"}                               # Variable name
+   {if ($w =~ m(\A[aAbBdefghijklmpqsSvw]))
+     {if    ($w =~ m(\AA(.*)))  {$s .= $1}                                      # Ascii - normal letters where possible
+      elsif ($w =~ m(\Aa=))     {$s .= "＝"}                                     # Assign chosen by number
+      elsif ($w =~ m/\Ab\(/)    {$s .= '【'}                                     # Open bracket
+      elsif ($w =~ m/\Ab\[/)    {$s .= '⟦'}                                     # Open bracket
+      elsif ($w =~ m/\Ab\</)    {$s .= '⟨'}                                     # Open bracket
+      elsif ($w =~ m(\Ab(\d+))) {$s .= c $1, "b"}                               # Open bracket
+      elsif ($w =~ m/\AB\)/)    {$s .= '】'}                                     # Open bracket
+      elsif ($w =~ m/\AB\]/)    {$s .= '⟧'}                                     # Open bracket
+      elsif ($w =~ m/\AB\>/)    {$s .= '⟩'}                                     # Open bracket
+      elsif ($w =~ m(\AB(\d+))) {$s .= c $1, "B"}                               # Close bracket
+      elsif ($w =~ m(\Am\*))    {$s .= "✕"}                                     # Multiply
+      elsif ($w =~ m(\Am\+))    {$s .= "＋"}                                     # Plus
+      elsif ($w =~ m(\Ap(\d+))) {$s .= c $1, "p"}                               # Prefix chosen by number
+      elsif ($w =~ m(\Aq(\d+))) {$s .= c $1, "q"}                               # Suffix chosen by number
+      elsif ($w =~ m(\A[s;]\Z)) {$s .= c  0, "s"}                               # Semicolon
+      elsif ($w =~ m(\AS\Z))    {$s .= ' '}                                     # Space
+      elsif ($w =~ m(\Av(\w+))) {$s .= w $1, 'v'}                               # Variable name
+      else
+       {my $a = substr($w, 0, 1);
+        if    ($w =~ m(\A$a(\d+))) {$s .= c $1, $a}                             # Dyad chosen by number
+        elsif ($w =~ m(\A$a(\w+))) {$s .= w $1, $a}                             # Dyad chosen by letter
+       }
+     }
+    else
+     {confess "Invalid first character: $w";
+     }
    }
 
   writeTempFile $s                                                              # Composed string to temporary file
@@ -11219,7 +11218,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11221 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11220 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
