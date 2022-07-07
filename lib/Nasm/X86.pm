@@ -19584,7 +19584,7 @@ END
   appendFile $resultFile, $r;                                                   # Result from this test
 
   say STDERR "\n$t$r";
-  exit($testsThatFailed > 1 : 0);                                               # Show failure on gitHub
+  exit($testsThatFailed ? 1 : 0);                                               # Show failure on gitHub
  }
 
 # podDocumentation
