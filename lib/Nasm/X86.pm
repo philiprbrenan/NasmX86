@@ -17874,13 +17874,14 @@ sub testParseUnisyn($$$)                                                        
   my $parse = $Parse =~ s(((._)+)) (\n$1)gsr;
      $parse .= "\n" if $Parse;
 
-  is_deeply readFile($f), "$text\n";
+  confess "Got text: ".readFile($f)."\n Expected: $text"                        # Check composition
+    unless readFile($f) eq "$text\n";
+
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
-  my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
+  &ParseUnisyn(constantString $text)->dump;                                     # Parse the utf8 string minus the final new line
 
-  $p->dump;
-  ok Assemble eq => $parse, avx512=>1, mix=>1;
+  Assemble eq => $parse, avx512=>1, mix=>1;
 
   if (-e $programOut and $homeTest)                                             # Print parse tree
    {say STDERR readFile($programOut) =~ s(\n) (\\n)gsr
@@ -17917,11 +17918,11 @@ testParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖",
 
 test9: goto test10 unless $test{9};
 
-#latest:;
+latest:;
 testParseUnisyn 'va a= vb m+ vc a= vd m+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘",         qq(＝._𝗔._＝._._＋._._._𝗕._._._𝗖._._＋._._._𝗗._._._𝗘);
 testParseUnisyn 'va a= vb m+ vc s vd a= ve m+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙",       qq(⟢._＝._._𝗔._._＋._._._𝗕._._._𝗖._＝._._𝗗._._＋._._._𝗘._._._𝗙);
 testParseUnisyn 'va lif vb',                               "𝗔𝐈𝐅𝗕",              qq(𝐈𝐅._𝗔._𝗕);
-testParseUnisyn 'va lif vb melse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖",         qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._𝗔._._𝗕._𝗖);
+testParseUnisyn 'va lif vb lelse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖",         qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._𝗔._._𝗕._𝗖);
 testParseUnisyn 'va a= b1 vb m+ vc B1 m* vd lif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘",      qq(＝._𝗔._𝐈𝐅._._✕._._._⌊._._._._＋._._._._._𝗕._._._._._𝗖._._._𝗗._._𝗘);
 testParseUnisyn 'va a= vb lif vc m* vd s vA a= vB lif  vC m* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢",  qq(⟢._＝._._𝗔._._𝐈𝐅._._._𝗕._._._✕._._._._𝗖._._._._𝗗._＝._._𝝰._._𝐈𝐅._._._𝝱._._._✕._._._._𝝲._._._._𝝳);
 
@@ -17938,7 +17939,7 @@ testParseUnisyn 'p21 b( va m* vb B) q22',                  "𝑽【𝗔✕𝗕�
 testParseUnisyn 'va m+ vb q11',                            "𝗔＋𝗕𝙇",              qq(＋._𝗔._𝙇._._𝗕);
 testParseUnisyn 'va m+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇",             qq(＋._𝗔._𝙇._._𝑳._._._𝗕);
 testParseUnisyn 'va m+ p11 vb q11 m+ p21 b( va m* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒", qq(＋._＋._._𝗔._._𝙇._._._𝑳._._._._𝗕._𝙒._._𝑽._._._【._._._._✕._._._._._𝗔._._._._._𝗕);
-testParseUnisyn 'va m+ p11 vb q11 lif p21 b( vc m* vd B) q22 melse ve m* vf',
+testParseUnisyn 'va m+ p11 vb q11 lif p21 b( vc m* vd B) q22 lelse ve m* vf',
             "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙",                                            qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._＋._._._𝗔._._._𝙇._._._._𝑳._._._._._𝗕._._𝙒._._._𝑽._._._._【._._._._._✕._._._._._._𝗖._._._._._._𝗗._✕._._𝗘._._𝗙);
 
 test11: goto test12 unless $test{11};
