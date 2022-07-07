@@ -17892,15 +17892,15 @@ sub testParseUnisyn($$$)                                                        
 test7: goto test8 unless $test{7};
 
 #latest:;
-testParseUnisyn '',                                        "",                  qq();
-testParseUnisyn 'va',                                      "𝗔",                 qq(𝗔);
-testParseUnisyn 'va a= va',                                "𝗔＝𝗔",               qq(＝._𝗔._𝗔);
-testParseUnisyn 'va m+ vb',                                "𝗔＋𝗕",               qq(＋._𝗔._𝗕);
-testParseUnisyn 'va a= vb m+ vc',                          "𝗔＝𝗕＋𝗖",             qq(＝._𝗔._＋._._𝗕._._𝗖);
-testParseUnisyn 'va a= vb m* vc',                          "𝗔＝𝗕✕𝗖",             qq(＝._𝗔._✕._._𝗕._._𝗖);
-testParseUnisyn 'b( B)',                                   "【】",                qq(【);
-testParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】",              qq(【._⟦);
-testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】",            qq(【._⟦._._⟨);
+#testParseUnisyn '',                                        "",                  qq();
+#testParseUnisyn 'va',                                      "𝗔",                 qq(𝗔);
+#testParseUnisyn 'va a= va',                                "𝗔＝𝗔",               qq(＝._𝗔._𝗔);
+#testParseUnisyn 'va m+ vb',                                "𝗔＋𝗕",               qq(＋._𝗔._𝗕);
+#testParseUnisyn 'va a= vb m+ vc',                          "𝗔＝𝗕＋𝗖",             qq(＝._𝗔._＋._._𝗕._._𝗖);
+#testParseUnisyn 'va a= vb m* vc',                          "𝗔＝𝗕✕𝗖",             qq(＝._𝗔._✕._._𝗕._._𝗖);
+#testParseUnisyn 'b( B)',                                   "【】",                qq(【);
+#testParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】",              qq(【._⟦);
+#testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】",            qq(【._⟦._._⟨);
 
 test8: goto test9 unless $test{8};
 
