@@ -19584,6 +19584,7 @@ END
   appendFile $resultFile, $r;                                                   # Result from this test
 
   say STDERR "\n$t$r";
+say STDERR dump("AAAA", $testsThatFailed);
   exit($testsThatFailed ? 1 : 0);                                               # Show failure on gitHub
  }
 
