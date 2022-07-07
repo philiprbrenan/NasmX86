@@ -1,4 +1,4 @@
-# Test NasmX86 2022-07-07 at 06:07:44
+# Test NasmX86 2022-07-07 at 06:09:30
 
 name: Test
 
@@ -54,6 +54,7 @@ jobs:
 
     - name: Test1
       run: |
+        perl -Ilib lib/Nasm/X86.pm 1
         echo $?
 
     - name: Result1
@@ -108,6 +109,7 @@ jobs:
 
     - name: Test2
       run: |
+        perl -Ilib lib/Nasm/X86.pm 2
         echo $?
 
     - name: Result2
@@ -162,6 +164,7 @@ jobs:
 
     - name: Test3
       run: |
+        perl -Ilib lib/Nasm/X86.pm 3
         echo $?
 
     - name: Result3
@@ -216,6 +219,7 @@ jobs:
 
     - name: Test4
       run: |
+        perl -Ilib lib/Nasm/X86.pm 4
         echo $?
 
     - name: Result4
@@ -270,6 +274,7 @@ jobs:
 
     - name: Test5
       run: |
+        perl -Ilib lib/Nasm/X86.pm 5
         echo $?
 
     - name: Result5
@@ -324,6 +329,7 @@ jobs:
 
     - name: Test6
       run: |
+        perl -Ilib lib/Nasm/X86.pm 6
         echo $?
 
     - name: Result6
@@ -378,6 +384,7 @@ jobs:
 
     - name: Test7
       run: |
+        perl -Ilib lib/Nasm/X86.pm 7
         echo $?
 
     - name: Result7
@@ -432,6 +439,7 @@ jobs:
 
     - name: Test8
       run: |
+        perl -Ilib lib/Nasm/X86.pm 8
         echo $?
 
     - name: Result8
@@ -486,6 +494,7 @@ jobs:
 
     - name: Test9
       run: |
+        perl -Ilib lib/Nasm/X86.pm 9
         echo $?
 
     - name: Result9
@@ -540,6 +549,7 @@ jobs:
 
     - name: Test10
       run: |
+        perl -Ilib lib/Nasm/X86.pm 10
         echo $?
 
     - name: Result10
@@ -594,6 +604,7 @@ jobs:
 
     - name: Test11
       run: |
+        perl -Ilib lib/Nasm/X86.pm 11
         echo $?
 
     - name: Result11
@@ -648,6 +659,7 @@ jobs:
 
     - name: Test12
       run: |
+        perl -Ilib lib/Nasm/X86.pm 12
         echo $?
 
     - name: Result12
