@@ -17578,26 +17578,6 @@ END
 test6: goto test7 unless $test{6};
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('va a= b( vb m+ vc B) m* vd lif ve');
-  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-  $s8->outNL;
-
-  my ($a32, $s32, $count, $fail) = ConvertUtf8ToUtf32 $a8, $s8;                 # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
-  $_->outNL for $s32, $count, $fail;
-
-  ok Assemble eq => <<END, avx512=>1;
-size: .... .... .... ..2C
-s32: .... .... .... ..B0
-count: .... .... .... ...D
-fail: .... .... .... ...0
-END
-  unlink $f;
- }
-
-#latest:
 if (1) {
   my $a = K key => 1;
   my $b = K key => 1;
@@ -17685,46 +17665,6 @@ BBBB22
 CCCC22
 DDDD22
 END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn
-   ('va a= b( vb m+ vc B) m* vd lif ve');
-  is_deeply readFile($f), "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘\n";
-  my ($a8, $s8) = constantString("𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘");                               # Address and size of memory containing contents of the file
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string minus the final new line
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-# 1_369_790
-# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
-#    1          52_693         556_640          52_693         556_640        0.4909          2.57          0.00
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar  : .... .... ...1 D5D8
-parseFail  : .... .... .... ...0
-position   : .... .... .... ..2B
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-＝
-._𝗔
-._𝐈𝐅
-._._✕
-._._._【
-._._._._＋
-._._._._._𝗕
-._._._._._𝗖
-._._._𝗗
-._._𝗘
-END
-  unlink $f;
  }
 
 #latest:
@@ -17818,12 +17758,22 @@ test7: goto test8 unless $test{7};
 
 testParseUnisyn 'b( va m+ vb B)', "【𝗔＋𝗕】", q(【._＋._._𝗔._._𝗕);
 testParseUnisyn 'va m+ vb m+ vc', "𝗔＋𝗕＋𝗖", q(＋._＋._._𝗔._._𝗕._𝗖);
+testParseUnisyn 'b( A1 m+ va m* vb m+ vc m+ A2 m* va m+ vb m+ vc B)',
+                                   "(1＋𝗔✕𝗕＋𝗖＋2✕𝗔＋𝗕＋𝗖)", q();
 
-latest:
 testParseUnisyn 'pL va',          "𝝁𝗔", q(𝝁._𝗔);
 testParseUnisyn 'pl va',          "𝑳𝗔", q(𝑳._𝗔);
 testParseUnisyn 'va qk',          "𝗔𝙆", q(𝙆._𝗔);
 testParseUnisyn 'pl va qk',       "𝑳𝗔𝙆", q(𝙆._𝑳._._𝗔);
+testParseUnisyn 'b( B) qk',       "【】𝙆", q(𝙆._【);
+testParseUnisyn 'pl b( B) qk',    "𝑳【】𝙆", q(𝙆._𝑳._._【);
+testParseUnisyn 'va a= b( vb m+ vc B) m* vd lif ve',
+                '𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘',
+                '＝._𝗔._𝐈𝐅._._✕._._._【._._._._＋._._._._._𝗕._._._._._𝗖._._._𝗗._._𝗘';
+
+testParseUnisyn 'va a= vb lif vc m* vd s vA a= vB lif  vC m* vD s',
+                "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢",
+                q(⟢._＝._._𝗔._._𝐈𝐅._._._𝗕._._._✕._._._._𝗖._._._._𝗗._＝._._𝝰._._𝐈𝐅._._._𝝱._._._✕._._._._𝝲._._._._𝝳);
 
 #latest:;
 testParseUnisyn '',                                        "",                  qq();
@@ -17876,8 +17826,27 @@ testParseUnisyn 'va m+ p11 vb q11 lif p21 b( vc m* vd B) q22 lelse ve m* vf',
 
 test11: goto test12 unless $test{11};
 
-latest:
 testParseUnisyn 'va land vb',                              '𝗔𝐀𝐍𝐃𝗕',             qq(𝐀𝐍𝐃._𝗔._𝗕);
+
+if (1)
+ {my $s = chr(0x205F).chr(0x205F);
+  my $p = &ParseUnisyn(constantString substr <<END, 0, -1);
+𝗔${s}＝${s}𝗕${s}𝕒𝕟𝕕${s}𝗖${s}＝${s}𝗗
+END
+
+  $p->dump;
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
+𝕒𝕟𝕕  
+._＝  
+._._𝗔  
+._._𝗕  
+._＝  
+._._𝗖  
+._._𝗗
+END
+ }
+
+
 
 #latest:
 if (1) {                                                                        #TTraceMode
@@ -17947,84 +17916,8 @@ ppp: .... .... .... ..AA
 END
  }
 
-ok compactRangeIntoHex(qw(0x1 0x2 0x3 0x5 0x7 0x8 0x9 0xb)) eq
+ok compactRangeIntoHex(qw(0x1 0x2 0x3 0x5 0x7 0x8 0x9 0xb)) eq                  #TcompactRangeIntoHex
                        "0x1..0x3, 0x5, 0x7..0x9, 0xb";
-
-#   16,948,886  with 64 byte moves
-#   16,885,371  with 4K byte moves
-#       Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler
-#   16,885,371       1,187,232      16,885,371       1,187,232      2.856018          2.15  splitNode called
-#   15,178,043       1,210,568      15,178,043       1,210,568      2.975869          2.08  splitNode in
-#   15,088,868       1,217,312      15,088,868       1,217,312      3.013716          2.10  splitNotRoot in
-#   14,994,473       1,245,784      14,994,473       1,245,784      2.674707          1.96  allocBlock in
-#   14,993,215       1,246,272      14,993,215       1,246,272      2.496290          1.93  overWriteKeyDataTreeInLeaf
-#   14,876,443       1,247,840      14,876,443       1,247,840      2.506694          1.83  insertKeyDataTreeIntoLeaf
-#   14,873,853       1,257,656      14,873,853       1,257,656      2.530187          1.91  splitRoot
-#   14,871,893       1,371,472      14,871,893       1,371,472      2.540378          4.41  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 17619
-#   14,505,119       1,264,408      14,505,119       1,264,408      2.846307          4.87  variable::copy constant
-#   14,506,287       1,154,376      14,506,287       1,154,376      2.903949          1.90  mergeOrSteal not inlined
-
-#latest:
-if (1)
- {my $compose = 'va a= vb lif vc m* vd s vA a= vB lif  vC m* vD s';
-  my $text    = "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢\n";
-  my $parse  = q(⟢\n._＝\n._._𝗔\n._._𝐈𝐅\n._._._𝗕\n._._._✕\n._._._._𝗖\n._._._._𝗗\n._＝\n._._𝝰\n._._𝐈𝐅\n._._._𝝱\n._._._✕\n._._._._𝝲\n._._._._𝝳\n);
-
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
-  is_deeply readFile($f), $text;
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
-
-  my $p = ParseUnisyn($a8, $s8-1);                                              # Parse the utf8 string minus the final new line
-
-  $p->dump;
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
-⟢
-._＝
-._._𝗔
-._._𝐈𝐅
-._._._𝗕
-._._._✕
-._._._._𝗖
-._._._._𝗗
-._＝
-._._𝝰
-._._𝐈𝐅
-._._._𝝱
-._._._✕
-._._._._𝝲
-._._._._𝝳
-END
-  unlink $f;
- }
-
-latest:
-if (1)
- {my $s2 = chr(0x205F).chr(0x205F);
-  my $p = &ParseUnisyn(constantString substr <<END, 0, -1);
-𝗔${s2}＝${s2}𝗕${s2}𝕒𝕟𝕕${s2}𝗖${s2}＝${s2}𝗗
-END
-
-  $p->char    ->outNL;                                                          # Print results
-  $p->fail    ->outNL;
-  $p->position->outNL;
-  $p->match   ->outNL;
-  $p->reason  ->outNL;
-  $p->dump;
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
-parseChar  : .... .... ...1 D5D7
-parseFail  : .... .... .... ...0
-position   : .... .... .... ..46
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-𝕒𝕟𝕕  
-._＝  
-._._𝗔  
-._._𝗕  
-._＝  
-._._𝗖  
-._._𝗗
-END
- }
 
 #latest:
 if (1)
@@ -18261,31 +18154,6 @@ if (1) {                                                                        
 #    1           6_947          81_896           6_947          81_896        0.2552          0.10          0.00  Better incSizeInFirst
 #    1           6_716          81_728           6_716          81_728        0.2544          0.10          0.00  Better incSizeInKeys
   ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>6_716;
-END
- }
-
-#latest:
-if (1) {                                                                        # Parse a Unisyn expression
-  my ($s, $l) = constantString "𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘";                                  # Unisyn expression
-
-  my $p = ParseUnisyn($s, $l);                                                  # Parse the utf8 string
-  $p->dump;                                                                     # Dump the parse tree
-# my $q = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
-
-# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
-#    1          74_624         631_464          74_624         631_464        0.4000          3.44          0.00
-
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>74_624;
-＝
-._𝗔
-._𝐈𝐅
-._._✕
-._._._【
-._._._._＋
-._._._._._𝗕
-._._._._._𝗖
-._._._𝗗
-._._𝗘
 END
  }
 
@@ -18801,7 +18669,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
+if (1) {
   Mov rax, 0x2222;
   dRegIntoZmm(rax, 31, 8);
   dRegFromZmm(rdx, 31, 8);
@@ -18850,127 +18718,6 @@ data   : .... .... .... .333
 END
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString('𝑳𝗔𝙆');
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar  : .... .... ...1 D646
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...C
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-𝙆
-._𝑳
-._._𝗔
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString('𝑳【】');
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar  : .... .... .... 3011
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...A
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-𝑳
-._【
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString('【】𝙆');
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar  : .... .... ...1 D646
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...A
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-𝙆
-._【
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString('【】𝙆');
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar  : .... .... ...1 D646
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...A
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-𝙆
-._【
-END
- }
-
-#latest:
-if (1) {
-  my ($a8, $s8) = constantString('𝑳【】𝙆');
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar  : .... .... ...1 D646
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...E
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-𝙆
-._𝑳
-._._【
-END
- }
 
 # Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
 #    1          12_425          25_440          12_425          25_440        0.2804          0.05          0.00  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 19100
