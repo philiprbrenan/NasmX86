@@ -17867,13 +17867,14 @@ if (1) {                                                                        
  }
 
 sub testParseUnisyn($$$)                                                        #P Test the parse of a unisyn expression.
- {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
+ {my ($compose, $text, $Parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
   my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
 
   is_deeply readFile($f), "$text\n";
   my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
 
   my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
+  my $parse = $Parse;
 
   $p->dump;
   ok Assemble eq => $parse, avx512=>1, mix=>1;
