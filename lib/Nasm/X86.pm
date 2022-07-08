@@ -3491,14 +3491,11 @@ sub Nasm::X86::Variable::shiftLeft($$)                                          
 
 sub Nasm::X86::Variable::shiftRight($$)                                         # Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
-# PushR rcx, 15;
   $left ->setReg(rbx);                                                          # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
   Shr rbx, cl;                                                                  # Shift
-  my $r = V "shift right" => rbx;                                               # Save result in a new variable
-# PopR;
-  $r
+  V "shift right" => rbx;                                                       # Save result in a new variable
  }
 
 sub Nasm::X86::Variable::not($)                                                 # Form two complement of left hand side and return it as a variable.
@@ -3664,14 +3661,6 @@ END
 END
     return $left;
    }
-# else
-#  {PushR r15;
-#   Mov r15, $l;
-#   &$op(r15);
-#   Mov $l, r15;
-#   PopR;
-#   return $left;
-#  }
  }
 
 sub Nasm::X86::Variable::inc($)                                                 # Increment a variable.
@@ -3988,7 +3977,6 @@ sub Nasm::X86::Variable::dIntoZ($$$)                                            
  {my ($content, $zmm, $offset) = @_;                                            # Variable with content, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
   my $z = extractRegisterNumberFromMM $zmm;
-# checkZmmRegister($zmm);
   $content->putBwdqIntoMm('d', "zmm$z", $offset)                                # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
  }
 
@@ -4949,7 +4937,6 @@ sub GetNextUtf8CharAsUtf32($)                                                   
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
 
-#   PushR 11, 12, 13, 14, 15;
     $$p{fail}->getConst(0);                                                     # Clear failure indicator
     $$p{in}->setReg(rbx);                                                       # Character to convert
     ClearRegisters rdx;                                                         # Move to byte register below does not clear the entire register
@@ -5019,7 +5006,6 @@ sub GetNextUtf8CharAsUtf32($)                                                   
       $$p{fail}->getConst(1);                                                   # Conversion failed
      };
 
-#    PopR;
    } parameters=>[qw(in out  size  fail)], name => 'GetNextUtf8CharAsUtf32';
 
   my $out  = V(out  => 0);                                                      # Utf32 equivalent
@@ -5029,7 +5015,6 @@ sub GetNextUtf8CharAsUtf32($)                                                   
   $s->inline(parameters=>{in=>$in, out=>$out, size=>$size, fail=>$fail});
 
  ($out, $size, $fail)                                                           # Output character variable, output size of input, output error if any
-
  } # GetNextUtf8CharAsUtf32
 
 sub ConvertUtf8ToUtf32($$)                                                      # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
@@ -5591,7 +5576,7 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
-#    SaveFirstFour;
+
     my $area = $$s{area};
     $area->address->setReg(rax);                                                # Address area
     my $oldUsed = V("used", $used);                                             # Record currently used space
@@ -5608,7 +5593,6 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
 
     $$p{offset}->copy($oldUsed);                                                # Return offset of content in area
 
-#    RestoreFirstFour;
    } structures => {area => $area},
      parameters => [qw(address size offset)],
      name       => 'Nasm::X86::Area::m';
@@ -6137,12 +6121,6 @@ sub Nasm::X86::Tree::position($$)                                               
   $t->first->copy($first);                                                      # Variable addressing offset to first block of keys.
   $t                                                                            # Return new descriptor
  }
-
-#sub Nasm::X86::Tree::reposition($$)                                             # Reposition an existing tree at the specified location.
-# {my ($tree, $first) = @_;                                                      # Tree descriptor, offset to reposition on
-#  $tree->first->copy($first);                                                   # Variable addressing offset to first block of keys.
-#  $tree                                                                         # Return existing tree descriptor
-# }
 
 sub Nasm::X86::Tree::cloneDescriptor($)                                         # Clone the descriptor of a tree to make a new tree descriptor.
  {my ($tree) = @_;                                                              # Tree descriptor
@@ -11183,7 +11161,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11185 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11163 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
