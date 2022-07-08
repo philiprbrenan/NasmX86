@@ -17893,7 +17893,7 @@ testParseUnisyn 'va w a= w vb w  dand w vc w a= w vd', "𝗮 ＝ 𝗯 𝕒
 #latest:
 if (1)
  {my $s = chr(0x205F).chr(0x205F);
-  my $p = &ParseUnisyn(constantString <<END =~ s/\Z//r);
+  my $p = &ParseUnisyn(constantString substr <<END, 0, -1);
 𝗮${s}＝${s}𝗯${s}𝕒𝕟𝕕${s}𝗰 ${s}＝${s}𝗱
 END
 
