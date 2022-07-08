@@ -8287,7 +8287,6 @@ sub Nasm::X86::Tree::merge($$$$$$$$$$)                                          
       my $m = K(one => 1) << K( shift => $t->lengthLeft);                       # Position of parent key in left
       $m->dIntoPointInZ($LK, $pk);                                              # Position parent key in left
       $m->dIntoPointInZ($LD, $pd);                                              # Position parent data in left
-     #$m->dIntoPointInZ($LN, $pn);                                              # Position parent node in left - not needed because the left and right around the parent key are the left and right node offsets - we should use this fact to update the children of the right node so that their up pointers point to the left node
       $t->insertIntoTreeBits($LK, $m, $pb);                                     # Tree bit for parent data
       LoadConstantIntoMaskRegister                                              # Keys/Data area
        (7, createBitNumberFromAlternatingPattern '00', $t->lengthRight,   -$t->lengthMiddle);
@@ -8867,8 +8866,6 @@ sub Nasm::X86::Area::treeFromString($$$)                                        
 sub Nasm::X86::Tree::getKeyString($$$)                                          # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
  {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key
   @_ == 3 or confess "Three parameters";
-
-# $tree->stringTree or confess "Not a string tree";  # Has to be dome with teh built in field                             # Check that we are creating a string tree
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # should be optimized for case where string is less than one zmm
@@ -10871,7 +10868,6 @@ END
        $o = qq($o -footprint)      if $foot;                                    # Emulator options - foot print
        $o = qq($o -debugtrace)     if $trace;                                   # Emulator options - tracing
        $o = qq($o -mix)            if $mix;                                     # Emulator options - mix histogram output
-#      $o = qq($o -omix /dev/null) if $mix and onGitHub;                        # Dump mix output on Github
 
     if ($emulate && !hasAvx512 or $trace or $mix or $ptr or $foot)              # Command to execute program via the  emulator
      {return qq($o -- ./$execFile $err $out)
@@ -11148,7 +11144,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11150 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11146 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17818,8 +17814,14 @@ sub testParseUnisyn($$$)                                                        
   unlink $f;
  }
 
-#latest:
 test7: goto test8 unless $test{7};
+
+testParseUnisyn 'b( va m+ vb B)', "【𝗔＋𝗕】", q(【._＋._._𝗔._._𝗕);
+testParseUnisyn 'va m+ vb m+ vc', "𝗔＋𝗕＋𝗖", q(＋._＋._._𝗔._._𝗕._𝗖);
+
+latest:
+testParseUnisyn 'pL va',          "𝝁𝗔", q(𝝁._𝗔);
+testParseUnisyn 'pl va',          "𝑳𝗔", q(𝑳._𝗔);
 
 #latest:;
 testParseUnisyn '',                                        "",                  qq();
@@ -17831,7 +17833,6 @@ testParseUnisyn 'va a= vb m* vc',                          "𝗔＝𝗕✕𝗖",
 testParseUnisyn 'b( B)',                                   "【】",                qq(【);
 testParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】",              qq(【._⟦);
 testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】",            qq(【._⟦._._⟨);
-
 test8: goto test9 unless $test{8};
 
 #latest:;
@@ -18810,28 +18811,6 @@ if (1) {                                                                        
 END
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString('【】');
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar  : .... .... .... 3011
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...6
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-【
-END
- }
-
 #latest:;
 if (1) {                                                                        #TNasm::X86::Tree::popSubTree
   my $a = CreateArea;
@@ -18866,131 +18845,6 @@ subTree: .... .... .... ...1
 PPPPP
 found  : .... .... .... ...1
 data   : .... .... .... .333
-END
- }
-
-latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString("𝗔");
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # 5441 Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
-parseChar  : .... .... ...1 D5D4
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...4
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-𝗔
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString("【𝗔】");
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # 5441 Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;             # 41_769
-parseChar  : .... .... .... 3011
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...A
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-【
-._𝗔
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString("𝗔＋𝗕");
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # 5441 Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
-parseChar  : .... .... ...1 D5D5
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...B
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-＋
-._𝗔
-._𝗕
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString("【𝗔＋𝗕】");
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # 5441 Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>16;           # 41_769
-parseChar  : .... .... .... 3011
-parseFail  : .... .... .... ...0
-position   : .... .... .... ..11
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-【
-._＋
-._._𝗔
-._._𝗕
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString("𝗔＋𝗕＋𝗖");
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>41_769;
-parseChar  : .... .... ...1 D5D6
-parseFail  : .... .... .... ...0
-position   : .... .... .... ..12
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-＋
-._＋
-._._𝗔
-._._𝗕
-._𝗖
 END
  }
 
