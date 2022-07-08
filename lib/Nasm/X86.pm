@@ -17875,7 +17875,7 @@ sub testParseUnisyn($$$)                                                        
 
   my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
   my $parse = $Parse;
-     $parse =~ s(._) (\n._)gsr if $parse;
+     $parse =~ s(._) (\n._)gs if $parse;
 
   $p->dump;
   ok Assemble eq => $parse, avx512=>1, mix=>1;
