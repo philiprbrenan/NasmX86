@@ -9568,7 +9568,6 @@ sub Nasm::X86::Unisyn::Lex::Letter::w
 
 # Add: 1d5a0 ,  0x1d608,   0x1d49c,  0x1d4d0,  0x1d504,     0x1d56c,  0x1d670,  0x1d538
 
-
 sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    # Compose phrases of Earl Zero, write them to a temporary file, return the temporary file name.
  {my ($words) = @_;                                                             # String of words
   my $s = '';
@@ -9605,6 +9604,8 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
       elsif ($w =~ m(\A[s;]\Z)) {$s .= c  0, "s"}                               # Semicolon
       elsif ($w =~ m(\AS\Z))    {$s .= ' '}                                     # Space
       elsif ($w =~ m(\Av(\w+))) {$s .= w $1, 'v'}                               # Variable name
+      elsif ($w =~ m(\Aw\Z))    {$s .= ' '}                                     # Single space
+      elsif ($w =~ m(\Aw(\d+))) {$s .= ' ' x $1}                                # Spaces
       else
        {my $a = substr($w, 0, 1);
         if    ($w =~ m(\A$a(\d+))) {$s .= c $1, $a}                             # Dyad chosen by number
@@ -11144,7 +11145,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11146 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11147 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17756,6 +17757,9 @@ sub testParseUnisyn($$$)                                                        
 
 test7: goto test8 unless $test{7};
 
+latest: ;
+
+testParseUnisyn 'b( vaaaa  w2 m+ w2 vbbbb B)', "【𝗔𝗔𝗔𝗔  ＋  𝗕𝗕𝗕𝗕】", q(【._＋  ._._𝗔𝗔𝗔𝗔  ._._𝗕𝗕𝗕𝗕);
 testParseUnisyn 'b( va m+ vb B)', "【𝗔＋𝗕】", q(【._＋._._𝗔._._𝗕);
 testParseUnisyn 'va m+ vb m+ vc', "𝗔＋𝗕＋𝗖",  q(＋._＋._._𝗔._._𝗕._𝗖);
 testParseUnisyn 'b( A1 m+ va m* vb m+ vc m+ A2 m* va m+ vb m+ vc B)',
