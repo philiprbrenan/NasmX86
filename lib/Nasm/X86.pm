@@ -1097,30 +1097,6 @@ sub Else(&)                                                                     
   $block;
  }
 
-#sub OR(@)                                                                      # Return a variable containing 1 if any of the conditions is true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
-# {my (@c) = @_;                                                                # Conditions enclosed in subs
-#  my $r = &V(or => 0);
-#  &Block(sub
-#   {my ($end, $start) = @_;
-#    for my $c(@c)
-#     {If &$c, Then {$r->copy(1); Jmp $end}
-#     }
-#   });
-#  $r
-# }
-#
-#sub AND(@)                                                                     # Return a variable containing 1 if all of the conditions are true else 0 by evaluating the conditions in order and stopping as soon as the result is known.
-# {my (@c) = @_;                                                                # Conditions enclosed in subs
-#  my $r = &V(and => 1);
-#  &Block(sub
-#   {my ($end, $start) = @_;
-#    for my $c(@c)
-#     {If &$c, Then {}, Else {$r->copy(0); Jmp $end}
-#     }
-#   });
-#  $r
-# }
-
 sub opposingJump($)                                                             # Return the opposite of a jump.
  {my ($j) = @_;                                                                 # Jump
   my %j = qw(Je Jne  Jl Jge  Jle Jg  Jne Je  Jge Jl  Jg Jl);                    # Branch possibilities
@@ -1606,7 +1582,6 @@ sub Subroutine(&%)                                                              
     end                => $end,                                                 # End label for this subroutine
     export             => $export,                                              # File this subroutine was exported to if any
     name               => $name,                                                # Name of the subroutine from which the entry label is located
-#   nameString         => Rutf8($name),                                         # Name of the sub as a string constant in read only storage
     offset             => undef,                                                # The offset of this routine in its library if it is in a library
     options            => \%options,                                            # Options used by the author of the subroutine
     parameters         => $parameters,                                          # Parameters definitions supplied by the author of the subroutine which get mapped in to parameter variables.
@@ -2959,10 +2934,8 @@ sub Variable($;$%)                                                              
     expr      => $expr,                                                         # Expression that initializes the variable
     label     => $label,                                                        # Address in memory
     name      => $name,                                                         # Name of the variable
-#    level     => scalar @VariableStack,                                        # Lexical level
     position  => $position,                                                     # Position in stack frame
     reference => $options{reference},                                           # Reference to another variable
-#    width     => RegisterSize(rax),                                            # Size of the variable in bytes
    );
  }
 
@@ -2970,11 +2943,6 @@ sub Nasm::X86::Variable::at($)                                                  
  {my ($variable) = @_;                                                          # Variable descriptor
   "[".$variable->label."]"
  }
-
-#sub G(*;$%)                                                                    # Define a global variable. Global variables with the same name are not necessarily the same variable.  Two global variables are identical iff they have have the same label field.
-# {my ($name, $expr, %options) = @_;                                            # Name of variable, initializing expression, options
-#  &Variable($name, $expr, global => 1, %options);
-# }
 
 sub K($$)                                                                       # Define a constant variable.
  {my ($name, $expr) = @_;                                                       # Name of variable, initializing expression
@@ -3514,14 +3482,11 @@ sub Nasm::X86::Variable::mod($$)                                                
 
 sub Nasm::X86::Variable::shiftLeft($$)                                          # Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
-#  PushR rcx, 15;
   $left ->setReg(rbx);                                                          # Value to shift
   confess "Variable required not $right" unless ref($right);
   $right->setReg(rcx);                                                          # Amount to shift
   Shl rbx, cl;                                                                  # Shift
-  my $r = V "shift left" => rbx;                                                # Save result in a new variable
-#  PopR;
-  $r
+  V "shift left" => rbx;                                                        # Save result in a new variable
  }
 
 sub Nasm::X86::Variable::shiftRight($$)                                         # Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
@@ -11218,7 +11183,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11220 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11185 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
