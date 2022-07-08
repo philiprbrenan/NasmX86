@@ -6162,10 +6162,8 @@ sub Nasm::X86::Tree::copyDescription($)                                         
   my $t = $tree->describeTree;
 
   $t->data   ->copy($tree->data );                                              # Variable containing the last data found
-# $t->debug  ->copy($tree->debug);                                              # Write debug trace if true
   $t->first  ->copy($tree->first);                                              # Variable addressing offset to first block of keys.
   $t->found  ->copy($tree->found);                                              # Variable indicating whether the last find was successful or not
-# $t->index  ->copy($tree->index);                                              # Index of key in last node found
   $t->subTree->copy($tree->subTree);                                            # Variable indicating whether the last find found a sub tree
   $t                                                                            # Return new descriptor
  }
@@ -6909,17 +6907,6 @@ sub Nasm::X86::Tree::splitNode($$)                                              
           Mov "[rdi+rsi+$$t{up}]", edx;                                         # Update parent offset
          } rcx, $t->lengthRight + 1;
        };
-
-#      IfGt                                                                     # Not a leaf
-#      Then
-#       {(K(nodes => $t->lengthRight) + 1)->for(sub                             # Reparent the children of the right hand side now known not to be a leaf
-#         {my ($index, $start, $next, $end) = @_;
-#          my $n = dFromZ $RN, $index * $t->width;                              # Offset of node
-#          $t->getBlock  ($n, $LK, $LD, $LN);                                   # Get child of right node reusing the left hand set of registers as we no longer need them having written them to memory
-#          $t->upIntoData($r,      $LD);                                        # Parent for child of right hand side
-#          $t->putBlock  ($n, $LK, $LD, $LN);                                   # Save block into memory now that its parent pointer has been updated
-#         });
-#       };
 
       $t->putBlock        ($r,      $RK, $RD, $RN);                             # Save right block
      };                                                                         # Insert completed successfully
@@ -11161,7 +11148,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11163 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11150 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
