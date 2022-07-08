@@ -17875,8 +17875,8 @@ sub testParseUnisyn($$$)                                                        
 
   my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
   my $parse = $Parse;
-     $parse =~ s(._) (\n._)gs;
-     $parse = "$parse\n" unless $parse;
+     $parse =~ s(((\._)+)) (\n$1)gs;
+     $parse = "$parse\n" if $parse;
 
   $p->dump;
   ok Assemble eq => $parse, avx512=>1, mix=>1;
@@ -17888,15 +17888,63 @@ sub testParseUnisyn($$$)                                                        
   unlink $f;
  }
 
+#latest:
 test7: goto test8 unless $test{7};
 
 #latest:;
 testParseUnisyn '',                                        "",                  qq();
+testParseUnisyn 'va',                                      "𝗔",                 qq(𝗔);
+testParseUnisyn 'va a= va',                                "𝗔＝𝗔",               qq(＝._𝗔._𝗔);
+testParseUnisyn 'va m+ vb',                                "𝗔＋𝗕",               qq(＋._𝗔._𝗕);
+testParseUnisyn 'va a= vb m+ vc',                          "𝗔＝𝗕＋𝗖",             qq(＝._𝗔._＋._._𝗕._._𝗖);
+testParseUnisyn 'va a= vb m* vc',                          "𝗔＝𝗕✕𝗖",             qq(＝._𝗔._✕._._𝗕._._𝗖);
+testParseUnisyn 'b( B)',                                   "【】",                qq(【);
+testParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】",              qq(【._⟦);
+testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】",            qq(【._⟦._._⟨);
+
+test8: goto test9 unless $test{8};
+
+#latest:;
+testParseUnisyn 'b( va B)',                                "【𝗔】",               qq(【._𝗔);
+testParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】",             qq(【._⟦._._𝗔);
+testParseUnisyn 'b( b[ va m+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】",           qq(【._⟦._._＋._._._𝗔._._._𝗕);
+testParseUnisyn 'b( b[ va m+ vb B] m* b[ va m+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】",     qq(【._✕._._⟦._._._＋._._._._𝗔._._._._𝗕._._⟦._._._＋._._._._𝗔._._._._𝗕);
+testParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢",             qq();
+testParseUnisyn 'va s vb',                                 "𝗔⟢𝗕",               qq(⟢._𝗔._𝗕);
+testParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕",              qq(⟢._𝗔._𝗕);
+testParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢",          qq(⟢._𝗔._𝗕);
+testParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖",             qq(＝._𝗔._＝._._𝗕._._𝗖);
+
+test9: goto test10 unless $test{9};
+
+#latest:;
+testParseUnisyn 'va a= vb m+ vc a= vd m+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘",         qq(＝._𝗔._＝._._＋._._._𝗕._._._𝗖._._＋._._._𝗗._._._𝗘);
+testParseUnisyn 'va a= vb m+ vc s vd a= ve m+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙",       qq(⟢._＝._._𝗔._._＋._._._𝗕._._._𝗖._＝._._𝗗._._＋._._._𝗘._._._𝗙);
+testParseUnisyn 'va lif vb',                               "𝗔𝐈𝐅𝗕",              qq(𝐈𝐅._𝗔._𝗕);
+testParseUnisyn 'va lif vb lelse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖",         qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._𝗔._._𝗕._𝗖);
+testParseUnisyn 'va a= b1 vb m+ vc B1 m* vd lif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘",      qq(＝._𝗔._𝐈𝐅._._✕._._._⌊._._._._＋._._._._._𝗕._._._._._𝗖._._._𝗗._._𝗘);
+testParseUnisyn 'va a= vb lif vc m* vd s vA a= vB lif  vC m* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢",  qq(⟢._＝._._𝗔._._𝐈𝐅._._._𝗕._._._✕._._._._𝗖._._._._𝗗._＝._._𝝰._._𝐈𝐅._._._𝝱._._._✕._._._._𝝲._._._._𝝳);
+
+#latest:;
+testParseUnisyn 'p11 va',                                  "𝑳𝗔",                qq(𝑳._𝗔);
+testParseUnisyn 'va q11',                                  "𝗔𝙇",                qq(𝙇._𝗔);
+
+test10: goto test11 unless $test{10};
+
+#latest:
+testParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆",               qq(𝙆._𝑳._._𝗔);
+testParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆",              qq(𝙆._𝑳._._【);
+testParseUnisyn 'p21 b( va m* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒",           qq(𝙒._𝑽._._【._._._✕._._._._𝗔._._._._𝗕);
+testParseUnisyn 'va m+ vb q11',                            "𝗔＋𝗕𝙇",              qq(＋._𝗔._𝙇._._𝗕);
+testParseUnisyn 'va m+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇",             qq(＋._𝗔._𝙇._._𝑳._._._𝗕);
+testParseUnisyn 'va m+ p11 vb q11 m+ p21 b( va m* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒", qq(＋._＋._._𝗔._._𝙇._._._𝑳._._._._𝗕._𝙒._._𝑽._._._【._._._._✕._._._._._𝗔._._._._._𝗕);
+testParseUnisyn 'va m+ p11 vb q11 lif p21 b( vc m* vd B) q22 lelse ve m* vf',
+            "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙",                                            qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._＋._._._𝗔._._._𝙇._._._._𝑳._._._._._𝗕._._𝙒._._._𝑽._._._._【._._._._._✕._._._._._._𝗖._._._._._._𝗗._✕._._𝗘._._𝗙);
 
 test11: goto test12 unless $test{11};
 
 latest:
-testParseUnisyn 'va land vb',                              '𝗔𝐀𝐍𝐃𝗕',             qq(𝐀𝐍𝐃\n._𝗔\n._𝗕\n);
+testParseUnisyn 'va land vb',                              '𝗔𝐀𝐍𝐃𝗕',             qq(𝐀𝐍𝐃._𝗔._𝗕);
 
 #latest:
 if (1) {                                                                        #TTraceMode
