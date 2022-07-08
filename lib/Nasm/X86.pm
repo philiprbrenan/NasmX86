@@ -9502,7 +9502,8 @@ sub Nasm::X86::Unisyn::Lex::Letter::B
 
 sub Nasm::X86::Unisyn::Lex::Number::d{9}
 sub Nasm::X86::Unisyn::Lex::Letter::d                                           # Dyad 2 - Double struck
- {(0x1d538..0x1d538+51)
+ {(0x1d538..0x1d538+51, 0x2103, 0x210d, 0x2115, 0x2119, 0x211a, 0x211d,
+   0x2124)
  }
 
 sub Nasm::X86::Unisyn::Lex::Number::e{10}
@@ -9568,22 +9569,64 @@ sub Nasm::X86::Unisyn::Lex::Letter::w
 
 # Add: 1d5a0 ,  0x1d608,   0x1d49c,  0x1d4d0,  0x1d504,     0x1d56c,  0x1d670,  0x1d538
 
-sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    # Compose phrases of Earl Zero, write them to a temporary file, return the temporary file name.
+sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    # Compose phrases of Unisyn and return them as a string
  {my ($words) = @_;                                                             # String of words
   my $s = '';
 
   my sub w($$)                                                                  # Variable name
    {my ($chars, $alpha) = @_;                                                   # Characters
     my @c = eval "Nasm::X86::Unisyn::Lex::Letter::$alpha";                      # Alphabet in array context
-    $s .= chr $c[ord($_) - ord('a')] for split //, $chars;
-   };
+
+    for my $c(split //, $chars)
+     {if ($alpha eq 'd')
+       {$s .= '𝕒', next if  $c eq 'a';
+        $s .= '𝕓', next if  $c eq 'b';
+        $s .= '𝕔', next if  $c eq 'c';
+        $s .= '𝕕', next if  $c eq 'd';
+        $s .= '𝕖', next if  $c eq 'e';
+        $s .= '𝕗', next if  $c eq 'f';
+        $s .= '𝕘', next if  $c eq 'g';
+        $s .= '𝕙', next if  $c eq 'h';
+        $s .= '𝕚' , next if  $c eq 'i';
+        $s .= '𝕛' , next if  $c eq 'j';
+        $s .= '𝕜', next if  $c eq 'k';
+        $s .= '𝕝',  next if  $c eq 'l';
+        $s .= '𝕞', next if  $c eq 'm';
+        $s .= '𝕟', next if  $c eq 'n';
+        $s .= '𝕠', next if  $c eq 'o';
+        $s .= '𝕡', next if  $c eq 'p';
+        $s .= '𝕢', next if  $c eq 'q';
+        $s .= '𝕣', next if  $c eq 'r';
+        $s .= '𝕤', next if  $c eq 's';
+        $s .= '𝕥', next if  $c eq 't';
+        $s .= '𝕦', next if  $c eq 'u';
+        $s .= '𝕧', next if  $c eq 'v';
+        $s .= '𝕨', next if  $c eq 'w';
+        $s .= '𝕩', next if  $c eq 'x';
+        $s .= '𝕪', next if  $c eq 'y';
+        $s .= '𝕫', next if  $c eq 'z';
+        $s .= 'ℂ', next if  $c eq 'C';
+        $s .= 'ℍ', next if  $c eq 'H';
+        $s .= 'ℕ', next if  $c eq 'N';
+        $s .= 'ℙ', next if  $c eq 'P';
+        $s .= 'ℚ', next if  $c eq 'Q';
+        $s .= 'ℤ', next if  $c eq 'Z';
+       }
+      if ($alpha eq 'd')
+       {$s .= chr $c[ord($c) - ord('A')] if $c =~ m(\A[A-Z]\Z);
+       }
+      else
+       {$s .= chr $c[ord($c) - ord('A')]      if $c =~ m(\A[A-Z]\Z);
+        $s .= chr $c[ord($c) - ord('a') + 26] if $c =~ m(\A[a-z]\Z);
+       }
+     }
+   }
 
   my sub c($$)                                                                  # Character from table
    {my ($pos, $alpha) = @_;                                                     # Position, character table name
     my @c = eval "Nasm::X86::Unisyn::Lex::Letter::$alpha";                      # Alphabet in array context
     chr $c[$pos]                                                                # Character requested
-   };
-
+   }
 
   for my $w(split /\s+/, $words)
    {if ($w =~ m(\A[aAbBdefghijklmpqsSvw]))
@@ -9603,13 +9646,12 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
       elsif ($w =~ m(\Aq(\d+))) {$s .= c $1, "q"}                               # Suffix chosen by number
       elsif ($w =~ m(\A[s;]\Z)) {$s .= c  0, "s"}                               # Semicolon
       elsif ($w =~ m(\AS\Z))    {$s .= ' '}                                     # Space
-      elsif ($w =~ m(\Av(\w+))) {$s .= w $1, 'v'}                               # Variable name
       elsif ($w =~ m(\Aw\Z))    {$s .= ' '}                                     # Single space
       elsif ($w =~ m(\Aw(\d+))) {$s .= ' ' x $1}                                # Spaces
       else
        {my $a = substr($w, 0, 1);
-        if    ($w =~ m(\A$a(\d+))) {$s .= c $1, $a}                             # Dyad chosen by number
-        elsif ($w =~ m(\A$a(\w+))) {$s .= w $1, $a}                             # Dyad chosen by letter
+        if    ($w =~ m(\A$a(\d+))) {c $1, $a}                                   # Dyad chosen by number
+        elsif ($w =~ m(\A$a(\w+))) {w $1, $a}                                   # Dyad chosen by letter
        }
      }
     else
@@ -9617,7 +9659,7 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
      }
    }
 
-  writeTempFile $s                                                              # Composed string to temporary file
+  $s                                                                            # Composed string
  }
 
 sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits {5}                 # The number of bits needed to express a transition
@@ -11145,7 +11187,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11147 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11189 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17734,58 +17776,70 @@ if (1) {                                                                        
  }
 
 sub testParseUnisyn($$$)                                                        #P Test the parse of a unisyn expression.
- {my ($compose, $text, $Parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
-  my $f = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
+ {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
 
-  is_deeply readFile($f), "$text\n";
-  my ($a8, $s8) = ReadFile K file => Rs $f;                                     # Address and size of memory containing contents of the file
+  my $u = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
+
+  is_deeply $u, $text;
 
   my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
-  my $parse = $Parse;
-     $parse =~ s(((\._)+)) (\n$1)gs;
-     $parse = "$parse\n" if $parse;
 
   $p->dump;
-  ok Assemble eq => $parse, avx512=>1, mix=>1;
+  Assemble avx512=>1, mix=>1;
 
-  if (-e $programOut and !onGitHub)                                             # Print parse tree
-   {say STDERR readFile($programOut) =~ s(\n) (\\n)gsr
+  if (-e $programOut)                                                           # Print parse tree
+   {my $r = readFile $programOut;
+       $r =~ s(\n) ()gs;                                                        # Collapse result
+    if ($r ne $parse)
+     {say STDERR $text;
+      say STDERR $r;
+      say STDERR "Want: ", dump($parse);
+      say STDERR "Got : ", dump($r);
+      confess "Parse failed" unless onGitHub;
+     }
    }
-
-  unlink $f;
+  else
+   {confess "No result file: $programOut";
+   }
  }
 
 test7: goto test8 unless $test{7};
 
-latest: ;
+#latest:;
+testParseUnisyn 'b( vaaaa  w2 m+ w2 vbbbb B)', "【𝗮𝗮𝗮𝗮  ＋  𝗯𝗯𝗯𝗯】", q(【._＋  ._._𝗮𝗮𝗮𝗮  ._._𝗯𝗯𝗯𝗯);
 
-testParseUnisyn 'b( vaaaa  w2 m+ w2 vbbbb B)', "【𝗔𝗔𝗔𝗔  ＋  𝗕𝗕𝗕𝗕】", q(【._＋  ._._𝗔𝗔𝗔𝗔  ._._𝗕𝗕𝗕𝗕);
-testParseUnisyn 'b( va m+ vb B)', "【𝗔＋𝗕】", q(【._＋._._𝗔._._𝗕);
-testParseUnisyn 'va m+ vb m+ vc', "𝗔＋𝗕＋𝗖",  q(＋._＋._._𝗔._._𝗕._𝗖);
+testParseUnisyn 'b( va m+ vb B)', "【𝗮＋𝗯】", q(【._＋._._𝗮._._𝗯);
+
+testParseUnisyn 'va m+ vb m+ vc', "𝗮＋𝗯＋𝗰",  q(＋._＋._._𝗮._._𝗯._𝗰);
+
+#latest: ;
 testParseUnisyn 'b( A1 m+ va m* vb m+ vc m+ A2 m* va m+ vb m+ vc B)',
-                 "【1＋𝗔✕𝗕＋𝗖＋2✕𝗔＋𝗕＋𝗖】", q(【._＋._._＋._._._✕._._._._＋._._._._._＋._._._._._._✕._._._._._._._＋._._._._._._._._1._._._._._._._._𝗔._._._._._._._𝗕._._._._._._𝗖._._._._._2._._._._𝗔._._._𝗕._._𝗖);
+                 "【1＋𝗮✕𝗯＋𝗰＋2✕𝗮＋𝗯＋𝗰】",
+                 q(【._＋._._＋._._._✕._._._._＋._._._._._＋._._._._._._✕._._._._._._._＋._._._._._._._._1._._._._._._._._𝗮._._._._._._._𝗯._._._._._._𝗰._._._._._2._._._._𝗮._._._𝗯._._𝗰);
 
-testParseUnisyn 'pL va',          "𝝁𝗔", q(𝝁._𝗔);
-testParseUnisyn 'pl va',          "𝑳𝗔", q(𝑳._𝗔);
-testParseUnisyn 'va qk',          "𝗔𝙆", q(𝙆._𝗔);
-testParseUnisyn 'pl va qk',       "𝑳𝗔𝙆", q(𝙆._𝑳._._𝗔);
-testParseUnisyn 'b( B) qk',       "【】𝙆", q(𝙆._【);
-testParseUnisyn 'pl b( B) qk',    "𝑳【】𝙆", q(𝙆._𝑳._._【);
-testParseUnisyn 'va a= b( vb m+ vc B) m* vd lif ve',
-                '𝗔＝【𝗕＋𝗖】✕𝗗𝐈𝐅𝗘',
-                q(＝._𝗔._𝐈𝐅._._✕._._._【._._._._＋._._._._._𝗕._._._._._𝗖._._._𝗗._._𝗘);
+testParseUnisyn 'pl va',          "𝒍𝗮", q(𝒍._𝗮);
+testParseUnisyn 'pL va',          "𝑳𝗮", q(𝑳._𝗮);
+testParseUnisyn 'va qK',          "𝗮𝙆", q(𝙆._𝗮);
+testParseUnisyn 'pL va qK',       "𝑳𝗮𝙆", q(𝙆._𝑳._._𝗮);
+testParseUnisyn 'b( B) qK',       "【】𝙆", q(𝙆._【);
+testParseUnisyn 'pL b( B) qK',    "𝑳【】𝙆", q(𝙆._𝑳._._【);
 
-testParseUnisyn 'va a= vb lif vc m* vd s vA a= vB lif  vC m* vD s',
-                "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢",
-                 q(⟢._＝._._𝗔._._𝐈𝐅._._._𝗕._._._✕._._._._𝗖._._._._𝗗._＝._._𝝰._._𝐈𝐅._._._𝝱._._._✕._._._._𝝲._._._._𝝳);
+#          got: '𝗮＝【𝗯＋𝗰】✕𝗱𝐈𝐅𝗲'
+testParseUnisyn 'va a= b( vb m+ vc B) m* vd lIF ve',
+                '𝗮＝【𝗯＋𝗰】✕𝗱𝐈𝐅𝗲',
+                q(＝._𝗮._𝐈𝐅._._✕._._._【._._._._＋._._._._._𝗯._._._._._𝗰._._._𝗱._._𝗲);
+
+testParseUnisyn 'va a= vb lIF vc m* vd s va a= vb lIF  vc m* vd s',
+                "𝗮＝𝗯𝐈𝐅𝗰✕𝗱⟢𝗮＝𝗯𝐈𝐅𝗰✕𝗱⟢",
+                 q(⟢._＝._._𝗮._._𝐈𝐅._._._𝗯._._._✕._._._._𝗰._._._._𝗱._＝._._𝗮._._𝐈𝐅._._._𝗯._._._✕._._._._𝗰._._._._𝗱);
 
 #latest:;
 testParseUnisyn '',                                        "",                  qq();
-testParseUnisyn 'va',                                      "𝗔",                 qq(𝗔);
-testParseUnisyn 'va a= va',                                "𝗔＝𝗔",               qq(＝._𝗔._𝗔);
-testParseUnisyn 'va m+ vb',                                "𝗔＋𝗕",               qq(＋._𝗔._𝗕);
-testParseUnisyn 'va a= vb m+ vc',                          "𝗔＝𝗕＋𝗖",             qq(＝._𝗔._＋._._𝗕._._𝗖);
-testParseUnisyn 'va a= vb m* vc',                          "𝗔＝𝗕✕𝗖",             qq(＝._𝗔._✕._._𝗕._._𝗖);
+testParseUnisyn 'va',                                      "𝗮",                 qq(𝗮);
+testParseUnisyn 'va a= va',                                "𝗮＝𝗮",               qq(＝._𝗮._𝗮);
+testParseUnisyn 'va m+ vb',                                "𝗮＋𝗯",               qq(＋._𝗮._𝗯);
+testParseUnisyn 'va a= vb m+ vc',                          "𝗮＝𝗯＋𝗰",             qq(＝._𝗮._＋._._𝗯._._𝗰);
+testParseUnisyn 'va a= vb m* vc',                          "𝗮＝𝗯✕𝗰",             qq(＝._𝗮._✕._._𝗯._._𝗰);
 testParseUnisyn 'b( B)',                                   "【】",                qq(【);
 testParseUnisyn 'b( b[ B] B)',                             "【⟦⟧】",              qq(【._⟦);
 testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】",            qq(【._⟦._._⟨);
@@ -17793,65 +17847,67 @@ testParseUnisyn 'b( b[ b< B> B] B)',                       "【⟦⟨⟩⟧】",
 test8: goto test9 unless $test{8};
 
 #latest:;
-testParseUnisyn 'b( va B)',                                "【𝗔】",               qq(【._𝗔);
-testParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗔⟧】",             qq(【._⟦._._𝗔);
-testParseUnisyn 'b( b[ va m+ vb B] B)',                    "【⟦𝗔＋𝗕⟧】",           qq(【._⟦._._＋._._._𝗔._._._𝗕);
-testParseUnisyn 'b( b[ va m+ vb B] m* b[ va m+ vb B] B)',  "【⟦𝗔＋𝗕⟧✕⟦𝗔＋𝗕⟧】",     qq(【._✕._._⟦._._._＋._._._._𝗔._._._._𝗕._._⟦._._._＋._._._._𝗔._._._._𝗕);
+testParseUnisyn 'b( va B)',                                "【𝗮】",               qq(【._𝗮);
+testParseUnisyn 'b( b[ va B] B)',                          "【⟦𝗮⟧】",             qq(【._⟦._._𝗮);
+testParseUnisyn 'b( b[ va m+ vb B] B)',                    "【⟦𝗮＋𝗯⟧】",           qq(【._⟦._._＋._._._𝗮._._._𝗯);
+testParseUnisyn 'b( b[ va m+ vb B] m* b[ va m+ vb B] B)',  "【⟦𝗮＋𝗯⟧✕⟦𝗮＋𝗯⟧】",     qq(【._✕._._⟦._._._＋._._._._𝗮._._._._𝗯._._⟦._._._＋._._._._𝗮._._._._𝗯);
 testParseUnisyn 's s s s s',                               "⟢⟢⟢⟢⟢",             qq();
-testParseUnisyn 'va s vb',                                 "𝗔⟢𝗕",               qq(⟢._𝗔._𝗕);
-testParseUnisyn 'va s s vb',                               "𝗔⟢⟢𝗕",              qq(⟢._𝗔._𝗕);
-testParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗔⟢⟢𝗕⟢⟢",          qq(⟢._𝗔._𝗕);
-testParseUnisyn 'va a= vb a= vc',                          "𝗔＝𝗕＝𝗖",             qq(＝._𝗔._＝._._𝗕._._𝗖);
+testParseUnisyn 'va s vb',                                 "𝗮⟢𝗯",               qq(⟢._𝗮._𝗯);
+testParseUnisyn 'va s s vb',                               "𝗮⟢⟢𝗯",              qq(⟢._𝗮._𝗯);
+testParseUnisyn 's s va s s vb s s',                       "⟢⟢𝗮⟢⟢𝗯⟢⟢",          qq(⟢._𝗮._𝗯);
+testParseUnisyn 'va a= vb a= vc',                          "𝗮＝𝗯＝𝗰",             qq(＝._𝗮._＝._._𝗯._._𝗰);
 
 test9: goto test10 unless $test{9};
 
-#latest:;
-testParseUnisyn 'va a= vb m+ vc a= vd m+ ve',              "𝗔＝𝗕＋𝗖＝𝗗＋𝗘",         qq(＝._𝗔._＝._._＋._._._𝗕._._._𝗖._._＋._._._𝗗._._._𝗘);
-testParseUnisyn 'va a= vb m+ vc s vd a= ve m+ vf',         "𝗔＝𝗕＋𝗖⟢𝗗＝𝗘＋𝗙",       qq(⟢._＝._._𝗔._._＋._._._𝗕._._._𝗖._＝._._𝗗._._＋._._._𝗘._._._𝗙);
-testParseUnisyn 'va lif vb',                               "𝗔𝐈𝐅𝗕",              qq(𝐈𝐅._𝗔._𝗕);
-testParseUnisyn 'va lif vb lelse vc',                      "𝗔𝐈𝐅𝗕𝐄𝐋𝐒𝐄𝗖",         qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._𝗔._._𝗕._𝗖);
-testParseUnisyn 'va a= b1 vb m+ vc B1 m* vd lif ve',       "𝗔＝⌊𝗕＋𝗖⌋✕𝗗𝐈𝐅𝗘",      qq(＝._𝗔._𝐈𝐅._._✕._._._⌊._._._._＋._._._._._𝗕._._._._._𝗖._._._𝗗._._𝗘);
-testParseUnisyn 'va a= vb lif vc m* vd s vA a= vB lif  vC m* vD s', "𝗔＝𝗕𝐈𝐅𝗖✕𝗗⟢𝝰＝𝝱𝐈𝐅𝝲✕𝝳⟢",  qq(⟢._＝._._𝗔._._𝐈𝐅._._._𝗕._._._✕._._._._𝗖._._._._𝗗._＝._._𝝰._._𝐈𝐅._._._𝝱._._._✕._._._._𝝲._._._._𝝳);
+testParseUnisyn 'va a= vb m+ vc a= vd m+ ve',              "𝗮＝𝗯＋𝗰＝𝗱＋𝗲",         qq(＝._𝗮._＝._._＋._._._𝗯._._._𝗰._._＋._._._𝗱._._._𝗲);
+testParseUnisyn 'va a= vb m+ vc s vd a= ve m+ vf',         "𝗮＝𝗯＋𝗰⟢𝗱＝𝗲＋𝗳",       qq(⟢._＝._._𝗮._._＋._._._𝗯._._._𝗰._＝._._𝗱._._＋._._._𝗲._._._𝗳);
+testParseUnisyn 'va lIF vb',                               "𝗮𝐈𝐅𝗯",              qq(𝐈𝐅._𝗮._𝗯);
+testParseUnisyn 'va lIF vb lELSE vc',                      "𝗮𝐈𝐅𝗯𝐄𝐋𝐒𝐄𝗰",         qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._𝗮._._𝗯._𝗰);
+testParseUnisyn 'va a= b1 vb m+ vc B1 m* vd lIF ve',       "𝗮＝⌊𝗯＋𝗰⌋✕𝗱𝐈𝐅𝗲",      qq(＝._𝗮._𝐈𝐅._._✕._._._⌊._._._._＋._._._._._𝗯._._._._._𝗰._._._𝗱._._𝗲);
+testParseUnisyn 'va a= vb lIF vc m* vd s va a= vb lIF  vc m* vd s', "𝗮＝𝗯𝐈𝐅𝗰✕𝗱⟢𝗮＝𝗯𝐈𝐅𝗰✕𝗱⟢",  qq(⟢._＝._._𝗮._._𝐈𝐅._._._𝗯._._._✕._._._._𝗰._._._._𝗱._＝._._𝗮._._𝐈𝐅._._._𝗯._._._✕._._._._𝗰._._._._𝗱);
 
 #latest:;
-testParseUnisyn 'p11 va',                                  "𝑳𝗔",                qq(𝑳._𝗔);
-testParseUnisyn 'va q11',                                  "𝗔𝙇",                qq(𝙇._𝗔);
+testParseUnisyn 'p11 va',                                  "𝑳𝗮",                qq(𝑳._𝗮);
+testParseUnisyn 'va q11',                                  "𝗮𝙇",                qq(𝙇._𝗮);
 
 test10: goto test11 unless $test{10};
 
 #latest:
-testParseUnisyn 'p11 va q10',                              "𝑳𝗔𝙆",               qq(𝙆._𝑳._._𝗔);
+testParseUnisyn 'p11 va q10',                              "𝑳𝗮𝙆",               qq(𝙆._𝑳._._𝗮);
 testParseUnisyn 'p11 b( B) q10',                           "𝑳【】𝙆",              qq(𝙆._𝑳._._【);
-testParseUnisyn 'p21 b( va m* vb B) q22',                  "𝑽【𝗔✕𝗕】𝙒",           qq(𝙒._𝑽._._【._._._✕._._._._𝗔._._._._𝗕);
-testParseUnisyn 'va m+ vb q11',                            "𝗔＋𝗕𝙇",              qq(＋._𝗔._𝙇._._𝗕);
-testParseUnisyn 'va m+ p11 vb q11',                        "𝗔＋𝑳𝗕𝙇",             qq(＋._𝗔._𝙇._._𝑳._._._𝗕);
-testParseUnisyn 'va m+ p11 vb q11 m+ p21 b( va m* vb B) q22',  "𝗔＋𝑳𝗕𝙇＋𝑽【𝗔✕𝗕】𝙒", qq(＋._＋._._𝗔._._𝙇._._._𝑳._._._._𝗕._𝙒._._𝑽._._._【._._._._✕._._._._._𝗔._._._._._𝗕);
-testParseUnisyn 'va m+ p11 vb q11 lif p21 b( vc m* vd B) q22 lelse ve m* vf',
-            "𝗔＋𝑳𝗕𝙇𝐈𝐅𝑽【𝗖✕𝗗】𝙒𝐄𝐋𝐒𝐄𝗘✕𝗙",                                            qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._＋._._._𝗔._._._𝙇._._._._𝑳._._._._._𝗕._._𝙒._._._𝑽._._._._【._._._._._✕._._._._._._𝗖._._._._._._𝗗._✕._._𝗘._._𝗙);
+testParseUnisyn 'p21 b( va m* vb B) q22',                  "𝑽【𝗮✕𝗯】𝙒",           qq(𝙒._𝑽._._【._._._✕._._._._𝗮._._._._𝗯);
+testParseUnisyn 'va m+ vb q11',                            "𝗮＋𝗯𝙇",              qq(＋._𝗮._𝙇._._𝗯);
+testParseUnisyn 'va m+ p11 vb q11',                        "𝗮＋𝑳𝗯𝙇",             qq(＋._𝗮._𝙇._._𝑳._._._𝗯);
+testParseUnisyn 'va m+ p11 vb q11 m+ p21 b( va m* vb B) q22',  "𝗮＋𝑳𝗯𝙇＋𝑽【𝗮✕𝗯】𝙒", qq(＋._＋._._𝗮._._𝙇._._._𝑳._._._._𝗯._𝙒._._𝑽._._._【._._._._✕._._._._._𝗮._._._._._𝗯);
+testParseUnisyn 'va m+ p11 vb q11 lIF p21 b( vc m* vd B) q22 lELSE ve m* vf',
+            "𝗮＋𝑳𝗯𝙇𝐈𝐅𝑽【𝗰✕𝗱】𝙒𝐄𝐋𝐒𝐄𝗲✕𝗳",                                            qq(𝐄𝐋𝐒𝐄._𝐈𝐅._._＋._._._𝗮._._._𝙇._._._._𝑳._._._._._𝗯._._𝙒._._._𝑽._._._._【._._._._._✕._._._._._._𝗰._._._._._._𝗱._✕._._𝗲._._𝗳);
 
 test11: goto test12 unless $test{11};
 
-testParseUnisyn 'va land vb',                              '𝗔𝐀𝐍𝐃𝗕',             qq(𝐀𝐍𝐃._𝗔._𝗕);
+latest:;
+testParseUnisyn 'va land vb',                              '𝗮𝐚𝐧𝐝𝗯',             qq(𝐚𝐧𝐝._𝗮._𝗯);
 
+#latest:
+testParseUnisyn 'va w a= w vb w  dand w vc w a= w vd', "𝗮 ＝ 𝗯 𝕒𝕟𝕕 𝗰 ＝ 𝗱", q(𝕒𝕟𝕕 ._＝ ._._𝗮 ._._𝗯 ._＝ ._._𝗰 ._._𝗱);
+
+#latest:
 if (1)
  {my $s = chr(0x205F).chr(0x205F);
   my $p = &ParseUnisyn(constantString substr <<END, 0, -1);
-𝗔${s}＝${s}𝗕${s}𝕒𝕟𝕕${s}𝗖${s}＝${s}𝗗
+𝗮${s}＝${s}𝗯${s}𝕒𝕟𝕕${s}𝗰 ${s}＝${s}𝗱
 END
 
   $p->dump;
   ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
 𝕒𝕟𝕕  
 ._＝  
-._._𝗔  
-._._𝗕  
+._._𝗮  
+._._𝗯  
 ._＝  
-._._𝗖  
-._._𝗗
+._._𝗰   
+._._𝗱
 END
  }
-
-
 
 #latest:
 if (1) {                                                                        #TTraceMode
