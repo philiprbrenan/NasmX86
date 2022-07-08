@@ -17822,6 +17822,8 @@ testParseUnisyn 'va m+ vb m+ vc', "𝗔＋𝗕＋𝗖", q(＋._＋._._𝗔._._�
 latest:
 testParseUnisyn 'pL va',          "𝝁𝗔", q(𝝁._𝗔);
 testParseUnisyn 'pl va',          "𝑳𝗔", q(𝑳._𝗔);
+testParseUnisyn 'va qk',          "𝗔𝙆", q(𝙆._𝗔);
+testParseUnisyn 'pl va qk',       "𝑳𝗔𝙆", q(𝙆._𝑳._._𝗔);
 
 #latest:;
 testParseUnisyn '',                                        "",                  qq();
@@ -18845,54 +18847,6 @@ subTree: .... .... .... ...1
 PPPPP
 found  : .... .... .... ...1
 data   : .... .... .... .333
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString("𝑳𝗔");
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>41_769;
-parseChar  : .... .... ...1 D5D4
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...8
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-𝑳
-._𝗔
-END
- }
-
-#latest:
-if (1) {                                                                        #TNasm::X86::Unisyn::Lex::composeUnisyn
-  my ($a8, $s8) = constantString('𝗔𝙆');
-
-  my $parse = ParseUnisyn($a8, $s8);                                            # Parse the utf8 string
-
-  $parse->char    ->outNL;                                                      # Print results
-  $parse->fail    ->outNL;
-  $parse->position->outNL;
-  $parse->match   ->outNL;
-  $parse->reason  ->outNL;
-  $parse->dump;
-
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>52_693;
-parseChar  : .... .... ...1 D646
-parseFail  : .... .... .... ...0
-position   : .... .... .... ...8
-parseMatch : .... .... .... ...0
-parseReason: .... .... .... ...0
-𝙆
-._𝗔
 END
  }
 
