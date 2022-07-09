@@ -9863,13 +9863,10 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
    };
 
   my $updateLength = sub                                                        # Update the length of the previous lexical item
-   {my $l = $position - $startPos;                                              # Length of previous item
-#PrintErrStringNL "BBBB";
-#$l->d;
-#$lastNew->d;
-    If $lastNew >= 0,
+   {If $lastNew >= 0,
     Then                                                                        # Update the last lexical item if there was one
-     {my $s = $symbols->uniqueKeyString($a8+$startPos,   $l);                   # The symbol number of the previous lexical item
+     {my $l = $position - $startPos;                                            # Length of previous item
+      my $s = $symbols->uniqueKeyString($a8+$startPos,   $l);                   # The symbol number of the previous lexical item
       $parse->getZmmBlock($lastNew, 0);                                         # Reload the description of the last lexical item
       $s->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::symbol);                  # Record lexical symbol number of previous item in its describing tree
       $l->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::length);                  # Record length of previous item in its describing tree
@@ -10318,7 +10315,20 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
  } # Parse
 
-sub Nasm::X86::Unisyn::Parse::dump($)                                           # Dump a parse tree.
+sub Nasm::X86::Unisyn::Parse::dumpParseResult($)                                # Dump the result of a parse
+ {my ($parse) = @_;                                                             # Parse
+  @_ == 1 or confess "One parameter";
+
+  $parse->char    ->outNL;                                                      # Print results
+  $parse->fail    ->outNL;
+  $parse->position->outNL;
+  $parse->match   ->outNL;
+  $parse->reason  ->outNL;
+
+  $parse->dump;
+ }
+
+sub Nasm::X86::Unisyn::Parse::dump($)                                           # Dump a parse tree inorder.
  {my ($parse) = @_;                                                             # Parse
   @_ == 1 or confess "One parameter";
 
@@ -10374,7 +10384,63 @@ sub Nasm::X86::Unisyn::Parse::dump($)                                           
                           source => $parse->source});
  }
 
-sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              # Traverse a parse tree applying a library of operators.
+sub Nasm::X86::Unisyn::Parse::dumpPostOrder($)                                  # Dump a parse tree in post order.
+ {my ($parse) = @_;                                                             # Parse
+  @_ == 1 or confess "One parameter";
+
+  my $w = RegisterSize(eax);                                                    # Width of an offset
+
+#$parse->area->dump("PPPP", 20);
+
+  my $s = Subroutine                                                            # Print a tree
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    my $area   = $$s{area};                                                     # Area
+    my $source = $$p{source};                                                   # Source
+    my $depth  = $$p{depth};                                                    # Depth
+    my $offset = $$p{offset};                                                   # Offset of node of parse tree in containing area
+
+    If $depth < K(key => 99),
+    Then
+     {$area->getZmmBlock($offset, 1);                                           # Load parse tree node
+
+      my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);            # Length of input
+      my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);          # Position in input
+      my $type     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::type);              # Type of operator
+      my $left     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::left);              # Left operand found
+      my $right    = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::right);             # Right operand found
+
+      If $left > 0,
+      Then                                                                      # There is a left sub tree
+       {$sub->call(structures => {area => $area},
+                   parameters => {depth => $depth+1, offset => $left, source => $source});
+       };
+
+      If $right > 0,
+      Then                                                                      # There is a right sub tree
+       {$sub->call(structures => {area => $area},
+                   parameters => {depth => $depth+1, offset => $right, source => $source});
+       };
+
+      If $length > 0,                                                           # Source text of lexical item
+      Then
+       {$depth->for(sub
+         {PrintOutString "._";
+         });
+
+       ($source + $position)->printOutMemoryNL($length);                        # Write source text corresponding to the source lexical item
+       };
+     };
+   } structures => {area => $parse->area}, parameters=>[qw(depth offset source)],
+     name       => "Nasm::X86::Unisyn::Parse::dump";
+
+  $s->call(structures => {area   => $parse->area},
+           parameters => {depth  => K(depth => 0),
+                          offset => $parse->tree,
+                          source => $parse->source});
+ }
+
+sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              # Traverse a parse tree, in post order, applying a library of operators.
  {my ($parse, $library) = @_;                                                   # Parse tree, area containing a library
   @_ == 2 or confess "Two parameters";
 
@@ -10388,7 +10454,6 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
     my $subroutines  = $$structures{subroutines};                               # Intersection
     my $library      = $$structures{library};                                   # Library
     my $offset       = $$parameters{offset};                                    # The offset in the containg area of the current node of the parse tree
-
 
     my $w = dSize;
     $parse->area->getZmmBlock($offset, 1);                                      # Load parse tree node
@@ -10407,6 +10472,16 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
                        intersection => $intersection,
                        subroutines  => $subroutines},
                        parameters   => {offset => $left});
+     };
+
+    If $right > 0,
+    Then                                                                        # There is a right sub tree
+     {$subroutine->call
+       (structures => {parse        => $parse,
+                       library      => $library,
+                       intersection => $intersection,
+                       subroutines  => $subroutines},
+                       parameters   => {offset => $right});
      };
 
     my $sub = Subroutine {}                                                     # Subroutine definition used to call library subroutines
@@ -10457,16 +10532,6 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::k), Then {&$byName("Dyad12");    Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::l), Then {&$byName("Dyad3");     Jmp $end};
       If $type == K(type => Nasm::X86::Unisyn::Lex::Number::m), Then {&$byName("Dyad4");     Jmp $end};
-     };
-
-    If $right > 0,
-    Then                                                                        # There is a right sub tree
-     {$subroutine->call
-       (structures => {parse        => $parse,
-                       library      => $library,
-                       intersection => $intersection,
-                       subroutines  => $subroutines},
-                       parameters   => {offset => $right});
      };
    } structures => {parse       => $parse,
                    library      => $library,
@@ -11187,7 +11252,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11189 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11254 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17824,7 +17889,6 @@ testParseUnisyn 'pL va qK',       "𝑳𝗮𝙆", q(𝙆._𝑳._._𝗮);
 testParseUnisyn 'b( B) qK',       "【】𝙆", q(𝙆._【);
 testParseUnisyn 'pL b( B) qK',    "𝑳【】𝙆", q(𝙆._𝑳._._【);
 
-#          got: '𝗮＝【𝗯＋𝗰】✕𝗱𝐈𝐅𝗲'
 testParseUnisyn 'va a= b( vb m+ vc B) m* vd lIF ve',
                 '𝗮＝【𝗯＋𝗰】✕𝗱𝐈𝐅𝗲',
                 q(＝._𝗮._𝐈𝐅._._✕._._._【._._._._＋._._._._._𝗯._._._._._𝗰._._._𝗱._._𝗲);
@@ -17884,7 +17948,7 @@ testParseUnisyn 'va m+ p11 vb q11 lIF p21 b( vc m* vd B) q22 lELSE ve m* vf',
 
 test11: goto test12 unless $test{11};
 
-latest:;
+#latest:;
 testParseUnisyn 'va land vb',                              '𝗮𝐚𝐧𝐝𝗯',             qq(𝐚𝐧𝐝._𝗮._𝗯);
 
 #latest:
@@ -18977,7 +19041,7 @@ if (1)                                                                          
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
   my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
 
@@ -19003,22 +19067,29 @@ if (1) {                                                                        
        structures => {parse => Nasm::X86::Unisyn::DescribeParse},
        parameters => [qw(offset)];
 
-    Subroutine                                                                  # The contained routine that we wish to call
+    Subroutine
      {my ($p, $s, $sub) = @_;
       PrintOutStringNL "Add";
      } name => "＋",
        structures => {parse => Nasm::X86::Unisyn::DescribeParse},
        parameters => [qw(offset)];
 
-    Subroutine                                                                  # The contained routine that we wish to call
+    Subroutine
      {my ($p, $s, $sub) = @_;
-      PrintOutStringNL "Times";
-     } name => "✕",
+      PrintOutStringNL "Add";
+     } name => "＋",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+    Subroutine
+     {my ($p, $s, $sub) = @_;
+      PrintOutStringNL "Plus at d";
+     } name => "𝕡𝕝𝕦𝕤",
        structures => {parse => Nasm::X86::Unisyn::DescribeParse},
        parameters => [qw(offset)];
 
 
-    Subroutine                                                                  # The contained routine that we wish to call
+    Subroutine
      {my ($p, $s, $sub) = @_;
       PrintOutString "Variable: ";
 
@@ -19044,61 +19115,57 @@ END
 
   my $l = ReadArea $f;                                                          # Area containing subroutine library
 
-  my ($A, $N) = constantString  qq(1＋𝗔✕𝗕＋𝗖＋2✕𝗔＋𝗕＋𝗖);                            # Utf8 string to parse
-  my $p = ParseUnisyn($A, $N);                                                  # Parse utf8 string
+  my ($A, $N) = constantString  qq(1＋𝗔✕𝗕＋𝗖𝕡𝕝𝕦𝕤2✕𝗔＋𝗕＋𝗖);                         # Utf8 string to parse
+  my $p = ParseUnisyn($A, $N);                                                  # 10_445 Parse utf8 string
 
-  $p->char    ->outNL;                                                          # Print results
-  $p->fail    ->outNL;
-  $p->position->outNL;
-  $p->match   ->outNL;
-  $p->reason  ->outNL;
-  $p->dump;
+  $p->dumpParseResult;
 
   $p->traverseApplyingLibraryOperators($l);                                     # Traverse a parse tree applying a library of operators where they intersect with lexical items in the parse tree
 
-  ok Assemble eq => <<END, avx512=>1;
+# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#    2          27_196         443_984          27_196         637_624        0.2132          3.17          0.64  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 19126
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>27_196;
 parseChar  : .... .... ...1 D5D6
 parseFail  : .... .... .... ...0
-position   : .... .... .... ..2F
+position   : .... .... .... ..3C
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
-＋
+𝕡𝕝𝕦𝕤
 ._＋
 ._._✕
 ._._._＋
-._._._._＋
-._._._._._✕
-._._._._._._＋
-._._._._._._._1
-._._._._._._._𝗔
-._._._._._._𝗕
-._._._._._𝗖
+._._._._1
+._._._._𝗔
+._._._𝗕
+._._𝗖
+._＋
+._._＋
+._._._✕
 ._._._._2
-._._._𝗔
-._._𝗕
-._𝗖
+._._._._𝗔
+._._._𝗕
+._._𝗖
 Ascii: 1
-Add
 Variable: 𝗔
-Times
-Variable: 𝗕
 Add
+Variable: 𝗕
 Variable: 𝗖
 Add
 Ascii: 2
-Times
 Variable: 𝗔
-Add
 Variable: 𝗕
 Add
 Variable: 𝗖
+Add
+Plus at d
 END
   unlink $f;
  };
 
 #latest:
 if (0) {                                                                        #TAssemble
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END, avx512=>1, mix=>1;
 END
  }
 
