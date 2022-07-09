@@ -9761,7 +9761,7 @@ sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      
   (Rq(scalar @a), Rb(@a))                                                       # Allowed utf32 characters array
  }
 
-sub Nasm::X86::Unisyn::Lex::lettersToNumbers                                    # Map the letters in the union of the alphabets to sequential numbers
+sub Nasm::X86::Unisyn::Lex::letterToNumber                                      # Map each letter in the union of the alphabets to a sequential number
  {my %a;                                                                        # Letters mapped to unique numbers
    for my $a(qw(A p v q s b B d e a f g h i j k l m w))
     {$a{$_} = keys %a for eval "Nasm::X86::Unisyn::Lex::Letter::$a";
@@ -9770,6 +9770,17 @@ sub Nasm::X86::Unisyn::Lex::lettersToNumbers                                    
   my @a; $a[$_] = $a{$_} for sort keys %a;                                      # Mapping from letter to number
 
   $a[$_] //= -1 for 0..$#a;                                                     # Mark disallowed characters
+
+  (Rq(scalar @a), Rd(@a))                                                       # Size of array, array
+ }
+
+sub Nasm::X86::Unisyn::Lex::numbersToLertterlettersToNumbers                    # Recover a letter from its unique number
+ {my %a;                                                                        # Letters mapped to unique numbers
+   for my $a(qw(A p v q s b B d e a f g h i j k l m w))
+    {$a{$_} = keys %a for eval "Nasm::X86::Unisyn::Lex::Letter::$a";
+    }
+
+  my @a; $a[$a{$_}] = $a for sort keys %a;                                      # Mapping from number to letter
 
   (Rq(scalar @a), Rd(@a))                                                       # Size of array, array
  }
@@ -11266,7 +11277,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11268 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11279 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19057,7 +19068,7 @@ END
 
 #latest:;
 if (1)                                                                          # Place parser tables into an area
- {my ($N, $L) = Nasm::X86::Unisyn::Lex::lettersToNumbers;                       # Map the letters in the union of the alphabets to sequential numbers
+ {my ($N, $L) = Nasm::X86::Unisyn::Lex::letterToNumber;                         # Map the letters in the union of the alphabets to sequential numbers
 
   Mov rax, $L;
   Mov rsi, ord 'a';
