@@ -5345,7 +5345,7 @@ sub Nasm::X86::Area::allocate($$)                                               
  {my ($area, $size) = @_;                                                       # Area descriptor, variable amount of allocation
   @_ == 2 or confess "Two parameters";
 
-  SaveFirstFour;
+# SaveFirstFour;
   $area->updateSpace($size);                                                    # Update space if needed
   $area->address->setReg(rax);
   Mov rsi, "[rax+$$area{usedOffset}]";                                          # Currently used
@@ -5353,7 +5353,7 @@ sub Nasm::X86::Area::allocate($$)                                               
   $size  ->setReg(rdi);
   Add rsi, rdi;
   Mov "[rax+$$area{usedOffset}]", rsi;                                          # Update currently used
-  RestoreFirstFour;
+#  RestoreFirstFour;
 
   $offset
  }
