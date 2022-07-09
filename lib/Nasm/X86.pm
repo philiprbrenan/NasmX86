@@ -9761,6 +9761,19 @@ sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      
   (Rq(scalar @a), Rb(@a))                                                       # Allowed utf32 characters array
  }
 
+sub Nasm::X86::Unisyn::Lex::lettersToNumbers                                    # Map the letters in the union of the alphabets to sequential numbers
+ {my %a;                                                                        # Letters mapped to unique numbers
+   for my $a(qw(A p v q s b B d e a f g h i j k l m w))
+    {$a{$_} = keys %a for eval "Nasm::X86::Unisyn::Lex::Letter::$a";
+    }
+
+  my @a; $a[$_] = $a{$_} for sort keys %a;                                      # Mapping from letter to number
+
+  $a[$_] //= -1 for 0..$#a;                                                     # Mark disallowed characters
+
+  (Rq(scalar @a), Rd(@a))                                                       # Size of array, array
+ }
+
 sub Nasm::X86::Unisyn::Lex::Reason::Success           {0};                      # Successful parse.
 sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      # Bad utf8 character encountered.
 sub Nasm::X86::Unisyn::Lex::Reason::InvalidChar       {2};                      # Character not part of Earl Zero.
@@ -11253,7 +11266,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11255 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11268 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19039,6 +19052,26 @@ if (1)                                                                          
 
   $a->write("z123.txt");                                                        # Save the area to the named file
   ok Assemble eq => <<END;
+END
+ }
+
+#latest:;
+if (1)                                                                          # Place parser tables into an area
+ {my ($N, $L) = Nasm::X86::Unisyn::Lex::lettersToNumbers;                       # Map the letters in the union of the alphabets to sequential numbers
+
+  Mov rax, $L;
+  Mov rsi, ord 'a';
+  Lea rdx, "[rax+4*rsi]";
+  Mov edx, "[rdx]";
+  PrintOutRegisterInHex rdx;
+
+  Mov rsi, ord '𝕒';
+  Lea rdx, "[rax+4*rsi]";
+  Mov edx, "[rdx]";
+  PrintOutRegisterInHex rdx;
+  ok Assemble eq => <<END;
+   rdx: .... .... .... ..61
+   rdx: .... .... .... .265
 END
  }
 
