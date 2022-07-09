@@ -19071,7 +19071,7 @@ if (1)                                                                          
   PrintOutRegisterInHex rdx;
   ok Assemble eq => <<END;
    rdx: .... .... .... ..61
-   rdx: .... .... .... .265
+   rdx: .... .... .... .292
 END
  }
 
