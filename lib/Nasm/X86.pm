@@ -1729,7 +1729,7 @@ sub Nasm::X86::Area::readLibraryHeader($$)                                      
   ToZero                                                                        # Each subroutine
    {$s->putKeyString(V(address => $name), V(length => "[$sub+$w]"),             # Routine name to subroutine offset mapping
              my $o = V(offset  =>"[$sub]"));
-    $s->getKeyString(V(address => $name), V(length => "[$sub+$w]"));
+#   $s->getKeyString(V(address => $name), V(length => "[$sub+$w]"));
 
     $u->getKeyString(V(address => $name), V(length => "[$sub+$w]"));            # Check whether the subroutine name matches any string in the key string tree.
     If $u->found > 0,
@@ -10491,8 +10491,8 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
 
     my $w = dSize;
     $parse->area->getZmmBlock($offset, 1);                                      # Load parse tree node
-    my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);              # Length of input
-    my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);            # Position in input
+#    my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);              # Length of input
+#    my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);            # Position in input
     my $type     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::type);                # Type of operator
     my $left     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::left);                # Left operand found
     my $right    = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::right);               # Right operand found
