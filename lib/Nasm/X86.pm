@@ -2504,8 +2504,10 @@ sub PrintOutZF                                                                  
 #D2 Hexadecimal                                                                 # Print numbers in hexadecimal right justified in a field
 
 sub PrintRightInHex($$$)                                                        # Print out a number in hex right justified in a field of specified width on the specified channel.
- {my ($channel, $number, $width) = @_;                                          # Channel, number as a variable, width of output field as a variable
+ {my ($channel, $number, $Width) = @_;                                          # Channel, number as a variable, width of output field as a variable
   @_ == 3 or confess "Three parameters required";
+
+  my $width = ref($Width) ? $Width : K(width => $Width);                        # Promote constant
 
   $channel =~ m(\A(1|2)\Z) or confess "Invalid channel should be stderr or stdout";
   ref($number) =~ m(variable)i or confess "number must be a variable";
@@ -2869,20 +2871,20 @@ sub PrintRaxAsChar($)                                                           
   PopR;
  }
 
-sub PrintOutRaxAsChar                                                           # Print the character in on stdout.
+sub PrintOutRaxAsChar                                                           # Print the character in rax on stdout.
  {PrintRaxAsChar($stdout);
  }
 
-sub PrintOutRaxAsCharNL                                                         # Print the character in on stdout followed by a new line.
+sub PrintOutRaxAsCharNL                                                         # Print the character in rax on stdout followed by a new line.
  {PrintRaxAsChar($stdout);
   PrintOutNL;
  }
 
-sub PrintErrRaxAsChar                                                           # Print the character in on stderr.
+sub PrintErrRaxAsChar                                                           # Print the character in rax on stderr.
  {PrintRaxAsChar($stderr);
  }
 
-sub PrintErrRaxAsCharNL                                                         # Print the character in on stderr followed by a new line.
+sub PrintErrRaxAsCharNL                                                         # Print the character in rax on stderr followed by a new line.
  {PrintRaxAsChar($stderr);
   PrintOutNL;
  }
@@ -9552,7 +9554,9 @@ sub Nasm::X86::Unisyn::Lex::Letter::l {(0x1d400..0x1d433,0x1d6a8..0x1d6e1)}
 
 sub Nasm::X86::Unisyn::Lex::Number::m {19}                                      # Dyad 12
 sub Nasm::X86::Unisyn::Lex::Letter::m
- {(0xac, 0xb1, 0xd7, 0xf7, 0x3f6, 0x606..0x608, 0x200b..0x2044, 0x2047..0x2061,
+ {(0xac, 0xb1, 0xd7, 0xf7, 0x3f6, 0x606..0x608,
+   0x200b..0x202E, 0x2030..0x2044,
+   0x2047..0x205E, 0x2060..0x2061,
    0x2065..0x2069, 0x207a..0x207c, 0x208a..0x208c, 0x2118, 0x2140..0x2144,
    0x214b, 0x2200..0x2307, 0x230c..0x2328, 0x232c..0x23ff, 0x25a0..0x26ff,
    0x2715, 0x27c0..0x27e1, 0x27e3..0x27e5, 0x27f0..0x2982, 0x2999..0x29fb,
@@ -9771,16 +9775,24 @@ sub Nasm::X86::Unisyn::Lex::letterToNumber                                      
 
   $a[$_] //= -1 for 0..$#a;                                                     # Mark disallowed characters
 
+#say STDERR dump \%a; exit;
+#lll "AAAA", sprintf "%x", [sort keys %a]->[-1]; exit;
+
   (Rq(scalar @a), Rd(@a))                                                       # Size of array, array
  }
 
-sub Nasm::X86::Unisyn::Lex::numbersToLertterlettersToNumbers                    # Recover a letter from its unique number
+sub Nasm::X86::Unisyn::Lex::numberToLetter                                      # Recover a letter from its unique number
  {my %a;                                                                        # Letters mapped to unique numbers
-   for my $a(qw(A p v q s b B d e a f g h i j k l m w))
-    {$a{$_} = keys %a for eval "Nasm::X86::Unisyn::Lex::Letter::$a";
+  my $i = 0;
+  for my $a(qw(A p v q s b B d e a f g h i j k l m w))
+    {for my $a(eval "Nasm::X86::Unisyn::Lex::Letter::$a")                       # Each letter
+      {$a{$a} = $i++;
+       confess "Key mismatch on: ", sprintf("%x", $a), " at $i"
+         unless keys(%a) == $i;                                                 # Check for duplicates
+      }
     }
 
-  my @a; $a[$a{$_}] = $a for sort keys %a;                                      # Mapping from number to letter
+  my @a; $a[$a{$_}] = $_ for sort keys %a;                                      # Mapping from number to letter
 
   (Rq(scalar @a), Rd(@a))                                                       # Size of array, array
  }
@@ -11277,7 +11289,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11279 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11291 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19066,23 +19078,42 @@ if (1)                                                                          
 END
  }
 
-#latest:;
-if (1)                                                                          # Place parser tables into an area
- {my ($N, $L) = Nasm::X86::Unisyn::Lex::letterToNumber;                         # Map the letters in the union of the alphabets to sequential numbers
+latest:;
+if (1)                                                                          #TNasm::X86::Unisyn::Lex::letterToNumber #TNasm::X86::Unisyn::Lex::numberToLetter
+ {my ($n1, $l1) = Nasm::X86::Unisyn::Lex::letterToNumber;
+  my ($N1, $L1) = Nasm::X86::Unisyn::Lex::numberToLetter;
+  my  $n = V lengthLN => "[$n1]";
+  my  $N = V lengthNL => "[$N1]";
+  my  $l = V arrayLN  => $l1;
+  my  $L = V arrayLN  => $L1;
 
-  Mov rax, $L;
-  Mov rsi, ord 'a';
-  Lea rdx, "[rax+4*rsi]";
-  Mov edx, "[rdx]";
-  PrintOutRegisterInHex rdx;
+  If $N > $n,
+  Then
+   {PrintErrTraceBack "Numbers to letters cannot be greater than letters to numbers";
+   };
 
-  Mov rsi, ord '𝕒';
-  Lea rdx, "[rax+4*rsi]";
-  Mov edx, "[rdx]";
-  PrintOutRegisterInHex rdx;
+  $l->setReg(rax);
+  $L->setReg(rbx);
+
+  $n->for(sub
+   {my ($i, $start, $next, $end) = @_;
+    $i->setReg(rsi);                                                            # The character we want to test as utf32
+
+    Mov edx, "[rax+4*rsi]";                                                     # The unisyn number of a letter
+    Cmp edx, -1;
+    Je $next;                                                                   # Not a unisyn chaarcter
+
+    Mov r15d, "[rbx+4*rdx]";                                                    # r15 contains the utf32 representation of a unisyn letter
+
+    Cmp r15, rsi;                                                               # Check that we retirved th chaarcter westarted with
+    IfNe
+    Then
+     {$i->outNL("Mismatch: ");
+      PrintOutRegisterInHex rsi, r15;
+     }
+   });
+
   ok Assemble eq => <<END;
-   rdx: .... .... .... ..61
-   rdx: .... .... .... .292
 END
  }
 
