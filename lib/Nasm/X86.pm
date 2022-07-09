@@ -9479,13 +9479,13 @@ sub Nasm::X86::Unisyn::Lex::Number::A {2}                                       
 sub Nasm::X86::Unisyn::Lex::Letter::A {(0x0..0x7f, 0x24b6..0x24e9)}
 
 sub Nasm::X86::Unisyn::Lex::Number::p {3}                                       # Prefix operator - applies only to the following variable or bracketed term.
-sub Nasm::X86::Unisyn::Lex::Letter::p {(0x1d468...0x1d49b, 0x1d71c..0x1d755)}
+sub Nasm::X86::Unisyn::Lex::Letter::p {(0x1d468...0x1d49b, 0x1d71c..0x1d755, map {ord} qw(₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉ ₀))}
 
 sub Nasm::X86::Unisyn::Lex::Number::v {4}                                       # Variable names.
 sub Nasm::X86::Unisyn::Lex::Letter::v {(0x1d5d4...0x1d607, 0x1d756..0x1d78f)}
 
 sub Nasm::X86::Unisyn::Lex::Number::q {5}                                       # Suffix operator - applies only to the preceding variable or bracketed term.
-sub Nasm::X86::Unisyn::Lex::Letter::q {(0x1d63c...0x1d66f,0x1d790..0x1d7c9)}
+sub Nasm::X86::Unisyn::Lex::Letter::q {(0x1d63c...0x1d66f,0x1d790..0x1d7c9, map {ord} qw(¹ ² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹ ⁰ ᵃ ᵇ ᶜ ᵈ ᵉ ᶠ ᵍ ʰ ⁱ ʲ ᵏ ˡ ᵐ ⁿ ᵒ ᵖ ʳ ˢ ᵗ ᵘ ᵛ ʷ ˣ ʸ ᶻ))}
 
 sub Nasm::X86::Unisyn::Lex::Number::s {6}                                       # Infix operator with left to right binding at priority 1.
 sub Nasm::X86::Unisyn::Lex::Letter::s {(0x27e2)}
