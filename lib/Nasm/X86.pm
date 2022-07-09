@@ -9775,10 +9775,7 @@ sub Nasm::X86::Unisyn::Lex::letterToNumber                                      
 
   $a[$_] //= -1 for 0..$#a;                                                     # Mark disallowed characters
 
-#say STDERR dump \%a; exit;
-#lll "AAAA", sprintf "%x", [sort keys %a]->[-1]; exit;
-
-  (Rq(scalar @a), Rd(@a))                                                       # Size of array, array
+  (K(size => scalar @a), K array => Rd @a)                                      # Size of array, array
  }
 
 sub Nasm::X86::Unisyn::Lex::numberToLetter                                      # Recover a letter from its unique number
@@ -9794,7 +9791,7 @@ sub Nasm::X86::Unisyn::Lex::numberToLetter                                      
 
   my @a; $a[$a{$_}] = $_ for sort keys %a;                                      # Mapping from number to letter
 
-  (Rq(scalar @a), Rd(@a))                                                       # Size of array, array
+  (K(size => scalar @a), K array => Rd @a)                                      # Size of array, array
  }
 
 sub Nasm::X86::Unisyn::Lex::Reason::Success           {0};                      # Successful parse.
@@ -11289,7 +11286,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11291 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11288 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19080,12 +19077,8 @@ END
 
 latest:;
 if (1)                                                                          #TNasm::X86::Unisyn::Lex::letterToNumber #TNasm::X86::Unisyn::Lex::numberToLetter
- {my ($n1, $l1) = Nasm::X86::Unisyn::Lex::letterToNumber;
-  my ($N1, $L1) = Nasm::X86::Unisyn::Lex::numberToLetter;
-  my  $n = V lengthLN => "[$n1]";
-  my  $N = V lengthNL => "[$N1]";
-  my  $l = V arrayLN  => $l1;
-  my  $L = V arrayLN  => $L1;
+ {my ($n, $l) = Nasm::X86::Unisyn::Lex::letterToNumber;
+  my ($N, $L) = Nasm::X86::Unisyn::Lex::numberToLetter;
 
   If $N > $n,
   Then
