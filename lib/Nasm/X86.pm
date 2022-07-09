@@ -9838,6 +9838,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
   my $dWidth      = RegisterSize eax;                                           # Size of a dword
 
+  my ($alphabetN, $alphabetA) = Nasm::X86::Unisyn::Lex::AlphabetsArray;         # Mapping of characters to alphabets
+
   my $dumpStack = sub                                                           # Dump the parse stack
    {my $i = V i => 0;                                                           # Position in stack
     PrintOutStringNL "Dump parse stack";
@@ -10146,7 +10148,6 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       Jmp $end;
      };
 
-    my ($alphabetN, $alphabetA) = Nasm::X86::Unisyn::Lex::AlphabetsArray;       # Classify a character into an alphabet
     $char->setReg(rsi);                                                         # Character
     Mov rdi, "[$alphabetN]";                                                    # Limit of alphabet array
 
@@ -11252,7 +11253,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11254 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11255 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
