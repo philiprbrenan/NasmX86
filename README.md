@@ -65,7 +65,7 @@ The canonical ```"Hello World"``` in Unisyn is:
 
 No quotes are needed because the use of letters drawn from [Ascii](https://en.wikipedia.org/wiki/ASCII) indicate that
 these characters are part of a [string](https://en.wikipedia.org/wiki/String_(computer_science)).  [UniSyn](https://github.com/philiprbrenan/UnisynParse) prints such [strings](https://en.wikipedia.org/wiki/String_(computer_science)) on
-```stdout``` if they are followed by a statement separator.
+```stdout``` if they could be followed by a statement separator.
 
 
 Given a [string](https://en.wikipedia.org/wiki/String_(computer_science)) of [UniSyn](https://github.com/philiprbrenan/UnisynParse) :
