@@ -11932,8 +11932,9 @@ if (!onGitHub) {                                                                
   ok $r =~ m(3E8);
  }
 
+#latest:;
 if (1) {                                                                        #TStatSize
-  Mov rax, Rs($0);                                                              # File to stat
+  Mov rax, Rs $0;                                                               # File to stat
   StatSize;                                                                     # Stat the file
   PrintOutRegisterInHex rax;
 
@@ -12015,6 +12016,19 @@ if (1) {                                                                        
 
   ok Assemble eq => <<END, avx512=>0;
 Pass
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TToZero
+  Mov rax, 3;
+  ToZero
+   {PrintOutStringNL "AAAA";
+   }  rax;
+  ok Assemble eq => <<END, clocks=>4374;
+AAAA
+AAAA
+AAAA
 END
  }
 
@@ -15563,6 +15577,24 @@ AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  
 END
  }
 
+if (1) {                                                                        # Speed test for put
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+
+  my $N = 33;
+
+  K(key => $N)->for(sub
+   {my ($i) = @_;                                                               # Parameters
+    $t->put($i, $i);
+   });
+
+# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
+#    1           6_947          81_896           6_947          81_896        0.2552          0.10          0.00  Better incSizeInFirst
+#    1           6_716          81_728           6_716          81_728        0.2544          0.10          0.00  Better incSizeInKeys
+  ok Assemble eq => <<END, clocks=>6_716;
+END
+ }
+
 #latest:
 if (1) {
   my $N = 13;
@@ -18354,26 +18386,42 @@ END
   unlink $f;
  }
 
+#latest:;
+if (1) {                                                                        #TNasm::X86::Tree::uniqueKeyString #TNasm::X86::Tree::getKeyString
+  my $t = CreateArea->CreateTree(stringTree=>1);
+
+  K(loop => 3)->for(sub
+   {my $a = $t->uniqueKeyString(constantString("aaaa")); $a->outNL;
+    my $b = $t->uniqueKeyString(constantString("bbbb")); $b->outNL;
+   });
+
+  for my $k(qw(aaaa bbbb ccccc))
+   {PrintOutStringNL $k;
+    $t->getKeyString(constantString $k); $t->found->outNL; $t->data->outNL;
+   }
+
+  ok Assemble eq => <<END, clocks=>4374;
+count: .... .... .... ...0
+count: .... .... .... ...1
+count: .... .... .... ...0
+count: .... .... .... ...1
+count: .... .... .... ...0
+count: .... .... .... ...1
+aaaa
+found  : .... .... .... ...1
+data   : .... .... .... ...0
+bbbb
+found  : .... .... .... ...2
+data   : .... .... .... ...1
+ccccc
+found  : .... .... .... ...0
+data   : .... .... .... ...0
+END
+ }
+
 test12: goto testX unless $test{12};
 
 #latest:
-if (1) {                                                                        # Speed test for put
-  my $a = CreateArea;
-  my $t = $a->CreateTree;
-
-  my $N = 33;
-
-  K(key => $N)->for(sub
-   {my ($i) = @_;                                                               # Parameters
-    $t->put($i, $i);
-   });
-
-# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
-#    1           6_947          81_896           6_947          81_896        0.2552          0.10          0.00  Better incSizeInFirst
-#    1           6_716          81_728           6_716          81_728        0.2544          0.10          0.00  Better incSizeInKeys
-  ok Assemble eq => <<END, clocks=>6_716;
-END
- }
 
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
 
@@ -18731,52 +18779,6 @@ data   : .... .... .... ...7
 data   : .... .... .... ...8
 data   : .... .... .... ...9
 data   : .... .... .... ...A
-END
- }
-
-#latest:;
-if (1) {                                                                        #TNasm::X86::Tree::uniqueKeyString #TNasm::X86::Tree::getKeyString
-  my $t = CreateArea->CreateTree(stringTree=>1);
-
-  K(loop => 3)->for(sub
-   {my $a = $t->uniqueKeyString(constantString("aaaa")); $a->outNL;
-    my $b = $t->uniqueKeyString(constantString("bbbb")); $b->outNL;
-   });
-
-  for my $k(qw(aaaa bbbb ccccc))
-   {PrintOutStringNL $k;
-    $t->getKeyString(constantString $k); $t->found->outNL; $t->data->outNL;
-   }
-
-  ok Assemble eq => <<END, clocks=>4374;
-count: .... .... .... ...0
-count: .... .... .... ...1
-count: .... .... .... ...0
-count: .... .... .... ...1
-count: .... .... .... ...0
-count: .... .... .... ...1
-aaaa
-found  : .... .... .... ...1
-data   : .... .... .... ...0
-bbbb
-found  : .... .... .... ...2
-data   : .... .... .... ...1
-ccccc
-found  : .... .... .... ...0
-data   : .... .... .... ...0
-END
- }
-
-#latest:;
-if (1) {                                                                        #TToZero
-  Mov rax, 3;
-  ToZero
-   {PrintOutStringNL "AAAA";
-   }  rax;
-  ok Assemble eq => <<END, clocks=>4374;
-AAAA
-AAAA
-AAAA
 END
  }
 
@@ -19173,10 +19175,10 @@ END
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
   my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
 
-  my $library = Subroutine                                                      # The containing subroutine which will contain all the code written to the area
+  my $library = Subroutine                                                      # This subroutine and all of the subroutines it contains will be saved in an area and that area will be written to a file from where it can be included via L<incBin> in subsequent assemblies.
    {my ($p, $s, $sub) = @_;
 
-    Subroutine                                                                  # The contained routine that we wish to call
+    Subroutine                                                                  # A contained routine that we wish to export to a file
      {my ($p, $s, $sub) = @_;
       PrintOutString "Ascii: ";
 
@@ -19195,7 +19197,7 @@ if (1) {                                                                        
        structures => {parse => Nasm::X86::Unisyn::DescribeParse},
        parameters => [qw(offset)];
 
-    Subroutine
+    Subroutine                                                                  # Another subroutine that will be exported because it is within the subroutine that is being exported as a library
      {my ($p, $s, $sub) = @_;
       PrintOutStringNL "Add";
      } name => "＋",
