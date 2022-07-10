@@ -2581,7 +2581,8 @@ sub PrintRightInHex($$$)                                                        
    } name => "PrintRightInHex_${channel}",
      parameters=>[qw(width number)];
 
-  $s->call(parameters => {number => $number, width=>K width => $width});
+  $s->call(parameters =>
+   {number => $number, ref($width) ? $width : K width => $width});
  }
 
 sub PrintErrRightInHex($$)                                                      # Write the specified variable in hexadecimal right justified in a field of specified width on stderr.
@@ -11345,7 +11346,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11347 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11348 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19171,7 +19172,7 @@ if (1)                                                                          
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
   my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
 
