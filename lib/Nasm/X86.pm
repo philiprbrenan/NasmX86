@@ -10230,9 +10230,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
     $itemLength++;                                                              # Increment unicode length
 
     $char->setReg(rsi);                                                         # Character
-    Mov rdi, "[$alphabetN]";                                                    # Limit of alphabet array
 
-    Cmp rsi, rdi;                                                               # Compare with alphabet array limit
+    Cmp rsi, "[$alphabetN]";                                                    # Compare with alphabet array limit
 
     IfGe
     Then                                                                        # Utf32 character is out of range of the alphabets array
@@ -11336,7 +11335,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11338 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11337 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
