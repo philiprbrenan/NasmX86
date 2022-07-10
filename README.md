@@ -47,21 +47,19 @@ area.
 
 A parser for the [UniSyn](https://github.com/philiprbrenan/UnisynParse) programming language has been built in [assembler](https://en.wikipedia.org/wiki/Assembly_language#Assembler) using
 this software.
-
-**unisyn** implements a generic, universal, [utf8](https://en.wikipedia.org/wiki/UTF-8) based syntax suitable for
+ [UniSyn](https://github.com/philiprbrenan/UnisynParse) implements a generic, universal, [utf8](https://en.wikipedia.org/wiki/UTF-8) based syntax suitable for
 constructing programming languages that make extensive use of [infix](https://en.wikipedia.org/wiki/Infix_notation) operators.
-
-**unisyn** enables the definition of new [infix](https://en.wikipedia.org/wiki/Infix_notation) operators using selected [Unicode](https://en.wikipedia.org/wiki/Unicode) points. Each such new [infix](https://en.wikipedia.org/wiki/Infix_notation) operator may have one of 12 precedence levels. The
+ [UniSyn](https://github.com/philiprbrenan/UnisynParse) enables the definition of new [infix](https://en.wikipedia.org/wiki/Infix_notation) operators using selected [Unicode](https://en.wikipedia.org/wiki/Unicode) points. Each such new [infix](https://en.wikipedia.org/wiki/Infix_notation) operator may have one of 12 precedence levels. The
 precedence level for each [infix](https://en.wikipedia.org/wiki/Infix_notation) operator is determined by the alphabet from
 within [Unicode](https://en.wikipedia.org/wiki/Unicode) from which its letters are drawn.
 
-For example, the [infix](https://en.wikipedia.org/wiki/Infix_notation) operator: 𝕒𝕟𝕕  would have a priority of 3,
-whilst 𝗮𝗻𝗱  would have a priority of 11.
+For example, the [infix](https://en.wikipedia.org/wiki/Infix_notation) operator: ```𝕒𝕟𝕕```  would have a priority of 3,
+whilst ```𝗮𝗻𝗱``` would have a priority of 11.
 
 The type of each lexical item in a [UniSyn](https://github.com/philiprbrenan/UnisynParse) [program](https://en.wikipedia.org/wiki/Computer_program) can be determined immediately
 by examining any character used in its construction.
 
-The canonical "Hello World" in Unisyn is:
+The canonical ```"Hello World"``` in Unisyn is:
 
 ```Hello World```
 
