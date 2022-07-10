@@ -2527,14 +2527,13 @@ sub PrintOutZF                                                                  
 #D2 Hexadecimal                                                                 # Print numbers in hexadecimal right justified in a field
 
 sub PrintRightInHex($$$)                                                        # Print out a number in hex right justified in a field of specified width on the specified channel.
- {my ($channel, $number, $Width) = @_;                                          # Channel, number as a variable, width of output field as a variable
-  @_ == 3 or confess "Three parameters required";
+ {my ($channel, $Number, $width) = @_;                                          # Channel, number as a variable or register, width of output field as a constant
 
-  my $width = ref($Width) ? $Width : K(width => $Width);                        # Promote constant
+  my $number = ref($Number) ? $Number : V(number => $Number);                   # Variable or register
+  confess "Width must be a constant no greater than 16"
+    unless $width =~ m(\A\d+\Z) and $width <= 16;
 
   $channel =~ m(\A(1|2)\Z) or confess "Invalid channel should be stderr or stdout";
-  ref($number) =~ m(variable)i or confess "number must be a variable";
-  ref($width)  =~ m(variable)i or confess "width must be a variable";
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -2573,6 +2572,7 @@ sub PrintRightInHex($$$)                                                        
     PushR xmm0;                                                                 # Print xmm0 within the width of the field
     Mov rax, rsp;
     $$p{width}->setReg(rdi);
+    And rdi, 0xff;                                                              # Limit field width to 16
     Add rax, 16;
     Sub rax, rdi;
     &PrintOutMemory();
@@ -2581,44 +2581,39 @@ sub PrintRightInHex($$$)                                                        
    } name => "PrintRightInHex_${channel}",
      parameters=>[qw(width number)];
 
-  $s->call(parameters => {number => $number, width=>$width});
+  $s->call(parameters => {number => $number, width=>K width => $width});
  }
 
 sub PrintErrRightInHex($$)                                                      # Write the specified variable in hexadecimal right justified in a field of specified width on stderr.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  @_ == 2 or confess "Two parameters required";
   PrintRightInHex($stderr, $number, $width);
  }
 
 sub PrintErrRightInHexNL($$)                                                    # Write the specified variable in hexadecimal right justified in a field of specified width on stderr followed by a new line.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  @_ == 2 or confess "Two parameters required";
   PrintRightInHex($stderr, $number, $width);
   PrintErrNL;
  }
 
 sub PrintOutRightInHex($$)                                                      # Write the specified variable in hexadecimal right justified in a field of specified width on stdout.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  @_ == 2 or confess "Two parameters required";
   PrintRightInHex($stdout, $number, $width);
  }
 
 sub PrintOutRightInHexNL($$)                                                    # Write the specified variable in hexadecimal right justified in a field of specified width on stdout followed by a new line.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  @_ == 2 or confess "Two parameters required";
   PrintRightInHex($stdout, $number, $width);
   PrintOutNL;
  }
 
 #D2 Binary                                                                      # Print numbers in binary right justified in a field
 
-sub PrintRightInBin($$$)                                                        # Print out a number in hex right justified in a field of specified width on the specified channel.
- {my ($channel, $number, $width) = @_;                                          # Channel, number as a variable, width of output field as a variable
-  @_ == 3 or confess "Three parameters required";
+sub PrintRightInBin($$$)                                                        # Print out a number in binary right justified in a field of specified width on the specified channel.
+ {my ($channel, $Number, $Width) = @_;                                          # Channel, number as a variable or register, width of output field as a variable or constant
 
   $channel =~ m(\A(1|2)\Z)     or confess "Channel should be stderr or stdout";
-  ref($number) =~ m(variable)i or confess "Number must be a variable";
-  ref($width)  =~ m(variable)i or confess "Width must be a variable";
+  my $number = ref($Number) ? $Number : V(number => $Number);                   # Variable or register
+  my $width  = ref($Width)  ? $Width  : K(width => $Width);                     # Promote constant
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -2673,26 +2668,22 @@ sub PrintRightInBin($$$)                                                        
 
 sub PrintErrRightInBin($$)                                                      # Write the specified variable in binary right justified in a field of specified width on stderr.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  @_ == 2 or confess "Two parameters required";
   PrintRightInBin($stderr, $number, $width);
  }
 
 sub PrintErrRightInBinNL($$)                                                    # Write the specified variable in binary right justified in a field of specified width on stderr followed by a new line.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  @_ == 2 or confess "Two parameters required";
   PrintRightInBin($stderr, $number, $width);
   PrintErrNL;
  }
 
 sub PrintOutRightInBin($$)                                                      # Write the specified variable in binary right justified in a field of specified width on stdout.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  @_ == 2 or confess "Two parameters required";
   PrintRightInBin($stdout, $number, $width);
  }
 
 sub PrintOutRightInBinNL($$)                                                    # Write the specified variable in binary right justified in a field of specified width on stdout followed by a new line.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  @_ == 2 or confess "Two parameters required";
   PrintRightInBin($stdout, $number, $width);
   PrintOutNL;
  }
@@ -2701,7 +2692,6 @@ sub PrintOutRightInBinNL($$)                                                    
 
 sub PrintRaxInDec($)                                                            # Print rax in decimal on the specified channel.
  {my ($channel) = @_;                                                           # Channel to write on
-  @_ == 1 or confess "One parameter";
 
   my $s = Subroutine
    {PushR rax, rdi, rdx, r9, r10;
@@ -2750,7 +2740,9 @@ sub PrintErrRaxInDecNL                                                          
  }
 
 sub PrintRaxRightInDec($$)                                                      # Print rax in decimal right justified in a field of the specified width on the specified channel.
- {my ($width, $channel) = @_;                                                   # Width, channel
+ {my ($Width, $channel) = @_;                                                   # Width as a variable or a constant, channel
+
+  my $width  = ref($Width)  ? $Width  : K width => $Width;                      # Promote constant
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
@@ -2784,66 +2776,40 @@ sub PrintRaxRightInDec($$)                                                      
     PopR;
    } parameters=>[qw(width)], name => "PrintRaxRightInDec_${channel}";
 
-  $s->call(parameters=>{width => $width});
+  $s->call(parameters=>{width => ref($width) ? $width : V width => $width});
  }
 
-sub PrintErrRaxRightInDec($)                                                    # Print rax in decimal right justified in a field of the specified width on stderr.
- {my ($width) = @_;                                                             # Width
-  PrintRaxRightInDec($width, $stderr);
+sub PrintRightInDec($$$)                                                        # Print out a number in decimal right justified in a field of specified width on the specified channel.
+ {my ($channel, $Number, $width) = @_;                                          # Channel, number as a variable or register, width of output field as a variable or constant
+
+  my $number = ref($Number) ? $Number : V(number => $Number);                   # Variable or register
+
+  PushR rax;
+  $number->setReg(rax);
+  PrintRaxRightInDec $width, $channel;
+  PopR;
  }
 
-sub PrintErrRaxRightInDecNL($)                                                  # Print rax in decimal right justified in a field of the specified width on stderr followed by a new line.
- {my ($width) = @_;                                                             # Width
-  PrintRaxRightInDec($width, $stderr);
+sub PrintErrRightInDec($$)                                                      # Print a variable or register in decimal right justified in a field of the specified width on stderr.
+ {my ($number, $width) = @_;                                                    # Number as a variable or a register, width as a variable or constant
+  PrintRightInDec($stderr, $number, $width);
+ }
+
+sub PrintErrRightInDecNL($$)                                                    # Print a variable or register in decimal right justified in a field of the specified width on stderr followed by a new line.
+ {my ($number, $width) = @_;                                                    # Number as a variable or a register, width as a variable or constant
+  PrintErrRightInDec($number, $width);
   PrintErrNL;
  }
 
-sub PrintOutRaxRightInDec($)                                                    # Print rax in decimal right justified in a field of the specified width on stdout.
- {my ($width) = @_;                                                             # Width
-  PrintRaxRightInDec($width, $stdout);
+sub PrintOutRightInDec($$)                                                      # Print a variable or register in decimal right justified in a field of the specified width on stdout.
+ {my ($number, $width) = @_;                                                    # Number as a variable or a register, width as a variable or constant
+  PrintRightInDec($stdout, $number, $width);
  }
 
-sub PrintOutRaxRightInDecNL($)                                                  # Print rax in decimal right justified in a field of the specified width on stdout followed by a new line.
- {my ($width) = @_;                                                             # Width
-  PrintRaxRightInDec($width, $stdout);
+sub PrintOutRightInDecNL($$)                                                    # Print a variable or register in decimal right justified in a field of the specified width on stdout followed by a new line.
+ {my ($number, $width) = @_;                                                    # Number as a variable or a register, width as a variable or constant
+  PrintOutRightInDec($number, $width);
   PrintOutNL;
- }
-
-sub PrintErrRegisterRightInDec($$)                                              # Print rax in decimal right justified in a field of the specified width on stderr.
- {my ($register, $width) = @_;                                                  # Register, width
-  my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
-  PushR rax;
-  Mov rax, $register;
-  PrintRaxRightInDec($w, $stderr);
-  PopR;
- }
-
-sub PrintErrRegisterRightInDecNL($$)                                            # Print rax in decimal right justified in a field of the specified width on stderr followed by a new line.
- {my ($register, $width) = @_;                                                  # Register, width
-  my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
-  PushR rax;
-  Mov rax, $register;
-  PrintRaxRightInDec($w, $stderr);
-  PrintErrNL;
- }
-
-sub PrintOutRegisterRightInDec($$)                                              # Print rax in decimal right justified in a field of the specified width on stdout.
- {my ($register, $width) = @_;                                                  # Register, width
-  my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
-  PushR rax;
-  Mov rax, $register;
-  PrintRaxRightInDec($w, $stdout);
-  PopR;
- }
-
-sub PrintOutRegisterRightInDecNL($$)                                            # Print rax in decimal right justified in a field of the specified width on stdout followed by a new line.
- {my ($register, $width) = @_;                                                  # Register, width
-  my $w = ref($width) ? $width : K(width => $width);                            # Convert width to a variable
-  PushR rax;
-  Mov rax, $register;
-  PrintRaxRightInDec($w, $stdout);
-  PrintOutNL;
-  PopR;
  }
 
 #D2 Text                                                                        # Print the contents of a register as text.
@@ -5818,14 +5784,14 @@ sub Nasm::X86::Area::dump($$;$)                                                 
     PushR rax;                                                                  # Print size
     Mov rax, "[rax+$$area{sizeOffset}]";
     PrintOutString "  Size: ";
-    PrintOutRaxRightInDec K width => 8;
+    PrintOutRightInDec rax, K width => 8;
     PrintOutString "  ";
     PopR rax;
 
     PushR rax;                                                                  # Print size
     Mov rax, "[rax+$$area{usedOffset}]";
     PrintOutString("  Used: ");
-    PrintOutRaxRightInDec  K width => 8;
+    PrintOutRightInDec rax, K width => 8;
     PrintOutNL;
     PopR rax;
 
@@ -11379,7 +11345,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11381 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11347 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -11509,7 +11475,7 @@ END
 #latest:;
 if (1) {                                                                        #TPrintOutRaxInHex #TPrintOutNL #TPrintOutString
   Mov rax, 0x666;
-  PrintOutRaxRightInDec K width => 8;
+  PrintOutRightInDec rax,  K width => 8;
   PrintOutNL;
 
   ok Assemble(avx512=>0, eq=><<END);
@@ -13823,26 +13789,26 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TPrintOutRaxInDecNL #TPrintOutRaxRightInDec
+if (1) {                                                                        #T
   my $w = V width => 12;
 
   Mov rax, 0;
-  PrintOutRaxRightInDecNL $w;
+  PrintOutRightInDecNL rax,  $w;
 
   Mov rax, 0x2a;
-  PrintOutRaxRightInDecNL $w;
+  PrintOutRightInDecNL rax,  $w;
 
   Mov rax, 1;
-  PrintOutRaxRightInDecNL $w;
+  PrintOutRightInDecNL rax,  $w;
 
   Mov rax, 255;
-  PrintOutRaxRightInDecNL $w;
+  PrintOutRightInDecNL rax,  $w;
 
   Mov rax, 123456;
-  PrintOutRaxRightInDecNL $w;
+  PrintOutRightInDecNL rax,  $w;
 
   Mov rax, 1234567890;
-  PrintOutRaxRightInDecNL $w;
+  PrintOutRightInDecNL rax,  $w;
 
   Mov rax, 0x2;
   Shl rax, 16;
@@ -13851,7 +13817,7 @@ if (1) {                                                                        
   Shl rax, 16;
   Mov rdx, 0x1c35;
   Or rax, rdx;
-  PrintOutRaxRightInDecNL $w;
+  PrintOutRightInDecNL rax,  $w;
 
 # 1C BE99 1A14
   Mov rax, 0x1c;
@@ -13871,7 +13837,7 @@ if (1) {                                                                        
   Shl rax, 16;
   Mov rdx, 0x3961;
   Or rax, rdx;
-  PrintOutRaxRightInDecNL $w;
+  PrintOutRightInDecNL rax,  $w;
 
   ok Assemble avx512=>0, eq => <<END;
            0
@@ -13977,14 +13943,16 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TPrintOutRaxRightInDec #TPrintOutRaxRightInDecNL
+if (1) {                                                                        #TPrintOutRightInHexNL #TPrintOutRightInDecNL #TPrintOutRightInBinNL
   Mov rax, 0x2a;
-  PrintOutRaxRightInDec   V width=> 4;
-  Shl rax, 1;
-  PrintOutRaxRightInDecNL V width=> 6;
+  PrintOutRightInDecNL rax, 16;
+  PrintOutRightInHexNL rax, 16;
+  PrintOutRightInBinNL rax, 16;
 
-  ok Assemble eq => <<END, avx512=>0;
-  42    84
+  ok Assemble eq => <<END, avx512=>1;
+              42
+              2A
+          101010
 END
  }
 
@@ -13999,7 +13967,7 @@ if (1) {                                                                        
    {my ($index, $start, $next, $end) = @_;
     $index->outRightInDec(V(width => 2));                                       # Index
     Mov rax, r13;
-    PrintOutRaxRightInDecNL V width => 12;                                      # Fibonacci number at this index
+    PrintOutRightInDecNL rax, 12;                                               # Fibonacci number at this index
 
     Mov r15, r14;                                                               # Next number is the sum of the two previous ones
     Add r15, r13;
@@ -18560,10 +18528,10 @@ if (1) {                                                                        
 
     BinarySearchD                                                               # Search
       size    => sub{my ($r) = @_; Mov $r, 8},
-      found   => sub{PrintOutString " @ "; PrintOutRegisterRightInDecNL rax, 1},
+      found   => sub{PrintOutString " @ "; PrintOutRightInDecNL rax, 1},
       after   => sub{PrintOutStringNL " after"},
       before  => sub{PrintOutStringNL " before"},
-      between => sub{PrintOutString " > "; PrintOutRegisterRightInDecNL rax, 1},
+      between => sub{PrintOutString " > "; PrintOutRightInDecNL rax, 1},
       compare => sub                                                            # Compare
        {my ($index) = @_;                                                       # Search key in register, current index in register
         Mov rdi, $array;
