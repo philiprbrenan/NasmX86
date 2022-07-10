@@ -1699,8 +1699,9 @@ sub Nasm::X86::Area::writeLibraryHeader($$)                                     
   $o                                                                            # Return the offset of the library header in the area
  }
 
-sub Nasm::X86::Area::readLibraryHeader($$)                                      # Create a tree mapping the numbers assigned to subroutine names to the offsets of the corresponding routines in a library returning the intersection so formed an a string tree of all the routines in the library
- {my ($area, $uniqueStrings) = @_;                                              # Area containing subroutine library, unique strings from parse
+sub Nasm::X86::Area::readLibraryHeader($$;$)                                    # Create a tree mapping the numbers assigned to subroutine names to the offsets of the corresponding routines in a library returning the intersection so formed mapping the lexical item numbers (not names) encountered during parsing with the matching routines in the library. Optionally a subroutine (like Nasm::X86::Unisyn::Lex::letterToNumber) can be provided that returns details of an array that maps a single utf32 character to a smaller number which will be assumed to be the number of the routine with that single letter as its name.
+ {my ($area, $uniqueStrings, $singleLetterArray) = @_;                          # Area containing subroutine library, unique strings from parse, subroutine returning details of a single character mapping array
+  @_ >= 2 or confess "At least two parameters";
 
   my $a = $area;
   my $u = $uniqueStrings;                                                       # Unique strings from parse
@@ -1727,9 +1728,31 @@ sub Nasm::X86::Area::readLibraryHeader($$)                                      
   my $s = $A->CreateTree(stringTree=>1);                                        # String keys tree mapping routine names to offsets
 
   ToZero                                                                        # Each subroutine
-   {$s->putKeyString(V(address => $name), V(length => "[$sub+$w]"),             # Routine name to subroutine offset mapping
-             my $o = V(offset  =>"[$sub]"));
-#   $s->getKeyString(V(address => $name), V(length => "[$sub+$w]"));
+   {$s->putKeyString(                                                           # Routine name to subroutine offset mapping
+            (my $n = V address => $name),
+            (my $l = V length  => "[$sub+$w]"),
+             my $o = V offset  =>"[$sub]");
+
+    if ($singleLetterArray)                                                     # Include single character routines if they are in the optional mapping array
+     {my ($char, $size, $fail) = &GetNextUtf8CharAsUtf32($n);                   # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+
+      If $l == $size,                                                           # Did we read all of the name as one unicode character despit the fact that it occupied several bytes?
+      Then                                                                      # Single character name
+       {my ($n, $l) = &$singleLetterArray;
+        If $char < $n,
+        Then                                                                    # The single character is in the domain of the mapping array
+         {$l->setReg(rax);                                                      # Address array of single letters
+          $char->setReg(rsi);                                                   # The character we want to test as utf32
+          Mov edx, "[rax+4*rsi]";                                               # The smaller number representing the letter
+          Cmp edx, -1;
+          IfNe
+          Then                                                                  # The found smaller number is valid
+           {Neg rdx;                                                            # Count down from zero rather then up to avoid immediate collisions with routines with multiple letters in their names
+            $t->put(V(key => rdx), V offset => "[$sub]");                       # Access routine via a single character operator name
+           };
+         };
+       };
+     }
 
     $u->getKeyString(V(address => $name), V(length => "[$sub+$w]"));            # Check whether the subroutine name matches any string in the key string tree.
     If $u->found > 0,
@@ -1742,7 +1765,7 @@ sub Nasm::X86::Area::readLibraryHeader($$)                                      
 
   PopR;
 
- ($t, $s)                                                                            # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
+ ($t, $s)                                                                       # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
  }
 
 sub Nasm::X86::Subroutine::subroutineDefinition($$$)                            # Get the definition of a subroutine from an area.
@@ -4932,7 +4955,7 @@ sub convert_rax_from_utf32_to_utf8                                              
   $s->call;
  } # convert_rax_from_utf32_to_utf8
 
-sub GetNextUtf8CharAsUtf32($)                                                   # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
+sub GetNextUtf8CharAsUtf32($)                                                   # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 character as a variable along with the size of the input character and a variable indicating the success - 1 -  or failure  - 0 - of the operation.
  {my ($in) = @_;                                                                # Address of utf8 character as a variable
   @_ == 1 or confess "One parameter";
 
@@ -5019,7 +5042,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
  ($out, $size, $fail)                                                           # Output character variable, output size of input, output error if any
  } # GetNextUtf8CharAsUtf32
 
-sub ConvertUtf8ToUtf32($$)                                                      # Convert an allocated block  string of utf8 to an allocated block of utf32 and return its address and length.
+sub ConvertUtf8ToUtf32($$)                                                      # Convert an allocated string of utf8 to an allocated string of utf32 and return its address and length.
  {my ($a8, $s8) = @_;                                                           # Utf8 string address variable, utf8 length variable
   @_ == 2 or confess "Two parameters";
 
@@ -9861,17 +9884,23 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
   my $position    = V 'pos        ' => 0;                                       # Position in input string
   my $last        = V 'last       ' => Nasm::X86::Unisyn::Lex::Number::S;       # Last lexical type starting on ths start symbol
 
+
   my $parseFail   = V 'parseFail  ' =>  1;                                      # If not zero the parse has failed for some reason
   my $parseReason = V 'parseReason' =>  0;                                      # The reason code describing the failure if parseFail is not zero - we could probably merge these two fields
   my $parseMatch  = V 'parseMatch ' =>  0;                                      # The position of the bracket we failed to match
-  my $parseChar   = V 'parseChar  ' =>  0;                                      # The last character recognized
+  my $parseChar   = V 'parseChar  ' =>  0;                                      # The last character recognized held as utf32
+  my $firstChar   = V 'firstChar';                                              # First character recognized in a lexical item held as utf32
 
   my $startPos    = V 'startPos   ' =>  0;                                      # Start position of the last lexical item
-  my $lastNew     = V 'lastNew    ' => -1;                                      # Last lexical created
+  my $lastNew     = V 'lastNew    ' => -1;                                      # Offset of the last lexical created in the parse stack
+
+  my $itemLength  = V 'itemLength'  => 0;                                       # Length of lexical item in unicode characters
 
   my $dWidth      = RegisterSize eax;                                           # Size of a dword
 
   my ($alphabetN, $alphabetA) = Nasm::X86::Unisyn::Lex::AlphabetsArray;         # Mapping of characters to alphabets
+  my ($letterToNumberN, $letterToNumberA) =                                     # Map utf32 to letter number because it is smaller than a dword and so can be conveniently used to designate the lexical number of single character items
+                                         Nasm::X86::Unisyn::Lex::letterToNumber;
 
   my $dumpStack = sub                                                           # Dump the parse stack
    {my $i = V i => 0;                                                           # Position in stack
@@ -9901,7 +9930,22 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
    {If $lastNew >= 0,
     Then                                                                        # Update the last lexical item if there was one
      {my $l = $position - $startPos;                                            # Length of previous item
-      my $s = $symbols->uniqueKeyString($a8+$startPos,   $l);                   # The symbol number of the previous lexical item
+      my $s = V 'lexicalItemNumber';
+
+      If $itemLength == 1,
+      Then                                                                      # Single letter item so we use -its position in the alphabets as its lexical number as this is much faster than looking it up in a tree
+       {my ($N, $A) = Nasm::X86::Unisyn::Lex::letterToNumber;
+
+        $A->setReg(rax);                                                        # Address array of single letters
+        $firstChar->setReg(rsi);                                                # The first and only character if the lexical item
+        Mov edx, "[rax+4*rsi]";                                                 # The smaller number representing the letter
+        Neg rdx;                                                                # Count down from zero to differentiate from multi letter lexical items which count up from zero.
+        $s->getReg(rdx);                                                        # Access routine via a single character operator name
+       },
+      Else                                                                      # The lexical item has multiple characters in it so we look them up in the conventional manner
+       {$s->copy($symbols->uniqueKeyString($a8+$startPos, $l));                 # The symbol number of the previous lexical item
+       };
+
       $parse->getZmmBlock($lastNew, 0);                                         # Reload the description of the last lexical item
       $s->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::symbol);                  # Record lexical symbol number of previous item in its describing tree
       $l->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::length);                  # Record length of previous item in its describing tree
@@ -9918,6 +9962,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
     my $o = $parse->appendZmm(0);                                               # Save the lexical item in the parse tree
     $stack->push($o);                                                           # Save the offset of the latest lexical item on the stack
     $lastNew->copy($o);                                                         # Update last created lexical item
+    $itemLength->copy(0);                                                       # Length of lexical item in unicode characters
+    $firstChar->copy($parseChar);                                               # Copy the uf32 value of the current character as it is the first character in the lexical item
    };
 
   &$new for 1..3;                                                               # Initialize the parse tree with three start symbols to act as sentinels
@@ -10181,6 +10227,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       Jmp $end;
      };
 
+    $itemLength++;                                                              # Increment unicode length
+
     $char->setReg(rsi);                                                         # Character
     Mov rdi, "[$alphabetN]";                                                    # Limit of alphabet array
 
@@ -10302,6 +10350,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      };                                                                         # Else not required - we are continuing in the same lexical item
 
     $position->copy($position + $size);                                         # Point to next character to be parsed
+
     If $position >= $s8,
     Then                                                                        # We have reached the end of the input
      {Mov rsi, $prevLexType;                                                    # Lexical type to transition from
@@ -10479,7 +10528,8 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
   @_ == 2 or confess "Two parameters";
 
   my ($intersection, $subroutines) =                                            # Create a tree mapping the subroutine numbers to subroutine offsets
-    $library->readLibraryHeader($parse->symbols);
+    $library->readLibraryHeader
+     ($parse->symbols, \&Nasm::X86::Unisyn::Lex::letterToNumber);               # Include single letter mapping
 
   my $s = Subroutine                                                            # Print a tree
    {my ($parameters, $structures, $subroutine) = @_;                            # Parameters, structures, subroutine definition
@@ -11286,7 +11336,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11288 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11338 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18243,8 +18293,8 @@ if (1) {                                                                        
 
     If $inter->found > 0,
     Then
-     {$t->call(parameters=>{a        => K key => 0x9999},                   # Call position independent code
-                                override => $a->address + $inter->data);
+     {$t->call(parameters=>{a => K key => 0x9999},                              # Call position independent code
+                            override => $a->address + $inter->data);
      },
     Else
      {PrintOutStringNL "Unable to locate subroutine 'a'";
@@ -19075,7 +19125,7 @@ if (1)                                                                          
 END
  }
 
-latest:;
+#latest:;
 if (1)                                                                          #TNasm::X86::Unisyn::Lex::letterToNumber #TNasm::X86::Unisyn::Lex::numberToLetter
  {my ($n, $l) = Nasm::X86::Unisyn::Lex::letterToNumber;
   my ($N, $L) = Nasm::X86::Unisyn::Lex::numberToLetter;
@@ -19145,15 +19195,15 @@ if (1) {                                                                        
 
     Subroutine
      {my ($p, $s, $sub) = @_;
-      PrintOutStringNL "Add";
-     } name => "＋",
+      PrintOutStringNL "Times";
+     } name => "✕",
        structures => {parse => Nasm::X86::Unisyn::DescribeParse},
        parameters => [qw(offset)];
 
     Subroutine
      {my ($p, $s, $sub) = @_;
-      PrintOutStringNL "Plus at d";
-     } name => "𝕡𝕝𝕦𝕤",
+      PrintOutStringNL "And";
+     } name => "𝕒𝕟𝕕",
        structures => {parse => Nasm::X86::Unisyn::DescribeParse},
        parameters => [qw(offset)];
 
@@ -19184,23 +19234,24 @@ END
 
   my $l = ReadArea $f;                                                          # Area containing subroutine library
 
-  my ($A, $N) = constantString  qq(1＋𝗔✕𝗕＋𝗖𝕡𝕝𝕦𝕤2✕𝗔＋𝗕＋𝗖);                         # Utf8 string to parse
-  my $p = ParseUnisyn($A, $N);                                                  # 10_445 Parse utf8 string
+  my ($A, $N) = constantString  qq(1＋𝗔✕𝗕＋𝗖𝕒𝕟𝕕2✕𝗔＋𝗕＋𝗖);                         # Utf8 string to parse
 
-  $p->dumpParseResult;
+  my $p = ParseUnisyn($A, $N);                                                  # 10_445 Parse utf8 string  5_340 after single character lexical items
 
-  $p->traverseApplyingLibraryOperators($l);                                     # Traverse a parse tree applying a library of operators where they intersect with lexical items in the parse tree
+ $p->dumpParseResult;
 
-# Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
-#    2          27_196         443_984          27_196         637_624        0.2132          3.17          0.64  at /home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm line 19126
+ $p->traverseApplyingLibraryOperators($l);                                      # Traverse a parse tree applying a library of operators where they intersect with lexical items in the parse tree
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>27_196;
+# ✕ 2715
+# ＋ ff0b
+
+  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>21_227;
 parseChar  : .... .... ...1 D5D6
 parseFail  : .... .... .... ...0
-position   : .... .... .... ..3C
+position   : .... .... .... ..38
 parseMatch : .... .... .... ...0
 parseReason: .... .... .... ...0
-𝕡𝕝𝕦𝕤
+𝕒𝕟𝕕
 ._＋
 ._._✕
 ._._._＋
@@ -19219,15 +19270,17 @@ Ascii: 1
 Variable: 𝗔
 Add
 Variable: 𝗕
+Times
 Variable: 𝗖
 Add
 Ascii: 2
 Variable: 𝗔
+Times
 Variable: 𝗕
 Add
 Variable: 𝗖
 Add
-Plus at d
+And
 END
   unlink $f;
  };
