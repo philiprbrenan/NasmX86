@@ -2527,11 +2527,7 @@ sub PrintOutZF                                                                  
 #D2 Hexadecimal                                                                 # Print numbers in hexadecimal right justified in a field
 
 sub PrintRightInHex($$$)                                                        # Print out a number in hex right justified in a field of specified width on the specified channel.
- {my ($channel, $Number, $width) = @_;                                          # Channel, number as a variable or register, width of output field as a constant
-
-  my $number = ref($Number) ? $Number : V(number => $Number);                   # Variable or register
-  confess "Width must be a constant no greater than 16"
-    unless $width =~ m(\A\d+\Z) and $width <= 16;
+ {my ($channel, $number, $width) = @_;                                          # Channel, number as a variable or register, width of output field as a constant
 
   $channel =~ m(\A(1|2)\Z) or confess "Invalid channel should be stderr or stdout";
 
@@ -2582,7 +2578,8 @@ sub PrintRightInHex($$$)                                                        
      parameters=>[qw(width number)];
 
   $s->call(parameters =>
-   {number => $number, ref($width) ? $width : K width => $width});
+   {number => ref($number) ? $number : V(number => $number),
+    ref($width) ? $width : K width => $width});
  }
 
 sub PrintErrRightInHex($$)                                                      # Write the specified variable in hexadecimal right justified in a field of specified width on stderr.
@@ -11346,7 +11343,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11348 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11345 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -14502,7 +14499,7 @@ if (1) {                                                                        
   Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(16);
 
   $t->getTreeBits(31, r8);
-  V(TreeBits => r8)->outRightInHexNL(K width => 4);
+  V(TreeBits => r8)->outRightInHexNL(4);
   PrintOutRegisterInHex 31;
 
   Mov r8, 1; $t->isTree(31, r8); PrintOutZF;
