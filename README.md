@@ -70,6 +70,52 @@ these characters are part of a [string](https://en.wikipedia.org/wiki/String_(co
 ```stdout``` if they are followed by a statement separator.
 
 
+Given a [string](https://en.wikipedia.org/wiki/String_(computer_science)) of [UniSyn](https://github.com/philiprbrenan/UnisynParse) :
+
+```
+  ParseUnisyn q(1＋𝗔✕𝗕＋𝗖𝕒𝕟𝕕2✕𝗔＋𝗕＋𝗖);
+```
+
+A sample [parse](https://en.wikipedia.org/wiki/Parsing) looks like this:
+
+```
+𝕒𝕟𝕕
+._＋
+._._✕
+._._._＋
+._._._._1
+._._._._𝗔
+._._._𝗕
+._._𝗖
+._＋
+._._＋
+._._._✕
+._._._._2
+._._._._𝗔
+._._._𝗕
+._._𝗖
+```
+
+And a sample execution:
+
+```
+Ascii: 1
+Variable: 𝗔
+Add
+Variable: 𝗕
+Times
+Variable: 𝗖
+Add
+Ascii: 2
+Variable: 𝗔
+Times
+Variable: 𝗕
+Add
+Variable: 𝗖
+Add
+And
+```
+
 # Useful links
 
 - [x86 instructions](https://hjlebbink.github.io/x86doc/)
