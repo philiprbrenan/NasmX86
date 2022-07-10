@@ -151,7 +151,7 @@ Parse a Unisyn expression to create a [parse](https://en.wikipedia.org/wiki/Pars
   my $p = $a->ParseUnisyn($s, $l);                                              # Parse the utf8 string
   $p->tree->dumpParseTree($s);                                                  # Dump the parse tree
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 ＝
 ._𝗔
 ._𝐈𝐅
@@ -168,23 +168,21 @@ END
 ## Print some [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) numbers in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```perl
-  my $N = 11;                         # How many ?
-  Mov r13, 0;                         # First  Fibonacci number
-  Mov r14, 1;                         # Second Fibonacci
-  PrintOutStringNL " i   Fibonacci";  # The title of the piece
+  my $N = 11;                                                                   # The number of Fibonacci numbers to generate
+  Mov r13, 0;                                                                   # First  Fibonacci number
+  Mov r14, 1;                                                                   # Second Fibonacci
+  PrintOutStringNL " i   Fibonacci";                                            # The title of the piece
 
-  V(N => $N)->for(sub                 # Each Fibonacci number
-   {my ($index) = @_;
+  V(N => $N)->for(sub                                                           # Generate each Fibonacci number by adding the two previous ones together
+   {my ($index, $start, $next, $end) = @_;
+    $index->outRightInDec(V(width => 2));                                       # Index
+    Mov rax, r13;
+    PrintOutRightInDecNL rax, 12;                                               # Fibonacci number at this index
 
-    $index->outRightInDec(2);         # Print index
+    Mov r15, r14;                                                               # Next number is the sum of the two previous ones
+    Add r15, r13;
 
-    Mov rax, r13;                     # Fibonacci number at this index
-    PrintOutRaxRightInDecNL 12;
-
-    Mov r15, r13;                     # Next is the sum of the two previous ones
-    Add r15, r14;
-
-    Mov r13, r14;                     # Move up
+    Mov r13, r14;                                                               # Move up
     Mov r14, r15;
    });
 
@@ -292,7 +290,7 @@ sub BinarySearchD($$)                                                           
      };
    }
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
+  ok Assemble eq => <<END, mix=>1;
  1:
  2: <= 0
  3:
@@ -525,7 +523,7 @@ Create a 6/13 multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure
   $t->printInOrder("15"); $t->delete(K k => 15);
   $t->printInOrder("XX");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
  2  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
  4  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
