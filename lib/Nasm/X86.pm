@@ -9868,6 +9868,11 @@ sub ParseUnisyn($$)                                                             
   $p
  }
 
+sub sortHashKeysByIntegerValues($)                                              #P Sort the keys of a hash whose values are integers by those values returning the keys so sorted as an array.
+ {my ($h) = @_;                                                                 # Hash
+  sort {$$h{$a} <=> $$h{$b}} sort keys %$h;                                     # Done here to avoid collisions with the sort special variables,
+ }
+
 sub Nasm::X86::Unisyn::Parse($)                                                 # Parse a string of utf8 characters.
  {my ($pd) = @_;                                                                # Parse descriptor
   @_ == 1 or confess "One parameter";
@@ -9883,7 +9888,6 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
   my $position    = V 'pos        ' => 0;                                       # Position in input string
   my $last        = V 'last       ' => Nasm::X86::Unisyn::Lex::Number::S;       # Last lexical type starting on ths start symbol
-
 
   my $parseFail   = V 'parseFail  ' =>  1;                                      # If not zero the parse has failed for some reason
   my $parseReason = V 'parseReason' =>  0;                                      # The reason code describing the failure if parseFail is not zero - we could probably merge these two fields
@@ -10200,6 +10204,10 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
    {#PrintErrStringNL "Type: w";
    };
 
+  my $S = sub                                                                   # Start symbol
+   {PrintErrTraceBack "Should not be able to reach type S";
+   };
+
   PushR my $lexType = r15, my $prevLexType = r14;                               # Current lexical type current, previous lexical item
 
   Mov $prevLexType, Nasm::X86::Unisyn::Lex::Number::S;                          # Start symbol
@@ -10326,7 +10334,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
         Cmp al, 0;                                                              # Test transitionin low byte
         IfGt
         Then                                                                    # The transition on this lexical type was a valid transition
-         {Mov $prevLexType, $lexType;                                           # New lexical tyoe we will be transitioning on
+         {Mov $prevLexType, $lexType;                                           # New lexical type we will be transitioning on
           $last->copy($lexType);                                                # Treat unbroken sequences of a symbol as one lexical item
          },
         Else                                                                    # The transition on this lexical type was an invalid transition
@@ -10339,11 +10347,47 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
        {my ($end, $start) = @_;                                                 # Code with labels supplied
-        for my $L(qw(w a A b B l m p q s v d e f g h i j k))                    # We can never arrive on the start or end symbols via transitions on the current character. The processing of a lexical item is performed as soon as its first character is recognized, additional characters are attached once we transition to the next lexical item.
-         {my $c = qq(If \$last == K($L => Nasm::X86::Unisyn::Lex::Number::$L), Then {&\$$L; Jmp \$end});
+
+        my %l = map {$_ => eval "Nasm::X86::Unisyn::Lex::Number::$_"}           # Lexical items to lexical item numbers
+          qw(w a A b B l m p q s v d e f g h i j k S F);
+        my @l = sortHashKeysByIntegerValues \%l;                                # Sort the lexical item types into numerical order
+        my @c;                                                                  # Check numbers are unique and sequential
+        my @L;                                                                  # Labels
+        my $jumpTable = Label;                                                  # Start of jump table
+
+        Comment "Jump to table";
+        $last->setReg(rax);
+        Shl rax, 4;
+        Mov rsi, $jumpTable;
+        Add rax, rsi;
+        Jmp rax;
+
+        for my $L(@l)                                                           # Create code to process each lexical item depending on its type
+         {my $n = eval "Nasm::X86::Unisyn::Lex::Number::$L";
+          $c[$n]++;
+          push @L, SetLabel;
+          my $c = "&\$$L";
+          Comment "Lexical $L";
           eval $c;
-          confess "$@\n$c\n" if $@;
+          confess $@ if $@;
+          Jmp $end;
          }
+
+        confess "Lexical items do not start zero" unless defined $c[0];         # Check that the lexical item numbers can be used to create a jump table
+        confess "Gaps in lexical items numbers"   unless @c == @l;
+        for my $i(@c)
+         {confess "Missing lexical item at $i"    unless ($c[$i]//0) == 1;      # Each jump has one lexical item
+         }
+
+        Comment "Jump Table target";
+        Align 16;
+        SetLabel $jumpTable;
+        for my $L(@L)                                                           # The jump table
+         {Jmp $L;                                                               # Jump to code that will process the lexical item
+          Align 16;
+         }
+
+        Align 1024;
         PrintErrTraceBack "Unexpected lexical type" if $DebugMode;              # Something unexpected came along
        };
      };                                                                         # Else not required - we are continuing in the same lexical item
@@ -11335,7 +11379,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11337 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11381 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19233,9 +19277,9 @@ END
 
   my $l = ReadArea $f;                                                          # Area containing subroutine library
 
-  my ($A, $N) = constantString  qq(1＋𝗔✕𝗕＋𝗖𝕒𝕟𝕕2✕𝗔＋𝗕＋𝗖);                         # Utf8 string to parse
+  my ($A, $N) = constantString  qq(1＋𝗔✕𝗕＋𝗖𝕒𝕟𝕕2✕𝗔＋𝗕＋𝗖);                          # Utf8 string to parse
 
-  my $p = ParseUnisyn($A, $N);                                                  # 10_445 Parse utf8 string  5_340 after single character lexical items
+  my $p = ParseUnisyn($A, $N);                                                  # 10_445 Parse utf8 string  5_340 after single character lexical items, 4_950 after jump table
 
  $p->dumpParseResult;
 
@@ -19244,7 +19288,7 @@ END
 # ✕ 2715
 # ＋ ff0b
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>21_227;
+  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>1, clocks=>20_921;
 parseChar  : .... .... ...1 D5D6
 parseFail  : .... .... .... ...0
 position   : .... .... .... ..38
