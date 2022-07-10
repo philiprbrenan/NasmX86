@@ -2682,9 +2682,9 @@ sub PrintOutRightInBin($$)                                                      
   PrintRightInBin($stdout, $number, $width);
  }
 
-sub PrintOutRightInBinNL($$)                                                    # Write the specified variable in binary right justified in a field of specified width on stdout followed by a new line.
+sub PrintOutRightInBinNL($;$)                                                   # Write the specified variable in binary right justified in a field of specified width on stdout followed by a new line.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  PrintRightInBin($stdout, $number, $width);
+  PrintRightInBin($stdout, $number, $width//16);
   PrintOutNL;
  }
 
@@ -11826,9 +11826,9 @@ END
 if (1) {                                                                        #TNasm::X86::Variable::outNL
   my $a = V a => 0x1111;
   $a->outNL('');
-  $a->outRightInBinNL(K width => 16);
-  $a->outRightInDecNL(K width => 16);
-  $a->outRightInHexNL(K width => 16);
+  $a->outRightInBinNL(16);
+  $a->outRightInDecNL(16);
+  $a->outRightInHexNL(16);
   ok Assemble(debug => 0, eq => <<END, avx512=>1);
 .... .... .... 1111
    1000100010001
@@ -14496,9 +14496,9 @@ if (1) {                                                                        
   Mov r8, 0b001; $t->setTreeBit(31, r8);              PrintOutRegisterInHex 31;
   Mov r8, 0b010; $t->clearTreeBit(31, r8);            PrintOutRegisterInHex 31;
 
-                                                     $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
-  Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
-  Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(K width => 16);
+                                                     $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(16);
+  Mov r8, 0b010; $t->insertZeroIntoTreeBits(31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(16);
+  Mov r8, 0b010; $t->insertOneIntoTreeBits (31, r8); $t->getTreeBits(31, r8); V(TreeBits => r8)->outRightInBinNL(16);
 
   $t->getTreeBits(31, r8);
   V(TreeBits => r8)->outRightInHexNL(K width => 4);
@@ -15699,8 +15699,8 @@ END
 if (1) {                                                                        #TNasm::X86::Variable::shiftLeft #TNasm::X86::Variable::shiftRight
   K(loop=>16)->for(sub
    {my ($index, $start, $next, $end) = @_;
-   (K(one => 1)     << $index)->outRightInBinNL(K width => 16);
-   (K(one => 1<<15) >> $index)->outRightInBinNL(K width => 16);
+   (K(one => 1)     << $index)->outRightInBinNL(16);
+   (K(one => 1<<15) >> $index)->outRightInBinNL(16);
    });
 
   ok Assemble eq => <<END, avx512=>1;
