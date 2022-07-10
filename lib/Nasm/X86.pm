@@ -2579,7 +2579,7 @@ sub PrintRightInHex($$$)                                                        
 
   $s->call(parameters =>
    {number => ref($number) ? $number : V(number => $number),
-    ref($width) ? $width : K width => $width});
+    width  => ref($width)  ? $width  : V width  => $width});
  }
 
 sub PrintErrRightInHex($$)                                                      # Write the specified variable in hexadecimal right justified in a field of specified width on stderr.
@@ -10920,7 +10920,7 @@ sub Assemble(%)                                                                 
   my $label      = delete $options{label};                                      # Label for this test if provided
   my $library    = delete $options{library};                                    # Create  the named library if supplied from the supplied assembler code
   my $list       = delete $options{list};                                       # Create and retain a listing file so we can see where a trace error occurs
-  my $mix        = delete $options{mix};                                        # Create mix output and fix with line number locations in source
+  my $mix        = delete $options{mix} // ($clocks ? 1 : 0);                   # Create mix output and fix with line number locations in source - required if we want clocks
   my $ptr        = delete $options{ptr};                                        # Pointer check required
   my $trace      = delete $options{trace}  //0;                                 # Trace: 0 - none (minimal output), 1 - trace with sde64 and create a listing file to match
   confess "Invalid options: ".join(", ", sort keys %options) if keys %options;  # Complain about any invalid options
@@ -11379,7 +11379,7 @@ if (1) {                                                                        
   PrintOutStringNL "Hello\nWorld";
   PrintErrStringNL "Hello World";
 
-  ok Assemble debug => 0, eq => <<END, avx512=>0, label=>'t1';
+  ok Assemble eq => <<END, avx512=>0, label=>'t1';
 Hello World
 Hello
 World
@@ -11402,7 +11402,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex zmm1;
   PrintOutRegisterInHex zmm1;
 
-  ok Assemble avx512=>1, debug=>0, eq =><<END;
+  ok Assemble eq =><<END;
   xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   xmm1: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   ymm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
@@ -11422,7 +11422,7 @@ if (1)
   Mov rax, 2;
   Vpbroadcastq zmm29, rax;
   PrintOutRegisterInHex 29..31;
-  ok Assemble eq=><<END, avx512=>1, mix=> 1;
+  ok Assemble eq=><<END, avx512=>1;
  zmm29: .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2 + .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2
  zmm30: .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1 + .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1
  zmm31: .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1 + .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1
@@ -11437,7 +11437,7 @@ if (1) {                                                                        
   $s->setReg(rax);
   Vpgatherqq zmmM(1, 1), "[rax+zmm0]";                                          # Target register must be different from source register
   PrintOutRegisterInHex zmm1, k1;
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1;
+  ok Assemble eq => <<END, avx512=>1;
   zmm1: 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ...0  .... .... .... ...0 + 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ...0  .... .... .... ...0
     k1: .... .... .... ...0
 END
@@ -11463,7 +11463,7 @@ if (1) {                                                                        
   $l->setReg(rdi);
   PrintOutMemoryNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 Hello World
 
 Hello Skye
@@ -11476,7 +11476,7 @@ if (1) {                                                                        
   PrintOutRightInDec rax,  8;
   PrintOutNL;
 
-  ok Assemble(avx512=>0, eq=><<END);
+  ok Assemble avx512=>0, eq=><<END;
     1638
 END
  }
@@ -11493,7 +11493,7 @@ if (1) {                                                                        
   PrintOutRaxInHex;
   PrintOutNL;
 
-  ok Assemble(avx512=>0, eq=><<END)
+  ok Assemble avx512=>0, eq=><<END;
 rax: 6261 6261 6261 6261
 rax: .... .... .... ...0
 END
@@ -11518,7 +11518,7 @@ if (0) {                                                                        
   Mov rsi, 6;
   PrintOutRegistersInHex;
 
-  my $r = Assemble(avx512=>0, eq=><<END, debug=>0);
+  my $r = Assemble avx512=>0, eq=><<END;
 rfl: .... .... .... .2.2
 r10: .... .... .... ..10
 r11: .... .... .... .2.6
@@ -11547,7 +11547,7 @@ if (1) {                                                                        
   Mov rdi, 16;
   PrintOutMemoryNL;
 
-  ok Assemble(avx512=>1, eq=><<END)
+  ok Assemble eq=><<END;
 efghabcdmnopijkl
 END
  }
@@ -11562,7 +11562,7 @@ if (1) {
   Mov rdi, 32;
   PrintOutMemoryNL;
 
-  ok Assemble(avx512=>1, eq=><<END)
+  ok Assemble eq=><<END;
 efghabcdmnopijklefghabcdmnopijkl
 END
  }
@@ -11583,7 +11583,7 @@ if (1) {
 abcdefghijklmnopabcdefghijklmnopabcdefghijklmnopabcdefghijklmnop
 END
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
 efghabcdmnopijklefghabcdmnopijklefghabcdmnopijklefghabcdmnopijkl
 END
  }
@@ -11609,7 +11609,7 @@ if (1) {
   Vmovdqu8 zmm3, "[$q+48]";
   PrintOutRegisterInHex zmm0, zmm1, zmm2, zmm3;
 
-  ok Assemble(avx512=>1, eq=><<END);
+  ok Assemble( eq=><<END);
   xmm0: .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   xmm1: 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
   xmm2: 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120
@@ -11634,7 +11634,7 @@ if (1) {                                                                        
   Cmp r15, 1; $z->copyZFInverted; $z->outNL;
   Cmp r15, 2; $z->copyZFInverted; $z->outNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 zf: .... .... .... ...1
 zf: .... .... .... ...0
 zf: .... .... .... ...0
@@ -11649,7 +11649,7 @@ if (1) {                                                                        
   for my $i(reverse 1..16)
    {PrintOutRightInHexNL $N, $i;
    }
-  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
         12345678
        12345678
       12345678
@@ -11675,7 +11675,7 @@ if (1) {                                                                        
    {my ($index, $start, $next, $end) = @_;
     PrintOutRightInBinNL K(number => 0x99), K(max => 64) - $index;
    });
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble(avx512=>0, eq => <<END);
                                                         10011001
                                                        10011001
                                                       10011001
@@ -11754,7 +11754,7 @@ if (1)                                                                          
   Mov rdi, length $s;
   PrintMemory r15;
   CloseFile;
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+  ok Assemble eq=><<END, avx512=>1;
 END
   ok -e $s;
   unlink $s;
@@ -11775,7 +11775,7 @@ if (1) {                                                                        
 
   FreeMemory $address, $N;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
 abcdefghijklmnop
 END
  }
@@ -11795,7 +11795,7 @@ if (1)                                                                          
  {my $v = V var => 2;
   Mov rax, $v->at;
   PrintOutRegisterInHex rax;
-  ok Assemble eq=><<END, avx512=>1, mix=> $TraceMode ? 2 : 1;
+  ok Assemble eq=><<END, avx512=>1;
    rax: .... .... .... ...2
 END
  }
@@ -11815,7 +11815,7 @@ if (1) {                                                                        
 
   $address->freeMemory($N);
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
 abcdefghijklmnop
 END
  }
@@ -11827,7 +11827,7 @@ if (1) {                                                                        
   $a->outRightInBinNL(16);
   $a->outRightInDecNL(16);
   $a->outRightInHexNL(16);
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
 .... .... .... 1111
    1000100010001
             4369
@@ -11858,7 +11858,7 @@ if (1) {                                                                        
    {PrintOutStringNL "1 != 0";
    });
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 1 != 0
 END
  }
@@ -11955,7 +11955,7 @@ if (1) {                                                                        
   OpenWrite;                                                                    # Open file
   CloseFile;                                                                    # Close file
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END;
    rax: .... .... .... ...3
    rax: .... .... .... ...0
 END
@@ -11971,7 +11971,7 @@ if (1) {                                                                        
     PrintOutRegisterInHex rax;
    } rax, 16, 1;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
    rax: .... .... .... ...0
    rax: .... .... .... ...1
    rax: .... .... .... ...2
@@ -11993,7 +11993,7 @@ if (1) {                                                                        
     PrintOutStringNL "Fail";
    };
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 Pass
 END
  }
@@ -12013,7 +12013,7 @@ if (1) {                                                                        
     PrintOutStringNL "Pass";
    };
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 Pass
 END
  }
@@ -12043,7 +12043,7 @@ if (1) {                                                                        
   PrintOutNL;
   PopR rax;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 .765 4321 .765 4321
 2143 65.7 2143 65.7
 2143 65.7 2143 65.7
@@ -12060,7 +12060,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex rax;
   PrintOutRegisterInHex rbx;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
    rax: .... .... 1111 1111
    rbx: .... .... 2222 2222
 END
@@ -12079,7 +12079,7 @@ if (1) {                                                                        
   PopR;
   PrintOutRegisterInHex zmm17;
   PrintOutRegisterInHex r14, r15;
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
+  ok Assemble eq => <<END, avx512=>1;
  zmm17: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 + 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
    r14: .... .... .... ...2
    r15: .... .... .... ...3
@@ -12104,7 +12104,7 @@ if (1) {                                                                        
   ClearMemory(V(address => rax), K(size => 8*9));
   PrintOutMemory_InHexNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
 .8__ ____ ____ ____  .7__ ____ ____ ____  .6__ ____ ____ ____  .5__ ____ ____ ____  .4__ ____ ____ ____  .3__ ____ ____ ____  .2__ ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____
 ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
@@ -12124,7 +12124,7 @@ if (1) {                                                                        
 
   FreeMemory $A, $N;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
 ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
@@ -12169,7 +12169,7 @@ if (1) {                                                                        
   my $a = CreateArea;
   $a->q('aa');
   $a->outNL;
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 aa
 END
  }
@@ -12219,7 +12219,7 @@ if (1) {                                                                        
   $b->q("bbbb");
   $b->dump("bbbb");
 
-  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 aaaaa
 Area     Size:     4096    Used:       68
 .... .... .... ...0 | __10 ____ ____ ____  44__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -12244,7 +12244,7 @@ if (1) {                                                                        
   PrintOutNL;
   $b->out;
   PrintOutNL;
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 aa
 bb
 END
@@ -12257,7 +12257,7 @@ if (1) {                                                                        
   $a->q('AA');
   $a->out;
   PrintOutNL;
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 aaAA
 END
  }
@@ -12274,7 +12274,7 @@ if (1) {                                                                        
   $a->out;
   $b->out;
   PrintOutNL;
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 aaAAaabbBBbb
 END
  }
@@ -12303,7 +12303,7 @@ if (1) {                                                                        
   my $sA = $a->used; $sA->outNL;
   my $sB = $b->used; $sB->outNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 abababababababab
 ababababababababababababababababababababababababababababababababababababab
 area used up: .... .... .... ..10
@@ -12328,7 +12328,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex k0;
   PrintOutRegisterInHex k1;
 
-  ok Assemble(avx512 => 1, eq => <<END)
+  ok Assemble( eq => <<END)
     k0: .... .... .... ...8
     k1: .... .... .... ...0
 END
@@ -12343,7 +12343,7 @@ if (1) {                                                                        
   Tzcnt rax, rax;                                                               # New line
   PrintOutRegisterInHex rax;
 
-  ok Assemble(avx512 => 1, eq => <<END)
+  ok Assemble( eq => <<END)
    rax: .... .... .... ..3C
    rax: .... .... .... ...3
 END
@@ -12358,7 +12358,7 @@ if (1) {                                                                        
   $s->out;
   PrintOutNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 A
 B
 END
@@ -12383,7 +12383,7 @@ if (1) {                                                                        
   Cmp r15, rax;
   IfEq Then {PrintOutStringNL "Same"}, Else {PrintOutStringNL "Diff"};
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 Same
 END
  }
@@ -12400,7 +12400,7 @@ END
   unlinkFile        ($f);                                                       # Delete the file
 
   my $u = qx(whoami); chomp($u);
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 phil
 END
  }
@@ -12439,7 +12439,7 @@ if (1) {                                                                        
   $o2->outNL;
   $o3->outNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 offset: .... .... .... ..40
 offset: .... .... .... ..60
 offset: .... .... .... ..90
@@ -12486,7 +12486,7 @@ if (1) {                                                                        
   Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
   Shr r15, 1; IfNc Then {PrintOutStringNL "NO carry"}, Else {PrintOutStringNL "Carry"};
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 ZF=1
 ZF=0
 ZF=1
@@ -12544,7 +12544,7 @@ if (1) {                                                                        
   Jmp $l;
   SetLabel $l;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
    rax: .... .... .... ...3
    rdi: .... .... .... ...4
    rax: .... .... .... ...2
@@ -12582,7 +12582,7 @@ if (1) {                                                                        
   CopyMemory(V(source => rsi), V(target => rax), V size => rdi);
   PrintOutMemory_InHexNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
   xmm0: .... .... .... ...4  .... ...3 ...2 .1..
   xmm1: .... .... .... ...4  .... ...3 ...2 .1..
 __.1 .2__ .3__ ____  .4__ ____ ____ ____
@@ -12617,7 +12617,7 @@ if (1) {
   $c->outNL;
   PrintOutRegisterInHex r14, r15;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 a: .... .... .... ..16
 (b add 1): .... .... .... ..17
 (a add b): .... .... .... ...3
@@ -12639,7 +12639,7 @@ if (1) {                                                                        
   $s->call(parameters=>{v=>$v, k=>$k, g=>$g});
   $v->outNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 v: .... .... .... ...7
 END
  }
@@ -12660,7 +12660,7 @@ if (1) {                                                                        
   $t->call(parameters=>{g=>$g});
   $g->outNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 g: .... .... .... ...1
 END
  }
@@ -12673,7 +12673,7 @@ if (1) {                                                                        
   Else {Mov rax, 2};
   PrintOutRegisterInHex rax;
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+  ok Assemble eq=><<END, avx512=>1;
    rax: .... .... .... ...1
 END
  }
@@ -12694,7 +12694,7 @@ if (1) {                                                                        
 
   $s->call(parameters=>{g => $g});
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
 g: .... .... .... ...2
 g: .... .... .... ...1
 g: .... .... .... ...0
@@ -12720,7 +12720,7 @@ if (1) {                                                                        
   $s->call(parameters=>{depth => $d});
 
   $d->outNL;
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 depth: .... .... .... ...3
 depth: .... .... .... ...2
 depth: .... .... .... ...1
@@ -12742,7 +12742,7 @@ if (1) {                                                                        
   Mov rdi, $N;
   PrintOutMemory_InHexNL;
 
-  ok Assemble(debug=>0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 __.1 .2.3 .4.5 .6.7  .8.9 .A.B .C.D .E.F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F  4041 4243 4445 4647  4849 4A4B 4C4D 4E4F  5051 5253 5455 5657  5859 5A5B 5C5D 5E5F  6061 6263 6465 6667  6869 6A6B 6C6D 6E6F  7071 7273 7475 7677  7879 7A7B 7C7D 7E7F  8081 8283 8485 8687  8889 8A8B 8C8D 8E8F  9091 9293 9495 9697  9899 9A9B 9C9D 9E9F  A0A1 A2A3 A4A5 A6A7  A8A9 AAAB ACAD AEAF  B0B1 B2B3 B4B5 B6B7  B8B9 BABB BCBD BEBF  C0C1 C2C3 C4C5 C6C7  C8C9 CACB CCCD CECF  D0D1 D2D3 D4D5 D6D7  D8D9 DADB DCDD DEDF  E0E1 E2E3 E4E5 E6E7  E8E9 EAEB ECED EEEF  F0F1 F2F3 F4F5 F6F7  F8F9 FAFB FCFD FEFF
 END
  }
@@ -12754,7 +12754,7 @@ if (1) {                                                                        
   Kmovq k0, rax;
   PrintOutRegisterInHex k0;
 
-  ok Assemble(avx512=>1, eq=><<END);
+  ok Assemble( eq=><<END);
     k0: FFFF FFFF C0.. ....
 END
  }
@@ -12775,7 +12775,7 @@ if (1) {                                                                        
   Vpexpandd "zmm1{k1}", zmm0;
   PrintOutRegisterInHex zmm1;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
    rax: FFFF FFFF FFFF BFFF
     k1: FFFF FFFF FFFF BFFF
   zmm0: .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 + .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1 - .1.1 .1.1 .1.1 .1.1  .1.1 .1.1 .1.1 .1.1
@@ -12806,7 +12806,7 @@ if (1) {
 
   PrintOutRegisterInHex rax;
 
-  ok Assemble(avx512=>1, eq=><<END);
+  ok Assemble( eq=><<END);
   zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   zmm0: 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 - 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 + 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
   zmm1: 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F - 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F + 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F - 2F2F 2F2F 2F2F 2F2F  2F2F 2F2F 2F2F 2F2F
@@ -12845,7 +12845,7 @@ if (1) {
   Lzcnt rax, rax;
   PrintOutRegisterInHex rax;
 
-  ok Assemble(avx512=>1, eq=><<END);
+  ok Assemble( eq=><<END);
    rax: .... .... .... ..2F
    rax: .... .... .... ..10
 END
@@ -12854,7 +12854,7 @@ END
 #latest:;
 if (1) {                                                                        #TStringLength
   StringLength(V string => Rs("abcd"))->outNL;
-  Assemble(debug => 0, eq => <<END, avx512=>0);
+  Assemble eq => <<END, avx512=>0;
 size: .... .... .... ...4
 END
  }
@@ -12935,7 +12935,7 @@ if (1) {                                                                        
   &$cmp(1,1);
   &$cmp(1,2);
   &$cmp(3,2);
-  Assemble(debug => 0, eq => <<END, avx512=>0);
+  Assemble eq => <<END, avx512=>0;
 1 eq 1
 1 NOT ne 1
 1 NOT lt 1
@@ -12970,7 +12970,7 @@ if (1) {                                                                        
   Inc rsi; SetMaskRegister(6, rax, rsi); PrintOutRegisterInHex k6;
   Inc rsi; SetMaskRegister(7, rax, rsi); PrintOutRegisterInHex k7;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+  ok Assemble eq => <<END;
     k0: .... .... .... ...0
     k1: .... .... .... .1..
     k2: .... .... .... .3..
@@ -13003,7 +13003,7 @@ if (1) {                                                                        
   ++$a; $a->outNL;
   --$a; $a->outNL;
 
-  ok Assemble(debug => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END, avx512=>0;
 a: .... .... .... ...3
 b: .... .... .... ...2
 (a add b): .... .... .... ...5
@@ -13175,7 +13175,7 @@ if (1) {                                                                        
   $s->call(structures => {h => $i}, parameters=>{a=>V(key => 1), b=>V(key => 0x111)});
   $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
 
-  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>9151, label => 'aa';
+  Assemble eq=><<END, clocks=>9151, label => 'aa';
 a: .... .... .... ..11
 b: .... .... .... ..22
 c: .... .... .... ..33
@@ -13246,7 +13246,7 @@ if (1) {                                                                        
 
   $s->call(structures => {h => $h}, parameters=>{a=>V(key => 2), b=>V(key => 0x222)});
 
-  Assemble eq=><<END, avx512=>1, trace=>0, mix=>1, clocks=>17609, label => 'aaa';
+  Assemble eq=><<END, clocks=>17609, label => 'aaa';
 a: .... .... .... ...1
 b: .... .... .... ...2
 c: .... .... .... ...3
@@ -13390,7 +13390,7 @@ if (1) {
   Kmovq rax, k0; Popcnt rax, rax;
   PrintOutRegisterInHex zmm0, zmm1, k0, rax;
 
-  ok Assemble avx512=>1, eq => <<END;
+  ok Assemble eq => <<END;
   zmm0: .4.5 .6.7 .8.9 .A.B  .C.D .E.F 10.. .1.2 - .3.4 .5.6 .7.8 .9.A  .B.C .D.E .F10 ...1 + .2.3 .4.5 .6.7 .8.9  .A.B .C.D .E.F 10.. - .1.2 .3.4 .5.6 .7.8  .9.A .B.C .D.E .F10
   zmm1: .C.B .A.9 .8.7 .6.5  .4.3 .2.1 ..10 .F.E - .D.C .B.A .9.8 .7.6  .5.4 .3.2 .1.. 10.F + .E.D .C.B .A.9 .8.7  .6.5 .4.3 .2.1 ..10 - .F.E .D.C .B.A .9.8  .7.6 .5.4 .3.2 .1..
     k0: .8.. .4.. .2.. .1..
@@ -14206,7 +14206,7 @@ if (1) {                                                                        
     PrintOutRegisterInHex zmm reverse 23..25;
    }
 
-  ok Assemble eq => <<END, avx512=>1, , label=>'t2';
+  ok Assemble eq => <<END, , label=>'t2';
 Test 0
 Parent
  zmm31: .999 9999 ...2 ...2  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  6666 6666 1999 9999
@@ -14605,7 +14605,7 @@ if (1) {                                                                        
   $t->delete(K key => 1);
   $t->size->outNL;
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>0;
+  ok Assemble eq => <<END, avx512=>1;
 size of tree: .... .... .... ...0
 END
  }
@@ -15067,7 +15067,7 @@ if (1)                                                                          
   $t->found->outNL;
   $t->data ->outNL;
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 1;
+  ok Assemble eq=><<END, avx512=>1;
 found  : .... .... .... ...1
 data   : .... .... .... ...1
 END
@@ -15502,7 +15502,7 @@ if (1) {                                                                        
 
   $t->printInOrder("AAAA");
 
-  ok Assemble eq => <<END, avx512=>1, label=>'t3';
+  ok Assemble eq => <<END, label=>'t3';
 AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 END
  }
@@ -16427,7 +16427,7 @@ if (1) {                                                                        
   $t->delete(K k=>1);  $t->dump("1");
   $t->delete(K k=>3);  $t->dump("3");
   $t->delete(K k=>2);  $t->dump("2");
-  ok Assemble eq => <<END, avx512=>1, label=>'t4';
+  ok Assemble eq => <<END, label=>'t4';
 1
 At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
   Index:    0    1
@@ -17115,7 +17115,7 @@ if (1) {                                                                        
 
  $t->dump8xx("AAA");
 
-  ok Assemble debug => 0, eq => <<END, avx512=>1, trace=>0, mix => 1, clocks=>18177;
+  ok Assemble debug => 0, eq => <<END, clocks=>18177;
 size of tree: .... .... .... ...1
 size of tree: .... .... .... ...2
 size of tree: .... .... .... ...2
@@ -17260,7 +17260,7 @@ if (1) {                                                                        
    });
 # $t->pop; $t->found->outNL("f: ");
 
-  ok Assemble eq => <<END, avx512=>1, mix => 1, clocks => 29_852;
+  ok Assemble eq => <<END, clocks => 29_852;
 data   : .... .... .... ...F
 data   : .... .... .... ...E
 found  : .... .... .... ..40
@@ -17328,7 +17328,7 @@ if (1) {                                                                        
   $a->freeChainSpace->out(" f: ", " ");
   $a->size->outNL;
 
-  ok Assemble eq => <<END, avx512=>1, label=>'t5';
+  ok Assemble eq => <<END, label=>'t5';
 t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... ...0 size of area: .... .... .... 10..
 t: .... .... .... ...0 u: .... .... .... .280 f: .... .... .... .240 size of area: .... .... .... 10..
 t: .... .... .... ..10 u: .... .... .... .280 f: .... .... .... ...0 size of area: .... .... .... 10..
@@ -17561,7 +17561,7 @@ if (1) {                                                                        
    }
 
   $T->dump8xx("T");
-  ok Assemble eq => <<END, avx512=>1, trace=>0;
+  ok Assemble eq => <<END, trace=>0;
 T
 Tree: .... .... .... .740
 At:      780                                                                                length:        2,  data:      7C0,  nodes:      800,  first:      740, root, leaf,  trees:            10
@@ -17943,7 +17943,7 @@ sub testParseUnisyn($$$)                                                        
   my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
 
   $p->dump;
-  Assemble avx512=>1, mix=>1;
+  Assemble avx512=>1;
 
   if (-e $programOut)                                                           # Print parse tree
    {my $r = readFile $programOut;
@@ -18055,7 +18055,7 @@ if (1)
 END
 
   $p->dump;
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>16_439;
+  ok Assemble eq => <<END, clocks=>16_439;
 𝕒𝕟𝕕  
 ._＝  
 ._._𝗮  
@@ -18083,7 +18083,7 @@ if (1) {                                                                        
   Mov rax, Rq(0x22);
 
   PrintOutRegisterInHex rax;
-  eval {Assemble avx512=>1, trace=>1, mix=>0};
+  eval {Assemble trace=>1};
   ok readFile($traceBack) =~ m(TraceBack start:)s;
  }
 
@@ -18112,7 +18112,7 @@ if (1) {                                                                        
   $S->call(parameters => {fail => K(zero=> 0)});                                # Call subroutine to be traced
   $T->call;
 
-  Assemble eq=><<END, avx512=>1, trace=>1, mix=>0;
+  Assemble eq=><<END;
    rax: .... .... .... ..11
    rax: .... .... .... ..22
 END
@@ -18128,7 +18128,7 @@ if (1) {                                                                        
   $s->call  (parameters => {ppp => V ppp => 0x99});                             # Call   378
   $s->inline(parameters => {ppp => V ppp => 0xaa});                             # Inline 364
 
-  Assemble eq=><<END, avx512=>1, trace=>0, mix=>0;
+  Assemble eq=><<END, avx512=>1;
 ppp: .... .... .... ..99
 ppp: .... .... .... ..AA
 END
@@ -18143,7 +18143,7 @@ if (1)
   my $t = $a->CreateTree;
   K(key => 100)->for(sub{my ($i) = @_; $t->put($i, $i)});
   $t->size->outNL;
-  ok Assemble eq =><<END, avx512=>1, mix=>1;
+  ok Assemble eq =><<END, avx512=>1;
 size of tree: .... .... .... ..64
 END
  }
@@ -18227,7 +18227,7 @@ if (1)
    };
 
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1;
+  ok Assemble eq => <<END, avx512=>1;
 BBBB biggest
 AAAA smallest
 AAAA not equal to BBBB by not equal
@@ -18256,7 +18256,7 @@ if (1) {                                                                        
     $t->find($index);
    });
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>763430;
+  ok Assemble eq => <<END, clocks=>763430;
 END
  }
 
@@ -18321,7 +18321,7 @@ if (1) {                                                                        
      };
    }
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0, count=>0;
+  ok Assemble eq=><<END, avx512=>1;
    rax: .... .... .... .111
    rax: .... .... .... 9999
 END
@@ -18344,7 +18344,7 @@ END
                           override => $a->address + $inter->data);
    }
 
-  ok Assemble eq=><<END, avx512=>1, mix=> 0, trace=>0;
+  ok Assemble eq=><<END, avx512=>1;
 abcd
 a: .... .... .... 6666
    rax: .... .... .... .111
@@ -18371,7 +18371,7 @@ if (1) {                                                                        
 # Test          Clocks           Bytes    Total Clocks     Total Bytes      Run Time     Assembler          Perl
 #    1           6_947          81_896           6_947          81_896        0.2552          0.10          0.00  Better incSizeInFirst
 #    1           6_716          81_728           6_716          81_728        0.2544          0.10          0.00  Better incSizeInKeys
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>6_716;
+  ok Assemble eq => <<END, clocks=>6_716;
 END
  }
 
@@ -18510,7 +18510,7 @@ if (1) {                                                                        
      },
     size  => sub {my ($r) = @_; Mov $r, 0};
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
+  ok Assemble eq => <<END, avx512=>1;
 Empty
 END
  }
@@ -18538,7 +18538,7 @@ if (1) {                                                                        
        };
    }
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace => 0;
+  ok Assemble eq => <<END, avx512=>1;
  1: before
  2: @ 0
  3: > 0
@@ -18569,7 +18569,7 @@ if (1) {                                                                        
 
   $t->getKeyString(constantString("d"));  $t->found->outNL; $t->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
+  ok Assemble eq => <<END, avx512=>1;
 AA
 Area     Size:     4096    Used:      384
 .... .... .... ...0 | __10 ____ ____ ____  80.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -18601,7 +18601,7 @@ if (1) {                                                                        
   $t->getKeyString(constantString("d1")); $t->found->outNL; $t->data->outNL;
   $t->getKeyString(constantString("d2")); $t->found->outNL; $t->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
+  ok Assemble eq => <<END, avx512=>1;
 AA
 Area     Size:     4096    Used:      448
 .... .... .... ...0 | __10 ____ ____ ____  C0.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -18636,7 +18636,7 @@ if (1) {                                                                        
   $t->getKeyString(constantString("d"));  $t->found->outNL; $t->data->outNL;
   $t->getKeyString(constantString("dd")); $t->found->outNL; $t->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
+  ok Assemble eq => <<END, avx512=>1;
 AA
 Area     Size:     4096    Used:      448
 .... .... .... ...0 | __10 ____ ____ ____  C0.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -18687,7 +18687,7 @@ if (1) {                                                                        
   $t->getKeyString(constantString("dddd4444"));                                                          $t->data->outNL;
   $t->getKeyString(constantString("eeee5555"));                                                          $t->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
+  ok Assemble eq => <<END, avx512=>1;
 AA
 Area     Size:     4096    Used:     1280
 .... .... .... ...0 | __10 ____ ____ ____  __.5 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -18748,7 +18748,7 @@ if (1) {                                                                        
     $t->getKeyString(constantString $k); $t->found->outNL; $t->data->outNL;
    }
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0, clocks=>4374;
+  ok Assemble eq => <<END, clocks=>4374;
 count: .... .... .... ...0
 count: .... .... .... ...1
 count: .... .... .... ...0
@@ -18773,7 +18773,7 @@ if (1) {                                                                        
   ToZero
    {PrintOutStringNL "AAAA";
    }  rax;
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0, clocks=>4374;
+  ok Assemble eq => <<END, clocks=>4374;
 AAAA
 AAAA
 AAAA
@@ -18796,7 +18796,7 @@ if (1) {                                                                        
 
   $inter->dump("TT");
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0, clocks=>4374;
+  ok Assemble eq => <<END, clocks=>4374;
 TT
 At:  1C0                    length:    2,  data:  200,  nodes:  240,  first:   40, root, leaf
   Index:    0    1
@@ -18824,7 +18824,7 @@ if (1) {                                                                        
     $t->size->outNL;
    });
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
+  ok Assemble eq => <<END, avx512=>1;
 size of tree: .... .... .... ...1
 size of tree: .... .... .... ...2
 size of tree: .... .... .... ...3
@@ -18870,7 +18870,7 @@ if (1) {                                                                        
   $t->popSubTree;
   $a->dump("BB");
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>1;
+  ok Assemble eq => <<END, avx512=>1;
 AA
 Area     Size:     4096    Used:      384
 .... .... .... ...0 | __10 ____ ____ ____  80.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -18923,7 +18923,7 @@ if (1) {                                                                        
   $P->found->outNL;
   $P->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>0;
+  ok Assemble eq => <<END, avx512=>1;
 found  : .... .... .... ...1
 data   : .... .... .... ..22
 subTree: .... .... .... ...0
@@ -18947,7 +18947,7 @@ if (1) {                                                                        
      $a->appendMemory(constantString("aaaa"));                                  # 82 48
      $a->dump("AA");
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>12_391;
+  ok Assemble eq => <<END, clocks=>12_391;
 AA
 Area     Size:     4096    Used:       68
 .... .... .... ...0 | __10 ____ ____ ____  44__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -19017,7 +19017,7 @@ if (1) {                                                                        
   PrintOutStringNL "Pop";
   PrintOutRegisterInHex zmm3, zmm4;
 
-  ok Assemble eq => <<END, avx512=>1, trace=>0, mix=>1, clocks=>391;
+  ok Assemble eq => <<END, clocks=>391;
 size: .... .... .... ...0
 AA
 Area     Size:     4096    Used:       64
@@ -19091,7 +19091,7 @@ if (1)
 #    $t = $t x (1e4/length $t);
 
   my $p = &ParseUnisyn(constantString $t);
-  ok Assemble eq => <<END, avx512=>1, mix=>1, clocks=>42_291;
+  ok Assemble eq => <<END, clocks=>42_291;
 END
  }
 
@@ -19254,7 +19254,7 @@ END
 # ✕ 2715
 # ＋ ff0b
 
-  ok Assemble eq => <<END, avx512=>1, mix=>1, trace=>1, clocks=>20_921;
+  ok Assemble eq => <<END, clocks=>20_921;
 parseChar  : .... .... ...1 D5D6
 parseFail  : .... .... .... ...0
 position   : .... .... .... ..38
@@ -19296,7 +19296,7 @@ END
 
 #latest:
 if (0) {                                                                        #TAssemble
-  ok Assemble eq => <<END, avx512=>1, mix=>1;
+  ok Assemble eq => <<END, mix=>1;
 END
  }
 
