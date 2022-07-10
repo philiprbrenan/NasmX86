@@ -2078,7 +2078,7 @@ sub PrintNL($)                                                                  
   $s->call;
  }
 
-sub PrintErrNL()                                                                # Print a new line to stderr.
+sub PrintErrNL()                                                                #P Print a new line to stderr.
  {@_ == 0 or confess;
   PrintNL($stderr);
  }
@@ -2115,12 +2115,12 @@ sub PrintStringNL($@)                                                           
   PrintNL    ($channel);
  }
 
-sub PrintErrString(@)                                                           # Print a constant string to stderr.
+sub PrintErrString(@)                                                           #P Print a constant string to stderr.
  {my (@string) = @_;                                                            # String
   PrintString($stderr, @string);
  }
 
-sub PrintErrStringNL(@)                                                         # Print a constant string to stderr followed by a new line.
+sub PrintErrStringNL(@)                                                         #P Print a constant string to stderr followed by a new line.
  {my (@string) = @_;                                                            # String
   PrintErrString(@string);
   my @c = caller 0;
@@ -2162,7 +2162,7 @@ sub PrintSpace($;$)                                                             
   PrintString($channel, ' ' x ($spaces // 1));
  }
 
-sub PrintErrSpace(;$)                                                           # Print  a constant number of spaces to stderr.
+sub PrintErrSpace(;$)                                                           #P Print  a constant number of spaces to stderr.
  {my ($spaces) = @_;                                                            # Number of spaces if not one.
   PrintErrString(' ', $spaces);
  }
@@ -2790,12 +2790,12 @@ sub PrintRightInDec($$$)                                                        
   PopR;
  }
 
-sub PrintErrRightInDec($$)                                                      # Print a variable or register in decimal right justified in a field of the specified width on stderr.
+sub PrintErrRightInDec($$)                                                      #P Print a variable or register in decimal right justified in a field of the specified width on stderr.
  {my ($number, $width) = @_;                                                    # Number as a variable or a register, width as a variable or constant
   PrintRightInDec($stderr, $number, $width);
  }
 
-sub PrintErrRightInDecNL($$)                                                    # Print a variable or register in decimal right justified in a field of the specified width on stderr followed by a new line.
+sub PrintErrRightInDecNL($$)                                                    #P Print a variable or register in decimal right justified in a field of the specified width on stderr followed by a new line.
  {my ($number, $width) = @_;                                                    # Number as a variable or a register, width as a variable or constant
   PrintErrRightInDec($number, $width);
   PrintErrNL;
@@ -5784,14 +5784,14 @@ sub Nasm::X86::Area::dump($$;$)                                                 
     PushR rax;                                                                  # Print size
     Mov rax, "[rax+$$area{sizeOffset}]";
     PrintOutString "  Size: ";
-    PrintOutRightInDec rax, K width => 8;
+    PrintOutRightInDec rax, 8;
     PrintOutString "  ";
     PopR rax;
 
     PushR rax;                                                                  # Print size
     Mov rax, "[rax+$$area{usedOffset}]";
     PrintOutString("  Used: ");
-    PrintOutRightInDec rax, K width => 8;
+    PrintOutRightInDec rax, 8;
     PrintOutNL;
     PopR rax;
 
@@ -11475,7 +11475,7 @@ END
 #latest:;
 if (1) {                                                                        #TPrintOutRaxInHex #TPrintOutNL #TPrintOutString
   Mov rax, 0x666;
-  PrintOutRightInDec rax,  K width => 8;
+  PrintOutRightInDec rax,  8;
   PrintOutNL;
 
   ok Assemble(avx512=>0, eq=><<END);
@@ -11649,7 +11649,7 @@ if (1) {                                                                        
   my $N = K number => 0x12345678;
 
   for my $i(reverse 1..16)
-   {PrintOutRightInHexNL($N, K width => $i);
+   {PrintOutRightInHexNL $N, $i;
    }
   ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>1);
         12345678
@@ -13790,7 +13790,7 @@ END
 
 #latest:
 if (1) {                                                                        #T
-  my $w = V width => 12;
+  my $w = 12;
 
   Mov rax, 0;
   PrintOutRightInDecNL rax,  $w;
