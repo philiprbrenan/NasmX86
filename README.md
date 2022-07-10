@@ -70,13 +70,13 @@ these characters are part of a [string](https://en.wikipedia.org/wiki/String_(co
 
 Given a [string](https://en.wikipedia.org/wiki/String_(computer_science)) of [UniSyn](https://github.com/philiprbrenan/UnisynParse) :
 
-```
+```perl
   ParseUnisyn q(1＋𝗔✕𝗕＋𝗖𝕒𝕟𝕕2✕𝗔＋𝗕＋𝗖);
 ```
 
 A sample [parse](https://en.wikipedia.org/wiki/Parsing) looks like this:
 
-```
+```perl
 𝕒𝕟𝕕
 ._＋
 ._._✕
@@ -96,7 +96,7 @@ A sample [parse](https://en.wikipedia.org/wiki/Parsing) looks like this:
 
 And a sample execution:
 
-```
+```perl
 Ascii: 1
 Variable: 𝗔
 Add
@@ -336,7 +336,7 @@ END
 ```
 
 ## Read integers in decimal from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
-Read integers from 0 to 2**32 from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal and print them out on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal:
+Read two integers from [stdin](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal, double them then print the doubled integers on [stdout](https://en.wikipedia.org/wiki/Standard_streams#Standard_input_(stdin)) in decimal:
 
 ```perl
   my $e = q(readInteger);
@@ -382,10 +382,10 @@ Read this file and print it out in [assembly](https://en.wikipedia.org/wiki/Asse
 ```perl
   use Nasm::X86 qw(:all);
 
-  Mov rax, Rs($0);                  # File to read
-  ReadFile;                         # Read file
+  Mov rax, Rs $0;                   # Read this file
+  ReadFile;
 
-  PrintOutMemory;                   # Print memory
+  PrintOutMemory;                   # Print memory occupied by file contents
 
   my $r = Assemble;                 # Assemble and execute
   ok index($r, readFile($0)) > -1;  # Output contains this file
@@ -395,12 +395,14 @@ Read this file and print it out in [assembly](https://en.wikipedia.org/wiki/Asse
 Debug your [programs](https://en.wikipedia.org/wiki/Computer_program) quickly with powerful print statements in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
 ```perl
   Mov rax, 0x2a;
-  PrintOutRaxRightInDec   V width=> 4;
-  Shl rax, 1;
-  PrintOutRaxRightInDecNL V width=> 6;
+  PrintOutRightInDecNL rax, 16;
+  PrintOutRightInHexNL rax, 16;
+  PrintOutRightInBinNL rax, 16;
 
-  ok Assemble eq => <<END;
-  42    84
+  ok Assemble eq => <<END, avx512=>1;
+              42
+              2A
+          101010
 END
 ```
 
@@ -476,23 +478,136 @@ Create a library with three routines in it and save the library in a [file](http
 ```
 
 Reuse the [code](https://en.wikipedia.org/wiki/Computer_program) in the library in another [assembly](https://en.wikipedia.org/wiki/Assembly_language): 
+Libraries can be created in one [assembly](https://en.wikipedia.org/wiki/Assembly_language) and saved as an area in a [file](https://en.wikipedia.org/wiki/Computer_file), then
+reused in a subsequent [assembly](https://en.wikipedia.org/wiki/Assembly_language) by reading the area into [memory](https://en.wikipedia.org/wiki/Computer_memory) or including
+the area into the [assembly](https://en.wikipedia.org/wiki/Assembly_language) directly.
+
+For example, to create a library of operators to [process](https://en.wikipedia.org/wiki/Process_management_(computing)) the [parse](https://en.wikipedia.org/wiki/Parsing) [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) of a [UniSyn](https://github.com/philiprbrenan/UnisynParse) programming language statement:
+
 ```perl
-  my ($dup, $inc, $put) = $library->load;  # Load the library into memory
+  my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
 
-  Mov rax, 1; &$put;
-  &$inc;      &$put;                       # Use the subroutines from the library
-  &$dup;      &$put;
-  &$dup;      &$put;
-  &$inc;      &$put;
+  my $library = Subroutine                                                      # This subroutine and all of the subroutines it contains will be saved in an area and that area will be written to a file from where it can be included via L<incBin> in subsequent assemblies.
+   {my ($p, $s, $sub) = @_;
 
-  ok Assemble eq => <<END;
-1
-2
-4
-8
-9
+    Subroutine                                                                  # A contained routine that we wish to export to a file
+     {my ($p, $s, $sub) = @_;
+      PrintOutString "Ascii: ";
+
+      my $parse  = $$s{parse};                                                  # Parse
+      my $source = $parse->source;                                              # Source
+
+      $parse->area->getZmmBlock($$p{offset}, 1);                                # Load current parse tree node
+
+      my $w = dSize;
+      my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);            # Length of ascii
+      my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);          # Position in source
+
+     ($source+$position)->printOutMemoryNL($length);                            # Print the ascii string
+
+     } name => "Ascii",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+    Subroutine                                                                  # Another subroutine that will be exported because it is within the subroutine that is being exported as a library
+     {my ($p, $s, $sub) = @_;
+      PrintOutStringNL "Add";
+     } name => "＋",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+    Subroutine
+     {my ($p, $s, $sub) = @_;
+      PrintOutStringNL "Times";
+     } name => "✕",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+    Subroutine
+     {my ($p, $s, $sub) = @_;
+      PrintOutStringNL "And";
+     } name => "𝕒𝕟𝕕",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+
+    Subroutine
+     {my ($p, $s, $sub) = @_;
+      PrintOutString "Variable: ";
+
+      my $parse  = $$s{parse};                                                  # Parse
+      my $source = $parse->source;                                              # Source
+
+      $parse->area->getZmmBlock($$p{offset}, 1);                                # Load current parse tree node
+
+      my $w = dSize;
+      my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);            # Length of ascii
+      my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);          # Position in source
+
+     ($source+$position)->printOutMemoryNL($length);                            # Print the ascii string
+
+     } name => "Variable",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(offset)];
+
+   } name => "operators",  parameters=>[qw(a b c)], export => $f;
+
+  ok Assemble eq => <<END, avx512=>1;
 END
-  unlink $l;
+```
+
+The second [assembly](https://en.wikipedia.org/wiki/Assembly_language) reuses the library created in the first [assembly](https://en.wikipedia.org/wiki/Assembly_language) by reading
+the area that contains the library into [memory](https://en.wikipedia.org/wiki/Computer_memory) so that the contained
+subroutines can be executed as needed while traversing a [parse](https://en.wikipedia.org/wiki/Parsing) [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)): 
+```perl
+
+  my $l = ReadArea $f;                                                          # Area containing subroutine library
+
+  my ($A, $N) = constantString  qq(1＋𝗔✕𝗕＋𝗖𝕒𝕟𝕕2✕𝗔＋𝗕＋𝗖);                          # Utf8 string to parse
+
+  my $p = ParseUnisyn($A, $N);                                                  # 10_445 Parse utf8 string  5_340 after single character lexical items, 4_950 after jump table
+
+ $p->dumpParseResult;
+
+ $p->traverseApplyingLibraryOperators($l);                                      # Traverse a parse tree applying a library of operators where they intersect with lexical items in the parse tree
+
+  ok Assemble eq => <<END, clocks=>20_921;
+parseChar  : .... .... ...1 D5D6
+parseFail  : .... .... .... ...0
+position   : .... .... .... ..38
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+𝕒𝕟𝕕
+._＋
+._._✕
+._._._＋
+._._._._1
+._._._._𝗔
+._._._𝗕
+._._𝗖
+._＋
+._._＋
+._._._✕
+._._._._2
+._._._._𝗔
+._._._𝗕
+._._𝗖
+Ascii: 1
+Variable: 𝗔
+Add
+Variable: 𝗕
+Times
+Variable: 𝗖
+Add
+Ascii: 2
+Variable: 𝗔
+Times
+Variable: 𝗕
+Add
+Variable: 𝗖
+Add
+And
+END
 ```
 
 ## Create a 6/13 multi way [tree](https://en.wikipedia.org/wiki/Tree_(data_structure)) in an area using SIMD instructions in [assembly](https://en.wikipedia.org/wiki/Assembly_language) [code](https://en.wikipedia.org/wiki/Computer_program) using [NASM - the Netwide Assember](https://github.com/netwide-assembler/nasm) and [Perl](http://www.perl.org/): 
