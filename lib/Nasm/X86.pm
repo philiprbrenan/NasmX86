@@ -1752,7 +1752,7 @@ sub Nasm::X86::Area::readLibraryHeader($$;$)                                    
  ($t, $s)                                                                       # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
  }
 
-sub Nasm::X86::Subroutine::subroutineDefinition($$$)                            # Get the definition of a subroutine from an area.
+sub Nasm::X86::Subroutine::subroutineDefinition($$$)                            #P Get the definition of a subroutine from an area.
  {my ($area, $file, $name) = @_;                                                # Area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
   my $a = readBinaryFile $file;                                                 # Reload the area
   my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
@@ -1761,7 +1761,7 @@ sub Nasm::X86::Subroutine::subroutineDefinition($$$)                            
   $$c{a};                                                                       # Extract subroutine definition
  }
 
-sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           # Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined.
+sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           #P Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined.
  {my ($sub, $S, @P) = @_;                                                       # Sub definition, copies of source structures, path through copies of source structures to a variable that becomes a reference
   for my $s(sort keys %$S)                                                      # Source keys
    {my $e = $$S{$s};
@@ -1781,7 +1781,7 @@ sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           
    }
  }
 
-sub Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame($$$@)        # Create references to variables in parameter structures from variables in the stack frame of the subroutine.
+sub Nasm::X86::Subroutine::uploadStructureVariablesToNewStackFrame($$$@)        #P Create references to variables in parameter structures from variables in the stack frame of the subroutine.
  {my ($sub, $sv, $S, @P) = @_;                                                  # Sub definition, Structure variables, Source tree of input structures, path through source structures tree
 
   for my $s(sort keys %$S)                                                      # Source keys
@@ -8734,8 +8734,8 @@ sub Nasm::X86::Tree::append($$)                                                 
   my $ls = $append->size;                                                       # Source string size
   $ls->for(sub                                                                  # Look up each character
    {my ($i, $start, $next, $end) = @_;
-    $string->get($i);
-    $string->put($lt+$string->key, $string->data);
+    $append->get($i);
+    $string->put($lt+$i, $append->data);
    });
   $string                                                                       # Chain from the target string
  }
@@ -8752,8 +8752,11 @@ sub Nasm::X86::Tree::clone($)                                                   
  }
 
 sub Nasm::X86::Tree::substring($$$)                                             # Create the substring of the specified string between the specified start and end keys.
- {my ($string, $start, $finish) = @_;                                           # Tree descriptor of string to extract from, start key, end key
+ {my ($string, $Start, $Finish) = @_;                                           # Tree descriptor of string to extract from, start key, end key
   @_ == 3 or confess "Three parameters";
+
+  my $start  = ref($Start)  ? $Start  : K(start  => $Start);                    # Promote constant
+  my $finish = ref($Finish) ? $Finish : K(finish => $Finish);                   # Promote constant
 
   my $t = $string->area->CreateTree;                                            # Cloned copy
   If $start == $finish,
@@ -8766,7 +8769,7 @@ sub Nasm::X86::Tree::substring($$$)                                             
    },
   Ef {$start < $finish}
   Then                                                                          # Range of several keys
-   {$string->find($finish);
+   {$string->find($finish-1);
     If $string->found > 0,
     Then                                                                        # Finish exists
      {$string->find($start);
@@ -8774,9 +8777,10 @@ sub Nasm::X86::Tree::substring($$$)                                             
       Then                                                                      # Start exists
        {$string->size->for(sub                                                  # Each key in range
          {my ($i, $start, $next, $end) = @_;
-          $t->put($string->key, $string->data);
+          $t->put($i, $string->data);
           $string->findNext($string->key);
-          If $string->key == $finish, Then {Jmp $end};                          # End of range
+          If $string->found == 0, Then {Jmp $end};                              # End of input string
+          If $string->key >= $finish, Then {Jmp $end};                          # End of range
          });
        };
      };
@@ -11313,7 +11317,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11315 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11319 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17570,7 +17574,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::reverse
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
@@ -17602,15 +17606,27 @@ if (1) {                                                                        
 END
  }
 
-#latest:
-if (1) {                                                                        #TNasm::X86::Tree::appendAscii #TNasm::X86::Tree::outAsUtf8NL
+latest:
+if (1) {                                                                        #TNasm::X86::Tree::appendAscii #TNasm::X86::Tree::append #TNasm::X86::Tree::outAsUtf8NL
   my $a = CreateArea;
   my $t = $a->CreateTree;
   my $b = Rb(0x41..0x51);
   $t->appendAscii(K(address=> $b), K(size => 1));
   $t->outAsUtf8NL;
+  my $T = $a->CreateTree;
+  $T->append($t);
+  $T->append($t);
+  $T->outAsUtf8NL;
+  $T->appendAscii(K(address=> $b) + 1, K(size => 1));
+  my $c = $T->clone;
+  $c->outAsUtf8NL;
+  my $d = $c->substring(1, 3);
+  $d->outAsUtf8NL;
   ok Assemble eq => <<END, avx512=>1;
 A
+AA
+AAB
+AB
 END
  }
 
