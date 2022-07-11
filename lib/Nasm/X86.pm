@@ -7216,13 +7216,13 @@ sub Nasm::X86::Tree::put($$$)                                                   
    {$s->call(structures => {tree    => $tree},
              parameters => {key     => (ref($key) ? $key : K key => $key),
                             data    => $data->first,
-                            subTree => K(key => 1)});
+                            subTree => K(subTree => 1)});
    }
   else                                                                          # Not a usb tree
    {$s->call(structures => {tree    => $tree},
              parameters => {key     => (ref($key)  ? $key  : K key  => $key),
                             data    => (ref($data) ? $data : K data => $data),
-                            subTree => K(zero => 0)});
+                            subTree => K(subTree => 0)});
    }
  } # put
 
