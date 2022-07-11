@@ -605,7 +605,6 @@ sub PopR(@)                                                                     
   my $r = pop @PushR;
   dump(\@r) eq dump($r) or confess "Mismatched registers:\n".dump($r, \@r) if @r;
   PopRR @$r;                                                                    # Pop registers from the stack without tracking
-# CommentWithTraceBack;
  }
 
 #D2 General                                                                     # Actions specific to general purpose registers
@@ -618,7 +617,7 @@ sub registerNameFromNumber($)                                                   
   $r
  }
 
-sub ChooseRegisters($@)                                                         # Choose the specified numbers of registers excluding those on the specified list.
+sub ChooseRegisters($@)                                                         #P Choose the specified numbers of registers excluding those on the specified list.
  {my ($number, @registers) = @_;                                                # Number of registers needed, Registers not to choose
   my %r = (map {$_=>1} map {"r$_"} 8..15);
   delete $r{$_} for @registers;
@@ -632,7 +631,7 @@ sub InsertZeroIntoRegisterAtPoint($$)                                           
   ref($point) and confess "Point must be a register";
 
   my $mask = rdi, my $low = rsi, my $high = rbx;                                # Choose three work registers and push them
-  if (&CheckMaskRegister($point))                                               # Mask register showing point
+  if ($point =~ m(\Ak?[0-7]\Z))                                                 # Mask register showing point
    {Kmovq $mask, $point;
    }
   else                                                                          # General purpose register showing point
@@ -649,7 +648,7 @@ sub InsertZeroIntoRegisterAtPoint($$)                                           
 sub InsertOneIntoRegisterAtPoint($$)                                            # Insert a one into the specified register at the point indicated by another register.
  {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
   InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
-  if (&CheckIfMaskRegisterNumber($point))                                       # Mask register showing point
+  if ($point =~ m(\Ak?[0-7]\Z))                                                 # Mask register showing point
    {my ($r) = ChooseRegisters(1, $in);                                          # Choose a general purpose register to place the mask in
     Kmovq rsi, $point;
     Or   $in, rsi;                                                              # Make the zero a one
@@ -836,7 +835,7 @@ sub dRegIntoZmm($$$)                                                            
   Vmovdqu32  zmm($zmm), "[rsp-$W]";
  }
 
-sub LoadRegFromMm($$$)                                                          #PN Load the specified register from the numbered zmm at the quad offset specified as a constant number.
+sub LoadRegFromMm($$$)                                                          #P Load the specified register from the numbered zmm at the quad offset specified as a constant number.
  {my ($mm, $offset, $reg) = @_;                                                 # Mm register, offset in quads, general purpose register to load
 
   my $w = RegisterSize rax;                                                     # Size of rax
@@ -942,35 +941,17 @@ sub dFromZ($$%)                                                                 
  }
 
 sub qFromZ($$%)                                                                 # Get the quad word from the numbered zmm register and return it in a variable.
- {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes
+ {my ($zmm, $offset, %options) = @_;                                            # Numbered zmm, offset in bytes, options
 #  my $z = registerNameFromNumber $zmm;
   getBwdqFromMm('z', 'q', $zmm, $offset, %options)                              # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable
  }
 
 #D2 Mask                                                                        # Operations on mask registers
 
-sub CheckMaskRegister($)                                                        # Check that a register is in fact a numbered mask register.
- {my ($reg) = @_;                                                               # Register to check
-  @_ == 1 or confess "One parameter";
-  $Registers{$reg} && $reg =~ m(\Ak[0-7]\Z)
- }
-
-sub CheckIfMaskRegisterNumber($)                                                # Check that a register is in fact a mask register.
- {my ($mask) = @_;                                                              # Mask register to check
-  @_ == 1 or confess "One parameter";
-  $mask =~ m(\Ak?[0-7]\Z)
- }
-
-sub CheckMaskRegisterNumber($)                                                  # Check that a register is in fact a mask register and confess if it is not.
- {my ($mask) = @_;                                                              # Mask register to check
-  @_ == 1 or confess "One parameter";
-  $mask =~ m(\Ak?[0-7]\Z) or confess "Not the number of a mask register: $mask";
- }
-
 sub SetMaskRegister($$$)                                                        # Set the mask register to ones starting at the specified position for the specified length and zeroes elsewhere.
  {my ($mask, $start, $length) = @_;                                             # Number of mask register to set, register containing start position or 0 for position 0, register containing end position
   @_ == 3 or confess "Three parameters";
-  CheckMaskRegisterNumber($mask);
+  $mask =~ m(\Ak?[0-7]\Z) or confess "Not a mask register: $mask";
 
   PushR 15, 14;
   Mov r15, -1;
@@ -991,7 +972,7 @@ sub SetMaskRegister($$$)                                                        
 sub LoadConstantIntoMaskRegister($$)                                            # Set a mask register equal to a constant.
  {my ($mask, $value) = @_;                                                      # Number of mask register to load, constant to load
   @_ == 2 or confess "Two parameters";
-  CheckMaskRegisterNumber $mask;
+  $mask =~ m(\Ak?[0-7]\Z) or confess "Not the number of a mask register: $mask";
   my $m = registerNameFromNumber $mask;
   Mov rdi, $value;                                                              # Load mask into a general purpose register
   Kmovq $m, rdi;                                                                # Load mask register from general purpose register
@@ -1038,6 +1019,8 @@ my $Vpcmp = genHash("Nasm::X86::CompareCodes",                                  
   ge=>5,                                                                        # Greater than or equal
   gt=>6,                                                                        # Greater than
  );
+
+# Forward declarations
 
 sub BinarySearchD(%);
 sub Comment(@);
@@ -2020,31 +2003,12 @@ sub Nasm::X86::Subroutine::inline($%)                                           
 
 #D1 Comments                                                                    # Inserts comments into the generated assember code.
 
-sub CommentWithTraceBack(@)                                                     # Insert a comment into the assembly code with a traceback showing how it was generated.
- {my (@comment) = @_;                                                           # Text of comment
-  my $c = join "", @comment;
-#  eval {confess};
-#  my $p = dump($@);
-  my $p = &subNameTraceBack =~ s(Nasm::X86::) ()gsr;
-  push @text, <<END;
-; $c  $p
-END
- }
-
 sub Comment(@)                                                                  # Insert a comment into the assembly code.
  {my (@comment) = @_;                                                           # Text of comment
   my $c = join "", @comment;
   my ($p, $f, $l) = caller;
   push @text, <<END;
 ; $c at $f line $l
-END
- }
-
-sub DComment(@)                                                                 # Insert a comment into the data segment.
- {my (@comment) = @_;                                                           # Text of comment
-  my $c = join "", @comment;
-  push @data, <<END;
-; $c
 END
  }
 
@@ -3574,7 +3538,7 @@ sub Nasm::X86::Variable::setReg($$)                                             
   @_ == 2 or confess "Two parameters";
 
   my $r = registerNameFromNumber $register;
-  if (CheckMaskRegister($r))                                                    # Mask register is being set
+  if ($r  =~ m(\Ak?[0-7]\Z))                                                    # Mask register is being set
    {Mov  rdi, $variable->addressExpr;
     if ($variable->isRef)
      {Kmovq $r, "[rdi]";
@@ -4485,7 +4449,7 @@ sub CopyMemory64($$$)                                                           
   PopR;
  }
 
-sub CopyMemory4K($$$)                                                           # Copy memory in 4K byte blocks.
+sub CopyMemory4K($$$)                                                           #P Copy memory in 4K byte blocks.
  {my ($source, $target, $size) = @_;                                            # Source address variable, target address variable, number of 4K byte blocks to move
   @_ == 3 or confess "Source, target, size required";
 
@@ -5114,7 +5078,7 @@ END
 
 #D2 Constructors                                                                # Construct an area either in memory or by reading it from a file or by incorporating it into an assembly.
 
-sub DescribeArea(%)                                                             # Describe a relocatable area.  By describing an areas, we allocate space with which to describe it in the current stack frame but we do not allocate memory for the area itself in the heap.
+sub DescribeArea(%)                                                             #p Describe a relocatable area.  By describing an areas, we allocate space with which to describe it in the current stack frame but we do not allocate memory for the area itself in the heap.
  {my (%options) = @_;                                                           # Optional variable addressing the start of the area
   my $address   = delete $options{address}   // 0;                              # Address of area
   my $stack     = delete $options{stack}     // 0;                              # Mark this area as being used as a stack
@@ -5594,7 +5558,7 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
   $offset
  }
 
-sub Nasm::X86::Area::appendZmm($$$)                                             # Append the contents of the specified zmm to the specified area and returns its offset in that area as a variable,
+sub Nasm::X86::Area::appendZmm($$)                                              # Append the contents of the specified zmm to the specified area and returns its offset in that area as a variable,
  {my ($area, $zmm) = @_;                                                        # Area descriptor, zmm number
   @_ == 2 or confess "Two parameters";
 
@@ -11210,8 +11174,11 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 
 @ISA          = qw(Exporter);
 @EXPORT       = qw();
-@EXPORT_OK    = qw(Add Align AllocateMemory And AndBlock Andn Assemble Block Bsf Bsr Bswap Bt Btc Btr Bts Bzhi Call CallC CheckIfMaskRegisterNumber CheckMaskRegister CheckMaskRegisterNumber ChooseRegisters ClassifyInRange ClassifyWithInRange ClassifyWithInRangeAndSaveOffset ClassifyWithInRangeAndSaveWordOffset ClearMemory ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmp Comment CommentWithTraceBack ConvertUtf8ToUtf32 CopyMemory CopyMemory4K CopyMemory64 Cpuid CreateArea DComment Db Dd Dec DescribeArea Div Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNs IfNz IfS IfZ Imul Imul3 Inc Incbin Include InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadRegFromMm LoadZmm Loop Lzcnt Mov Movd Movdqa Movq Movw Mulpd Neg Not OnSegv OpenRead OpenWrite Or OrBlock Pass Pdep Pext Pextrb Pextrd Pextrq Pextrw Pinsrb Pinsrd Pinsrq Pinsrw Pop PopR Popcnt Popfq PrintCString PrintCStringNL PrintErrNL PrintErrOneRegisterInHex PrintErrOneRegisterInHexNL PrintErrRaxInHex PrintErrRaxInHexNL PrintErrRaxRightInDec PrintErrRaxRightInDecNL PrintErrRax_InHex PrintErrRax_InHexNL PrintErrRegisterInHex PrintErrRightInBin PrintErrRightInBinNL PrintErrRightInHex PrintErrRightInHexNL PrintErrSpace PrintErrString PrintErrStringNL PrintErrTraceBack PrintMemory PrintMemoryInHex PrintMemory_InHex PrintNL PrintOneRegisterInHex PrintOutNL PrintOutOneRegisterInHex PrintOutOneRegisterInHexNL PrintOutRaxInHex PrintOutRaxInHexNL PrintOutRaxRightInDec PrintOutRaxRightInDecNL PrintOutRax_InHex PrintOutRax_InHexNL PrintOutRegisterInHex PrintOutRightInBin PrintOutRightInBinNL PrintOutRightInHex PrintOutRightInHexNL PrintOutSpace PrintOutString PrintOutStringNL PrintOutTraceBack PrintRaxAsChar PrintRaxAsText PrintRaxInDec PrintRaxInHex PrintRaxRightInDec PrintRax_InHex PrintRegisterInHex PrintRightInBin PrintRightInHex PrintSpace PrintString PrintStringNL PrintTraceBack Pslldq Psrldq Push Pushfq R RComment Rb Rd Rdtsc ReadArea ReadChar ReadFile ReadInteger ReadLine ReadTimeStampCounter RegisterSize RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstSeven RestoreFirstSevenExceptRax Ret Rq Rs Rutf8 Rw Sal Sar SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength Sub Subroutine Syscall Test Then Tzcnt V Vaddd Vaddpd Valignb Valignd Valignq Valignw Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetmantps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpaddb Vpaddd Vpaddq Vpaddw Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpgatherqd Vpgatherqq Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmovb2m Vpmovd2m Vpmovm2b Vpmovm2d Vpmovm2q Vpmovm2w Vpmovq2m Vpmovw2m Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bFromX bFromZ bRegFromZmm bRegIntoZmm bh bl bp bpl bx byteRegister ch checkZmmRegister cl constantString copyStructureMinusVariables countComments createBitNumberFromAlternatingPattern cs cx dFromPointInZ dFromX dFromZ dWordRegister dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp executeFileViaBash extractRegisterNumberFromMM fs getBwdqFromMm gs ifAnd ifOr k0 k1 k2 k3 k4 k5 k6 k7 loadAreaIntoAssembly mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 opposingJump qFromX qFromZ r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx registerNameFromNumber rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 unlinkFile uptoNTimes wFromX wFromZ wRegFromZmm wRegIntoZmm wordRegister xmm xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9 zmmM zmmMZ);
+@EXPORT_OK    = qw(Add Align AllocateMemory And AndBlock Andn Assemble BinarySearchD Block Bsf Bsr Bswap Bt Btc Btr Bts Bzhi Call CallC   ChooseRegisters ClearMemory ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmovne Cmp Comment  ConvertUtf8ToUtf32 CopyMemory CopyMemory4K CopyMemory64 Cpuid CreateArea Db Dd Dec DescribeArea Div Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNs IfNz IfS IfZ Imul Imul3 Inc Incbin Include InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadZmm Loop Lzcnt Mov Movd Movdqa Movq Movw Mulpd Neg Not OnSegv OpenRead OpenWrite Or OrBlock ParseUnisyn Pass Pdep Pext Pextrb Pextrd Pextrq Pextrw Pinsrb Pinsrd Pinsrq Pinsrw Pop PopR Popcnt Popfq PrintCString PrintCStringNL PrintErrOneRegisterInHex PrintErrOneRegisterInHexNL PrintErrRaxInHex PrintErrRaxInHexNL PrintErrRax_InHex PrintErrRax_InHexNL PrintErrRegisterInHex PrintErrRightInBin PrintErrRightInBinNL PrintErrRightInHex PrintErrRightInHexNL PrintErrTraceBack PrintMemory PrintMemoryInHex PrintMemory_InHex PrintNL PrintOneRegisterInHex PrintOutNL PrintOutOneRegisterInHex PrintOutOneRegisterInHexNL PrintOutRaxInHex PrintOutRaxInHexNL PrintOutRax_InHex PrintOutRax_InHexNL PrintOutRegisterInHex PrintOutRightInBin PrintOutRightInBinNL PrintOutRightInDec PrintOutRightInDecNL PrintOutRightInHex PrintOutRightInHexNL PrintOutSpace PrintOutString PrintOutStringNL PrintOutTraceBack PrintRaxAsChar PrintRaxAsText PrintRaxInDec PrintRaxInHex PrintRaxRightInDec PrintRax_InHex PrintRegisterInHex PrintRightInBin PrintRightInDec PrintRightInHex PrintSpace PrintString PrintStringNL PrintTraceBack Pslldq Psrldq Push Pushfq R RComment Rb Rd Rdtsc ReadArea ReadChar ReadFile ReadInteger ReadLine ReadTimeStampCounter RegisterSize RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstSeven RestoreFirstSevenExceptRax Ret Rq Rs Rutf8 Rw Sal Sar SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength Sub Subroutine Syscall Test Then ToZero Tzcnt V Vaddd Vaddpd Valignb Valignd Valignq Valignw Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetmantps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpaddb Vpaddd Vpaddq Vpaddw Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpgatherqd Vpgatherqq Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmovb2m Vpmovd2m Vpmovm2b Vpmovm2d Vpmovm2q Vpmovm2w Vpmovq2m Vpmovw2m Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bFromX bFromZ bRegFromZmm bRegIntoZmm bh bl bp bpl bx byteRegister ch checkZmmRegister cl constantString copyStructureMinusVariables countComments createBitNumberFromAlternatingPattern cs cx dFromPointInZ dFromX dFromZ dRegFromZmm dRegIntoZmm dWordRegister dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp executeFileViaBash extractRegisterNumberFromMM fs getBwdqFromMm gs ifAnd ifOr k0 k1 k2 k3 k4 k5 k6 k7 loadAreaIntoAssembly locateRunTimeErrorInDebugTraceOutput mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 opposingJump qFromX qFromZ r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx registerNameFromNumber rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 unlinkFile uptoNTimes wFromX wFromZ wRegFromZmm wRegIntoZmm wordRegister xmm xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9 zmmM zmmMZ);
 %EXPORT_TAGS  = (all=>[@EXPORT, @EXPORT_OK]);
+
+
+sub extractDocumentationFlags {}
 
 # podDocumentation
 =pod
@@ -11343,7 +11310,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11345 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11312 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17900,6 +17867,19 @@ DDDD22
 END
  }
 
+#latest:                                                                        #TBlock
+if (1) {
+  Block
+   {my ($end, $start) = @_;
+    PrintOutStringNL "AAAA";
+    Jmp $end;
+    PrintOutStringNL "BBBB";
+   };
+  ok Assemble eq => <<END, avx512=>1;
+AAAA
+END
+ }
+
 #latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::AlphabetsArray
   my ($N, $A) = Nasm::X86::Unisyn::Lex::AlphabetsArray;
@@ -18425,7 +18405,7 @@ test12: goto testX unless $test{12};
 
 #D1 Awaiting Classification                                                     # Routines that have not yet been classified.
 
-sub BinarySearchD(%)                                                            # Search for an ordered array of double words addressed by r15, of length held in r14 for a double word held in r13 and call the $then routine with the index in rax if found else call the $else routine.
+sub BinarySearchD(%)                                                            #P Search for an ordered array of double words addressed by r15, of length held in r14 for a double word held in r13 and call the $then routine with the index in rax if found else call the $else routine.
  {my (%options) = @_;                                                           # Options
   my $Found     = delete $options{found}   // sub {PrintErrTraceBack "found"};  # Found an exact match
   my $Before    = delete $options{before}  // sub {PrintErrTraceBack "before"}; # The search key is before any key in the array
