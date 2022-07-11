@@ -2012,14 +2012,6 @@ sub Comment(@)                                                                  
 END
  }
 
-sub RComment(@)                                                                 # Insert a comment into the read only data segment.
- {my (@comment) = @_;                                                           # Text of comment
-  my $c = join "", @comment;
-  push @data, <<END;
-; $c
-END
- }
-
 #D1 Print                                                                       # Print the values of registers and memory interspersed with constant strings.  The print commands do not overwrite the free registers as doing so would make debugging difficult.
 
 #D2 Strings                                                                     # Print constant and variable strings
@@ -2860,7 +2852,6 @@ sub Variable($;$%)                                                              
    {defined($expr) or confess "Value required for constant";
     $expr =~ m(r) and confess
      "Cannot use register expression $expr to initialize a constant";
-    RComment qq(Constant name: "$name", value $expr);
     $label = Rq($expr);
    }
   else                                                                          # Local variable: Position on stack of variable
@@ -9627,7 +9618,7 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
   $s                                                                            # Composed string
  }
 
-sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits {5}                 # The number of bits needed to express a transition
+sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArrayBits {5}                 #P The number of bits needed to express a transition
 
 sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       # Create and load the table of lexical transitions.
  {my $a =  Nasm::X86::Unisyn::Lex::Number::a;                                   # Assign-2 - right to left
@@ -10392,7 +10383,7 @@ sub Nasm::X86::Unisyn::Parse::dumpParseResult($)                                
   $parse->dump;
  }
 
-sub Nasm::X86::Unisyn::Parse::dump($)                                           # Dump a parse tree inorder.
+sub Nasm::X86::Unisyn::Parse::dump($)                                           #P Dump a parse tree inorder.
  {my ($parse) = @_;                                                             # Parse
   @_ == 1 or confess "One parameter";
 
@@ -11320,7 +11311,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11322 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11313 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18048,6 +18039,34 @@ if (1) {                                                                        
    }
  }
 
+if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder #TNasm::X86::Unisyn::Parse::dumpPostOrder
+  my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
+
+  my $u = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
+
+  is_deeply $u, $text;
+
+  my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
+
+  $p->dump;
+  Assemble avx512=>1;
+
+  if (-e $programOut)                                                           # Print parse tree
+   {my $r = readFile $programOut;
+       $r =~ s(\n) ()gs;                                                        # Collapse result
+    if ($r ne $parse)
+     {say STDERR $text;
+      say STDERR $r;
+      say STDERR "Want: ", dump($parse);
+      say STDERR "Got : ", dump($r);
+      confess "Parse failed" unless onGitHub;
+     }
+   }
+  else
+   {confess "No result file: $programOut";
+   }
+ }
+
 sub testParseUnisyn($$$)                                                        #P Test the parse of a unisyn expression.
  {my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
 
@@ -19180,6 +19199,19 @@ if (1)
 END
  }
 
+latest:;
+if (1)                                                                          #TNasm::X86::Unisyn::Lex::composeUnisyn #TNasm::X86::Unisyn::Parse::dumpPostOrder
+ {my $t = Nasm::X86::Unisyn::Lex::composeUnisyn "va w m+ w vb";
+  is_deeply $t, "𝗮 ＋ 𝗯";
+  my $p = &ParseUnisyn(constantString $t);
+  $p->dumpPostOrder;
+  ok Assemble eq => <<END;
+._𝗮 
+._𝗯
+＋ 
+END
+ }
+
 #latest:;
 if (1)
  {my $a = CreateArea;
@@ -19220,7 +19252,7 @@ END
  }
 
 #latest:;
-if (1)                                                                          #TNasm::X86::Area::appendZmm #TloadZmm #TNasm::X86::Area::printOut #TNasm::X86::Area::write #TNasm::X86::Area::read
+if (1)                                                                          #TNasm::X86::Area::appendZmm #TloadZmm #TNasm::X86::Area::printOut #TNasm::X86::Area::write #TReadArea
  {LoadZmm 0, 61..61+63;
 
   my $a = CreateArea;
@@ -19300,7 +19332,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators #TParseUnisyn
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators #TParseUnisyn #TNasm::X86::Unisyn::Parse::dumpParseResult
   my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
 
   my $library = Subroutine                                                      # This subroutine and all of the subroutines it contains will be saved in an area and that area will be written to a file from where it can be included via L<incBin> in subsequent assemblies.
