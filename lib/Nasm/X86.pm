@@ -5167,7 +5167,7 @@ sub Nasm::X86::Area::free($)                                                    
   FreeMemory($area->address, $area->size)
  }
 
-sub Nasm::X86::Area::copyDescriptor($$)                                         # Copy the description of one area into another
+sub Nasm::X86::Area::copyDescriptor($$)                                         #P Copy the description of one area into another
  {my ($target, $source) = @_;                                                   # Target area, source area
 
   $target->address->copy($source->address);                                     # target now addresses same area as source
@@ -5647,7 +5647,7 @@ sub Nasm::X86::Area::clear($)                                                   
   $s->call(parameters=>{address => $area->address});
  }
 
-sub Nasm::X86::Area::read($@)                                                   # Read a file specified by a variable addressed zero terminated string and append its content to the specified area.
+sub Nasm::X86::Area::read($$)                                                   # Read a file specified by a variable addressed zero terminated string and append its content to the specified area.
  {my ($area, $file) = @_;                                                       # Area descriptor, variable addressing file name
   @_ == 2 or confess "Two parameters";
 
@@ -5721,8 +5721,11 @@ sub Nasm::X86::Area::outNL($)                                                   
  }
 
 sub Nasm::X86::Area::printOut($$$)                                              # Print part of the specified area on sysout.
- {my ($area, $offset, $length) = @_;                                            # Area descriptor, offset, length
+ {my ($area, $Offset, $Length) = @_;                                            # Area descriptor, offset, length
   @_ == 3 or confess "Three parameters";
+
+  my $offset = ref($Offset) ? $Offset : K offset => $Offset;
+  my $length = ref($Length) ? $Length : K length => $Length;
 
   PushR rax, rdi, rsi;
   ($area->address + $offset)->setReg(rax);
@@ -9425,86 +9428,86 @@ sub compactRangeIntoHex(@)                                                      
 
 #D2 Lex                                                                         # Lexical Analysis
 
-sub Nasm::X86::Unisyn::Lex::Number::S {0}                                       # Start symbol.
-sub Nasm::X86::Unisyn::Lex::Number::F {1}                                       # End symbol.
+sub Nasm::X86::Unisyn::Lex::Number::S {0}                                       #P Start symbol.
+sub Nasm::X86::Unisyn::Lex::Number::F {1}                                       #P End symbol.
 
-sub Nasm::X86::Unisyn::Lex::Number::A {2}                                       # ASCII characters extended with circled characters to act as escape sequences.
-sub Nasm::X86::Unisyn::Lex::Letter::A {(0x0..0x7f, 0x24b6..0x24e9)}
+sub Nasm::X86::Unisyn::Lex::Number::A {2}                                       #P ASCII characters extended with circled characters to act as escape sequences.
+sub Nasm::X86::Unisyn::Lex::Letter::A {(0x0..0x7f, 0x24b6..0x24e9)}             #P
 
-sub Nasm::X86::Unisyn::Lex::Number::p {3}                                       # Prefix operator - applies only to the following variable or bracketed term.
-sub Nasm::X86::Unisyn::Lex::Letter::p {(0x1d468...0x1d49b, 0x1d71c..0x1d755, map {ord} qw(₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉ ₀))}
+sub Nasm::X86::Unisyn::Lex::Number::p {3}                                       #P Prefix operator - applies only to the following variable or bracketed term.
+sub Nasm::X86::Unisyn::Lex::Letter::p {(0x1d468...0x1d49b, 0x1d71c..0x1d755, map {ord} qw(₁ ₂ ₃ ₄ ₅ ₆ ₇ ₈ ₉ ₀))} #P
 
-sub Nasm::X86::Unisyn::Lex::Number::v {4}                                       # Variable names.
-sub Nasm::X86::Unisyn::Lex::Letter::v {(0x1d5d4...0x1d607, 0x1d756..0x1d78f)}
+sub Nasm::X86::Unisyn::Lex::Number::v {4}                                       #P Variable names.
+sub Nasm::X86::Unisyn::Lex::Letter::v {(0x1d5d4...0x1d607, 0x1d756..0x1d78f)}   #P
 
-sub Nasm::X86::Unisyn::Lex::Number::q {5}                                       # Suffix operator - applies only to the preceding variable or bracketed term.
+sub Nasm::X86::Unisyn::Lex::Number::q {5}                                       #P Suffix operator - applies only to the preceding variable or bracketed term.
 sub Nasm::X86::Unisyn::Lex::Letter::q {(0x1d63c...0x1d66f,0x1d790..0x1d7c9, map {ord} qw(¹ ² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹ ⁰ ᵃ ᵇ ᶜ ᵈ ᵉ ᶠ ᵍ ʰ ⁱ ʲ ᵏ ˡ ᵐ ⁿ ᵒ ᵖ ʳ ˢ ᵗ ᵘ ᵛ ʷ ˣ ʸ ᶻ))}
 
-sub Nasm::X86::Unisyn::Lex::Number::s {6}                                       # Infix operator with left to right binding at priority 1.
+sub Nasm::X86::Unisyn::Lex::Number::s {6}                                       #P Infix operator with left to right binding at priority 1.
 sub Nasm::X86::Unisyn::Lex::Letter::s {(0x27e2)}
 
-sub Nasm::X86::Unisyn::Lex::Number::b {7}                                       # Open.
-sub Nasm::X86::Unisyn::Lex::Letter::b
+sub Nasm::X86::Unisyn::Lex::Number::b {7}                                       #P Open.
+sub Nasm::X86::Unisyn::Lex::Letter::b                                           #P
  {(0x2308,0x230a,0x2329,0x2768,0x276a,0x276c,0x276e,0x2770,0x2772,0x2774,0x27e6,0x27e8,0x27ea,0x27ec,0x27ee,0x2983,0x2985,0x2987,0x2989,0x298b,0x298d,0x298f,0x2991,0x2993,0x2995,0x2997,0x29fc,0x2e28,0x3008,0x300a,0x3010,0x3014,0x3016,0x3018,0x301a,0xfd3e,0xff08,0xff5f)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::B {8}                                       # Close.
-sub Nasm::X86::Unisyn::Lex::Letter::B
+sub Nasm::X86::Unisyn::Lex::Number::B {8}                                       #P Close.
+sub Nasm::X86::Unisyn::Lex::Letter::B                                           #P
  {(0x2309,0x230b,0x232a,0x2769,0x276b,0x276d,0x276f,0x2771,0x2773,0x2775,0x27e7,0x27e9,0x27eb,0x27ed,0x27ef,0x2984,0x2986,0x2988,0x298a,0x298c,0x298e,0x2990,0x2992,0x2994,0x2996,0x2998,0x29fd,0x2e29,0x3009,0x300b,0x3011,0x3015,0x3017,0x3019,0x301b,0xfd3f,0xff09,0xff60)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::d{9}
-sub Nasm::X86::Unisyn::Lex::Letter::d                                           # Dyad 2 - Double struck
+sub Nasm::X86::Unisyn::Lex::Number::d{9}                                        #P
+sub Nasm::X86::Unisyn::Lex::Letter::d                                           #P Dyad 2 - Double struck
  {(0x1d538..0x1d538+51, 0x2103, 0x210d, 0x2115, 0x2119, 0x211a, 0x211d,
    0x2124)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::e{10}
-sub Nasm::X86::Unisyn::Lex::Letter::e                                           # Dyad 3 - Mono
+sub Nasm::X86::Unisyn::Lex::Number::e{10}                                       #P
+sub Nasm::X86::Unisyn::Lex::Letter::e                                           #P Dyad 3 - Mono
  {(0x1d670..0x1d670+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::a {11}                                      # Assign infix operator with right to left binding at priority 4.
-sub Nasm::X86::Unisyn::Lex::Letter::a
+sub Nasm::X86::Unisyn::Lex::Number::a {11}                                      #P Assign infix operator with right to left binding at priority 4.
+sub Nasm::X86::Unisyn::Lex::Letter::a                                           #P
  {(0x210e, 0x2190..0x21fe, 0xff1d, 0x1d434..0x1d454,
    0x1d456..0x1d467, 0x1d6e2..0x1d71b)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::f {12}
-sub Nasm::X86::Unisyn::Lex::Letter::f                                           # Dyad 5 - Sans-serif Normal
+sub Nasm::X86::Unisyn::Lex::Number::f {12}                                      #P
+sub Nasm::X86::Unisyn::Lex::Letter::f                                           #P Dyad 5 - Sans-serif Normal
  {(0x1d5a0..0x1d5a0+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::g {13}
-sub Nasm::X86::Unisyn::Lex::Letter::g                                           # Dyad 6 - Sans-serif Bold
+sub Nasm::X86::Unisyn::Lex::Number::g {13}                                      #P
+sub Nasm::X86::Unisyn::Lex::Letter::g                                           #P Dyad 6 - Sans-serif Bold
  {(0x1d608..0x1d608+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::h {14}
-sub Nasm::X86::Unisyn::Lex::Letter::h                                           # Dyad 7  - Calligraphy - normal
+sub Nasm::X86::Unisyn::Lex::Number::h {14}                                      #P
+sub Nasm::X86::Unisyn::Lex::Letter::h                                           #P Dyad 7  - Calligraphy - normal
  {(0x1d49c..0x1d49c+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::i {15}
-sub Nasm::X86::Unisyn::Lex::Letter::i                                           # Dyad 8 - Calligraphy - bold
+sub Nasm::X86::Unisyn::Lex::Number::i {15}                                      #P
+sub Nasm::X86::Unisyn::Lex::Letter::i                                           #P Dyad 8 - Calligraphy - bold
  {(0x1d4d0..0x1d4d0+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::j {16}
-sub Nasm::X86::Unisyn::Lex::Letter::j                                           # Dyad 9 - Fraktur - Normal
+sub Nasm::X86::Unisyn::Lex::Number::j {16}                                      #P
+sub Nasm::X86::Unisyn::Lex::Letter::j                                           #P Dyad 9 - Fraktur - Normal
  {(0x1d504..0x1d504+51)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::k{17}
-sub Nasm::X86::Unisyn::Lex::Letter::k                                           # Dyad 10 - Fraktur - bold
+sub Nasm::X86::Unisyn::Lex::Number::k{17}                                       #P
+sub Nasm::X86::Unisyn::Lex::Letter::k                                           #P Dyad 10 - Fraktur - bold
  {(0x1d56c..0x1d56c+51)
  }
-
-sub Nasm::X86::Unisyn::Lex::Number::l {18}                                      # Dyad 11
+                                                                                #P
+sub Nasm::X86::Unisyn::Lex::Number::l {18}                                      #P Dyad 11
 sub Nasm::X86::Unisyn::Lex::Letter::l {(0x1d400..0x1d433,0x1d6a8..0x1d6e1)}
 
-sub Nasm::X86::Unisyn::Lex::Number::m {19}                                      # Dyad 12
-sub Nasm::X86::Unisyn::Lex::Letter::m
+sub Nasm::X86::Unisyn::Lex::Number::m {19}                                      #P Dyad 12
+sub Nasm::X86::Unisyn::Lex::Letter::m                                           #P
  {(0xac, 0xb1, 0xd7, 0xf7, 0x3f6, 0x606..0x608,
    0x200b..0x202E, 0x2030..0x2044,
    0x2047..0x205E, 0x2060..0x2061,
@@ -9516,8 +9519,8 @@ sub Nasm::X86::Unisyn::Lex::Letter::m
    0x1eef0..0x1eef1)
  }
 
-sub Nasm::X86::Unisyn::Lex::Number::w {20}                                      # White space
-sub Nasm::X86::Unisyn::Lex::Letter::w
+sub Nasm::X86::Unisyn::Lex::Number::w {20}                                      #P White space
+sub Nasm::X86::Unisyn::Lex::Letter::w                                           #P
  {(0x1680, 0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007,
    0x2008, 0x2009, 0x200A, 0x202F, 0x205F, 0x3000)
  }
@@ -11310,7 +11313,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11312 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11315 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -12178,9 +12181,11 @@ if (!!onGitHub) {                                                               
  }
 
 #latest:;
-if (1) {                                                                        #TCreateArea #TArea::clear #TArea::outNL #TArea::copy #TArea::nl
+if (1) {                                                                        #TCreateArea #TNasm::X86::Area::out #TNasm::X86::Area::outNL #TNasm::X86::Area::q #TNasm::X86::Area::ql
   my $a = CreateArea;
   $a->q('aa');
+  $a->out;
+  $a->ql('bb');
   $a->outNL;
   ok Assemble eq => <<END, avx512=>0;
 aa
@@ -12293,7 +12298,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TCreateArea #TNasm::X86::Area::clear #TNasm::X86::Area::out  #TNasm::X86::Area::append
+if (1) {                                                                        #TCreateArea #TNasm::X86::Area::clear #TNasm::X86::Area::out #TNasm::X86::Area::outNL  #TNasm::X86::Area::append
   my $a = CreateArea;
   $a->q('ab');
   my $b = CreateArea;
@@ -12309,7 +12314,7 @@ if (1) {                                                                        
 
 
   $a->out;   PrintOutNL;
-  $b->out;   PrintOutNL;
+  $b->outNL;
   my $sa = $a->used; $sa->outNL;
   my $sb = $b->used; $sb->outNL;
   $a->clear;
@@ -12419,7 +12424,7 @@ END
  }
 
 #latest:;
-if (!hasAvx512) {                                                               # Make an area readonly - but we need the emulator to test this
+if (!hasAvx512) {                                                               # Make an area readonly
   my $s = CreateArea;                                                           # Create an area
   $s->q("Hello");                                                               # Write code to area
   $s->makeReadOnly;                                                             # Make area read only
@@ -12429,7 +12434,7 @@ if (!hasAvx512) {                                                               
  }
 
 #latest:;
-if (1) {                                                                        # Make a read only area writable  #TArea::makeReadOnly #TArea::makeWriteable
+if (1) {                                                                        # Make a read only area writable  #TNasm::X86::Area::makeWriteable #TNasm::X86::Area::makeReadOnly
   my $s = CreateArea;                                                           # Create an area
   $s->q("Hello");                                                               # Write data to area
   $s->makeReadOnly;                                                             # Make area read only - tested above
@@ -17297,7 +17302,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
+if (1) {                                                                        #TNasm::X86::Area::push #TNasm::X86::Area::peek #TNasm::X86::Area::pop #TNasm::X86::Tree::get
   my $a = CreateArea;
   my $t = $a->CreateTree;
   my $N = K loop => 16;
@@ -19001,7 +19006,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Area::push
+if (1) {                                                                        #TNasm::X86::Area::push #TNasm::X86::Area::pushZmm #TNasm::X86::Area::popZmm Nasm::X86::Area::peekZmm
   my $a = CreateArea(stack=>1);
 
   $a->stackVariableSize->outNL;
@@ -19177,33 +19182,46 @@ if (1)                                                                          
 END
  }
 
-#latest:;
-if (1)                                                                          #TNasm::X86::Area::appendZmm #TloadZmm
- {my $a = CreateArea;
-  LoadZmm 0, 0..63;
-  $a->appendZmm(0);
+latest:;
+if (1)                                                                          #TNasm::X86::Area::appendZmm #TloadZmm #TNasm::X86::Area::printOut #TNasm::X86::Area::write #TNasm::X86::Area::read
+ {LoadZmm 0, 61..61+63;
 
+  my $a = CreateArea;
+  $a->appendZmm(0);
+  $a->printOut(0x44, 2);
   $a->dump("AA");
+  $a->write(my $f = "aaa.txt");
+
+  my $A = ReadArea $f;
+  $A->dump("BB");
   ok Assemble eq => <<END;
+AB
 AA
 Area     Size:     4096    Used:      128
 .... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | __.1 .2.3 .4.5 .6.7  .8.9 .A.B .C.D .E.F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F
+.... .... .... ..40 | 3D3E 3F40 4142 4344  4546 4748 494A 4B4C  4D4E 4F50 5152 5354  5556 5758 595A 5B5C  5D5E 5F60 6162 6364  6566 6768 696A 6B6C  6D6E 6F70 7172 7374  7576 7778 797A 7B7C
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+BB
+Area     Size:     4096    Used:      128
+.... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 3D3E 3F40 4142 4344  4546 4748 494A 4B4C  4D4E 4F50 5152 5354  5556 5758 595A 5B5C  5D5E 5F60 6162 6364  6566 6768 696A 6B6C  6D6E 6F70 7172 7374  7576 7778 797A 7B7C
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
-#latest:;
-if (1)                                                                          #TNasm::X86::Area::char
+latest:;
+if (1)                                                                          #TNasm::X86::Area::char #TNasm::X86::Area::nl
  {my $a = CreateArea;
   $a->char('a');
+  $a->nl;
   $a->dump("AA");
   ok Assemble eq => <<END;
 AA
-Area     Size:     4096    Used:       65
-.... .... .... ...0 | __10 ____ ____ ____  41__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
-.... .... .... ..40 | 61__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+Area     Size:     4096    Used:       66
+.... .... .... ...0 | __10 ____ ____ ____  42__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 61.A ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
