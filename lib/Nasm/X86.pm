@@ -9965,10 +9965,10 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
     Then
      {$stack->pop;
      };
-    Ef {$p == K(p => Nasm::X86::Unisyn::Lex::Number::b)}                        # Empty bracket pair
-    Then
-     {
-     };
+#    Ef {$p == K(p => Nasm::X86::Unisyn::Lex::Number::b)}                        # Empty bracket pair
+#    Then
+#     {
+#     };
     Block                                                                       # Non empty pair of brackets - a single intervening bracket represents a previously collapsed bracketed expression
      {my ($end, $start) = @_;
       my $p = &$prev2;
@@ -11815,19 +11815,52 @@ if (1) {                                                                        
  }
 
 #latest:
-if (1) {                                                                        #TIf
-  my $c = K(one => 1);
-  If ($c == 0,
+if (1) {                                                                        #TIf #Tef #TThen  #TElse
+  my $n0 = K(zero => 0);
+  If $n0 == 0,
   Then
-   {PrintOutStringNL "1 == 0";
+   {PrintOutStringNL "zero == 0";
+   },
+  Ef {$n0 == 1}
+  Then
+   {PrintOutStringNL "zero == 1";
    },
   Else
-   {PrintOutStringNL "1 != 0";
-   });
+   {PrintOutStringNL "zero == 2";
+   };
+
+  my $n1 = K(one => 1);
+  If $n1 == 0,
+  Then
+   {PrintOutStringNL "one == 0";
+   },
+  Ef {$n1 == 1}
+  Then
+   {PrintOutStringNL "one == 1";
+   },
+  Else
+   {PrintOutStringNL "one == 2";
+   };
+
+  my $n2 = K(two => 2);
+  If $n2 == 0,
+  Then
+   {PrintOutStringNL "two == 0";
+   },
+  Ef {$n2 == 1}
+  Then
+   {PrintOutStringNL "two == 1";
+   },
+  Else
+   {PrintOutStringNL "two == 2";
+   };
 
   ok Assemble eq => <<END, avx512=>0;
-1 != 0
+zero == 0
+one == 1
+two == 2
 END
+exit;
  }
 
 if (1) {                                                                        #TIfNz
