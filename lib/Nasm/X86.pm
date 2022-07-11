@@ -969,7 +969,7 @@ sub SetMaskRegister($$$)                                                        
   PopR;
  }
 
-sub LoadConstantIntoMaskRegister($$)                                            # Set a mask register equal to a constant.
+sub LoadConstantIntoMaskRegister($$)                                            #P Set a mask register equal to a constant.
  {my ($mask, $value) = @_;                                                      # Number of mask register to load, constant to load
   @_ == 2 or confess "Two parameters";
   $mask =~ m(\Ak?[0-7]\Z) or confess "Not the number of a mask register: $mask";
@@ -1199,12 +1199,12 @@ sub IfGe($;$)                                                                   
   If(q(Jl), $then, $else);                                                      # Opposite code
  }
 
-sub IfS($;$)                                                                    # If signed greater than or equal execute the then block else the else block.
+sub IfS($;$)                                                                    #P If signed greater than or equal execute the then block else the else block.
  {my ($then, $else) = @_;                                                       # Then - required , else - optional
   If(q(Jns), $then, $else);                                                     # Opposite code
  }
 
-sub IfNs($;$)                                                                   # If signed less than execute the then block else the else block.
+sub IfNs($;$)                                                                   #P If signed less than execute the then block else the else block.
  {my ($then, $else) = @_;                                                       # Then - required , else - optional
   If(q(Js), $then, $else);                                                      # Opposite code
  }
@@ -11860,7 +11860,6 @@ zero == 0
 one == 1
 two == 2
 END
-exit;
  }
 
 if (1) {                                                                        #TIfNz
@@ -13413,7 +13412,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TConvertUtf8ToUtf32
+if (1) {                                                                        #TConvertUtf8ToUtf32 #TGetNextUtf8CharAsUtf32
   my ($out, $size, $fail);
 
   my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
@@ -13865,7 +13864,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TreadChar #TPrintOutRaxAsChar
+if (1) {                                                                        #TreadChar #TPrintOutRaxAsChar #TForEver
   my $e = q(readChar);
 
   ForEver
@@ -13884,6 +13883,35 @@ if (1) {                                                                        
 AABBCCDDCCBBAA
 END
   unlink $e;
+ }
+
+#latest:
+if (1) {                                                                        #TForIn
+  my $remainder = r15, my $offset = r14;
+
+  Mov $offset, 0;
+  Mov $remainder, 10;
+
+  ForIn
+   {PrintOutStringNL "AAAA";
+    PrintOutRegisterInHex $offset, $remainder;
+   }
+  Then
+   {PrintOutStringNL "BBBB";
+    PrintOutRegisterInHex $offset, $remainder;
+   }, $offset, $remainder, 4;
+
+  ok Assemble eq => <<END;
+AAAA
+   r14: .... .... .... ...0
+   r15: .... .... .... ...A
+AAAA
+   r14: .... .... .... ...4
+   r15: .... .... .... ...A
+BBBB
+   r14: .... .... .... ...8
+   r15: .... .... .... ...2
+END
  }
 
 #latest:
