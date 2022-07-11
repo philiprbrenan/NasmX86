@@ -173,7 +173,7 @@ Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) n
   Mov r14, 1;                                                                   # Second Fibonacci
   PrintOutStringNL " i   Fibonacci";                                            # The title of the piece
 
-  V(N => $N)->for(sub                                                           # Generate each Fibonacci number by adding the two previous ones together
+  K(N => $N)->for(sub                                                           # Generate each Fibonacci number by adding the two previous ones together
    {my ($index, $start, $next, $end) = @_;
     $index->outRightInDec(2);                                                   # Index
     Mov rax, r13;
@@ -361,7 +361,7 @@ END
 Generate and write some [Unicode](https://en.wikipedia.org/wiki/Unicode) [utf8](https://en.wikipedia.org/wiki/UTF-8) characters:
 
 ```perl
-  V( loop => 16)->for(sub
+  K( loop => 16)->for(sub
    {my ($index, $start, $next, $end) = @_;
     $index->setReg(rax);
     Add rax, 0xb0;   Shl rax, 16;
