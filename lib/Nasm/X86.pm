@@ -2199,12 +2199,12 @@ sub PrintRaxInHex($;$)                                                          
   $s->call;
  }
 
-sub PrintErrRaxInHex()                                                          # Write the content of register rax in hexadecimal in big endian notation to stderr.
+sub PrintErrRaxInHex()                                                          #P Write the content of register rax in hexadecimal in big endian notation to stderr.
  {@_ == 0 or confess;
   PrintRaxInHex($stderr);
  }
 
-sub PrintErrRaxInHexNL()                                                        # Write the content of register rax in hexadecimal in big endian notation to stderr followed by a new line.
+sub PrintErrRaxInHexNL()                                                        #P Write the content of register rax in hexadecimal in big endian notation to stderr followed by a new line.
  {@_ == 0 or confess;
   PrintRaxInHex($stderr);
   PrintErrNL;
@@ -2256,12 +2256,12 @@ sub PrintRax_InHex($;$)                                                         
    $s->call;
  }
 
-sub PrintErrRax_InHex()                                                         # Write the content of register rax in hexadecimal in big endian notation to stderr.
+sub PrintErrRax_InHex()                                                         #P Write the content of register rax in hexadecimal in big endian notation to stderr.
  {@_ == 0 or confess;
   PrintRax_InHex($stderr);
  }
 
-sub PrintErrRax_InHexNL()                                                       # Write the content of register rax in hexadecimal in big endian notation to stderr followed by a new line.
+sub PrintErrRax_InHexNL()                                                       #P Write the content of register rax in hexadecimal in big endian notation to stderr followed by a new line.
  {@_ == 0 or confess;
   PrintRax_InHex($stderr);
   PrintErrNL;
@@ -2354,13 +2354,13 @@ sub PrintOneRegisterInHex($$)                                                   
   PopR;
  }
 
-sub PrintErrOneRegisterInHex($)                                                 # Print the named register as a hex string on stderr.
+sub PrintErrOneRegisterInHex($)                                                 #P Print the named register as a hex string on stderr.
  {my ($r) = @_;                                                                 # Register to print
   @_ == 1 or confess "One parameter";
   PrintOneRegisterInHex($stderr, $r)
  }
 
-sub PrintErrOneRegisterInHexNL($)                                               # Print the named register as a hex string on stderr followed by new line.
+sub PrintErrOneRegisterInHexNL($)                                               #P Print the named register as a hex string on stderr followed by new line.
  {my ($r) = @_;                                                                 # Register to print
   @_ == 1 or confess "One parameter";
   PrintOneRegisterInHex($stderr, $r);
@@ -2396,7 +2396,7 @@ sub PrintRegisterInHex($@)                                                      
    }
  }
 
-sub PrintErrRegisterInHex(@)                                                    # Print the named registers as hex strings on stderr.
+sub PrintErrRegisterInHex(@)                                                    #P Print the named registers as hex strings on stderr.
  {my (@r) = @_;                                                                 # Names of the registers to print
   PrintRegisterInHex $stderr, @r;
  }
@@ -2547,12 +2547,12 @@ sub PrintRightInHex($$$)                                                        
     width  => ref($width)  ? $width  : V width  => $width});
  }
 
-sub PrintErrRightInHex($$)                                                      # Write the specified variable in hexadecimal right justified in a field of specified width on stderr.
+sub PrintErrRightInHex($$)                                                      #P Write the specified variable in hexadecimal right justified in a field of specified width on stderr.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
   PrintRightInHex($stderr, $number, $width);
  }
 
-sub PrintErrRightInHexNL($$)                                                    # Write the specified variable in hexadecimal right justified in a field of specified width on stderr followed by a new line.
+sub PrintErrRightInHexNL($$)                                                    #P Write the specified variable in hexadecimal right justified in a field of specified width on stderr followed by a new line.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
   PrintRightInHex($stderr, $number, $width);
   PrintErrNL;
@@ -2629,12 +2629,12 @@ sub PrintRightInBin($$$)                                                        
   $s->call(parameters => {number => $number, width=>$width});
  }
 
-sub PrintErrRightInBin($$)                                                      # Write the specified variable in binary right justified in a field of specified width on stderr.
+sub PrintErrRightInBin($$)                                                      #P Write the specified variable in binary right justified in a field of specified width on stderr.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
   PrintRightInBin($stderr, $number, $width);
  }
 
-sub PrintErrRightInBinNL($$)                                                    # Write the specified variable in binary right justified in a field of specified width on stderr followed by a new line.
+sub PrintErrRightInBinNL($$)                                                    #P Write the specified variable in binary right justified in a field of specified width on stderr followed by a new line.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
   PrintRightInBin($stderr, $number, $width);
   PrintErrNL;
@@ -2693,11 +2693,11 @@ sub PrintOutRaxInDecNL                                                          
   PrintOutNL;
  }
 
-sub PrintErrRaxInDec                                                            # Print rax in decimal on stderr.
+sub PrintErrRaxInDec                                                            #P Print rax in decimal on stderr.
  {PrintRaxInDec($stderr);
  }
 
-sub PrintErrRaxInDecNL                                                          # Print rax in decimal on stderr followed by a new line.
+sub PrintErrRaxInDecNL                                                          #P Print rax in decimal on stderr followed by a new line.
  {PrintErrRaxInDec;
   PrintErrNL;
  }
@@ -2803,11 +2803,11 @@ sub PrintOutRaxAsTextNL                                                         
   PrintOutNL;
  }
 
-sub PrintErrRaxAsText                                                           # Print rax as text on stderr.
+sub PrintErrRaxAsText                                                           #P Print rax as text on stderr.
  {PrintRaxAsText($stderr);
  }
 
-sub PrintErrRaxAsTextNL                                                         # Print rax as text on stderr followed by a new line.
+sub PrintErrRaxAsTextNL                                                         #P Print rax as text on stderr followed by a new line.
  {PrintRaxAsText($stderr);
   PrintOutNL;
  }
@@ -2832,11 +2832,11 @@ sub PrintOutRaxAsCharNL                                                         
   PrintOutNL;
  }
 
-sub PrintErrRaxAsChar                                                           # Print the character in rax on stderr.
+sub PrintErrRaxAsChar                                                           #P Print the character in rax on stderr.
  {PrintRaxAsChar($stderr);
  }
 
-sub PrintErrRaxAsCharNL                                                         # Print the character in rax on stderr followed by a new line.
+sub PrintErrRaxAsCharNL                                                         #P Print the character in rax on stderr followed by a new line.
  {PrintRaxAsChar($stderr);
   PrintOutNL;
  }
@@ -2938,7 +2938,7 @@ sub Nasm::X86::Variable::dump($$$;$$)                                           
   PopR;
  }
 
-sub Nasm::X86::Variable::err($;$$)                                              # Dump the value of a variable on stderr.
+sub Nasm::X86::Variable::err($;$$)                                              #P Dump the value of a variable on stderr.
  {my ($left, $title1, $title2) = @_;                                            # Left variable, optional leading title, optional trailing title
   $left->dump($stderr, 0, $title1, $title2);
  }
@@ -2948,12 +2948,12 @@ sub Nasm::X86::Variable::out($;$$)                                              
   $left->dump($stdout, 0, $title1, $title2);
  }
 
-sub Nasm::X86::Variable::errNL($;$$)                                            # Dump the value of a variable on stderr and append a new line.
+sub Nasm::X86::Variable::errNL($;$$)                                            #P Dump the value of a variable on stderr and append a new line.
  {my ($left, $title1, $title2) = @_;                                            # Left variable, optional leading title, optional trailing title
   $left->dump($stderr, 1, $title1, $title2);
  }
 
-sub Nasm::X86::Variable::d($;$$)                                                # Dump the value of a variable on stderr and append the source file calling line in a format that Geany understands.
+sub Nasm::X86::Variable::d($;$$)                                                #P Dump the value of a variable on stderr and append the source file calling line in a format that Geany understands.
  {my ($left, $title1, $title2) = @_;                                            # Left variable, optional leading title, optional trailing title
   $left->dump($stderr, 2, $title1, $title2);
  }
@@ -2965,7 +2965,7 @@ sub Nasm::X86::Variable::outNL($;$$)                                            
 
 #D3 Decimal representation                                                      # Print out a variable as a decimal number
 
-sub Nasm::X86::Variable::errInDec($;$$)                                         # Dump the value of a variable on stderr in decimal.
+sub Nasm::X86::Variable::errInDec($;$$)                                         #P Dump the value of a variable on stderr in decimal.
  {my ($number, $title1, $title2) = @_;                                          # Number as variable, optional leading title, optional trailing title
   PrintErrString($title1 // $number->name.": ");
   PushR rax;
@@ -2975,7 +2975,7 @@ sub Nasm::X86::Variable::errInDec($;$$)                                         
   PrintErrString($title2) if $title2;
  }
 
-sub Nasm::X86::Variable::errInDecNL($;$$)                                       # Dump the value of a variable on stderr in decimal followed by a new line.
+sub Nasm::X86::Variable::errInDecNL($;$$)                                       #P Dump the value of a variable on stderr in decimal followed by a new line.
  {my ($number, $title1, $title2) = @_;                                          # Number as variable, optional leading title, optional trailing title
   $number->errInDec($title1, $title2);
   PrintErrNL;
@@ -3007,12 +3007,12 @@ sub Nasm::X86::Variable::rightInDec($$$)                                        
   PopR;
  }
 
-sub Nasm::X86::Variable::errRightInDec($$)                                      # Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width.
+sub Nasm::X86::Variable::errRightInDec($$)                                      #P Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width.
  {my ($number, $width) = @_;                                                    # Number, width
   $number->rightInDec($stdout, $width);
  }
 
-sub Nasm::X86::Variable::errRightInDecNL($$)                                    # Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width followed by a new line.
+sub Nasm::X86::Variable::errRightInDecNL($$)                                    #P Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width followed by a new line.
  {my ($number, $width) = @_;                                                    # Number, width
   $number->rightInDec($stdout, $width);
   PrintErrNL;
@@ -3037,13 +3037,13 @@ sub Nasm::X86::Variable::rightInHex($$$)                                        
   PrintRightInHex($channel, $number, $width);
  }
 
-sub Nasm::X86::Variable::errRightInHex($$)                                      # Write the specified variable number in hexadecimal right justified in a field of specified width to stderr.
+sub Nasm::X86::Variable::errRightInHex($$)                                      #P Write the specified variable number in hexadecimal right justified in a field of specified width to stderr.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
   @_ == 2 or confess "Two parameters";
   PrintRightInHex($stderr, $number, $width);
  }
 
-sub Nasm::X86::Variable::errRightInHexNL($$)                                    # Write the specified variable number in hexadecimal right justified in a field of specified width to stderr followed by a new line.
+sub Nasm::X86::Variable::errRightInHexNL($$)                                    #P Write the specified variable number in hexadecimal right justified in a field of specified width to stderr followed by a new line.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
   @_ == 2 or confess "Two parameters";
   PrintRightInHex($stderr, $number, $width);
@@ -3071,13 +3071,13 @@ sub Nasm::X86::Variable::rightInBin($$$)                                        
   PrintRightInBin($channel, $number, $width);
  }
 
-sub Nasm::X86::Variable::errRightInBin($$)                                      # Write the specified variable number in binary right justified in a field of specified width to stderr.
+sub Nasm::X86::Variable::errRightInBin($$)                                      #P Write the specified variable number in binary right justified in a field of specified width to stderr.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
   @_ == 2 or confess "Two parameters";
   PrintRightInBin($stderr, $number, $width);
  }
 
-sub Nasm::X86::Variable::errRightInBinNL($$)                                    # Write the specified variable number in binary right justified in a field of specified width to stderr followed by a new line.
+sub Nasm::X86::Variable::errRightInBinNL($$)                                    #P Write the specified variable number in binary right justified in a field of specified width to stderr followed by a new line.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
   @_ == 2 or confess "Two parameters";
   PrintRightInBin($stderr, $number, $width);
@@ -3105,7 +3105,7 @@ sub Nasm::X86::Variable::spaces($$)                                             
   $count->for(sub {PrintSpace $channel});
  }
 
-sub Nasm::X86::Variable::errSpaces($)                                           # Print the specified number of spaces to stderr.
+sub Nasm::X86::Variable::errSpaces($)                                           #P Print the specified number of spaces to stderr.
  {my ($count) = @_;                                                             # Number of spaces
   @_ == 1 or confess "One parameter";
   $count->spaces($stderr);
@@ -3119,13 +3119,13 @@ sub Nasm::X86::Variable::outSpaces($)                                           
 
 #D3 C style zero terminated strings                                             # Print out C style zero terminated strings.
 
-sub Nasm::X86::Variable::errCString($)                                          # Print a zero terminated C style string addressed by a variable on stderr.
+sub Nasm::X86::Variable::errCString($)                                          #P Print a zero terminated C style string addressed by a variable on stderr.
  {my ($string) = @_;                                                            # String
   @_ == 1 or confess "One parameter";
   PrintCString($stderr, $string);
  }
 
-sub Nasm::X86::Variable::errCStringNL($)                                        # Print a zero terminated C style string addressed by a variable on stderr followed by a new line.
+sub Nasm::X86::Variable::errCStringNL($)                                        #P Print a zero terminated C style string addressed by a variable on stderr followed by a new line.
  {my ($string) = @_;                                                            # String
   @_ == 1 or confess "One parameter";
   $string->errCString($string);
@@ -3966,13 +3966,13 @@ sub Nasm::X86::Variable::printMemory($$$)                                       
   PopR;
  }
 
-sub Nasm::X86::Variable::printErrMemory($$)                                     # Print the specified number of bytes of the memory addressed by the variable on stdout.
+sub Nasm::X86::Variable::printErrMemory($$)                                     #P Print the specified number of bytes of the memory addressed by the variable on stdout.
  {my ($address, $size) = @_;                                                    # Address of memory, number of bytes to print
   @_ == 2 or confess "Two parameters";
   $address->printMemory($stderr, $size);
  }
 
-sub Nasm::X86::Variable::printErrMemoryNL($$)                                   # Print the specified number of bytes of the memory addressed by the variable on stdout followed by a new line.
+sub Nasm::X86::Variable::printErrMemoryNL($$)                                   #P Print the specified number of bytes of the memory addressed by the variable on stdout followed by a new line.
  {my ($address, $size) = @_;                                                    # Address of memory, number of bytes to print
   @_ == 2 or confess "Two parameters";
   $address->printErrMemory($size);
@@ -4003,7 +4003,7 @@ sub Nasm::X86::Variable::printMemoryInHexNL($$$)                                
   PopR;
  }
 
-sub Nasm::X86::Variable::printErrMemoryInHexNL($$)                              # Write the memory addressed by a variable to stderr.
+sub Nasm::X86::Variable::printErrMemoryInHexNL($$)                              #P Write the memory addressed by a variable to stderr.
  {my ($address, $size) = @_;                                                    # Address of memory, number of bytes to print
   @_ == 2 or confess "Two parameters";
   $address->printMemoryInHexNL($stderr, $size);
@@ -4186,7 +4186,7 @@ sub PrintMemoryInHex($)                                                         
   $s->call;
  }
 
-sub PrintErrMemoryInHex                                                         # Dump memory from the address in rax for the length in rdi on stderr.
+sub PrintErrMemoryInHex                                                         #P Dump memory from the address in rax for the length in rdi on stderr.
  {@_ == 0 or confess "No parameters";
   PrintMemoryInHex($stderr);
  }
@@ -4196,7 +4196,7 @@ sub PrintOutMemoryInHex                                                         
   PrintMemoryInHex($stdout);
  }
 
-sub PrintErrMemoryInHexNL                                                       # Dump memory from the address in rax for the length in rdi and then print a new line.
+sub PrintErrMemoryInHexNL                                                       #P Dump memory from the address in rax for the length in rdi and then print a new line.
  {@_ == 0 or confess "No parameters";
   PrintMemoryInHex($stderr);
   PrintNL($stderr);
@@ -4244,7 +4244,7 @@ sub PrintMemory_InHex($)                                                        
   $s->call;
  }
 
-sub PrintErrMemory_InHex                                                        # Dump memory from the address in rax for the length in rdi on stderr.
+sub PrintErrMemory_InHex                                                        #P Dump memory from the address in rax for the length in rdi on stderr.
  {@_ == 0 or confess;
   PrintMemory_InHex($stderr);
  }
@@ -4254,7 +4254,7 @@ sub PrintOutMemory_InHex                                                        
   PrintMemory_InHex($stdout);
  }
 
-sub PrintErrMemory_InHexNL                                                      # Dump memory from the address in rax for the length in rdi and then print a new line.
+sub PrintErrMemory_InHexNL                                                      #P Dump memory from the address in rax for the length in rdi and then print a new line.
  {@_ == 0 or confess;
   PrintMemory_InHex($stderr);
   PrintNL($stderr);
@@ -4286,7 +4286,7 @@ sub PrintMemoryNL                                                               
   PrintNL($channel);
  }
 
-sub PrintErrMemory                                                              # Print the memory addressed by rax for a length of rdi on stderr.
+sub PrintErrMemory                                                              #P Print the memory addressed by rax for a length of rdi on stderr.
  {@_ == 0 or confess;
   PrintMemory($stdout);
  }
@@ -4296,7 +4296,7 @@ sub PrintOutMemory                                                              
   PrintMemory($stdout);
  }
 
-sub PrintErrMemoryNL                                                            # Print the memory addressed by rax for a length of rdi followed by a new line on stderr.
+sub PrintErrMemoryNL                                                            #P Print the memory addressed by rax for a length of rdi followed by a new line on stderr.
  {@_ == 0 or confess;
   PrintErrMemory;
   PrintErrNL;
@@ -6114,16 +6114,16 @@ sub Nasm::X86::Tree::copyDescriptor($$)                                         
 #  $t                                                                            # Return original descriptor
 # }
 
-sub Nasm::X86::Tree::copyDescription($)                                         #P Make a copy of a tree descriptor.
- {my ($tree) = @_;                                                              # Tree descriptor
-  my $t = $tree->DescribeTree;
-
-  $t->data   ->copy($tree->data );                                              # Variable containing the last data found
-  $t->first  ->copy($tree->first);                                              # Variable addressing offset to first block of keys.
-  $t->found  ->copy($tree->found);                                              # Variable indicating whether the last find was successful or not
-  $t->subTree->copy($tree->subTree);                                            # Variable indicating whether the last find found a sub tree
-  $t                                                                            # Return new descriptor
- }
+#sub Nasm::X86::Tree::copyDescription($)                                         #P Make a copy of a tree descriptor.
+# {my ($tree) = @_;                                                              # Tree descriptor
+#  my $t = $tree->DescribeTree;
+#
+#  $t->data   ->copy($tree->data );                                              # Variable containing the last data found
+#  $t->first  ->copy($tree->first);                                              # Variable addressing offset to first block of keys.
+#  $t->found  ->copy($tree->found);                                              # Variable indicating whether the last find was successful or not
+#  $t->subTree->copy($tree->subTree);                                            # Variable indicating whether the last find found a sub tree
+#  $t                                                                            # Return new descriptor
+# }
 
 sub Nasm::X86::Tree::firstFromMemory($$)                                        #P Load the first block for a tree into the numbered zmm.
  {my ($tree, $zmm) = @_;                                                        # Tree descriptor, number of zmm to contain first block
@@ -17577,7 +17577,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::reverse
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::reverse #TNasm::X86::Tree::substring
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
@@ -17610,14 +17610,14 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::cloneDescriptor #TNasm::X86::Tree::copyDescription
+if (1) {                                                                        #TNasm::X86::Tree::cloneDescriptor #TNasm::X86::Tree::copyDescriptor
   my $a = CreateArea;
   my $t = $a->CreateTree;
   $t->push(ord 'a');
   my $T = $t->cloneDescriptor;
   $T->push(ord 'b');
   my $c = $a->CreateTree;
-  $c->copyDescription($T);
+  $c->copyDescriptor($T);
   $T->push(ord 'c');
 
   $t->outAsUtf8NL;
