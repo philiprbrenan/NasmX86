@@ -19043,7 +19043,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Area::push #TNasm::X86::Area::pushZmm #TNasm::X86::Area::popZmm #TNasm::X86::Area::peekZmm #TNasm::X86::Area::stackVariableSize #TNasm::X86::Area::stackVariable #TNasm::X86::Area::stackSize
+if (1) {                                                                        #TNasm::X86::Area::push #TNasm::X86::Area::peek #TNasm::X86::Area::pop #TNasm::X86::Area::pushZmm #TNasm::X86::Area::popZmm #TNasm::X86::Area::peekZmm #TNasm::X86::Area::stackVariableSize #TNasm::X86::Area::stackVariable #TNasm::X86::Area::stackSize
   my $a = CreateArea(stack=>1);
 
   $a->stackVariableSize->outNL;
