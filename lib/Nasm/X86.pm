@@ -5296,10 +5296,11 @@ sub Nasm::X86::Area::makeWriteable($)                                           
 #D2 Alloc/Free                                                                  # Allocate and free memory in an area, either once only but in variable size blocks or reusably in zmm sized blocks via the free block chain.
 
 sub Nasm::X86::Area::allocate($$)                                               # Allocate the variable amount of space in the variable addressed area and return the offset of the allocation in the area as a variable.
- {my ($area, $size) = @_;                                                       # Area descriptor, variable amount of allocation
+ {my ($area, $Size) = @_;                                                       # Area descriptor, variable amount of allocation
   @_ == 2 or confess "Two parameters";
 
-# SaveFirstFour;
+  my $size =  ref($Size) ? $Size : K size => $Size;                             # Promote constant
+
   $area->updateSpace($size);                                                    # Update space if needed
   $area->address->setReg(rax);
   Mov rsi, "[rax+$$area{usedOffset}]";                                          # Currently used
@@ -5307,7 +5308,6 @@ sub Nasm::X86::Area::allocate($$)                                               
   $size  ->setReg(rdi);
   Add rsi, rdi;
   Mov "[rax+$$area{usedOffset}]", rsi;                                          # Update currently used
-#  RestoreFirstFour;
 
   $offset
  }
@@ -5346,7 +5346,7 @@ sub Nasm::X86::Area::allocZmmBlock($)                                           
   $offset                                                                       # Return offset of allocated block
  }
 
-sub Nasm::X86::Area::allocZmmBlock3($)                                          # Allocate three zmm blocks in one go and return their offsets.
+sub Nasm::X86::Area::allocZmmBlock3($)                                          #P Allocate three zmm blocks in one go and return their offsets.
  {my ($area) = @_;                                                              # Area
   @_ == 1 or confess "One parameter";
   my $o1 = V(o1 => 0);                                                          # First block
@@ -12443,11 +12443,11 @@ END
  }
 
 #latest:;
-if (1) {                                                                        # Allocate some space in area #TArea::allocate
-  my $s = CreateArea;                                                           # Create an area
-  my $o1 = $s->allocate(K size => 0x20);                                        # Allocate space wanted
-  my $o2 = $s->allocate(K size => 0x30);
-  my $o3 = $s->allocate(K size => 0x10);
+if (1) {                                                                        #TNasm::X86::Area::allocate
+  my $s = CreateArea;
+  my $o1 = $s->allocate(0x20);
+  my $o2 = $s->allocate(0x30);
+  my $o3 = $s->allocate(0x10);
   $o1->outNL;
   $o2->outNL;
   $o3->outNL;
@@ -14597,7 +14597,7 @@ END
  }
 
 #latest:
-if (1) {
+if (1) {                                                                        #TNasm::X86::Area::CreateTree
   my $a = CreateArea;
   my $t = $a->CreateTree;
   $t->put (K(key => 2), K(data => 0x22));
