@@ -18005,7 +18005,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitionsArray
   my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
   my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
@@ -18039,32 +18039,20 @@ if (1) {                                                                        
    }
  }
 
+#latest:;
 if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder #TNasm::X86::Unisyn::Parse::dumpPostOrder
-  my ($compose, $text, $parse) = @_;                                            # The composing expression used to create a unisyn expression, the expected composed expression, the expected parse tree
+  my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("va w m+ vb");
+  my $t = '𝗮 ＋𝗯';
+  is_deeply $u, $t;
 
-  my $u = Nasm::X86::Unisyn::Lex::composeUnisyn($compose);
+  my $p = &ParseUnisyn(constantString $t);                                      # Parse the utf8 string minus the final new line
 
-  is_deeply $u, $text;
-
-  my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
-
-  $p->dump;
-  Assemble avx512=>1;
-
-  if (-e $programOut)                                                           # Print parse tree
-   {my $r = readFile $programOut;
-       $r =~ s(\n) ()gs;                                                        # Collapse result
-    if ($r ne $parse)
-     {say STDERR $text;
-      say STDERR $r;
-      say STDERR "Want: ", dump($parse);
-      say STDERR "Got : ", dump($r);
-      confess "Parse failed" unless onGitHub;
-     }
-   }
-  else
-   {confess "No result file: $programOut";
-   }
+  $p->dumpPostOrder;
+  ok Assemble eq <<END;
+._𝗮 
+._𝗯
+＋
+END
  }
 
 sub testParseUnisyn($$$)                                                        #P Test the parse of a unisyn expression.
@@ -18077,7 +18065,7 @@ sub testParseUnisyn($$$)                                                        
   my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
 
   $p->dump;
-  Assemble avx512=>1;
+  Assemble;
 
   if (-e $programOut)                                                           # Print parse tree
    {my $r = readFile $programOut;
