@@ -5078,7 +5078,7 @@ END
 
 #D2 Constructors                                                                # Construct an area either in memory or by reading it from a file or by incorporating it into an assembly.
 
-sub DescribeArea(%)                                                             #p Describe a relocatable area.  By describing an areas, we allocate space with which to describe it in the current stack frame but we do not allocate memory for the area itself in the heap.
+sub DescribeArea(%)                                                             #P Describe a relocatable area.  By describing an areas, we allocate space with which to describe it in the current stack frame but we do not allocate memory for the area itself in the heap.
  {my (%options) = @_;                                                           # Optional variable addressing the start of the area
   my $address   = delete $options{address}   // 0;                              # Address of area
   my $stack     = delete $options{stack}     // 0;                              # Mark this area as being used as a stack
@@ -5376,7 +5376,7 @@ sub Nasm::X86::Area::allocZmmBlock3($)                                          
   ($o1, $o2, $o3)                                                               # Return offsets of allocated blocks
  }
 
-sub Nasm::X86::Area::freeZmmBlock($$)                                           #P Free a block in an area by placing it on the free chain.
+sub Nasm::X86::Area::freeZmmBlock($$)                                           # Free a block in an area by placing it on the free chain.
  {my ($area, $offset) = @_;                                                     # Area descriptor, offset of zmm block to be freed
   @_ == 2 or confess "Two parameters";
 
@@ -5414,7 +5414,7 @@ sub Nasm::X86::Area::freeChainSpace($)                                          
   $count * RegisterSize 31;
  }
 
-sub Nasm::X86::Area::getZmmBlock($$$)                                           #P Get the block with the specified offset in the specified string and return it in the numbered zmm.
+sub Nasm::X86::Area::getZmmBlock($$$)                                           # Get the block with the specified offset in the specified string and return it in the numbered zmm.
  {my ($area, $block, $zmm) = @_;                                                # Area descriptor, offset of the block as a variable or register, number of zmm register to contain block
   @_ == 3 or confess "Three parameters";
 
@@ -5435,7 +5435,7 @@ sub Nasm::X86::Area::getZmmBlock($$$)                                           
   Vmovdqu64 zmm($zmm), "[$a+$o]";                                               # Read from memory
  }
 
-sub Nasm::X86::Area::putZmmBlock($$$)                                           #P Write the numbered zmm to the block at the specified offset in the specified area.
+sub Nasm::X86::Area::putZmmBlock($$$)                                           # Write the numbered zmm to the block at the specified offset in the specified area.
  {my ($area, $block, $zmm) = @_;                                                # Area descriptor, offset of the block as a variable, number of zmm register to contain block
   @_ == 3 or confess "Three parameters";
 
@@ -5455,7 +5455,7 @@ sub Nasm::X86::Area::putZmmBlock($$$)                                           
   Vmovdqu64 "[$a+$o]", zmm($zmm);                                               # Read from memory
  }
 
-sub Nasm::X86::Area::clearZmmBlock($$)                                          #P Clear the zmm block at the specified offset in the area.
+sub Nasm::X86::Area::clearZmmBlock($$)                                          # Clear the zmm block at the specified offset in the area.
  {my ($area, $offset) = @_;                                                     # Area descriptor, offset of the block as a variable
   @_ == 2 or confess "Two parameters";
 
@@ -5465,13 +5465,13 @@ sub Nasm::X86::Area::clearZmmBlock($$)                                          
 
 #D2 Yggdrasil                                                                   # The world tree from which we can address so many other things
 
-sub Nasm::X86::Yggdrasil::UniqueStrings        {K key => 0}                     # A tree of strings that assigns unique numbers to strings.
-sub Nasm::X86::Yggdrasil::SubroutineOffsets    {K key => 1}                     # Translates a string number into the offset of a subroutine in an area.
-sub Nasm::X86::Yggdrasil::SubroutineDefinitions{K key => 2}                     # Maps the unique string number for a subroutine name to the offset in the are that contains the length (as a dword) followed by the string content of the Perl data structure describing the subroutine in question.
-sub Nasm::X86::Yggdrasil::Unisyn::Alphabets    {K key => 3}                     # Unisyn alphabets.
-sub Nasm::X86::Yggdrasil::Unisyn::Open         {K key => 4}                     # Open bracket to close bracket
-sub Nasm::X86::Yggdrasil::Unisyn::Close        {K key => 5}                     # Close bracket to open bracket
-sub Nasm::X86::Yggdrasil::Unisyn::Transitions  {K key => 6}                     # Permissible transitions from alphabet to alphabet
+sub Nasm::X86::Yggdrasil::UniqueStrings        {K key => 0}                     #P A tree of strings that assigns unique numbers to strings.
+sub Nasm::X86::Yggdrasil::SubroutineOffsets    {K key => 1}                     #P Translates a string number into the offset of a subroutine in an area.
+sub Nasm::X86::Yggdrasil::SubroutineDefinitions{K key => 2}                     #P Maps the unique string number for a subroutine name to the offset in the are that contains the length (as a dword) followed by the string content of the Perl data structure describing the subroutine in question.
+sub Nasm::X86::Yggdrasil::Unisyn::Alphabets    {K key => 3}                     #P Unisyn alphabets.
+sub Nasm::X86::Yggdrasil::Unisyn::Open         {K key => 4}                     #P Open bracket to close bracket
+sub Nasm::X86::Yggdrasil::Unisyn::Close        {K key => 5}                     #P Close bracket to open bracket
+sub Nasm::X86::Yggdrasil::Unisyn::Transitions  {K key => 6}                     #P Permissible transitions from alphabet to alphabet
 
 sub Nasm::X86::Area::yggdrasil($)                                               # Return a tree descriptor to the Yggdrasil world tree for an area creating the world tree Yggdrasil if it has not already been created.
  {my ($area) = @_;                                                              # Area descriptor
@@ -5609,7 +5609,7 @@ sub Nasm::X86::Area::nl($)                                                      
   $area->char("\n");
  }
 
-sub Nasm::X86::Area::zero($)                                                    # Append a trailing zero to the area addressed by rax.
+sub Nasm::X86::Area::zero($)                                                    #P Append a trailing zero to the area addressed by rax.
  {my ($area) = @_;                                                              # Area descriptor
   @_ == 1 or confess "One parameter";
   $area->char("\0");
@@ -6165,14 +6165,14 @@ sub Nasm::X86::Tree::root($$$)                                                  
 
 
 sub Nasm::X86::Tree::optionsFromFirst($$%)                                      #P Return a variable containing the options double word from the first block zmm register.
- {my ($tree, $zmm, %options) = @_;                                              # Tree descriptor, number of zmm containing first block
-  @_ == 2 or confess "Two parameters";
+ {my ($tree, $zmm, %options) = @_;                                              # Tree descriptor, number of zmm containing first block, options
+  @_ >= 2 or confess "Two or more parameters";
   dFromZ $zmm, $tree->optionsOffset;
  }
 
 sub Nasm::X86::Tree::optionsIntoFirst($$$%)                                     #P Put the contents of a variable into the options field of the first block of a tree  when the first block is held in a zmm register.
  {my ($tree, $zmm, $value, %options) = @_;                                      # Tree descriptor, number of zmm containing first block, variable containing options to put, options
-  @_ == 3 or confess "Three parameters";
+  @_ >= 3 or confess "Three or more parameters";
   $value->dIntoZ($zmm, $tree->optionsOffset);
  }
 
@@ -8796,26 +8796,26 @@ sub Nasm::X86::Tree::reverse($)                                                 
   $t                                                                            # Chain from the target string
  }
 
-sub Nasm::X86::Area::treeFromString($$$)                                        # Create a tree from a string of bytes held at a variable address with a variable length and return the resulting tree.  The first element of the tree is the specified length, in bytes, of the string.
- {my ($area, $address, $size) = @_;                                             # Area description, address of string, length of string in bytes
-  @_ == 3 or confess "Three parameters";
-
-  my $t = $area->CreateTree;                                                    # Create a tree to be used to store the string
-
-  PushR my $c = r13, my $a = r14, my $i = r15;
-
-  ClearRegisters $i;
-  $address->setReg($a);
-
-  $size->for(sub                                                                # Push each byte of the input string into the tree
-   {Mov $c."b", "[r14+r15]";                                                    # Load byte
-    $t->push(V chunk => $c);                                                    # Push byte into string
-    Inc $i;
-   });
-  PopR;
-
-  $t                                                                            # Description of tree loaded from string
- }
+#sub Nasm::X86::Area::treeFromString($$$)                                        # Create a tree from a string of bytes held at a variable address with a variable length and return the resulting tree.  The first element of the tree is the specified length, in bytes, of the string.
+# {my ($area, $address, $size) = @_;                                             # Area description, address of string, length of string in bytes
+#  @_ == 3 or confess "Three parameters";
+#
+#  my $t = $area->CreateTree;                                                    # Create a tree to be used to store the string
+#
+#  PushR my $c = r13, my $a = r14, my $i = r15;
+#
+#  ClearRegisters $i;
+#  $address->setReg($a);
+#
+#  $size->for(sub                                                                # Push each byte of the input string into the tree
+#   {Mov $c."b", "[r14+r15]";                                                    # Load byte
+#    $t->push(V chunk => $c);                                                    # Push byte into string
+#    Inc $i;
+#   });
+#  PopR;
+#
+#  $t                                                                            # Description of tree loaded from string
+# }
 
 #D2 Key String Trees                                                            # A key string tree has strings for keys.
 
@@ -8931,7 +8931,7 @@ sub Nasm::X86::Tree::putKeyString($$$$)                                         
  }
 
 sub Nasm::X86::Tree::uniqueKeyString($$$)                                       # Add a key string to a string tree if the key is not already present and return a unique number identifying the string (although currently there is no way to fast way to recover the string from the number). If the key string is already present in the string tree return the number associated with the original key string rather than creating a new entry.
- {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key, data associated with key
+ {my ($tree, $address, $size) = @_;                                             # Tree descriptor, address of key, length of key
   @_ == 3 or confess "Three parameters";
 
   PushR my $area = r15, my $first = r14, my $count = r13;
@@ -9748,23 +9748,23 @@ sub Nasm::X86::Unisyn::Lex::numberToLetter                                      
   (K(size => scalar @a), K array => Rd @a)                                      # Size of array, array
  }
 
-sub Nasm::X86::Unisyn::Lex::Reason::Success           {0};                      # Successful parse.
-sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      # Bad utf8 character encountered.
-sub Nasm::X86::Unisyn::Lex::Reason::InvalidChar       {2};                      # Character not part of Earl Zero.
-sub Nasm::X86::Unisyn::Lex::Reason::InvalidTransition {3};                      # Transition from one lexical item to another not allowed.
-sub Nasm::X86::Unisyn::Lex::Reason::TrailingClose     {4};                      # Trailing closing bracket discovered.
-sub Nasm::X86::Unisyn::Lex::Reason::Mismatch          {5};                      # Mismatched bracket.
-sub Nasm::X86::Unisyn::Lex::Reason::NotFinal          {6};                      # Expected something after final character.
-sub Nasm::X86::Unisyn::Lex::Reason::BracketsNotClosed {7};                      # Open brackets not closed at end of.
+sub Nasm::X86::Unisyn::Lex::Reason::Success           {0};                      #P Successful parse.
+sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      #P Bad utf8 character encountered.
+sub Nasm::X86::Unisyn::Lex::Reason::InvalidChar       {2};                      #P Character not part of Earl Zero.
+sub Nasm::X86::Unisyn::Lex::Reason::InvalidTransition {3};                      #P Transition from one lexical item to another not allowed.
+sub Nasm::X86::Unisyn::Lex::Reason::TrailingClose     {4};                      #P Trailing closing bracket discovered.
+sub Nasm::X86::Unisyn::Lex::Reason::Mismatch          {5};                      #P Mismatched bracket.
+sub Nasm::X86::Unisyn::Lex::Reason::NotFinal          {6};                      #P Expected something after final character.
+sub Nasm::X86::Unisyn::Lex::Reason::BracketsNotClosed {7};                      #P Open brackets not closed at end of.
 
-sub Nasm::X86::Unisyn::Lex::position {0};                                       # Position of the parsed item in the input text.
-sub Nasm::X86::Unisyn::Lex::length   {1};                                       # Length of the lexical item in bytes.
-sub Nasm::X86::Unisyn::Lex::type     {2};                                       # Type of the lexical item.
-sub Nasm::X86::Unisyn::Lex::left     {3};                                       # Left operand.
-sub Nasm::X86::Unisyn::Lex::right    {4};                                       # Right operand.
-sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       # Symbol.
+sub Nasm::X86::Unisyn::Lex::position {0};                                       #P Position of the parsed item in the input text.
+sub Nasm::X86::Unisyn::Lex::length   {1};                                       #P Length of the lexical item in bytes.
+sub Nasm::X86::Unisyn::Lex::type     {2};                                       #P Type of the lexical item.
+sub Nasm::X86::Unisyn::Lex::left     {3};                                       #P Left operand.
+sub Nasm::X86::Unisyn::Lex::right    {4};                                       #P Right operand.
+sub Nasm::X86::Unisyn::Lex::symbol   {5};                                       #P Symbol.
 
-sub Nasm::X86::Unisyn::DescribeParse()                                          # Describe a parse - create a description on the stack to receive the results of a parse
+sub Nasm::X86::Unisyn::DescribeParse()                                          #P Describe a parse - create a description on the stack to receive the results of a parse
  {genHash("Nasm::X86::Unisyn::Parse",                                           # Parse results
     area     => DescribeArea,                                                   # The area in which the parse tree was built
     tree     => V('tree       '),                                               # The offset of the start of the parse tree in the parse area
@@ -9804,7 +9804,7 @@ sub sortHashKeysByIntegerValues($)                                              
   sort {$$h{$a} <=> $$h{$b}} sort keys %$h;                                     # Done here to avoid collisions with the sort special variables,
  }
 
-sub Nasm::X86::Unisyn::Parse($)                                                 # Parse a string of utf8 characters.
+sub Nasm::X86::Unisyn::Parse($)                                                 #P Parse a string of utf8 characters.
  {my ($pd) = @_;                                                                # Parse descriptor
   @_ == 1 or confess "One parameter";
 
@@ -11818,7 +11818,7 @@ if (1) {                                                                        
  }
 
 #latest:
-if (1) {                                                                        #TIf #Tef #TThen  #TElse
+if (1) {                                                                        #TIf #TEf #TThen  #TElse
   my $n0 = K(zero => 0);
   If $n0 == 0,
   Then
@@ -19007,7 +19007,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Area::push #TNasm::X86::Area::pushZmm #TNasm::X86::Area::popZmm #TNasm::X86::Area::peekZmm #TNasm::X86::Area::stackVariableSize #TNasm::X86::Area::stackVariable
+if (1) {                                                                        #TNasm::X86::Area::push #TNasm::X86::Area::pushZmm #TNasm::X86::Area::popZmm #TNasm::X86::Area::peekZmm #TNasm::X86::Area::stackVariableSize #TNasm::X86::Area::stackVariable #TNasm::X86::Area::stackSize
   my $a = CreateArea(stack=>1);
 
   $a->stackVariableSize->outNL;
@@ -19264,7 +19264,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Tree::traverseApplyingLibraryOperators #TParseUnisyn
   my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
 
   my $library = Subroutine                                                      # This subroutine and all of the subroutines it contains will be saved in an area and that area will be written to a file from where it can be included via L<incBin> in subsequent assemblies.
