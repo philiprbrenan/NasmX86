@@ -175,7 +175,7 @@ Print the first 11 [Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_number) n
 
   V(N => $N)->for(sub                                                           # Generate each Fibonacci number by adding the two previous ones together
    {my ($index, $start, $next, $end) = @_;
-    $index->outRightInDec(V(width => 2));                                       # Index
+    $index->outRightInDec(2);                                                   # Index
     Mov rax, r13;
     PrintOutRightInDecNL rax, 12;                                               # Fibonacci number at this index
 
@@ -620,22 +620,22 @@ Create a 6/13 multiway [tree](https://en.wikipedia.org/wiki/Tree_(data_structure
    {my ($i) = @_;
     $t->put($i, $i);
    });
-  $t->printInOrder(" 0"); $t->delete(K k =>  0);
-  $t->printInOrder(" 2"); $t->delete(K k =>  2);
-  $t->printInOrder(" 4"); $t->delete(K k =>  4);
-  $t->printInOrder(" 6"); $t->delete(K k =>  6);
-  $t->printInOrder(" 8"); $t->delete(K k =>  8);
-  $t->printInOrder("10"); $t->delete(K k => 10);
-  $t->printInOrder("12"); $t->delete(K k => 12);
-  $t->printInOrder("14"); $t->delete(K k => 14);
-  $t->printInOrder(" 1"); $t->delete(K k =>  1);
-  $t->printInOrder(" 3"); $t->delete(K k =>  3);
-  $t->printInOrder(" 5"); $t->delete(K k =>  5);
-  $t->printInOrder(" 7"); $t->delete(K k =>  7);
-  $t->printInOrder(" 9"); $t->delete(K k =>  9);
-  $t->printInOrder("11"); $t->delete(K k => 11);
-  $t->printInOrder("13"); $t->delete(K k => 13);
-  $t->printInOrder("15"); $t->delete(K k => 15);
+  $t->printInOrder(" 0"); $t->delete( 0);
+  $t->printInOrder(" 2"); $t->delete( 2);
+  $t->printInOrder(" 4"); $t->delete( 4);
+  $t->printInOrder(" 6"); $t->delete( 6);
+  $t->printInOrder(" 8"); $t->delete( 8);
+  $t->printInOrder("10"); $t->delete(10);
+  $t->printInOrder("12"); $t->delete(12);
+  $t->printInOrder("14"); $t->delete(14);
+  $t->printInOrder(" 1"); $t->delete( 1);
+  $t->printInOrder(" 3"); $t->delete( 3);
+  $t->printInOrder(" 5"); $t->delete( 5);
+  $t->printInOrder(" 7"); $t->delete( 7);
+  $t->printInOrder(" 9"); $t->delete( 9);
+  $t->printInOrder("11"); $t->delete(11);
+  $t->printInOrder("13"); $t->delete(13);
+  $t->printInOrder("15"); $t->delete(15);
   $t->printInOrder("XX");
 
   ok Assemble eq => <<END;
