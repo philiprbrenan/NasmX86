@@ -12184,11 +12184,12 @@ if (!!onGitHub) {                                                               
 if (1) {                                                                        #TCreateArea #TNasm::X86::Area::out #TNasm::X86::Area::outNL #TNasm::X86::Area::q #TNasm::X86::Area::ql
   my $a = CreateArea;
   $a->q('aa');
-  $a->out;
-  $a->ql('bb');
   $a->outNL;
+  $a->ql('bb');
+  $a->out;
   ok Assemble eq => <<END, avx512=>0;
 aa
+aabb
 END
  }
 
@@ -19006,7 +19007,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Area::push #TNasm::X86::Area::pushZmm #TNasm::X86::Area::popZmm Nasm::X86::Area::peekZmm
+if (1) {                                                                        #TNasm::X86::Area::push #TNasm::X86::Area::pushZmm #TNasm::X86::Area::popZmm #TNasm::X86::Area::peekZmm #TNasm::X86::Area::stackVariableSize #TNasm::X86::Area::stackVariable
   my $a = CreateArea(stack=>1);
 
   $a->stackVariableSize->outNL;
@@ -19182,7 +19183,7 @@ if (1)                                                                          
 END
  }
 
-latest:;
+#latest:;
 if (1)                                                                          #TNasm::X86::Area::appendZmm #TloadZmm #TNasm::X86::Area::printOut #TNasm::X86::Area::write #TNasm::X86::Area::read
  {LoadZmm 0, 61..61+63;
 
@@ -19211,7 +19212,7 @@ Area     Size:     4096    Used:      128
 END
  }
 
-latest:;
+#latest:;
 if (1)                                                                          #TNasm::X86::Area::char #TNasm::X86::Area::nl
  {my $a = CreateArea;
   $a->char('a');
