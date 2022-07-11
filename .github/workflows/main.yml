@@ -1,4 +1,4 @@
-# Test NasmX86 2022-07-11 at 19:57:07
+# Test NasmX86 2022-07-11 at 20:01:08
 
 name: Test
 
@@ -41,6 +41,10 @@ jobs:
     - name: Install Test::Most
       run: |
         sudo cpan install -T Test::Most
+
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
 
     - name: Install Intel Sde
       run: |
@@ -96,6 +100,10 @@ jobs:
       run: |
         sudo cpan install -T Test::Most
 
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
+
     - name: Install Intel Sde
       run: |
         tar -xf sde.tar.bz2
@@ -149,6 +157,10 @@ jobs:
     - name: Install Test::Most
       run: |
         sudo cpan install -T Test::Most
+
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
 
     - name: Install Intel Sde
       run: |
@@ -204,6 +216,10 @@ jobs:
       run: |
         sudo cpan install -T Test::Most
 
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
+
     - name: Install Intel Sde
       run: |
         tar -xf sde.tar.bz2
@@ -257,6 +273,10 @@ jobs:
     - name: Install Test::Most
       run: |
         sudo cpan install -T Test::Most
+
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
 
     - name: Install Intel Sde
       run: |
@@ -312,6 +332,10 @@ jobs:
       run: |
         sudo cpan install -T Test::Most
 
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
+
     - name: Install Intel Sde
       run: |
         tar -xf sde.tar.bz2
@@ -365,6 +389,10 @@ jobs:
     - name: Install Test::Most
       run: |
         sudo cpan install -T Test::Most
+
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
 
     - name: Install Intel Sde
       run: |
@@ -420,6 +448,10 @@ jobs:
       run: |
         sudo cpan install -T Test::Most
 
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
+
     - name: Install Intel Sde
       run: |
         tar -xf sde.tar.bz2
@@ -473,6 +505,10 @@ jobs:
     - name: Install Test::Most
       run: |
         sudo cpan install -T Test::Most
+
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
 
     - name: Install Intel Sde
       run: |
@@ -528,6 +564,10 @@ jobs:
       run: |
         sudo cpan install -T Test::Most
 
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
+
     - name: Install Intel Sde
       run: |
         tar -xf sde.tar.bz2
@@ -582,6 +622,10 @@ jobs:
       run: |
         sudo cpan install -T Test::Most
 
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
+
     - name: Install Intel Sde
       run: |
         tar -xf sde.tar.bz2
@@ -635,6 +679,10 @@ jobs:
     - name: Install Test::Most
       run: |
         sudo cpan install -T Test::Most
+
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
 
     - name: Install Intel Sde
       run: |
