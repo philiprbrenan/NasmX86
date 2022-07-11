@@ -6058,12 +6058,12 @@ sub DescribeTree(%)                                                             
     offset               => V('offset '),                                       # Variable containing the offset of the block containing the current key
     subTree              => V('subTree'),                                       # Variable indicating whether the last find found a sub tree
 
-#    data                 => V('data   ' => 0),                                  # Variable containing the current data
-#    first                => V('first  ' => 0),                                  # Variable addressing offset to first block of the tree which is the header block
-#    found                => V('found  ' => 0),                                  # Variable indicating whether the last find was successful or not
-#    key                  => V('key    ' => 0),                                  # Variable containing the current key
-#    offset               => V('offset ' => 0),                                  # Variable containing the offset of the block containing the current key
-#    subTree              => V('subTree' => 0),                                  # Variable indicating whether the last find found a sub tree
+#    data                 => V('data   ' => 0),                                 # Variable containing the current data
+#    first                => V('first  ' => 0),                                 # Variable addressing offset to first block of the tree which is the header block
+#    found                => V('found  ' => 0),                                 # Variable indicating whether the last find was successful or not
+#    key                  => V('key    ' => 0),                                 # Variable containing the current key
+#    offset               => V('offset ' => 0),                                 # Variable containing the offset of the block containing the current key
+#    subTree              => V('subTree' => 0),                                 # Variable indicating whether the last find found a sub tree
    );
  }
 
@@ -6082,7 +6082,7 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   my $o    = $tree->area->allocZmmBlock;                                        # Allocate header
   $tree->first->copy($o);                                                       # Install header
 
-  my ($z) = zmm 1;                                                                # Load options into first block
+  my ($z) = zmm 1;                                                              # Load options into first block
   my $t = $tree;
   my $a = $t->area;
 
@@ -10548,8 +10548,8 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
 
     my $w = dSize;
     $parse->area->getZmmBlock($offset, 1);                                      # Load parse tree node
-#    my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);              # Length of input
-#    my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);            # Position in input
+#    my $length   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::length);             # Length of input
+#    my $position = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::position);           # Position in input
     my $type     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::type);                # Type of operator
     my $left     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::left);                # Left operand found
     my $right    = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::right);               # Right operand found
