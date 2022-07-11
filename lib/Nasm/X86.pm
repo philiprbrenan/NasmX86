@@ -7214,14 +7214,14 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
   if ($dt)                                                                      # Put a sub tree
    {$s->call(structures => {tree    => $tree},
-             parameters => {key     => $key,
+             parameters => {key     => (ref($key) ? $key : K key => $key),
                             data    => $data->first,
                             subTree => K(key => 1)});
    }
   else                                                                          # Not a usb tree
    {$s->call(structures => {tree    => $tree},
-             parameters => {key     => $key,
-                            data    => $data,
+             parameters => {key     => (ref($key)  ? $key  : K key  => $key),
+                            data    => (ref($data) ? $data : K data => $data),
                             subTree => K(zero => 0)});
    }
  } # put
@@ -7312,7 +7312,8 @@ sub Nasm::X86::Tree::find($$)                                                   
      structures => {tree=>$tree},
      name       => qq(Nasm::X86::Tree::find-$$tree{length}-$$tree{stringTree});
 
-  $s->inline(structures=>{tree => $tree}, parameters=>{key => $key});
+  $s->inline(structures => {tree => $tree},
+             parameters => {key  => ref($key) ? $key : K key => $key});
  } # find
 
 sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree and set B<found>|B<key>|B<data>|B<subTree> to show the result.
@@ -8408,7 +8409,7 @@ sub Nasm::X86::Tree::deleteFirstKeyAndData($$$)                                 
 sub Nasm::X86::Tree::delete($$)                                                 # Find a key in a tree and delete it returning he value of the l=key deleted if found.
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to delete
   @_ == 2 or confess "Two parameters";
-  ref($key) =~ m(Variable) or confess "Variable required";
+
   confess "No yet implemented for stringTrees" if $tree->stringTree;
 
   my $s = Subroutine
@@ -8539,7 +8540,8 @@ sub Nasm::X86::Tree::delete($$)                                                 
      structures =>{tree=>$tree},
      name       => qq(Nasm::X86::Tree::delete-$$tree{length}-$$tree{stringTree});
 
-  $s->call(structures=>{tree => $tree}, parameters=>{key => $key});
+  $s->call(structures => {tree => $tree},
+           parameters => {key  => ref($key) ? $key : K key =>  $key});
  } # delete
 
 sub Nasm::X86::Tree::clear($)                                                   # Delete everything in the tree except the first block recording any memory liberated on the free chain.
@@ -11343,7 +11345,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11345 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11347 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
