@@ -368,6 +368,7 @@ END
 sub Dbwdq($@)                                                                   #P Layout data.
  {my ($s, @d) = @_;                                                             # Element size, data to be laid out
   my $d = join ', ', @d;
+confess "AAAA" if $s eq "q" and $d =~ m(zmm31);
   my $l = Label;
   push @data, <<END;
   $l: d$s $d
@@ -7246,9 +7247,6 @@ sub Nasm::X86::Tree::find($$)                                                   
    {confess "Zmm required"                if ref($key);
     confess "Bound zmm required not $key" if $key =~ m(\A(zmm)?(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15)\Z);
    }
-  else                                                                          # Key in zmm
-   {confess "Variable required" unless ref($key) =~ m(Variable);
-   }
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -7313,7 +7311,7 @@ sub Nasm::X86::Tree::find($$)                                                   
      name       => qq(Nasm::X86::Tree::find-$$tree{length}-$$tree{stringTree});
 
   $s->inline(structures => {tree => $tree},
-             parameters => {key  => ref($key) ? $key : K key => $key});
+             parameters => {key  => ref($key) || $key =~ m(\Azmm) ? $key : K key => $key});
  } # find
 
 sub Nasm::X86::Tree::findFirst($)                                               # Find the first element in a tree and set B<found>|B<key>|B<data>|B<subTree> to show the result.
@@ -11345,7 +11343,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11347 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11345 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -14983,20 +14981,20 @@ if (1) {
   $a->dump("0000", K depth => 6);
   $t->dump("0000");
 
-  $t->put(K(key=>1), K(data=>0x11));
-  $a->dump("1111", K depth => 6);
+  $t->put(1, 0x11);
+  $a->dump("1111", 6);
   $t->dump("1111");
 
-  $t->put(K(key=>2), K(data=>0x22));
-  $a->dump("2222", K depth => 6);
+  $t->put(2, 0x22);
+  $a->dump("2222", 6);
   $t->dump("2222");
 
-  $t->put(K(key=>3), K(data=>0x33));
-  $a->dump("3333", K depth => 6);
+  $t->put(3, 0x33);
+  $a->dump("3333", 6);
   $t->dump("3333");
 
   $t->splitNode(K offset => 0x80);
-  $a->dump("4444", K depth => 11);
+  $a->dump("4444", 11);
   $t->dump("4444");
 
   ok Assemble eq => <<END, avx512=>1;
@@ -15078,8 +15076,8 @@ END
 if (1)                                                                          #TNasm::X86::Tree::put #TNasm::X86::Tree::find
  {my $a = CreateArea;
   my $t = $a->CreateTree;
-  $t->put(K(key => 1), K(key => 1));
-  $t->find (K key => 1);
+  $t->put(1, 1);
+  $t->find (1);
   $t->found->outNL;
   $t->data ->outNL;
 
@@ -15094,11 +15092,11 @@ if (1) {
   my $a = CreateArea;
   my $t = $a->CreateTree;
 
-  $t->put(K(key=>1), K(data=>0x11));
-  $t->put(K(key=>2), K(data=>0x22));
-  $t->put(K(key=>3), K(data=>0x33));
-  $t->put(K(key=>4), K(data=>0x44));
-  $a->dump("4444", K depth => 11);
+  $t->put(1, 0x11);
+  $t->put(2, 0x22);
+  $t->put(3, 0x33);
+  $t->put(4, 0x44);
+  $a->dump("4444", 11);
   $t->dump("4444");
 
   ok Assemble eq => <<END, avx512=>1;
