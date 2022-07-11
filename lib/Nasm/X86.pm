@@ -5438,7 +5438,7 @@ sub Nasm::X86::Area::freeChainSpace($)                                          
 
   $area->address->setReg(rax);                                                  # Address of area
   Mov $firstD, "[rax+$$area{freeOffset}]";                                      # Offset of first block in free chain if such a block exists
-  V( loop => 99)->for(sub                                                       # Loop through free block chain
+  K( loop => 99)->for(sub                                                       # Loop through free block chain
    {my ($index, $start, $next, $end) = @_;
     Cmp $first, 0;
     IfEq Then{Jmp $end};                                                        # No more free blocks
@@ -13939,7 +13939,7 @@ END
 
 #latest:
 if (1) {                                                                        #TPrintOutRaxAsTextNL
-  V( loop => 16)->for(sub
+  K( loop => 16)->for(sub
    {my ($index, $start, $next, $end) = @_;
     $index->setReg(rax);
     Add rax, 0xb0;   Shl rax, 16;
