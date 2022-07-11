@@ -12293,7 +12293,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TCreateArea #TArea::length  #TArea::clear #TArea::out #TArea::copy #TArea::nl
+if (1) {                                                                        #TCreateArea #TNasm::X86::Area::clear #TNasm::X86::Area::out  #TNasm::X86::Area::append
   my $a = CreateArea;
   $a->q('ab');
   my $b = CreateArea;
@@ -19161,7 +19161,7 @@ END
  }
 
 #latest:;
-if (1)                                                                          # Place parser tables into an area
+if (1)                                                                          # Place parser tables into an area #TNasm::X86::Area::appendVar #TNasm::X86::Unisyn::Lex::AlphabetsArray #TNasm::X86::Unisyn::Lex::PermissibleTransitionsArray
  {my $a = CreateArea;
   my ($alphabetN,    $alphabetA)    = Nasm::X86::Unisyn::Lex::AlphabetsArray;
   my ($transitionsN, $transitionsA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;
@@ -19174,6 +19174,38 @@ if (1)                                                                          
 
   $a->write("z123.txt");                                                        # Save the area to the named file
   ok Assemble eq => <<END;
+END
+ }
+
+#latest:;
+if (1)                                                                          #TNasm::X86::Area::appendZmm #TloadZmm
+ {my $a = CreateArea;
+  LoadZmm 0, 0..63;
+  $a->appendZmm(0);
+
+  $a->dump("AA");
+  ok Assemble eq => <<END;
+AA
+Area     Size:     4096    Used:      128
+.... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | __.1 .2.3 .4.5 .6.7  .8.9 .A.B .C.D .E.F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+latest:;
+if (1)                                                                          #TNasm::X86::Area::char
+ {my $a = CreateArea;
+  $a->char(0x12);
+  $a->dump("AA");
+  ok Assemble eq => <<END;
+AA
+Area     Size:     4096    Used:      128
+.... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | __.1 .2.3 .4.5 .6.7  .8.9 .A.B .C.D .E.F  1011 1213 1415 1617  1819 1A1B 1C1D 1E1F  2021 2223 2425 2627  2829 2A2B 2C2D 2E2F  3031 3233 3435 3637  3839 3A3B 3C3D 3E3F
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 END
  }
 
