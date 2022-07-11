@@ -6061,7 +6061,7 @@ sub Nasm::X86::Area::CreateTree($%)                                             
   $tree                                                                         # Description of array
  }
 
-sub Nasm::X86::Tree::describeTree($%)                                           # Create a description of a tree.
+sub Nasm::X86::Tree::DescribeTree($%)                                           #P Create a description of a tree.
  {my ($tree, %options) = @_;                                                    # Tree descriptor, {first=>first node of tree if not the existing first node; area=>area used by tree if not the existing area}
   @_ >= 1 or confess "At least one parameter";
 
@@ -6071,9 +6071,9 @@ sub Nasm::X86::Tree::describeTree($%)                                           
    );
  }
 
-sub Nasm::X86::Tree::position($$)                                               # Create a new tree description for a tree positioned at the specified location.
+sub Nasm::X86::Tree::position($$)                                               #P Create a new tree description for a tree positioned at the specified location.
  {my ($tree, $first) = @_;                                                      # Tree descriptor, offset of tree
-  my $t = $tree->describeTree;                                                  # Length of new tree must be same as old tree
+  my $t = $tree->DescribeTree;                                                  # Length of new tree must be same as old tree
 
   $t->first->copy($first);                                                      # Variable addressing offset to first block of keys.
   $t                                                                            # Return new descriptor
@@ -6082,7 +6082,7 @@ sub Nasm::X86::Tree::position($$)                                               
 sub Nasm::X86::Tree::cloneDescriptor($)                                         # Clone the descriptor of a tree to make a new tree descriptor.
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
-  my $t = $tree->describeTree(length=>$tree->length);                           # Length of new tree must be same as old tree
+  my $t = $tree->DescribeTree(length=>$tree->length);                           # Length of new tree must be same as old tree
   $t->copyDescriptor($tree);                                                    # Load new descriptor from original descriptor
   $t                                                                            # Return new descriptor
  }
@@ -6095,28 +6095,28 @@ sub Nasm::X86::Tree::copyDescriptor($$)                                         
   $target                                                                       # Return target
  }
 
-sub Nasm::X86::Tree::down($)                                                    # Use the current B<find> result held in B<data> to position on the referenced subtree at the next level down.
- {my ($tree) = @_;                                                              # Tree descriptor which has just completed a successful find
-  @_ == 1 or confess "One parameter";
-  If $tree->data == 0,
-  Then
-   {PrintErrTraceBack "Invalid sub tree offset";
-   };
-  $tree->first->copy($tree->data);                                              # The next sub tree down is addressed by the B<data> field of the tree descriptor
-  $tree                                                                         # Return original descriptor
- }
+#sub Nasm::X86::Tree::down($)                                                    # Use the current B<find> result held in B<data> to position on the referenced subtree at the next level down.
+# {my ($tree) = @_;                                                              # Tree descriptor which has just completed a successful find
+#  @_ == 1 or confess "One parameter";
+#  If $tree->data == 0,
+#  Then
+#   {PrintErrTraceBack "Invalid sub tree offset";
+#   };
+#  $tree->first->copy($tree->data);                                              # The next sub tree down is addressed by the B<data> field of the tree descriptor
+#  $tree                                                                         # Return original descriptor
+# }
 
-sub Nasm::X86::Tree::cloneAndDown($)                                            # Use the current B<find> result held in B<data> to position a new sub tree on the referenced subtree at the next level down.
- {my ($tree) = @_;                                                              # Tree descriptor which has just completed a successful find
-  @_ == 1 or confess "One parameter";
-  my $t = $tree->describeTree;                                                  # Clone the supplied tree
-  $t->first->copy($tree->data);                                                 # The next sub tree down is addressed by the B<data> field of the tree descriptor
-  $t                                                                            # Return original descriptor
- }
+#sub Nasm::X86::Tree::cloneAndDown($)                                            # Use the current B<find> result held in B<data> to position a new sub tree on the referenced subtree at the next level down.
+# {my ($tree) = @_;                                                              # Tree descriptor which has just completed a successful find
+#  @_ == 1 or confess "One parameter";
+#  my $t = $tree->DescribeTree;                                                  # Clone the supplied tree
+#  $t->first->copy($tree->data);                                                 # The next sub tree down is addressed by the B<data> field of the tree descriptor
+#  $t                                                                            # Return original descriptor
+# }
 
 sub Nasm::X86::Tree::copyDescription($)                                         #P Make a copy of a tree descriptor.
  {my ($tree) = @_;                                                              # Tree descriptor
-  my $t = $tree->describeTree;
+  my $t = $tree->DescribeTree;
 
   $t->data   ->copy($tree->data );                                              # Variable containing the last data found
   $t->first  ->copy($tree->first);                                              # Variable addressing offset to first block of keys.
@@ -7541,7 +7541,7 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
  {my ($tree, $key) = @_;                                                        # Tree descriptor, key as a dword
   @_ == 2 or confess "Two parameters";
 
-  my $t = $tree->describeTree;                                                  # The sub tree we are attempting to load
+  my $t = $tree->DescribeTree;                                                  # The sub tree we are attempting to load
      $t->copyDescriptor($tree);                                                 # Position on the tree
 
   my $s = Subroutine
@@ -7626,7 +7626,7 @@ sub Nasm::X86::Tree::rightMost($$$)                                             
   $t->leftOrRightMost(1, $node, $offset)                                        # Return the right most node
  }
 
-sub Nasm::X86::Tree::depth($$)                                                  # Return the depth of a node within a tree.
+sub Nasm::X86::Tree::depth($$)                                                  #P Return the depth of a node within a tree.
  {my ($tree, $node) = @_;                                                       # Tree descriptor, node
   @_ == 2 or confess "Two parameters required";
   PrintErrTraceBack "Rewrite me";
@@ -8604,6 +8604,7 @@ sub Nasm::X86::Tree::yb($&)                                                     
 sub Nasm::X86::Tree::push($$)                                                   #P Push a data value onto a tree. If the data is a reference to a tree then the offset of the first block of the tree is pushed.
  {my ($tree, $data) = @_;                                                       # Tree descriptor, variable data
   @_ == 2 or confess "Two parameters";
+
   $tree->findLast;                                                              # Last element
   If $tree->found == 0,
   Then                                                                          # Empty tree
@@ -8615,13 +8616,13 @@ sub Nasm::X86::Tree::push($$)                                                   
  }
 
 sub Nasm::X86::Tree::peek($$)                                                   # Peek at the element the specified distance back from the top of the stack and return its B<value> in data and found status in B<found> in the tree descriptor.
- {my ($tree, $back) = @_;                                                       # Tree descriptor, how far back to go with 1 being the top
+ {my ($tree, $Back) = @_;                                                       # Tree descriptor, how far back to go with 1 being the top
   @_ == 2 or confess "Two parameters";
-  ref($back) =~ m(Variable) or confess "Must be a variable, not: ", dump($back);
 
   $tree->found->copy(0);                                                        # Assume we will not be able to find the desired element
 
   my $size = $tree->size;                                                       # Size of the stack
+  my $back = ref($Back) ? $Back : K back => $Back;
   If $back <= $size,
   Then                                                                          # Requested element is available on the stack
    {$tree->find($size - $back);
@@ -8634,7 +8635,7 @@ sub Nasm::X86::Tree::peekSubTree($$)                                            
   @_ == 2 or confess "Two parameters";
   ref($back) =~ m(Variable) or confess "Must be a variable, not: ", dump($back);
 
-  my $t = $tree->describeTree;                                                  # Create a tree descriptor
+  my $t = $tree->DescribeTree;                                                  # Create a tree descriptor
   $t->found->copy(0);                                                           # Mark tree as not set
   $tree->peek($back);                                                           # Requested element
   If $tree->found > 0,
@@ -8675,7 +8676,7 @@ sub Nasm::X86::Tree::popSubTree($%)                                             
 
   $tree->pop;
 
-  my $t = $tree->describeTree(%options);                                        # Create a tree descriptor to indicate the result
+  my $t = $tree->DescribeTree(%options);                                        # Create a tree descriptor to indicate the result
      $t->zero;
   If $tree->found > 0,
   Then
@@ -8694,8 +8695,10 @@ sub Nasm::X86::Tree::popSubTree($%)                                             
  }
 
 sub Nasm::X86::Tree::get($$)                                                    # Retrieves the element at the specified zero based index in the stack.
- {my ($tree, $key) = @_;                                                        # Tree descriptor, zero based index
+ {my ($tree, $Key) = @_;                                                        # Tree descriptor, zero based index
   @_ == 2 or confess "Two parameters";
+  my $key  = ref($Key)  ? $Key : K(key => $Key);                                # Promote constant
+
   $tree->find($key);
   $tree->key->copy($key);
  }
@@ -8848,7 +8851,7 @@ sub Nasm::X86::Tree::getKeyString($$$)                                          
         $T->find(zmm $key);
         If $T->found > 0,
         Then
-         {$T->down;
+         {$T->first->copy($T->data);                                            # The next sub tree down is addressed by the B<data> field of the tree descriptor
          },
         Else                                                                    # Not found at this level
          {$t->found->copy(0);                                                   # Show not found
@@ -9355,49 +9358,49 @@ sub Nasm::X86::Tree::outAsUtf8NL($)                                             
   $string                                                                       # Chain from the target string
  }
 
-if (1)                                                                          # Define operator overloading for trees
- {package Nasm::X86::Tree;
-  use overload
-#   '+'  => \&add,
-#   '-'  => \&sub,
-#   '*'  => \&times,
-#   '/'  => \&divide,
-#   '%'  => \&mod,
-#  '=='  => \&eq,
-#  '!='  => \&ne,
-#  '>='  => \&ge,
-#   '>'  => \&gt,
-#  '<='  => \&le,
-#  '<'   => \&lt,
-#  '++'  => \&inc,
-   '--'  => \&dec,
-#  '""'  => \&str,
-#  '&'   => \&and,                                                              # We use the zero flag as the bit returned by a Boolean operation so we cannot implement '&' or '|' which were previously in use because '&&' and '||' and "and" and "or" are all disallowed in Perl operator overloading.
-#  '|'   => \&or,
-   '+='  => \&plusAssign,
-#  '-='  => \&minusAssign,
-#  '='   => \&equals,
-#  '<<'  => \&shiftLeft,
-#  '>>'  => \&shiftRight,
-#  '!'    => \&not,
-   "fallback" => 1,
- }
-
-sub Nasm::X86::Tree::plusAssign($$)                                             # Use plus to push an element to a tree being used as a stack.
- {my ($tree, $data) = @_;                                                       # Tree being used as a stack, data to push
-
-  ref($data) =~ m(Variable|Tree) or                                             # Check right operand on right
-    confess "Need a tree or variable on the right";
-
-  $tree->push($data);                                                           # Perform the push
-  $tree                                                                         # The resulting tree
- }
-
-sub Nasm::X86::Tree::dec($)                                                     # Pop from the tree if it is being used as a stack.
- {my ($tree) = @_;                                                              # Tree being used as a stack
-
-  $tree->pop                                                                    # Perform the pop
- }
+#if (1)                                                                          # Define operator overloading for trees
+# {package Nasm::X86::Tree;
+#  use overload
+##   '+'  => \&add,
+##   '-'  => \&sub,
+##   '*'  => \&times,
+##   '/'  => \&divide,
+##   '%'  => \&mod,
+##  '=='  => \&eq,
+##  '!='  => \&ne,
+##  '>='  => \&ge,
+##   '>'  => \&gt,
+##  '<='  => \&le,
+##  '<'   => \&lt,
+##  '++'  => \&inc,
+#   '--'  => \&dec,
+##  '""'  => \&str,
+##  '&'   => \&and,                                                              # We use the zero flag as the bit returned by a Boolean operation so we cannot implement '&' or '|' which were previously in use because '&&' and '||' and "and" and "or" are all disallowed in Perl operator overloading.
+##  '|'   => \&or,
+#   '+='  => \&plusAssign,
+##  '-='  => \&minusAssign,
+##  '='   => \&equals,
+##  '<<'  => \&shiftLeft,
+##  '>>'  => \&shiftRight,
+##  '!'    => \&not,
+#   "fallback" => 1,
+# }
+#
+#sub Nasm::X86::Tree::plusAssign($$)                                             # Use plus to push an element to a tree being used as a stack.
+# {my ($tree, $data) = @_;                                                       # Tree being used as a stack, data to push
+#
+#  ref($data) =~ m(Variable|Tree) or                                             # Check right operand on right
+#    confess "Need a tree or variable on the right";
+#
+#  $tree->push($data);                                                           # Perform the push
+#  $tree                                                                         # The resulting tree
+# }
+#
+#sub Nasm::X86::Tree::dec($)                                                     # Pop from the tree if it is being used as a stack.
+# {my ($tree) = @_;                                                              # Tree being used as a stack
+#
+#  $tree->pop                                                                    # Perform the pop
+# }
 
 #D1 Unisyn                                                                      # Parse Unisyn language statements.
 
@@ -11317,7 +11320,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11319 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11322 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -17307,7 +17310,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Area::push #TNasm::X86::Area::peek #TNasm::X86::Area::pop #TNasm::X86::Tree::get
+if (1) {                                                                        #TNasm::X86::Tree::push #TNasm::X86::Tree::peek #TNasm::X86::Tree::pop #TNasm::X86::Tree::get
   my $a = CreateArea;
   my $t = $a->CreateTree;
   my $N = K loop => 16;
@@ -17316,13 +17319,13 @@ if (1) {                                                                        
     $t->push($i);
    });
 
-  $t->peek(K key => 1)->data ->outNL;
-  $t->peek(K key => 2)->data ->outNL;
-  $t->peek(K key => 3)->found->outNL;
+  $t->peek(1)->data ->outNL;
+  $t->peek(2)->data ->outNL;
+  $t->peek(3)->found->outNL;
   $t->peek(2 * $N    )->found->outNL;
 
   $t->size->outNL;
-  $t->get(K(key => 8)); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
+  $t->get(8); $t->found->out("f: ", " ");  $t->key->out("i: ", " "); $t->data->outNL;
 
   $N->for(sub
    {my ($i) = @_;
@@ -17606,8 +17609,25 @@ if (1) {                                                                        
 END
  }
 
-latest:
-if (1) {                                                                        #TNasm::X86::Tree::appendAscii #TNasm::X86::Tree::append #TNasm::X86::Tree::outAsUtf8NL
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::cloneDescriptor #TNasm::X86::Tree::copyDescription
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  $t->push(ord 'a');
+  my $T = $t->cloneDescriptor;
+  $T->push(ord 'b');
+  my $c = $a->CreateTree;
+  $c->copyDescription($T);
+  $T->push(ord 'c');
+
+  $t->outAsUtf8NL;
+  ok Assemble eq => <<END, avx512=>1;
+abc
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::appendAscii #TNasm::X86::Tree::append #TNasm::X86::Tree::outAsUtf8NL #TNasm::X86::Tree::clone
   my $a = CreateArea;
   my $t = $a->CreateTree;
   my $b = Rb(0x41..0x51);
