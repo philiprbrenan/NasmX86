@@ -9086,7 +9086,7 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
       $offset->outRightInHex(K width => $width);
       (K(col => $margin) - $I)->outSpaces;
       PrintOutString "length: ";
-      $l->outRightInDec(K width => $width);
+      $l->outRightInDec($width);
 
       PrintOutString ",  data: ";                                               # Position of data block
       $t->getLoop($K)->outRightInHex(K width => $width);
@@ -9131,7 +9131,7 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
       $l->for(sub
        {my ($index, $start, $next, $end) = @_;
         PrintOutString ' ';
-        $index->outRightInDec(K width => $width);
+        $index->outRightInDec($width);
        });
       PrintOutNL;
 
@@ -9168,12 +9168,12 @@ sub Nasm::X86::Tree::dumpWithWidth($$$$$$$)                                     
             Else
              {PrintOutString ' ';
               if ($name =~ m(key))
-               {$k->outRightInHex(K width => $width) if     $keyX;
-                $k->outRightInDec(K width => $width) unless $keyX;
+               {$k->outRightInHex($width) if     $keyX;
+                $k->outRightInDec($width) unless $keyX;
                }
               else
-               {$k->outRightInHex(K width => $width) if     $dataX;
-                $k->outRightInDec(K width => $width) unless $dataX;
+               {$k->outRightInHex($width) if     $dataX;
+                $k->outRightInDec($width) unless $dataX;
                }
              };
            }
@@ -9350,7 +9350,7 @@ sub Nasm::X86::Tree::printInOrder($$)                                           
    {PrintOutStringNL "- empty";
    },
   Else
-   {$C->outRightInDec(K width => 4);
+   {$C->outRightInDec(4);
     PrintOutString ": ";
 
      $s->call(structures => {tree  => $tree},                                   # Print root node
@@ -13977,7 +13977,7 @@ if (1) {                                                                        
 
   V(N => $N)->for(sub                                                           # Generate each Fibonacci number by adding the two previous ones together
    {my ($index, $start, $next, $end) = @_;
-    $index->outRightInDec(V(width => 2));                                       # Index
+    $index->outRightInDec(2);                                                   # Index
     Mov rax, r13;
     PrintOutRightInDecNL rax, 12;                                               # Fibonacci number at this index
 
@@ -14689,8 +14689,8 @@ if (1) {                                                                        
   K(loop => 16)->for(sub
    {my ($index, $start, $next, $end) = @_;
     my $f = $tree->indexEq ($index, $K);
-    $index->outRightInDec(K width =>  2);
-    $f    ->outRightInBin(K width => 14);
+    $index->outRightInDec( 2);
+    $f    ->outRightInBin(14);
     PrintOutStringNL " |"
    });
 
@@ -14731,8 +14731,8 @@ if (1) {                                                                        
     $tree->indexEqLt ($key, $K, r15, r14);
     Pushfq;
     my $f = V key => r15;
-    $index->outRightInDec(K width =>  2);
-    $f    ->outRightInBin(K width => 14);
+    $index->outRightInDec( 2);
+    $f    ->outRightInBin(14);
     PrintOutString   " ";
     Popfq;
     PrintOutZF;
@@ -14770,8 +14770,8 @@ if (1) {                                                                        
   K(loop => 32)->for(sub
    {my ($index, $start, $next, $end) = @_;
     my $f = $tree->insertionPoint($index, $K);
-    $index->outRightInDec(K width =>  2);
-    $f    ->outRightInBin(K width => 16);
+    $index->outRightInDec( 2);
+    $f    ->outRightInBin(16);
     PrintOutStringNL " |"
    });
 
@@ -14827,8 +14827,8 @@ if (1) {
     $tree->indexEqLt($key, $K, r15, r14);
     Pushfq;
     my $f = V key => r14;
-    $index->outRightInDec(K width =>  2);
-    $f    ->outRightInBin(K width => 16);
+    $index->outRightInDec( 2);
+    $f    ->outRightInBin(16);
     PrintOutString   " ";
     Popfq;
     PrintOutZF;
@@ -15300,7 +15300,7 @@ if (1) {
 
   $N->for(sub
    {my ($i) = @_;
-    $t->find($i); $t->found->outRightInDec(K width => 8); $t->data->outRightInDec(K width => 8); PrintOutNL;
+    $t->find($i); $t->found->outRightInDec(8); $t->data->outRightInDecNL(8);
    });
 
    ok Assemble eq => <<END, avx512=>1;
@@ -15349,15 +15349,15 @@ if (1) {                                                                        
     my $o = $n * 2;
     my $p = $o * 2;
     my $q = $p * 2;
-    $t->find($i); $i->outRightInDec(K width => 4); $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
-    $t->find($j);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
-    $t->find($k);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
-    $t->find($l);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
-    $t->find($m);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
-    $t->find($n);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
-    $t->find($o);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
-    $t->find($p);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDec  (K width => 8);
-    $t->find($q);                                  $t->found->outRightInBin(K width => 8); $t->offset->outRightInHex(K width => 8);  $t->data->outRightInDecNL(K width => 8);
+    $t->find($i); $i->outRightInDec(4); $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDec  (8);
+    $t->find($j);                       $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDec  (8);
+    $t->find($k);                       $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDec  (8);
+    $t->find($l);                       $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDec  (8);
+    $t->find($m);                       $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDec  (8);
+    $t->find($n);                       $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDec  (8);
+    $t->find($o);                       $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDec  (8);
+    $t->find($p);                       $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDec  (8);
+    $t->find($q);                       $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDecNL(8);
    });
 
    ok Assemble eq => <<END, avx512=>1;
@@ -16153,8 +16153,8 @@ if (1) {                                                                        
   my $i3 = V  k => 3; $t->put($i3, $i3);
   my $i4 = V  k => 4; $t->put($i4, $i4);
   my $i1 = V  k => 1; $t->put($i1, $i1);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+  $t->size->outRightInDecNL(4);  $t->dump("4"); $t->delete($i4);
+  $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
   ok Assemble eq => <<END, avx512=>1;
    4
@@ -16186,9 +16186,9 @@ if (1) {                                                                        
   my $i31 = V  k => 31; $t->put($i31, $i31);
   my $i32 = V  k => 32; $t->put($i32, $i32);
   my $i33 = V  k => 33; $t->put($i33, $i33);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("33"); $t->delete($i33);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("40"); $t->delete($i40);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+  $t->size->outRightInDecNL(4);  $t->dump("33"); $t->delete($i33);
+  $t->size->outRightInDecNL(4);  $t->dump("40"); $t->delete($i40);
+  $t->size->outRightInDecNL(4);  $t->dump("X");  $t->printInOrder("X");
 
   ok Assemble eq => <<END, avx512=>1;
    7
@@ -16224,11 +16224,11 @@ if (1) {                                                                        
   my $i2 = V  k => 11; $t->put($i2, $i2);
   my $i3 = V  k => 13; $t->put($i3, $i3);
   my $i4 = V  k => 15; $t->put($i4, $i4);
-  $t->size->outRightInDecNL(K width => 4);
+  $t->size->outRightInDecNL(4);
   $t->dump("1");
   $a->dump("AAA", K blocks => 12);
   $t->delete($i2);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+  $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
   ok Assemble eq => <<END, avx512=>1;
    4
@@ -16272,8 +16272,8 @@ if (1) {                                                                        
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
   my $i4 = V  k => 4; $t->put($i4, $i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $a->dump("AAA", K blocks => 12); $t->delete($i1);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+  $t->size->outRightInDecNL(4);  $t->dump("1"); $a->dump("AAA", K blocks => 12); $t->delete($i1);
+  $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
   ok Assemble eq => <<END, avx512=>1;
    4
@@ -16316,8 +16316,8 @@ if (1) {                                                                        
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
   my $i4 = V  k => 4; $t->put($i4, $i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i2);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+  $t->size->outRightInDecNL(4); $t->dump("2"); $t->delete($i2);
+  $t->size->outRightInDecNL(4); $t->dump("X"); $t->printInOrder("X");
 
   ok Assemble eq => <<END, avx512=>1;
    4
@@ -16346,8 +16346,8 @@ if (1) {                                                                        
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
   my $i4 = V  k => 4; $t->put($i4, $i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i3);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+  $t->size->outRightInDecNL(4);  $t->dump("3"); $t->delete($i3);
+  $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
   ok Assemble eq => <<END, avx512=>1;
    4
@@ -16376,8 +16376,8 @@ if (1) {                                                                        
   my $i2 = V  k => 2; $t->put($i2, $i2);
   my $i3 = V  k => 3; $t->put($i3, $i3);
   my $i4 = V  k => 4; $t->put($i4, $i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("X"); $t->printInOrder("X");
+  $t->size->outRightInDecNL(4);  $t->dump("4"); $t->delete($i4);
+  $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
   ok Assemble eq => <<END, avx512=>1;
    4
@@ -16406,11 +16406,11 @@ if (1) {                                                                        
   my $i1 = V  k => 1; $t->put($i1, $i1);
   my $i3 = V  k => 3; $t->put($i3, $i3);
   my $i4 = V  k => 4; $t->put($i4, $i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("0"); $t->delete($i2);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i3);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i1);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("1");
+  $t->size->outRightInDecNL(4);  $t->dump("0"); $t->delete($i2);
+  $t->size->outRightInDecNL(4);  $t->dump("2"); $t->delete($i3);
+  $t->size->outRightInDecNL(4);  $t->dump("3"); $t->delete($i4);
+  $t->size->outRightInDecNL(4);  $t->dump("4"); $t->delete($i1);
+  $t->size->outRightInDecNL(4);  $t->dump("1");
 
   ok Assemble eq => <<END, avx512=>1;
    4
@@ -16583,15 +16583,15 @@ if (1) {                                                                        
   my $i6 = V  k => 6; $t->put($i6, $i6);
   my $i7 = V  k => 7; $t->put($i7, $i7);
   my $i8 = V  k => 8; $t->put($i8, $i8);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("1"); $t->delete($i1);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("2"); $t->delete($i2);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("3"); $t->delete($i3);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("4"); $t->delete($i4);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("5"); $t->delete($i5);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("6"); $t->delete($i6);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("7"); $t->delete($i7);
-  $t->size->outRightInDecNL(K width => 4);  $t->dump("8"); $t->delete($i8);
-  $t->size->outRightInDecNL(K width => 4);
+  $t->size->outRightInDecNL(4);  $t->dump("1"); $t->delete($i1);
+  $t->size->outRightInDecNL(4);  $t->dump("2"); $t->delete($i2);
+  $t->size->outRightInDecNL(4);  $t->dump("3"); $t->delete($i3);
+  $t->size->outRightInDecNL(4);  $t->dump("4"); $t->delete($i4);
+  $t->size->outRightInDecNL(4);  $t->dump("5"); $t->delete($i5);
+  $t->size->outRightInDecNL(4);  $t->dump("6"); $t->delete($i6);
+  $t->size->outRightInDecNL(4);  $t->dump("7"); $t->delete($i7);
+  $t->size->outRightInDecNL(4);  $t->dump("8"); $t->delete($i8);
+  $t->size->outRightInDecNL(4);
   $t->dump("X");
 
   ok Assemble eq => <<END, avx512=>1;
@@ -16788,7 +16788,7 @@ if (1) {                                                                        
     $t->printInOrder("2222");
    });
   $t->dump("Two:");
-  $t->size->outRightInDecNL(K width => 4);
+  $t->size->outRightInDecNL(4);
 
   ok Assemble eq => <<END, avx512=>1;
 1111: .... .... .... ...8
@@ -17029,7 +17029,7 @@ if (1) {                                                                        
 
   (2*$N)->for(sub
    {my ($i) = @_;
-    $i->outRightInDec(K(key => 4)); PrintOutString " -> ";
+    $i->outRightInDec(4); PrintOutString " -> ";
     $t->findNext($i);
     $t->found->out("f: ", " ");
     If $t->found > 0, Then {$t->key->out};
@@ -17068,7 +17068,7 @@ if (1) {                                                                        
 
   (2*$N)->for(sub
    {my ($i) = @_;
-    $i->outRightInDec(K(key => 4)); PrintOutString " -> ";
+    $i->outRightInDec(4); PrintOutString " -> ";
     $t->findPrev($i);
     $t->found->out("f: ", " ");
     If $t->found > 0, Then {$t->key->out};
