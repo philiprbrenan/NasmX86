@@ -13002,6 +13002,15 @@ END
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Variable::dump  #TNasm::X86::Variable::print #TThen #TElse #TV #TK
+  PrintCString  ($stdout, V(str => Rs("abc\0def")));
+  PrintCStringNL($stdout, V(str => Rs("ABC\0DEF")));
+  ok Assemble eq => <<END;
+abcABC
+END
+ }
+
+#latest:;
+if (1) {                                                                        #TNasm::X86::Variable::dump  #TNasm::X86::Variable::print #TThen #TElse #TV #TK
   my $a = V(a => 3);  $a->outNL;
   my $b = K(b => 2);  $b->outNL;
   my $c = $a +  $b; $c->outNL;
