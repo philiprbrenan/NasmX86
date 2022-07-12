@@ -2697,7 +2697,7 @@ sub PrintErrRaxInDecNL                                                          
 sub PrintRaxRightInDec($$)                                                      #P Print rax in decimal right justified in a field of the specified width on the specified channel.
  {my ($Width, $channel) = @_;                                                   # Width as a variable or a constant, channel
 
-  my $width  = ref($Width)  ? $Width  : K width => $Width;                      # Promote constant
+  my $width  = ref($Width) ? $Width : K width => ($Width//16);                  # Promote constant
 
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
@@ -2990,7 +2990,7 @@ sub Nasm::X86::Variable::outInDecNL($;$$)                                       
 
 #D3 Decimal representation right justified                                      # Print out a variable as a decimal number right adjusted in a field of specified width
 
-sub Nasm::X86::Variable::rightInDec($$$)                                        # Dump the value of a variable on the specified channel as a decimal  number right adjusted in a field of specified width.
+sub Nasm::X86::Variable::rightInDec($$$)                                        #P Dump the value of a variable on the specified channel as a decimal  number right adjusted in a field of specified width.
  {my ($number, $channel, $width) = @_;                                          # Number as variable, channel, width
   PushR rax;
   $number->setReg(rax);
@@ -3022,7 +3022,7 @@ sub Nasm::X86::Variable::outRightInDecNL($$)                                    
 
 #D2 Hexadecimal representation, right justified                                 # Print number variables in hexadecimal right justified in fields of specified width.
 
-sub Nasm::X86::Variable::rightInHex($$$)                                        # Write the specified variable number in hexadecimal right justified in a field of specified width to the specified channel.
+sub Nasm::X86::Variable::rightInHex($$$)                                        #P Write the specified variable number in hexadecimal right justified in a field of specified width to the specified channel.
  {my ($number, $channel, $width) = @_;                                          # Number to print as a variable, channel to print on, width of output field
   @_ == 3 or confess "Three parameters";
   PrintRightInHex($channel, $number, $width);
@@ -3049,14 +3049,14 @@ sub Nasm::X86::Variable::outRightInHex($$)                                      
 
 sub Nasm::X86::Variable::outRightInHexNL($$)                                    # Write the specified variable number in hexadecimal right justified in a field of specified width to stdout followed by a new line.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
-  @_ == 2 or confess "Two parameters";
+  @_ == 1 or confess "At least one parameter";
   PrintRightInHex($stdout, $number, $width);
   PrintOutNL;
  }
 
 #D2 Binary representation, right justified                                      # Print number variables in binary right justified in fields of specified width.
 
-sub Nasm::X86::Variable::rightInBin($$$)                                        # Write the specified variable number in binary right justified in a field of specified width to the specified channel.
+sub Nasm::X86::Variable::rightInBin($$$)                                        #P Write the specified variable number in binary right justified in a field of specified width to the specified channel.
  {my ($number, $channel, $width) = @_;                                          # Number to print as a variable, channel to print on, width of output field
   @_ == 3 or confess "Three parameters";
   PrintRightInBin($channel, $number, $width);
@@ -3582,12 +3582,12 @@ sub Nasm::X86::Variable::getReg($$)                                             
   $variable                                                                     # Chain
  }
 
-sub Nasm::X86::Variable::getConst($$)                                           # Load the variable from a constant in effect setting a variable to a specified value.
- {my ($variable, $constant) = @_;                                               # Variable, constant to load
-  @_ == 2 or confess "Two parameters";
-  Mov rdi, $constant;
-  $variable->getReg(rdi);
- }
+#sub Nasm::X86::Variable::getConst($$)                                           # Load the variable from a constant in effect setting a variable to a specified value.
+# {my ($variable, $constant) = @_;                                               # Variable, constant to load
+#  @_ == 2 or confess "Two parameters";
+#  Mov rdi, $constant;
+#  $variable->getReg(rdi);
+# }
 
 sub Nasm::X86::Variable::incDec($$)                                             #P Increment or decrement a variable.
  {my ($left, $op) = @_;                                                         # Left variable operator, address of operator to perform inc or dec
@@ -3664,7 +3664,7 @@ sub Nasm::X86::Variable::max($$)                                                
   $r
  }
 
-sub Nasm::X86::Variable::and($$)                                                # And two variables.
+sub Nasm::X86::Variable::and($$)                                                #P And two variables.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   PushR 14, 15;
   Mov r14, 0;
@@ -3682,7 +3682,7 @@ sub Nasm::X86::Variable::and($$)                                                
   $r
  }
 
-sub Nasm::X86::Variable::or($$)                                                 # Or two variables.
+sub Nasm::X86::Variable::or($$)                                                 #P Or two variables.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   PushR 14, 15;
   Mov r14, 1;
@@ -3855,7 +3855,7 @@ sub Nasm::X86::Variable::dIntoPointInZ($$$)                                     
   Vpbroadcastd zmmM($zmm, 1), edi;                                              # Insert dword at desired location
  }
 
-sub Nasm::X86::Variable::putBwdqIntoMm($$$$)                                    # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register.
+sub Nasm::X86::Variable::putBwdqIntoMm($$$$)                                    #P Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register.
  {my ($content, $size, $mm, $offset) = @_;                                      # Variable with content, size of put, numbered zmm, offset in bytes
   @_ == 4 or confess "Four parameters";
 
@@ -12697,7 +12697,7 @@ END
  }
 
 #latest:
-if (1) {
+if (1) {                                                                        #TNasm::X86::Variable::setReg #TNasm::X86::Variable::getReg #TNasm::X86::Variable::copy #TNasm::X86::Variable::out #TNasm::X86::Variable::outNL
   my $a = V(a => 1);
   my $b = V(b => 2);
   my $c = $a + $b;
@@ -12708,7 +12708,8 @@ if (1) {
   $b->setReg(14);
   $a->outNL;
   $b->outNL;
-  $c->outNL;
+  $c->out;
+  PrintOutNL;
   PrintOutRegisterInHex r14, r15;
 
   ok Assemble eq => <<END, avx512=>0;
@@ -12721,6 +12722,35 @@ END
  }
 
 #latest:
+if (1) {                                                                        #TV #TK #TG #TNasm::X86::Variable::copy #TNasm::X86::Variable::outSpaces #TNasm::X86::Variable::outRightInHex #TNasm::X86::Variable::outRightInHexNL #TNasm::X86::Variable::outRightInDec #TNasm::X86::Variable::outRightInDecNL #TNasm::X86::Variable::outRightInBin #TNasm::X86::Variable::outRightInBinNL #TNasm::X86::Variable::outInDecNL #TNasm::X86::Variable::outInDec #TNasm::X86::Variable::out
+  my $a = K abc => 0x123;
+  $a->out;
+  PrintOutNL;
+
+  $a->outInDec; PrintOutNL; $a->outInDecNL;
+  $a->outRightInBin(16); PrintOutNL; $a->outRightInBinNL(16);
+  $a->outRightInDec(16); PrintOutNL; $a->outRightInDecNL;
+  $a->outRightInHex(16); PrintOutNL; $a->outRightInHexNL;
+
+  PrintOutString 'a';
+  K(key => 2)->outSpaces;
+  PrintOutStringNL 'b';
+
+  ok Assemble eq => <<END, avx512=>1;
+abc: .... .... .... .123
+abc: 291
+abc: 291
+       100100011
+       100100011
+             291
+             291
+             123
+
+a  b
+END
+ }
+
+latest:
 if (1) {                                                                        #TV #TK #TG #TNasm::X86::Variable::copy
   my $s = Subroutine
    {my ($p) = @_;
@@ -13773,11 +13803,13 @@ END
 
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Variable::outCStringNL
+if (1) {                                                                        #TNasm::X86::Variable::outCStringNL #TNasm::X86::Variable::outCString
   my $s = Rutf8 '𝝰𝝱𝝲𝝳';
+  V(address => $s)->outCString; PrintOutNL;
   V(address => $s)->outCStringNL;
 
   ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+𝝰𝝱𝝲𝝳
 𝝰𝝱𝝲𝝳
 END
  }
