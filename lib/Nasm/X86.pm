@@ -4882,7 +4882,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
   my $s = Subroutine
    {my ($p) = @_;                                                               # Parameters
 
-    $$p{fail}->getConst(0);                                                     # Clear failure indicator
+    $$p{fail}->copy(0);                                                         # Clear failure indicator
     $$p{in}->setReg(rbx);                                                       # Character to convert
     ClearRegisters rdx;                                                         # Move to byte register below does not clear the entire register
     Mov dl, "[rbx]";
@@ -4948,7 +4948,7 @@ sub GetNextUtf8CharAsUtf32($)                                                   
         Jmp $success;
        };
 
-      $$p{fail}->getConst(1);                                                   # Conversion failed
+      $$p{fail}->copy(1);                                                       # Conversion failed
      };
 
    } parameters=>[qw(in out  size  fail)], name => 'GetNextUtf8CharAsUtf32';
