@@ -18,7 +18,7 @@
 # Binary search tighten up register saves
 # github.com/<username>/<repo_name>/compare/<commit1>...<commit2>
 # https://github.com/philiprbrenan/NasmX86/compare/9bb6e05..09d1ec9
-# Remove home test
+# Variable::at to replace addrExpr
 package Nasm::X86;
 our $VERSION = "20220606";
 use warnings FATAL => qw(all);
@@ -3207,11 +3207,11 @@ if (1)                                                                          
   '!'    => \&not,
  }
 
-sub Nasm::X86::Variable::call($)                                                # Execute the call instruction for a target whose address is held in the specified variable.
- {my ($target) = @_;                                                            # Variable containing the address of the code to call
-  $target->setReg(rdi);                                                         # Address of code to call
-  Call rdi;                                                                     # Call referenced code
- }
+#sub Nasm::X86::Variable::call($)                                                # Execute the call instruction for a target whose address is held in the specified variable.
+# {my ($target) = @_;                                                            # Variable containing the address of the code to call
+#  $target->setReg(rdi);                                                         # Address of code to call
+#  Call rdi;                                                                     # Call referenced code
+# }
 
 sub Nasm::X86::Variable::addressExpr($;$)                                       # Create a register expression to address an offset form a variable.
  {my ($left, $offset) = @_;                                                     # Left variable, optional offset
@@ -3623,7 +3623,7 @@ sub Nasm::X86::Variable::dec($)                                                 
   $left->incDec("dec");
  }
 
-sub Nasm::X86::Variable::str($)                                                 # The name of the variable.
+sub Nasm::X86::Variable::str($)                                                 #P The name of the variable.
  {my ($left) = @_;                                                              # Variable
   $left->name;
  }
@@ -13260,7 +13260,7 @@ q at offset 12 in zmm0: .3.2 .1.. .... .3.2
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Variable::bIntoX #TNasm::X86::Variable::wIntoX #TNasm::X86::Variable::dIntoX #TNasm::X86::Variable::qIntoX #TNasm::X86::Variable::bIntoZ #TNasm::X86::Variable::dIntoZ #TNasm::X86::Variable::qIntoZ #TNasm::X86::Variable::bFromZ #TNasm::X86::Variable::wFromZ #TNasm::X86::Variable::dFromZ #TNasm::X86::Variable::qFromZ #TNasm::X86::Variable::dIntoPointInZ #TNasm::X86::Variable::dFromPointInZ
   Mov rax, 0x12345678;
   my $c = V("Content", rax);
@@ -13906,7 +13906,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::Variable::copy  #TNasm::Variable::copyRef
+if (1) {                                                                        #TNasm::X86::Variable::copy  #TNasm::X86::Variable::copyRef
   my $a = V('a', 1);
   my $r = R('r')->copyRef($a);
   my $R = R('R')->copyRef($r);
@@ -14409,7 +14409,7 @@ END
 
 test2: goto test3 unless $test{2};
 
-latest:;
+#latest:;
 if (1) {                                                                        #TbFromX #TbFromZ #TbRegFromZmm #TbRegIntoZmm #TdFromPointInZ #TdFromX #TdFromZ #TdRegFromZmm #TdRegIntoZmm #TqFromX #TqFromZ #TwFromX #TwFromZ #TwRegFromZmm #TwRegIntoZmm #Txmm #Tymm #TzmmM #TzmmMZ
   Mov r15, 0x12345678;
   bRegIntoZmm(r15, 1,  0);
@@ -14486,7 +14486,7 @@ d: .... .... .... ...0
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TopposingJump
   is_deeply opposingJump(q(Jl)), q(Jge);
   is_deeply opposingJump(q(Jg)), q(Jle);
@@ -18322,7 +18322,7 @@ if (1) {                                                                        
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Unisyn::Lex::PermissibleTransitionsArray
   my $a = Nasm::X86::Unisyn::Lex::Number::a;                                    # Assign-2 - right to left
   my $b = Nasm::X86::Unisyn::Lex::Number::b;                                    # Open
@@ -19504,7 +19504,7 @@ if (1)
 END
  }
 
-latest:;
+#latest:;
 if (1)                                                                          #TNasm::X86::Unisyn::Lex::composeUnisyn #TNasm::X86::Unisyn::Parse::dumpPostOrder
  {my $t = Nasm::X86::Unisyn::Lex::composeUnisyn "va w m+ w vb";
   is_deeply $t, "𝗮 ＋ 𝗯";
@@ -19598,6 +19598,87 @@ Area     Size:     4096    Used:       66
 .... .... .... ..40 | 61.A ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
 .... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:;
+if (1)                                                                          #TNasm::X86::Area::char #TNasm::X86::Area::nl
+ {my $a = CreateArea;
+  $a->char('a');
+  $a->nl;
+  $a->dump("AA");
+  ok Assemble eq => <<END;
+AA
+Area     Size:     4096    Used:       66
+.... .... .... ...0 | __10 ____ ____ ____  42__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 61.A ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+latest:;
+if (1)                                                                          #TNasm::X86::Variable::at #TNasm::X86::Variable::addressExpr #TNasm::X86::Variable::call #TNasm::X86::Variable::clearBit #TNasm::X86::Variable::clearMaskBit #TNasm::X86::Variable::clearMemory #TNasm::X86::Variable::copyMemory #TNasm::X86::Variable::isRef #TNasm::X86::Variable::loadZmm #TNasm::X86::Variable::printOutMemory #TNasm::X86::Variable::printOutMemoryNL #TNasm::X86::Variable::setBit #TNasm::X86::Variable::setMaskBit #TNasm::X86::Variable::setMaskFirst #TNasm::X86::Variable::spaces #TNasm::X86::Variable::str
+ {my $a = V(key => 0x123);
+  is_deeply $a->at,           "[rbp-8*(2)]";
+  is_deeply $a->addressExpr, "[rbp-8*(2)]";
+
+  ok !$a->isRef;
+
+  Mov rax, -1;
+  Kmovq k1, rax;
+  PrintOutRegisterInHex k1;
+
+  K(key => 2)->clearBit(rax);
+  PrintOutRegisterInHex rax;
+
+  K(key => 2)->setBit(rax);
+  PrintOutRegisterInHex rax;
+
+  K(key => 3)->clearMaskBit(k1);
+  PrintOutRegisterInHex k1;
+
+  K(key => 3)->setMaskBit(k1);
+  PrintOutRegisterInHex k1;
+
+  K(key => 0)->clearMaskBit(k1);
+  PrintOutRegisterInHex k1;
+
+  ClearRegisters k1;
+  K(key => 7)->setMaskFirst(k1);
+  PrintOutRegisterInHex k1;
+
+  K(key => 3)->spaces($stdout);
+  PrintOutRegisterInHex k1;
+
+  my $N = K size => 4096;
+  my $A = $N->allocateMemory;
+  $A->clearMemory($N);
+  ClearMemory($A, $N);
+
+  $A->setReg(rax);
+  Mov "dword[rax]",   0x61626364;
+  Mov "dword[rax+4]", 0x65666768;
+
+  ($A+8)->copyMemory($A, K key => 8);
+
+  $A->printOutMemory  (K(key => 16));
+  $A->printOutMemoryNL(K(key => 16));
+
+  K(K => Rd(0..63))->loadZmm(1);
+  PrintOutRegisterInHex zmm1;
+
+  ok Assemble eq => <<END;
+    k1: .... .... .... ..-1
+   rax: FFFF FFFF FFFF FFFB
+   rax: .... .... .... ..-1
+    k1: FFFF FFFF FFFF FFF7
+    k1: .... .... .... ..-1
+    k1: FFFF FFFF FFFF FFFE
+    k1: .... .... .... ..7F
+       k1: .... .... .... ..7F
+dcbahgfedcbahgfedcbahgfedcbahgfe
+  zmm1: .... ...F .... ...E  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
 END
  }
 
