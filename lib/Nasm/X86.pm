@@ -340,9 +340,8 @@ sub dWordRegister($)                                                            
 
 my $Labels = 0;
 
-sub Label(;$)                                                                   # Create a unique label or reuse the one supplied.
- {return "l".++$Labels unless @_;                                               # Generate a label
-  $_[0];                                                                        # Use supplied label
+sub Label()                                                                     # Create a unique label or reuse the one supplied.
+ {"l".++$Labels unless @_;                                                      # Generate a label
  }
 
 sub SetLabel(;$)                                                                # Create (if necessary) and set a label in the code section returning the label so set.
@@ -614,8 +613,6 @@ sub PopR(@)                                                                     
   PopRR @$r;                                                                    # Pop registers from the stack without tracking
  }
 
-#D2 General                                                                     # Actions specific to general purpose registers
-
 sub registerNameFromNumber($)                                                   #P Register name from number where possible.
  {my ($r) = @_;                                                                 # Register number
   return "zmm$r" if $r =~ m(\A(16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z);
@@ -630,39 +627,6 @@ sub ChooseRegisters($@)                                                         
   delete $r{$_} for @registers;
   $number <= keys %r or confess "Not enough registers available";
   sort keys %r
- }
-
-sub InsertZeroIntoRegisterAtPoint($$)                                           # Insert a zero into the specified register at the point indicated by another general purpose or mask register moving the higher bits one position to the left.
- {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
-
-  ref($point) and confess "Point must be a register";
-
-  my $mask = rdi, my $low = rsi, my $high = rbx;                                # Choose three work registers and push them
-  if ($point =~ m(\Ak?[0-7]\Z))                                                 # Mask register showing point
-   {Kmovq $mask, $point;
-   }
-  else                                                                          # General purpose register showing point
-   {Mov  $mask, $point;
-   }
-
-  Dec  $mask;                                                                   # Fill mask to the right of point with ones
-  Andn $high, $mask, $in;                                                       # Part of in be shifted
-  Shl  $high, 1;                                                                # Shift high part
-  And  $in,  $mask;                                                             # Clear high part of target
-  Or   $in,  $high;                                                             # Or in new shifted high part
- }
-
-sub InsertOneIntoRegisterAtPoint($$)                                            # Insert a one into the specified register at the point indicated by another register.
- {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
-  InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
-  if ($point =~ m(\Ak?[0-7]\Z))                                                 # Mask register showing point
-   {my ($r) = ChooseRegisters(1, $in);                                          # Choose a general purpose register to place the mask in
-    Kmovq rsi, $point;
-    Or   $in, rsi;                                                              # Make the zero a one
-   }
-  else                                                                          # General purpose register showing point
-   {Or $in, $point;                                                             # Make the zero a one
-   }
  }
 
 #D2 Save and Restore                                                            # Saving and restoring registers via the stack
@@ -763,6 +727,8 @@ sub zmmMZ($$)                                                                   
   confess "Bad zmm and mask with zero specification: $z $m";
  }
 
+#D3 Via general purpose registers                                               # Load zmm registers from data held in the general purpose registers.
+
 sub LoadZmm($@)                                                                 # Load a numbered zmm with the specified bytes.
  {my ($zmm, @bytes) = @_;                                                       # Numbered zmm, bytes
   my $b = Rb(@bytes);
@@ -862,6 +828,8 @@ sub SaveRegIntoMm($$$)                                                          
   Mov "[rsp+$w*$offset-$W]", $reg;                                              # Save register into offset
   Vmovdqu64 $mm, "[rsp-$W]";                                                    # Reload from the stack
  }
+
+#D3 Via variables                                                               # Load zmm registers from data held in variables
 
 sub extractRegisterNumberFromMM($)                                              #P Extract the register number from an *mm register.
  {my ($mm) = @_;                                                                # Mmm register
@@ -1018,6 +986,41 @@ sub LoadBitsIntoMaskRegister($$@)                                               
     ($mask, createBitNumberFromAlternatingPattern $prefix, @values)
  }
 
+#D3 At a point                                                                  # Load data into a zmm register at the indoicated point and retrieve data fromn a zmm regisiter at the indicated ppint.
+
+sub InsertZeroIntoRegisterAtPoint($$)                                           # Insert a zero into the specified register at the point indicated by another general purpose or mask register moving the higher bits one position to the left.
+ {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
+
+  ref($point) and confess "Point must be a register";
+
+  my $mask = rdi, my $low = rsi, my $high = rbx;                                # Choose three work registers and push them
+  if ($point =~ m(\Ak?[0-7]\Z))                                                 # Mask register showing point
+   {Kmovq $mask, $point;
+   }
+  else                                                                          # General purpose register showing point
+   {Mov  $mask, $point;
+   }
+
+  Dec  $mask;                                                                   # Fill mask to the right of point with ones
+  Andn $high, $mask, $in;                                                       # Part of in be shifted
+  Shl  $high, 1;                                                                # Shift high part
+  And  $in,  $mask;                                                             # Clear high part of target
+  Or   $in,  $high;                                                             # Or in new shifted high part
+ }
+
+sub InsertOneIntoRegisterAtPoint($$)                                            # Insert a one into the specified register at the point indicated by another register.
+ {my ($point, $in) = @_;                                                        # Register with a single 1 at the insertion point, register to be inserted into.
+  InsertZeroIntoRegisterAtPoint($point, $in);                                   # Insert a zero
+  if ($point =~ m(\Ak?[0-7]\Z))                                                 # Mask register showing point
+   {my ($r) = ChooseRegisters(1, $in);                                          # Choose a general purpose register to place the mask in
+    Kmovq rsi, $point;
+    Or   $in, rsi;                                                              # Make the zero a one
+   }
+  else                                                                          # General purpose register showing point
+   {Or $in, $point;                                                             # Make the zero a one
+   }
+ }
+
 #D1 Comparison codes                                                            # The codes used to specify what sort of comparison to perform
 
 my $Vpcmp = genHash("Nasm::X86::CompareCodes",                                  # Compare codes for "Vpcmp"
@@ -1090,9 +1093,9 @@ sub Else(&)                                                                     
   $block;
  }
 
-sub opposingJump($)                                                             # Return the opposite of a jump.
+sub opposingJump($)                                                             #P Return the opposite of a jump.
  {my ($j) = @_;                                                                 # Jump
-  my %j = qw(Je Jne  Jl Jge  Jle Jg  Jne Je  Jge Jl  Jg Jle);                    # Branch possibilities
+  my %j = qw(Je Jne  Jl Jge  Jle Jg  Jne Je  Jge Jl  Jg Jle);                   # Branch possibilities
   my $o = $j{$j};
   confess "Invalid jump $j" unless $o;
   $o
@@ -1157,6 +1160,8 @@ sub Ef(&$;$)                                                                    
   {If (&$condition, $then, $else);
   }
  }
+
+#D3 Via flags                                                                   # If depending on the flags register.
 
 sub IfEq($;$)                                                                   # If equal execute the then block else the else block.
  {my ($then, $else) = @_;                                                       # Then - required , else - optional
@@ -1363,146 +1368,13 @@ sub ForEver(&)                                                                  
   SetLabel $end;                                                                # End of loop
  }
 
-#D2 Trace back                                                                  # Generate a subroutine calll trace back
+#D2 Subroutine                                                                   # Create and call subroutines with the option of placing them into an area that can be writtento a file and reloaded and executed by another process.
 
 my @VariableStack = (1);                                                        # Counts the number of parameters and variables on the stack in each invocation of L<Subroutine>.  There is at least one variable - the first holds the traceback.
 
 sub SubroutineStartStack()                                                      #P Initialize a new stack frame.  The first quad of each frame has the address of the name of the sub in the low dword, and the parameter count in the upper byte of the quad.  This field is all zeroes in the initial frame.
  {push @VariableStack, 1;                                                       # Counts the number of variables on the stack in each invocation of L<Subroutine>.  The first quad provides the traceback.
  }
-
-sub PrintTraceBack($)                                                           #P Trace the call stack.
- {my ($channel) = @_;                                                           # Channel to write on
-
-  my $s = Subroutine
-   {PushR my @save = (rax, rdi, r9, r10, r8, r12, r13, r14, r15);
-    my $stack     = r15;
-    my $count     = r14;
-    my $index     = r13;
-    my $parameter = r12;                                                        # Number of parameters
-    my $maxCount  = r8;                                                         # Maximum number of parameters - should be r11 but r11 is free in linux and does not survive syscalls.
-    my $depth     = r10;                                                        # Depth of trace back
-    ClearRegisters @save;
-
-    Mov $stack, rbp;                                                            # Current stack frame
-    AndBlock                                                                    # Each level
-     {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
-      Mov $stack, "[$stack]";                                                   # Up one level
-      Mov rax, "[$stack-8]";
-      Mov $count, rax;
-      Shr $count, 56;                                                           # Top byte contains the parameter count
-      Cmp $count, $maxCount;                                                    # Compare this count with maximum so far
-      Cmovg $maxCount, $count;                                                  # Update count if greater
-      Shl rax, 8; Shr rax, 8;                                                   # Remove parameter count
-      Je $end;                                                                  # Reached top of stack if rax is zero
-      Inc $depth;                                                               # Depth of trace back
-      Jmp $start;                                                               # Next level
-     };
-
-    Mov $stack, rbp;                                                            # Current stack frame
-    &PrintNL($channel);                                                         # Print title
-    &PrintString($channel, "Subroutine trace back, depth: ");
-    PushR rax;
-    Mov rax, $depth;
-    &PrintRaxRightInDec(V(width=>2), $channel);
-    PopR rax;
-    &PrintNL($channel);
-
-    AndBlock                                                                    # Each level
-     {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
-      Mov $stack, "[$stack]";                                                   # Up one level
-      Mov rax, "[$stack-8]";
-      Mov $count, rax;
-      Shr $count, 56;                                                           # Top byte contains the parameter count
-      Shl rax, 8; Shr rax, 8;                                                   # Remove parameter count
-      Je $end;                                                                  # Reached top of stack
-      Cmp $count, 0;                                                            # Check for parameters
-      IfGt
-      Then                                                                      # One or more parameters
-       {Mov $index, 0;
-        For
-         {my ($start, $end, $next) = @_;
-          Mov $parameter, $index;
-          Add $parameter, 2;                                                    # Skip traceback
-          Shl $parameter, 3;                                                    # Each parameter is a quad
-          Neg $parameter;                                                       # Offset from stack
-          Add $parameter, $stack;                                               # Position on stack
-          Mov $parameter, "[$parameter]";                                       # Parameter reference to variable
-          Push rax;
-          Mov rax, "[$parameter]";                                              # Variable content
-          &PrintRaxInHex($channel);
-          Pop rax;
-          &PrintSpace($channel, 4);
-         } $index, $count;
-        For                                                                     # Vertically align subroutine names
-         {my ($start, $end, $next) = @_;
-          &PrintSpace($channel, 23);
-         } $index, $maxCount;
-       };
-
-      StringLength(&V(string => rax))->setReg(rdi);                             # Length of name of subroutine
-      &PrintMemoryNL($channel);                                                 # Print name of subroutine
-      Jmp $start;                                                               # Next level
-     };
-    &PrintNL($channel);
-    PopR;
-   } name => "SubroutineTraceBack_$channel";
-
-  $s->call;
- }
-
-sub PrintErrTraceBack($)                                                        #P Print sub routine track back on stderr and then exit with a message.
- {my ($message) = @_;                                                           # Reason why we are printing the trace back and then stopping
-  my ($p, $f, $l) = caller(0);
-  PrintStringNL($stderr, "$message at $0 line $l");
-  PrintTraceBack($stderr);
-  Exit(1);
- }
-
-sub PrintOutTraceBack($)                                                        # Print sub routine track back on stdout and then exit with a message.
- {my ($message) = @_;                                                           # Reason why we are printing the trace back and then stopping
-  &PrintOutStringNL($message);
-  PrintTraceBack($stdout);
-  Exit(1);
- }
-
-sub OnSegv()                                                                    # Request a trace back followed by exit on a B<segv> signal.
- {my $s = Subroutine                                                            # Subroutine that will cause an error to occur to force a trace back to be printed
-   {my $end = Label;
-    Jmp $end;                                                                   # Jump over subroutine definition
-    my $start = SetLabel;
-    Enter 0, 0;                                                                 # Inline code of signal handler
-    Mov r15, rbp;                                                               # Preserve the new stack frame
-    Mov rbp, "[rbp]";                                                           # Restore our last stack frame
-    PrintOutTraceBack 'Segmentation error';                                     # Print our trace back
-    Mov rbp, r15;                                                               # Restore supplied stack frame
-    Exit(0);                                                                    # Exit so we do not trampoline. Exit with code zero to show that the program is functioning correctly, else L<Assemble> will report an error.
-    Leave;
-    Ret;
-    SetLabel $end;
-
-    Mov r15, 0;                                                                 # Push sufficient zeros onto the stack to make a structure B<sigaction> as described in: https://www.man7.org/linux/man-pages/man2/sigaction.2.html
-    Push r15 for 1..16;
-
-    Mov r15, $start;                                                            # Actual signal handler
-    Mov "[rsp]", r15;                                                           # Show as signal handler
-    Mov "[rsp+0x10]", r15;                                                      # Add as trampoline as well - which is fine because we exit in the handler so this will never be called
-    Mov r15, 0x4000000;                                                         # Mask to show we have a trampoline which is, apparently, required on x86
-    Mov "[rsp+0x8]", r15;                                                       # Confirm we have a trampoline
-
-    Mov rax, 13;                                                                # B<Sigaction> from B<kill -l>
-    Mov rdi, 11;                                                                # Confirmed B<SIGSEGV = 11> from B<kill -l> and tracing with B<sde64>
-    Mov rsi, rsp;                                                               # Structure B<sigaction> structure on stack
-    Mov rdx, 0;                                                                 # Confirmed by trace
-    Mov r10, 8;                                                                 # Found by tracing B<signal.c> with B<sde64> it is the width of the signal set and mask. B<signal.c> is reproduced below.
-    Syscall;
-    Add rsp, 128;
-   } [], name=>"on segv";
-
-  $s->call;
- }
-
-# Subroutine                                                                    # Create and call subroutines with the option of placing them into an area that can be writtento a file and reloaded and executed by another process.
 
 sub copyStructureMinusVariables($)                                              #P Copy a non recursive structure ignoring variables.
  {my ($s) = @_;                                                                 # Structure to copy
@@ -1703,7 +1575,7 @@ sub Nasm::X86::Area::readLibraryHeader($$;$)                                    
 
   If $y->found == 0,                                                            # If there are no subroutine offsets then this is not a library
   Then
-   {PrintErrTraceBack "Not a library";
+   {&PrintErrTraceBack("Not a library");
    };
 
   PushR my $count = r15, my $sub = r14, my $name = r13, my $library = r12;      # Number of subroutines, offset and name length block, name address
@@ -2010,7 +1882,140 @@ sub Nasm::X86::Subroutine::inline($%)                                           
   $sub->block->($parameters, $structures, $sub);                                # Generate code using the supplied parameters and structures
  }
 
-#D1 Comments                                                                    # Inserts comments into the generated assember code.
+#D2 Trace back                                                                  # Generate a subroutine calll trace back
+
+sub PrintTraceBack($)                                                           #P Trace the call stack.
+ {my ($channel) = @_;                                                           # Channel to write on
+
+  my $s = Subroutine
+   {PushR my @save = (rax, rdi, r9, r10, r8, r12, r13, r14, r15);
+    my $stack     = r15;
+    my $count     = r14;
+    my $index     = r13;
+    my $parameter = r12;                                                        # Number of parameters
+    my $maxCount  = r8;                                                         # Maximum number of parameters - should be r11 but r11 is free in linux and does not survive syscalls.
+    my $depth     = r10;                                                        # Depth of trace back
+    ClearRegisters @save;
+
+    Mov $stack, rbp;                                                            # Current stack frame
+    AndBlock                                                                    # Each level
+     {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
+      Mov $stack, "[$stack]";                                                   # Up one level
+      Mov rax, "[$stack-8]";
+      Mov $count, rax;
+      Shr $count, 56;                                                           # Top byte contains the parameter count
+      Cmp $count, $maxCount;                                                    # Compare this count with maximum so far
+      Cmovg $maxCount, $count;                                                  # Update count if greater
+      Shl rax, 8; Shr rax, 8;                                                   # Remove parameter count
+      Je $end;                                                                  # Reached top of stack if rax is zero
+      Inc $depth;                                                               # Depth of trace back
+      Jmp $start;                                                               # Next level
+     };
+
+    Mov $stack, rbp;                                                            # Current stack frame
+    &PrintNL($channel);                                                         # Print title
+    &PrintString($channel, "Subroutine trace back, depth: ");
+    PushR rax;
+    Mov rax, $depth;
+    &PrintRaxRightInDec(V(width=>2), $channel);
+    PopR rax;
+    &PrintNL($channel);
+
+    AndBlock                                                                    # Each level
+     {my ($fail, $end, $start) = @_;                                            # Fail block, end of fail block, start of test block
+      Mov $stack, "[$stack]";                                                   # Up one level
+      Mov rax, "[$stack-8]";
+      Mov $count, rax;
+      Shr $count, 56;                                                           # Top byte contains the parameter count
+      Shl rax, 8; Shr rax, 8;                                                   # Remove parameter count
+      Je $end;                                                                  # Reached top of stack
+      Cmp $count, 0;                                                            # Check for parameters
+      IfGt
+      Then                                                                      # One or more parameters
+       {Mov $index, 0;
+        For
+         {my ($start, $end, $next) = @_;
+          Mov $parameter, $index;
+          Add $parameter, 2;                                                    # Skip traceback
+          Shl $parameter, 3;                                                    # Each parameter is a quad
+          Neg $parameter;                                                       # Offset from stack
+          Add $parameter, $stack;                                               # Position on stack
+          Mov $parameter, "[$parameter]";                                       # Parameter reference to variable
+          Push rax;
+          Mov rax, "[$parameter]";                                              # Variable content
+          &PrintRaxInHex($channel);
+          Pop rax;
+          &PrintSpace($channel, 4);
+         } $index, $count;
+        For                                                                     # Vertically align subroutine names
+         {my ($start, $end, $next) = @_;
+          &PrintSpace($channel, 23);
+         } $index, $maxCount;
+       };
+
+      StringLength(&V(string => rax))->setReg(rdi);                             # Length of name of subroutine
+      &PrintMemoryNL($channel);                                                 # Print name of subroutine
+      Jmp $start;                                                               # Next level
+     };
+    &PrintNL($channel);
+    PopR;
+   } name => "SubroutineTraceBack_$channel";
+
+  $s->call;
+ }
+
+sub PrintErrTraceBack($)                                                        #P Print sub routine track back on stderr and then exit with a message.
+ {my ($message) = @_;                                                           # Reason why we are printing the trace back and then stopping
+  my ($p, $f, $l) = caller(0);
+  PrintStringNL($stderr, "$message at $0 line $l");
+  PrintTraceBack($stderr);
+  Exit(1);
+ }
+
+sub PrintOutTraceBack($)                                                        # Print sub routine track back on stdout and then exit with a message.
+ {my ($message) = @_;                                                           # Reason why we are printing the trace back and then stopping
+  &PrintOutStringNL($message);
+  PrintTraceBack($stdout);
+  Exit(1);
+ }
+
+sub OnSegv()                                                                    # Request a trace back followed by exit on a B<segv> signal.
+ {my $s = Subroutine                                                            # Subroutine that will cause an error to occur to force a trace back to be printed
+   {my $end = Label;
+    Jmp $end;                                                                   # Jump over subroutine definition
+    my $start = SetLabel;
+    Enter 0, 0;                                                                 # Inline code of signal handler
+    Mov r15, rbp;                                                               # Preserve the new stack frame
+    Mov rbp, "[rbp]";                                                           # Restore our last stack frame
+    PrintOutTraceBack 'Segmentation error';                                     # Print our trace back
+    Mov rbp, r15;                                                               # Restore supplied stack frame
+    Exit(0);                                                                    # Exit so we do not trampoline. Exit with code zero to show that the program is functioning correctly, else L<Assemble> will report an error.
+    Leave;
+    Ret;
+    SetLabel $end;
+
+    Mov r15, 0;                                                                 # Push sufficient zeros onto the stack to make a structure B<sigaction> as described in: https://www.man7.org/linux/man-pages/man2/sigaction.2.html
+    Push r15 for 1..16;
+
+    Mov r15, $start;                                                            # Actual signal handler
+    Mov "[rsp]", r15;                                                           # Show as signal handler
+    Mov "[rsp+0x10]", r15;                                                      # Add as trampoline as well - which is fine because we exit in the handler so this will never be called
+    Mov r15, 0x4000000;                                                         # Mask to show we have a trampoline which is, apparently, required on x86
+    Mov "[rsp+0x8]", r15;                                                       # Confirm we have a trampoline
+
+    Mov rax, 13;                                                                # B<Sigaction> from B<kill -l>
+    Mov rdi, 11;                                                                # Confirmed B<SIGSEGV = 11> from B<kill -l> and tracing with B<sde64>
+    Mov rsi, rsp;                                                               # Structure B<sigaction> structure on stack
+    Mov rdx, 0;                                                                 # Confirmed by trace
+    Mov r10, 8;                                                                 # Found by tracing B<signal.c> with B<sde64> it is the width of the signal set and mask. B<signal.c> is reproduced below.
+    Syscall;
+    Add rsp, 128;
+   } [], name=>"on segv";
+
+  $s->call;
+ }
+
+#D2 Comments                                                                    # Inserts comments into the generated assember code.
 
 sub Comment(@)                                                                  # Insert a comment into the assembly code.
  {my (@comment) = @_;                                                           # Text of comment
@@ -3034,7 +3039,7 @@ sub Nasm::X86::Variable::outRightInDecNL($;$)                                   
   PrintOutNL;
  }
 
-#D2 Hexadecimal representation, right justified                                 # Print number variables in hexadecimal right justified in fields of specified width.
+#D3 Hexadecimal representation, right justified                                 # Print number variables in hexadecimal right justified in fields of specified width.
 
 sub Nasm::X86::Variable::rightInHex($$;$)                                       #P Write the specified variable number in hexadecimal right justified in a field of specified width to the specified channel.
  {my ($number, $channel, $width) = @_;                                          # Number to print as a variable, channel to print on, width of output field
@@ -3068,7 +3073,7 @@ sub Nasm::X86::Variable::outRightInHexNL($;$)                                   
   PrintOutNL;
  }
 
-#D2 Binary representation, right justified                                      # Print number variables in binary right justified in fields of specified width.
+#D3 Binary representation, right justified                                      # Print number variables in binary right justified in fields of specified width.
 
 sub Nasm::X86::Variable::rightInBin($$;$)                                       #P Write the specified variable number in binary right justified in a field of specified width to the specified channel.
  {my ($number, $channel, $width) = @_;                                          # Number to print as a variable, channel to print on, width of output field
@@ -3810,6 +3815,8 @@ sub Nasm::X86::Variable::setZmm($$$$)                                           
   PopR;
  }
 
+#D3 Load mm registers                                                           # Load  zmm registers fom variables and retrieve data from zmm registers into variables.
+
 sub Nasm::X86::Variable::loadZmm($$)                                            # Load bytes from the memory addressed by the specified source variable into the numbered zmm register.
  {my ($source, $zmm) = @_;                                                      # Variable containing the address of the source, number of zmm to get
   @_ == 2 or confess "Two parameters";
@@ -3840,33 +3847,6 @@ sub Nasm::X86::Variable::qFromZ($$$)                                            
  {my ($variable, $zmm, $offset) = @_;                                           # Variable, numbered zmm, offset in bytes
   @_ == 3 or confess "Three parameters";
   $variable->copy(getBwdqFromMm 'z', 'q', $zmm, $offset);                       # Get the numbered byte|word|double word|quad word from the numbered zmm register and put it in a variable
- }
-
-sub dFromPointInZ($$%)                                                          # Get the double word from the numbered zmm register at a point specified by the variable or register and return it in a variable.
- {my ($point, $zmm, %options) = @_;                                             # Point, numbered zmm, options
-
-  my $s = $options{set} // rsi;                                                 # Register to set else a variable will be returned
-  my $x = $zmm =~ m(\A(zmm)?0\Z) ? 1 : 0;                                       # The zmm we will extract into
-  if (ref($point) =~ m(Variable))  {$point->setReg(k1)}                         # Point is in a variable
-  else                             {Kmovq k1, $point}                           # Point is in a register
-  my ($z) = zmm $zmm;
-  Vpcompressd "zmm$x\{k1}", $z;
-  Vpextrd dWordRegister($s), xmm($x), 0;                                        # Extract dword from corresponding xmm
-  V d => $s unless $options{set};                                               # Create a variable unless a register to set was provided
- }
-
-sub Nasm::X86::Variable::dFromPointInZ($$%)                                     # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
- {my ($point, $zmm, %options) = @_;                                             # Point, numbered zmm, options
-  @_ >= 2 or confess "Two or more parameters";
-  dFromPointInZ($point, $zmm, %options);                                        # Register to set else a variable will be returned
- }
-
-sub Nasm::X86::Variable::dIntoPointInZ($$$)                                     # Put the variable double word content into the numbered zmm register at a point specified by the variable.
- {my ($point, $zmm, $content) = @_;                                             # Point, numbered zmm, content to be inserted as a variable
-  $content->setReg(rdi);
-  $point->setReg(rsi);
-  Kmovq k1, rsi;
-  Vpbroadcastd zmmM($zmm, 1), edi;                                              # Insert dword at desired location
  }
 
 sub Nasm::X86::Variable::putBwdqIntoMm($$$$)                                    #P Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register.
@@ -3944,6 +3924,35 @@ sub Nasm::X86::Variable::qIntoZ($$$)                                            
   @_ == 3 or confess "Three parameters";
   checkZmmRegister $zmm;
   $content->putBwdqIntoMm('q', zmm($zmm), $offset)                              # Place the value of the content variable at the byte|word|double word|quad word in the numbered zmm register
+ }
+
+#D3 At a point                                                                  # Place data into mm registers and retrieve data from them at the indicated point.
+
+sub dFromPointInZ($$%)                                                          #P Get the double word from the numbered zmm register at a point specified by the variable or register and return it in a variable.
+ {my ($point, $zmm, %options) = @_;                                             # Point, numbered zmm, options
+
+  my $s = $options{set} // rsi;                                                 # Register to set else a variable will be returned
+  my $x = $zmm =~ m(\A(zmm)?0\Z) ? 1 : 0;                                       # The zmm we will extract into
+  if (ref($point) =~ m(Variable))  {$point->setReg(k1)}                         # Point is in a variable
+  else                             {Kmovq k1, $point}                           # Point is in a register
+  my ($z) = zmm $zmm;
+  Vpcompressd "zmm$x\{k1}", $z;
+  Vpextrd dWordRegister($s), xmm($x), 0;                                        # Extract dword from corresponding xmm
+  V d => $s unless $options{set};                                               # Create a variable unless a register to set was provided
+ }
+
+sub Nasm::X86::Variable::dFromPointInZ($$%)                                     # Get the double word from the numbered zmm register at a point specified by the variable and return it in a variable.
+ {my ($point, $zmm, %options) = @_;                                             # Point, numbered zmm, options
+  @_ >= 2 or confess "Two or more parameters";
+  dFromPointInZ($point, $zmm, %options);                                        # Register to set else a variable will be returned
+ }
+
+sub Nasm::X86::Variable::dIntoPointInZ($$$)                                     # Put the variable double word content into the numbered zmm register at a point specified by the variable.
+ {my ($point, $zmm, $content) = @_;                                             # Point, numbered zmm, content to be inserted as a variable
+  $content->setReg(rdi);
+  $point->setReg(rsi);
+  Kmovq k1, rsi;
+  Vpbroadcastd zmmM($zmm, 1), edi;                                              # Insert dword at desired location
  }
 
 #D2 Memory                                                                      # Actions on memory described by variables
@@ -8830,6 +8839,72 @@ sub Nasm::X86::Tree::reverse($)                                                 
 #  $t                                                                            # Description of tree loaded from string
 # }
 
+#D2 Trees as sets                                                               # Trees of trees as sets
+
+sub Nasm::X86::Tree::union($)                                                   # Given a tree of trees consider each sub tree as a set and form the union of all these sets as a new tree.
+ {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
+  @_ == 1 or confess "One parameter";
+
+  my $u = $tree->area->CreateTree;
+  $tree->by(sub                                                                 # Each sub tree
+   {my ($T) = @_;
+    my $t = $tree->position($T->data);
+    $t->by(sub                                                                  # Insert each element of each sub tree
+     {my ($s) = @_;
+      $u->put($s->key, $s->data);
+     });
+   });
+  $u                                                                            # Union
+ }
+
+sub Nasm::X86::Tree::intersection($)                                            # Given a tree of trees consider each sub tree as a set and form the intersection of all these sets as a new tree.
+ {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
+  @_ == 1 or confess "One parameter";
+
+  my $i = $tree->area->CreateTree;                                              # Resulting intersection
+  my $F = V smallest => -1;
+  my $S = V size     => -1;
+
+  $tree->by(sub                                                                 # Find smallest sub tree
+   {my ($T, $start, $next) = @_;
+    my $f = $T->data;
+    my $t = $tree->position($f);
+    my $s = $t->size;
+    OrBlock                                                                     # Update size if no size seen yet or if the size is smaller
+     {my ($pass) = @_;
+      If $S == -1, Then {Jmp $pass};                                            # No size set yet
+      If $S > $s,  Then {Jmp $pass};                                            # Smaller size
+     }                                                                          # Do not attempt to put a comma here!
+    Then                                                                        # Smallest so far
+     {$S->copy($s);
+      $F->copy($f);
+     };
+   });
+
+  If $S > 0,                                                                    # The smallest set is not empty set so the intersection might not be empty either
+  Then
+   {$tree->findFirst;
+    my $f = $tree->position($F);                                                # First tree (but the smallest sub tree would be better)
+
+    $f->by(sub                                                                  # Insert each element of each sub tree
+     {my ($t, undef, $nextElement) = @_;
+      my $k = $t->key;
+
+      $tree->by(sub                                                             # Each sub tree
+       {my ($T, undef, $nextTree) = @_;
+        If $F == $T->data, Then {Jmp $nextTree};                                # Skip the first tree
+
+        my $t = $tree->position($T->data);
+        $t->find($k);
+        If $t->found == 0, Then {Jmp $nextElement};                             # Not found in this sub tree so it cannot be part of the intersection
+       });
+      $i->put($k, $k);
+     });
+   };
+
+  $i                                                                            # Intersection
+ }
+
 #D2 Key String Trees                                                            # A key string tree has strings for keys.
 
 sub Nasm::X86::Tree::getKeyString($$$)                                          # Find a string in a string tree and return the associated data and find status in the data and found fields of the tree.
@@ -8968,72 +9043,6 @@ sub Nasm::X86::Tree::uniqueKeyString($$$)                                       
    PopR;
 
   $c                                                                            # Unique string number as a variable
- }
-
-#D2 Trees as sets                                                               # Trees of trees as sets
-
-sub Nasm::X86::Tree::union($)                                                   # Given a tree of trees consider each sub tree as a set and form the union of all these sets as a new tree.
- {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
-  @_ == 1 or confess "One parameter";
-
-  my $u = $tree->area->CreateTree;
-  $tree->by(sub                                                                 # Each sub tree
-   {my ($T) = @_;
-    my $t = $tree->position($T->data);
-    $t->by(sub                                                                  # Insert each element of each sub tree
-     {my ($s) = @_;
-      $u->put($s->key, $s->data);
-     });
-   });
-  $u                                                                            # Union
- }
-
-sub Nasm::X86::Tree::intersection($)                                            # Given a tree of trees consider each sub tree as a set and form the intersection of all these sets as a new tree.
- {my ($tree) = @_;                                                              # Tree descriptor for a tree of trees
-  @_ == 1 or confess "One parameter";
-
-  my $i = $tree->area->CreateTree;                                              # Resulting intersection
-  my $F = V smallest => -1;
-  my $S = V size     => -1;
-
-  $tree->by(sub                                                                 # Find smallest sub tree
-   {my ($T, $start, $next) = @_;
-    my $f = $T->data;
-    my $t = $tree->position($f);
-    my $s = $t->size;
-    OrBlock                                                                     # Update size if no size seen yet or if the size is smaller
-     {my ($pass) = @_;
-      If $S == -1, Then {Jmp $pass};                                            # No size set yet
-      If $S > $s,  Then {Jmp $pass};                                            # Smaller size
-     }                                                                          # Do not attempt to put a comma here!
-    Then                                                                        # Smallest so far
-     {$S->copy($s);
-      $F->copy($f);
-     };
-   });
-
-  If $S > 0,                                                                    # The smallest set is not empty set so the intersection might not be empty either
-  Then
-   {$tree->findFirst;
-    my $f = $tree->position($F);                                                # First tree (but the smallest sub tree would be better)
-
-    $f->by(sub                                                                  # Insert each element of each sub tree
-     {my ($t, undef, $nextElement) = @_;
-      my $k = $t->key;
-
-      $tree->by(sub                                                             # Each sub tree
-       {my ($T, undef, $nextTree) = @_;
-        If $F == $T->data, Then {Jmp $nextTree};                                # Skip the first tree
-
-        my $t = $tree->position($T->data);
-        $t->find($k);
-        If $t->found == 0, Then {Jmp $nextElement};                             # Not found in this sub tree so it cannot be part of the intersection
-       });
-      $i->put($k, $k);
-     });
-   };
-
-  $i                                                                            # Intersection
  }
 
 #D2 Print                                                                       # Print a tree
@@ -9760,6 +9769,8 @@ sub Nasm::X86::Unisyn::Lex::numberToLetter                                      
 
   (K(size => scalar @a), K array => Rd @a)                                      # Size of array, array
  }
+
+#D2 Parse                                                                       # Parse Unisyn language statements.
 
 sub Nasm::X86::Unisyn::Lex::Reason::Success           {0};                      #P Successful parse.
 sub Nasm::X86::Unisyn::Lex::Reason::BadUtf8           {1};                      #P Bad utf8 character encountered.
@@ -11326,7 +11337,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11328 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11339 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
