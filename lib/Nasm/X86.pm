@@ -3556,18 +3556,18 @@ sub Nasm::X86::Variable::setReg($$)                                             
   $register                                                                     # Name of register being set
  }
 
-sub Nasm::X86::Variable::compare($$)                                            # Compare the content of a variable with a numeric constant.
- {my ($variable, $compare) = @_;                                                # Variable, value to compare
-  @_ == 2 or confess "Two parameters";
-
-  if ($variable->isRef)
-   {Mov rsi, $variable->addressExpr;
-    Cmp "qword [rsi]", $compare;
-   }
-  else
-   {Cmp "qword ".$variable->addressExpr, $compare;
-   }
- }
+#sub Nasm::X86::Variable::compare($$)                                            # Compare the content of a variable with a numeric constant.
+# {my ($variable, $compare) = @_;                                                # Variable, value to compare
+#  @_ == 2 or confess "Two parameters";
+#
+#  if ($variable->isRef)
+#   {Mov rsi, $variable->addressExpr;
+#    Cmp "qword [rsi]", $compare;
+#   }
+#  else
+#   {Cmp "qword ".$variable->addressExpr, $compare;
+#   }
+# }
 
 sub Nasm::X86::Variable::getReg($$)                                             # Load the variable from a register expression.
  {my ($variable, $register) = @_;                                               # Variable, register expression to load
