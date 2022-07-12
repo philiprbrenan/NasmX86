@@ -609,7 +609,7 @@ sub PopR(@)                                                                     
 
 #D2 General                                                                     # Actions specific to general purpose registers
 
-sub registerNameFromNumber($)                                                   # Register name from number where possible.
+sub registerNameFromNumber($)                                                   #P Register name from number where possible.
  {my ($r) = @_;                                                                 # Register number
   return "zmm$r" if $r =~ m(\A(16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z);
   return   "r$r" if $r =~ m(\A(8|9|10|11|12|13|14|15)\Z);
@@ -760,7 +760,7 @@ sub LoadZmm($@)                                                                 
   Vmovdqu8 zmm($zmm), "[$b]";
  }
 
-sub checkZmmRegister($)                                                         # Check that a register is a zmm register.
+sub checkZmmRegister($)                                                         #P Check that a register is a zmm register.
  {my ($z) = @_;                                                                 # Parameters
   $z =~ m(\A(0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)\Z) or confess "$z is not the number of a zmm register";
  }
@@ -786,7 +786,7 @@ sub bRegIntoZmm($$$)                                                            
   my $W = RegisterSize zmm0;                                                    # Register size
   Vmovdqu32 "[rsp-$W]", zmm $zmm;
   Mov "[rsp-$W+$offset]", $b;                                                   # Save byte at specified offset
-  Vmovdqu32  zmm($zmm), Vmovdqu32 "[rsp-$W]";
+  Vmovdqu32  zmm($zmm), "[rsp-$W]";
  }
 
 sub wRegFromZmm($$$)                                                            # Load the specified register from the word at the specified offset located in the numbered zmm.
@@ -854,12 +854,12 @@ sub SaveRegIntoMm($$$)                                                          
   Vmovdqu64 $mm, "[rsp-$W]";                                                    # Reload from the stack
  }
 
-sub extractRegisterNumberFromMM($)                                              # Extract the register number from an *mm register.
+sub extractRegisterNumberFromMM($)                                              #P Extract the register number from an *mm register.
  {my ($mm) = @_;                                                                # Mmm register
       $mm =~ m(\A([zyx]mm)?(\d{1,2})\Z) ? $2 : confess "Not an mm register";
  }
 
-sub getBwdqFromMm($$$$%)                                                        # Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
+sub getBwdqFromMm($$$$%)                                                        #P Get the numbered byte|word|double word|quad word from the numbered zmm register and return it in a variable.
  {my ($xyz, $size, $mm, $offset, %options) = @_;                                # Size of mm, size of get, mm register, offset in bytes either as a constant or as a variable, options
   my $set = $options{set};                                                      # Optionally set this register or variable rather than returning a new variable
   my $setVar = $set && ref($set) =~ m(Variable);                                # Set a this variable to the result
@@ -978,7 +978,7 @@ sub LoadConstantIntoMaskRegister($$)                                            
   Kmovq $m, rdi;                                                                # Load mask register from general purpose register
  }
 
-sub createBitNumberFromAlternatingPattern($@)                                   # Create a number from a bit pattern.
+sub createBitNumberFromAlternatingPattern($@)                                   #P Create a number from a bit pattern.
  {my ($prefix, @values) = @_;                                                   # Prefix bits, +n 1 bits -n 0 bits
   @_ > 1 or confess "Four or more parameters required";                         # Must have some values
 
@@ -1083,7 +1083,7 @@ sub Else(&)                                                                     
 
 sub opposingJump($)                                                             # Return the opposite of a jump.
  {my ($j) = @_;                                                                 # Jump
-  my %j = qw(Je Jne  Jl Jge  Jle Jg  Jne Je  Jge Jl  Jg Jl);                    # Branch possibilities
+  my %j = qw(Je Jne  Jl Jge  Jle Jg  Jne Je  Jge Jl  Jg Jle);                    # Branch possibilities
   my $o = $j{$j};
   confess "Invalid jump $j" unless $o;
   $o
@@ -1495,7 +1495,7 @@ sub OnSegv()                                                                    
 
 # Subroutine                                                                    # Create and call subroutines with the option of placing them into an area that can be writtento a file and reloaded and executed by another process.
 
-sub copyStructureMinusVariables($)                                              # Copy a non recursive structure ignoring variables.
+sub copyStructureMinusVariables($)                                              #P Copy a non recursive structure ignoring variables.
  {my ($s) = @_;                                                                 # Structure to copy
 
   my %s = %$s;
@@ -1683,7 +1683,7 @@ sub Nasm::X86::Area::writeLibraryHeader($$)                                     
   $o                                                                            # Return the offset of the library header in the area
  }
 
-sub Nasm::X86::Area::readLibraryHeader($$;$)                                    # Create a tree mapping the numbers assigned to subroutine names to the offsets of the corresponding routines in a library returning the intersection so formed mapping the lexical item numbers (not names) encountered during parsing with the matching routines in the library. Optionally a subroutine (like Nasm::X86::Unisyn::Lex::letterToNumber) can be provided that returns details of an array that maps a single utf32 character to a smaller number which will be assumed to be the number of the routine with that single letter as its name.
+sub Nasm::X86::Area::readLibraryHeader($$;$)                                    #P Create a tree mapping the numbers assigned to subroutine names to the offsets of the corresponding routines in a library returning the intersection so formed mapping the lexical item numbers (not names) encountered during parsing with the matching routines in the library. Optionally a subroutine (like Nasm::X86::Unisyn::Lex::letterToNumber) can be provided that returns details of an array that maps a single utf32 character to a smaller number which will be assumed to be the number of the routine with that single letter as its name.
  {my ($area, $uniqueStrings, $singleLetterArray) = @_;                          # Area containing subroutine library, unique strings from parse, subroutine returning details of a single character mapping array
   @_ >= 2 or confess "At least two parameters";
 
@@ -10771,7 +10771,7 @@ sub hasAvx512()                                                                 
   $hasAvx512 = qx(cat /proc/cpuinfo | grep avx512) =~ m(\S) ? 1 : 0;            # Cache avx512 result
  }
 
-sub lineNumbersToSubNamesFromSource                                             # Create a hash mapping line numbers to subroutine definitions.
+sub lineNumbersToSubNamesFromSource                                             #P Create a hash mapping line numbers to subroutine definitions.
  {my @s = readFile $0;                                                          # Read source file
   my %l;                                                                        # Mapping from line number to current sub
   my $c;                                                                        # The current sub
@@ -10788,7 +10788,7 @@ sub lineNumbersToSubNamesFromSource                                             
   %l
  }
 
-sub locateRunTimeErrorInDebugTraceOutput($)                                     # Locate the traceback of the last known good position in the trace file before the error occurred.
+sub locateRunTimeErrorInDebugTraceOutput($)                                     #P Locate the traceback of the last known good position in the trace file before the error occurred.
  {my ($trace) = @_;                                                             # Trace mode
   unlink $traceBack;                                                            # Traceback file
   return '' unless -e $sdeTraceOut;                                             # Need a trace file to get a traceback
@@ -10824,7 +10824,7 @@ sub locateRunTimeErrorInDebugTraceOutput($)                                     
   $t
  }
 
-sub fixMixOutput                                                                # Fix mix output so we know where the code comes from in the source file.
+sub fixMixOutput                                                                #P Fix mix output so we know where the code comes from in the source file.
  {return '' unless -e $sdeMixOut;                                               # Need a mix file to make this work
   my @a = readFile $sdeMixOut;                                                  # Read mix output
   my %l = lineNumbersToSubNamesFromSource();
@@ -10840,7 +10840,7 @@ sub fixMixOutput                                                                
   $a
  }
 
-sub countComments($)                                                            # Count the number of comments in the text of the program so we can see what code is being generated too often.
+sub countComments($)                                                            #P Count the number of comments in the text of the program so we can see what code is being generated too often.
  {my ($count) = @_;                                                             # Comment count
   if ($count)                                                                   # Count the comments so we can see what code to put into subroutines
    {my %c; my %b;                                                               # The number of lines between the comments, the number of blocks
@@ -10864,7 +10864,7 @@ sub numberWithUnderScores($)                                                    
   scalar reverse join '_',  unpack("(A3)*", reverse $n);
  }
 
-sub onGitHub                                                                    # Whether we are on GitHub or not.
+sub onGitHub                                                                    #P Whether we are on GitHub or not.
  {$ENV{GITHUB_REPOSITORY_OWNER}
  }
 
@@ -11293,7 +11293,7 @@ under the same terms as Perl itself.
 
 # Tests and documentation
 
-sub test                                                                        # Run tests with correct line numbers
+sub test                                                                        #P Run tests with correct line numbers
  {binmode($_, ":utf8") for *STDOUT, *STDERR;
   my $source = readFile $0;                                                     # Source code for this module
   return if $source =~ m(\n#__DATA__);                                          # Return if the tests are not shielded - they will be executed inline
@@ -12105,7 +12105,7 @@ if (1) {                                                                        
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TClearMemory #TPrintOutMemory_InHexNL #TPrintOutMemory_InHex
   K(loop => 8+1)->for(sub
    {my ($index, $start, $next, $end) = @_;
@@ -12126,7 +12126,7 @@ ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ __
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TPrintOutOneRegisterInHex #TPrintOutOneRegisterInHexNL
   Mov rax, 0x22;
   Mov rbx, 0x33;
@@ -12138,10 +12138,7 @@ if (1) {                                                                        
 END
  }
 
-
-
-
-latest:;
+#latest:;
 if (1) {                                                                        #TPrintOutRaxInDec #TPrintOutRaxInDecNL #TPrintOutRax_InHex #TPrintOutRax_InHexNL #TPrintOutRegisterInHex #TPrintOutRightInBin #TPrintOutRightInDec #TPrintOutRightInHex #TPrintOutSpace
   Mov rax, 42;
   Mov rbx, 21;
@@ -12172,7 +12169,7 @@ ____ ____ ____ __2A ____ ____ ____ __2A
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TPrintOutRaxAsText #TPrintOutRaxAsTextNL
   Mov rax, 0x636261;
   PrintOutRaxAsText;
@@ -12184,7 +12181,7 @@ abcabcd
 END
  }
 
-latest:;
+#latest:;
 if (1) {                                                                        #TPrintOutOneRegisterInHex #TPrintOutOneRegisterInHexNL
   Mov rax, 0x61;
   PrintOutRaxAsChar;
@@ -13497,7 +13494,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TConvertUtf8ToUtf32 #TGetNextUtf8CharAsUtf32
+if (1) {                                                                        #TConvertUtf8ToUtf32 #TGetNextUtf8CharAsUtf32 #TRutf8
   my ($out, $size, $fail);
 
   my $Chars = Rb(0x24, 0xc2, 0xa2, 0xc9, 0x91, 0xE2, 0x82, 0xAC, 0xF0, 0x90, 0x8D, 0x88);
@@ -13949,7 +13946,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TreadChar #TPrintOutRaxAsChar #TForEver
+if (1) {                                                                        #TReadChar #TPrintOutRaxAsChar #TForEver
   my $e = q(readChar);
 
   ForEver
@@ -13996,6 +13993,20 @@ AAAA
 BBBB
    r14: .... .... .... ...8
    r15: .... .... .... ...2
+END
+ }
+
+#latest:
+if (1) {                                                                        #TuptoNTimes
+  uptoNTimes
+   {my ($end, $start) = @_;
+    PrintOutRegisterInHex rax;
+   } rax, 3;
+
+  ok Assemble eq => <<END;
+   rax: .... .... .... ...3
+   rax: .... .... .... ...2
+   rax: .... .... .... ...1
 END
  }
 
@@ -14242,7 +14253,7 @@ if (1) {
   $s->call(structures => {var => my $V = V var => 2});
   $V->outNL;
 
-  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END;
 var: .... .... .... ..2A
 var: .... .... .... ...1
 END
@@ -14280,7 +14291,7 @@ if (1) {
   $O->outInDecNL;
   $t->outInDecNL;
 
-  ok Assemble(debug => 0, trace => 0, eq => <<END, avx512=>0);
+  ok Assemble eq => <<END;
 i: 22
 o: 22
 O: 33
@@ -14289,6 +14300,89 @@ END
  }
 
 test2: goto test3 unless $test{2};
+
+latest:;
+if (1) {                                                                        #TbFromX #TbFromZ #TbRegFromZmm #TbRegIntoZmm #TdFromPointInZ #TdFromX #TdFromZ #TdRegFromZmm #TdRegIntoZmm #TqFromX #TqFromZ #TwFromX #TwFromZ #TwRegFromZmm #TwRegIntoZmm #Txmm #Tymm #TzmmM #TzmmMZ
+  Mov r15, 0x12345678;
+  bRegIntoZmm(r15, 1,  0);
+  bRegIntoZmm(r15, 1,  1);
+  dRegIntoZmm(r15, 1,  4);
+  dRegIntoZmm(r15, 1,  8);
+  dRegIntoZmm(r15, 1, 12);
+  PrintOutRegisterInHex xmm(1);
+  PrintOutRegisterInHex zmm(1);
+
+  bRegFromZmm(r15, 1, 1);
+  PrintOutRegisterInHex r15;
+
+  bFromX(1, 0)->outNL;
+  bFromZ(1, 0)->outNL;
+
+  dRegFromZmm(r14, 1, 3);
+  PrintOutRegisterInHex r14;
+
+  wRegFromZmm(r14, 1, 3);
+  PrintOutRegisterInHex r14;
+
+  bFromX(1, 0)->outNL;
+  bFromZ(1, 1)->outNL;
+  bFromZ(1, 2)->outNL;
+
+  wFromX(1, 0)->outNL;
+  wFromZ(1, 1)->outNL;
+  wFromZ(1, 2)->outNL;
+
+  dFromX(1, 0)->outNL;
+  dFromZ(1, 1)->outNL;
+  dFromZ(1, 2)->outNL;
+
+  qFromX(1, 0)->outNL;
+  qFromZ(1, 1)->outNL;
+  dFromZ(1, 2)->outNL;
+
+  K( offset => 1 << 5)->dFromPointInZ(zmm(1))->outNL;
+
+  Mov       r15, 2;
+  Kmovq k7, r15;
+  LoadZmm 2, map {0xff} 1..64;
+  PrintOutRegisterInHex zmm2;
+  Vmovdqu8 zmmM (2, 7), zmm(1);
+  Vmovdqu8 zmmMZ(3, 7), zmm(1);
+  PrintOutRegisterInHex zmm1, zmm2, zmm3;
+
+  ok Assemble eq => <<END;
+  xmm1: 1234 5678 1234 5678  1234 5678 .... 7878
+  zmm1: .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - 1234 5678 1234 5678  1234 5678 .... 7878
+   r15: .... .... 1234 5678
+b at offset 0 in xmm1: .... .... .... ..78
+b at offset 0 in zmm1: .... .... .... ..78
+   r14: .... .... 3456 78..
+   r14: .... .... 3456 78..
+b at offset 0 in xmm1: .... .... .... ..78
+b at offset 1 in zmm1: .... .... .... ..78
+b at offset 2 in zmm1: .... .... .... ...0
+w at offset 0 in xmm1: .... .... .... 7878
+w at offset 1 in zmm1: .... .... .... ..78
+w at offset 2 in zmm1: .... .... .... ...0
+d at offset 0 in xmm1: .... .... .... 7878
+d at offset 1 in zmm1: .... .... 78.. ..78
+d at offset 2 in zmm1: .... .... 5678 ....
+q at offset 0 in xmm1: 1234 5678 .... 7878
+q at offset 1 in zmm1: 7812 3456 78.. ..78
+d at offset 2 in zmm1: .... .... 5678 ....
+d: .... .... .... ...0
+  zmm2: .... .... .... ..-1  .... .... .... ..-1 - .... .... .... ..-1  .... .... .... ..-1 + .... .... .... ..-1  .... .... .... ..-1 - .... .... .... ..-1  .... .... .... ..-1
+  zmm1: .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - 1234 5678 1234 5678  1234 5678 .... 7878
+  zmm2: .... .... .... ..-1  .... .... .... ..-1 - .... .... .... ..-1  .... .... .... ..-1 + .... .... .... ..-1  .... .... .... ..-1 - .... .... .... ..-1  FFFF FFFF FFFF 78FF
+  zmm3: .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... 78..
+END
+ }
+
+latest:;
+if (1) {                                                                        #TopposingJump
+  is_deeply opposingJump(q(Jl)), q(Jge);
+  is_deeply opposingJump(q(Jg)), q(Jle);
+ }
 
 #latest:
 if (1) {                                                                        # Split a left node held in zmm28..zmm26 with its parent in zmm31..zmm29 pushing to the right zmm25..zmm23
@@ -18498,7 +18592,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        # Create and use a library demonstrating that we can place the containing subroutine in an area, reload that area and call both the containing and the contained subroutines.
+if (1) {                                                                        # Create and use a library demonstrating that we can place the containing subroutine in an area, reload that area and call both the containing and the contained subroutines. #TloadAreaIntoAssembly
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
 
