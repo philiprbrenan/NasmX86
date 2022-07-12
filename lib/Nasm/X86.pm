@@ -1442,7 +1442,7 @@ sub PrintTraceBack($)                                                           
   $s->call;
  }
 
-sub PrintErrTraceBack($)                                                        # Print sub routine track back on stderr and then exit with a message.
+sub PrintErrTraceBack($)                                                        #P Print sub routine track back on stderr and then exit with a message.
  {my ($message) = @_;                                                           # Reason why we are printing the trace back and then stopping
   my ($p, $f, $l) = caller(0);
   PrintStringNL($stderr, "$message at $0 line $l");
@@ -2045,7 +2045,7 @@ sub PrintOutNL()                                                                
   PrintNL($stdout);
  }
 
-sub PrintString($@)                                                             # Print a constant string to the specified channel.
+sub PrintString($@)                                                             #P Print a constant string to the specified channel.
  {my ($channel, @string) = @_;                                                  # Channel, Strings
   @_ >= 2 or confess "Two or more parameters";
 
@@ -2066,7 +2066,7 @@ sub PrintString($@)                                                             
   $s->call;
  }
 
-sub PrintStringNL($@)                                                           # Print a constant string to the specified channel followed by a new line.
+sub PrintStringNL($@)                                                           #P Print a constant string to the specified channel followed by a new line.
  {my ($channel, @string) = @_;                                                  # Channel, Strings
   PrintString($channel, @string);
   PrintNL    ($channel);
@@ -2114,7 +2114,7 @@ sub PrintCStringNL($$)                                                          
   PrintNL     ($channel);
  }
 
-sub PrintSpace($;$)                                                             # Print a constant number of spaces to the specified channel.
+sub PrintSpace($;$)                                                             #P Print a constant number of spaces to the specified channel.
  {my ($channel, $spaces) = @_;                                                  # Channel, number of spaces if not one.
   PrintString($channel, ' ' x ($spaces // 1));
  }
@@ -2126,7 +2126,7 @@ sub PrintErrSpace(;$)                                                           
 
 sub PrintOutSpace(;$)                                                           # Print a constant number of spaces to stdout.
  {my ($spaces) = @_;                                                            # Number of spaces if not one.
-  PrintOutString(' ' x $spaces);
+  PrintOutString ' ' x ($spaces//1);
  }
 
 #D2 Registers                                                                   # Print selected registers in a variety of formats.
@@ -2145,7 +2145,7 @@ sub hexTranslateTable                                                           
    Rs @t                                                                        # Constant strings are only saved if they are unique, else a read only copy is returned.
  }
 
-sub PrintRaxInHex($;$)                                                          # Write the content of register rax in hexadecimal in big endian notation to the specified channel.
+sub PrintRaxInHex($;$)                                                          #P Write the content of register rax in hexadecimal in big endian notation to the specified channel.
  {my ($channel, $end) = @_;                                                     # Channel, optional end byte
   @_ == 1 or @_ == 2 or confess "One or two parameters";
   my $hexTranslateTable = hexTranslateTable;
@@ -2213,7 +2213,7 @@ sub PrintOutRaxInHexNL()                                                        
   PrintOutNL;
  }
 
-sub PrintRax_InHex($;$)                                                         # Write the content of register rax in hexadecimal in big endian notation to the specified channel replacing zero bytes with __.
+sub PrintRax_InHex($;$)                                                         #P Write the content of register rax in hexadecimal in big endian notation to the specified channel replacing zero bytes with __.
  {my ($channel, $end) = @_;                                                     # Channel, optional end byte
   @_ == 1 or @_ == 2 or confess "One or two parameters";
   my $hexTranslateTable = hexTranslateTable;
@@ -2279,7 +2279,7 @@ sub PrintOutRaxInReverseInHex                                                   
   Pop rax;
  }
 
-sub PrintOneRegisterInHex($$)                                                   # Print the named register as a hex string.
+sub PrintOneRegisterInHex($$)                                                   #P Print the named register as a hex string.
  {my ($channel, $r) = @_;                                                       # Channel to print on, register to print
   @_ == 2 or confess "Two parameters";
 
@@ -2465,7 +2465,7 @@ sub PrintOutRegistersInHex                                                      
 
 #D2 Zero Flag                                                                   # Print zero flag
 
-sub PrintErrZF                                                                  # Print the zero flag without disturbing it on stderr.
+sub PrintErrZF                                                                  #P Print the zero flag without disturbing it on stderr.
  {@_ == 0 or confess;
 
   Pushfq;
@@ -2483,7 +2483,7 @@ sub PrintOutZF                                                                  
 
 #D2 Hexadecimal                                                                 # Print numbers in hexadecimal right justified in a field
 
-sub PrintRightInHex($$$)                                                        # Print out a number in hex right justified in a field of specified width on the specified channel.
+sub PrintRightInHex($$$)                                                        #P Print out a number in hex right justified in a field of specified width on the specified channel.
  {my ($channel, $number, $width) = @_;                                          # Channel, number as a variable or register, width of output field as a constant
 
   $channel =~ m(\A(1|2)\Z) or confess "Invalid channel should be stderr or stdout";
@@ -2563,7 +2563,7 @@ sub PrintOutRightInHexNL($$)                                                    
 
 #D2 Binary                                                                      # Print numbers in binary right justified in a field
 
-sub PrintRightInBin($$$)                                                        # Print out a number in binary right justified in a field of specified width on the specified channel.
+sub PrintRightInBin($$$)                                                        #P Print out a number in binary right justified in a field of specified width on the specified channel.
  {my ($channel, $Number, $Width) = @_;                                          # Channel, number as a variable or register, width of output field as a variable or constant
 
   $channel =~ m(\A(1|2)\Z)     or confess "Channel should be stderr or stdout";
@@ -2645,7 +2645,7 @@ sub PrintOutRightInBinNL($;$)                                                   
 
 #D2 Decimal                                                                     # Print numbers in decimal right justified in fields of specified width.
 
-sub PrintRaxInDec($)                                                            # Print rax in decimal on the specified channel.
+sub PrintRaxInDec($)                                                            #P Print rax in decimal on the specified channel.
  {my ($channel) = @_;                                                           # Channel to write on
 
   my $s = Subroutine
@@ -2694,7 +2694,7 @@ sub PrintErrRaxInDecNL                                                          
   PrintErrNL;
  }
 
-sub PrintRaxRightInDec($$)                                                      # Print rax in decimal right justified in a field of the specified width on the specified channel.
+sub PrintRaxRightInDec($$)                                                      #P Print rax in decimal right justified in a field of the specified width on the specified channel.
  {my ($Width, $channel) = @_;                                                   # Width as a variable or a constant, channel
 
   my $width  = ref($Width)  ? $Width  : K width => $Width;                      # Promote constant
@@ -2734,7 +2734,7 @@ sub PrintRaxRightInDec($$)                                                      
   $s->call(parameters=>{width => ref($width) ? $width : V width => $width});
  }
 
-sub PrintRightInDec($$$)                                                        # Print out a number in decimal right justified in a field of specified width on the specified channel.
+sub PrintRightInDec($$$)                                                        #P Print out a number in decimal right justified in a field of specified width on the specified channel.
  {my ($channel, $Number, $width) = @_;                                          # Channel, number as a variable or register, width of output field as a variable or constant
 
   my $number = ref($Number) ? $Number : V(number => $Number);                   # Variable or register
@@ -2769,7 +2769,7 @@ sub PrintOutRightInDecNL($$)                                                    
 
 #D2 Text                                                                        # Print the contents of a register as text.
 
-sub PrintRaxAsText($)                                                           # Print the string in rax on the specified channel.
+sub PrintRaxAsText($)                                                           #P Print the string in rax on the specified channel.
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
@@ -2804,7 +2804,7 @@ sub PrintErrRaxAsTextNL                                                         
   PrintOutNL;
  }
 
-sub PrintRaxAsChar($)                                                           # Print the ascii character in rax on the specified channel.
+sub PrintRaxAsChar($)                                                           #P Print the ascii character in rax on the specified channel.
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
@@ -3983,7 +3983,7 @@ sub Nasm::X86::Variable::printOutMemoryNL($$)                                   
   PrintOutNL;
  }
 
-sub Nasm::X86::Variable::printMemoryInHexNL($$$)                                # Write, in hexadecimal, the memory addressed by a variable to stdout or stderr.
+sub Nasm::X86::Variable::printMemoryInHexNL($$$)                                #P Write, in hexadecimal, the memory addressed by a variable to stdout or stderr.
  {my ($address, $channel, $size) = @_;                                          # Address of memory, channel to print on, number of bytes to print
   @_ == 3 or confess "Three parameters";
   PushR rax, rdi;
@@ -4199,7 +4199,7 @@ sub PrintOutMemoryInHexNL                                                       
   PrintNL($stdout);
  }
 
-sub PrintMemory_InHex($)                                                        # Dump memory from the address in rax for the length in rdi on the specified channel. As this method prints in blocks of 8 up to 7 bytes will be missing from the end unless the length is a multiple of 8 .
+sub PrintMemory_InHex($)                                                        #P Dump memory from the address in rax for the length in rdi on the specified channel. As this method prints in blocks of 8 up to 7 bytes will be missing from the end unless the length is a multiple of 8 .
  {my ($channel) = @_;                                                           # Channel
   @_ == 1 or confess "One parameter";
   Comment "Print out memory in hex on channel: $channel";
@@ -4257,7 +4257,7 @@ sub PrintOutMemory_InHexNL                                                      
   PrintNL($stdout);
  }
 
-sub PrintMemory($)                                                              # Print the memory addressed by rax for a length of rdi on the specified channel where channel can be a constant number or a register expression using a bound register.
+sub PrintMemory($)                                                              #P Print the memory addressed by rax for a length of rdi on the specified channel where channel can be a constant number or a register expression using a bound register.
  {my ($channel) = @_;                                                           # Channel
   @_ == 1 or confess "One parameter";
 
@@ -4270,7 +4270,7 @@ sub PrintMemory($)                                                              
   RestoreFirstFour;
  }
 
-sub PrintMemoryNL                                                               # Print the memory addressed by rax for a length of rdi on the specified channel followed by a new line.
+sub PrintMemoryNL                                                               #P Print the memory addressed by rax for a length of rdi on the specified channel followed by a new line.
  {my ($channel) = @_;                                                           # Channel
   @_ == 1 or confess "One parameter";
   PrintMemory($channel);
@@ -12105,8 +12105,8 @@ if (1) {                                                                        
 END
  }
 
-#latest:;
-if (1) {                                                                        #TClearMemory
+latest:;
+if (1) {                                                                        #TClearMemory #TPrintOutMemory_InHexNL #TPrintOutMemory_InHex
   K(loop => 8+1)->for(sub
    {my ($index, $start, $next, $end) = @_;
     $index->setReg(15);
@@ -12117,11 +12117,82 @@ if (1) {                                                                        
   Mov rdi, 8*9;
   PrintOutMemory_InHexNL;
   ClearMemory(V(address => rax), K(size => 8*9));
-  PrintOutMemory_InHexNL;
+  PrintOutMemory_InHex;
+  PrintOutNL;
 
   ok Assemble eq => <<END;
 .8__ ____ ____ ____  .7__ ____ ____ ____  .6__ ____ ____ ____  .5__ ____ ____ ____  .4__ ____ ____ ____  .3__ ____ ____ ____  .2__ ____ ____ ____  .1__ ____ ____ ____  ____ ____ ____ ____
 ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+latest:;
+if (1) {                                                                        #TPrintOutOneRegisterInHex #TPrintOutOneRegisterInHexNL
+  Mov rax, 0x22;
+  Mov rbx, 0x33;
+  PrintOutOneRegisterInHex   rax;
+  PrintOutOneRegisterInHexNL rbx;
+
+  ok Assemble eq => <<END;
+.... .... .... ..22.... .... .... ..33
+END
+ }
+
+
+
+
+latest:;
+if (1) {                                                                        #TPrintOutRaxInDec #TPrintOutRaxInDecNL #TPrintOutRax_InHex #TPrintOutRax_InHexNL #TPrintOutRegisterInHex #TPrintOutRightInBin #TPrintOutRightInDec #TPrintOutRightInHex #TPrintOutSpace
+  Mov rax, 42;
+  Mov rbx, 21;
+  PrintOutRaxInDec;
+  PrintOutSpace;
+  PrintOutRaxInDecNL;
+
+  PrintOutRax_InHex;
+  PrintOutSpace;
+  PrintOutRax_InHexNL;
+
+  PrintOutRegisterInHex rbx;
+  PrintOutNL;
+
+  PrintOutRightInBin K(key => 17), K width => 16;
+  PrintOutSpace;
+  PrintOutRightInDec K(key => 17), K width => 2;
+  PrintOutSpace;
+  PrintOutRightInHex K(key => 17), K width => 2;
+  PrintOutNL;
+
+  ok Assemble eq => <<END;
+42 42
+____ ____ ____ __2A ____ ____ ____ __2A
+   rbx: .... .... .... ..15
+
+           10001 17 11
+END
+ }
+
+latest:;
+if (1) {                                                                        #TPrintOutRaxAsText #TPrintOutRaxAsTextNL
+  Mov rax, 0x636261;
+  PrintOutRaxAsText;
+  Mov rax, 0x64636261;
+  PrintOutRaxAsTextNL;
+
+  ok Assemble eq => <<END;
+abcabcd
+END
+ }
+
+latest:;
+if (1) {                                                                        #TPrintOutOneRegisterInHex #TPrintOutOneRegisterInHexNL
+  Mov rax, 0x61;
+  PrintOutRaxAsChar;
+  Mov rax, 0x62;
+  PrintOutRaxAsCharNL;
+
+  ok Assemble eq => <<END;
+ab
 END
  }
 
