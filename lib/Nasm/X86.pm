@@ -11782,7 +11782,7 @@ if (1)                                                                          
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TNasm::X86::Variable::allocateMemory #TNasm::X86::Variable::freeMemory
   my $N = K size => 2048;
   my $q = Rs('a'..'p');
@@ -11813,7 +11813,7 @@ if (1) {                                                                        
 .... .... .... 1111
    1000100010001
             4369
-            1111
+
 END
  }
 
@@ -12755,7 +12755,7 @@ a  b
 END
  }
 
-latest:
+#latest:
 if (1) {                                                                        #TV #TK #TG #TNasm::X86::Variable::copy
   my $s = Subroutine
    {my ($p) = @_;
@@ -13260,17 +13260,44 @@ q at offset 12 in zmm0: .3.2 .1.. .... .3.2
 END
  }
 
-# Nasm::X86::Variable::bFromZ
-# Nasm::X86::Variable::bIntoX
-# Nasm::X86::Variable::dFromZ
-# Nasm::X86::Variable::dIntoPointInZ
-# Nasm::X86::Variable::dIntoX
-# Nasm::X86::Variable::qFromZ
-# Nasm::X86::Variable::qIntoX
-# Nasm::X86::Variable::wFromZ
-# Nasm::X86::Variable::wIntoX
+latest:;
+if (1) {                                                                        #TNasm::X86::Variable::bIntoX    #TNasm::X86::Variable::wIntoX    #TNasm::X86::Variable::dIntoX    #TNasm::X86::Variable::qIntoX    #TNasm::X86::Variable::bIntoZ    #TNasm::X86::Variable::bIntoZ    #TNasm::X86::Variable::dIntoZ    #TNasm::X86::Variable::qIntoZ    #TNasm::X86::Variable::bFromZ    #TNasm::X86::Variable::wFromZ    #TNasm::X86::Variable::dFromZ    #TNasm::X86::Variable::qFromZ    #TNasm::X86::Variable::dIntoPointInZ   #TNasm::X86::Variable::dFromPointInZ
+  Mov rax, 0x12345678;
+  my $c = V("Content", rax);
+  $c->bIntoX(1, 0);
+  $c->bIntoX(1, 1);
+  $c->wIntoX(1, 2);
+  $c->dIntoX(1, 4);
+  $c->qIntoX(1, 8);
+  $c->bIntoZ(1, 16);
+  $c->bIntoZ(1, 17);
+  $c->dIntoZ(1, 20);
+  $c->qIntoZ(1, 24);
+  PrintOutRegisterInHex zmm1;
 
+  my $q = V "var";
 
+  $q->bFromZ(1, 16); $q->outNL;
+  $q->bFromZ(1, 17); $q->outNL;
+  $q->wFromZ(1, 18); $q->outNL;
+  $q->dFromZ(1, 20); $q->outNL;
+  $q->qFromZ(1, 20); $q->outNL;
+
+  my $p = K key => 8;
+  $p->dIntoPointInZ(1, K key => 0x22);
+  $p->dFromPointInZ(1)->outNL;
+
+  ok Assemble eq => <<END;
+  zmm1: .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... 1234 5678  1234 5678 .... 7878 - .... .... 1234 5678  1234 5678 5678 7878
+var: .... .... .... ..78
+var: .... .... .... ..78
+var: .... .... .... ...0
+var: .... .... 1234 5678
+var: 1234 5678 1234 5678
+d: .... .... .... ..22
+END
+exit;
+ }
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Subroutine::call
