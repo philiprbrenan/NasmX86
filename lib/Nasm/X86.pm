@@ -1362,7 +1362,7 @@ sub SubroutineStartStack()                                                      
  {push @VariableStack, 1;                                                       # Counts the number of variables on the stack in each invocation of L<Subroutine>.  The first quad provides the traceback.
  }
 
-sub PrintTraceBack($)                                                           # Trace the call stack.
+sub PrintTraceBack($)                                                           #P Trace the call stack.
  {my ($channel) = @_;                                                           # Channel to write on
 
   my $s = Subroutine
@@ -2016,7 +2016,7 @@ END
 
 #D2 Strings                                                                     # Print constant and variable strings
 
-sub PrintNL($)                                                                  # Print a new line to stdout  or stderr.
+sub PrintNL($)                                                                  #P Print a new line to stdout  or stderr.
  {my ($channel) = @_;                                                           # Channel to write on
   @_ == 1 or confess "One parameter";
 
@@ -2097,7 +2097,7 @@ sub PrintOutStringNL(@)                                                         
   PrintOutNL;
  }
 
-sub PrintCString($$)                                                            # Print a zero terminated C style string addressed by a variable on the specified channel.
+sub PrintCString($$)                                                            #P Print a zero terminated C style string addressed by a variable on the specified channel.
  {my ($channel, $string) = @_;                                                  # Channel, String
 
   PushR rax, rdi;
@@ -2108,7 +2108,7 @@ sub PrintCString($$)                                                            
   PopR;
  }
 
-sub PrintCStringNL($$)                                                          # Print a zero terminated C style string addressed by a variable on the specified channel followed by a new line.
+sub PrintCStringNL($$)                                                          #P Print a zero terminated C style string addressed by a variable on the specified channel followed by a new line.
  {my ($channel, $string) = @_;                                                  # Channel, Strings
   PrintCString($channel, $string);
   PrintNL     ($channel);
@@ -2372,7 +2372,7 @@ sub PrintOutOneRegisterInHexNL($)                                               
   PrintOutNL;
  }
 
-sub PrintRegisterInHex($@)                                                      # Print the named registers as hex strings.
+sub PrintRegisterInHex($@)                                                      #P Print the named registers as hex strings.
  {my ($channel, @r) = @_;                                                       # Channel to print on, names of the registers to print
   @_ >= 2 or confess "Two or more parameters required";
 
@@ -2837,7 +2837,7 @@ sub PrintErrRaxAsCharNL                                                         
 
 #D2 Definitions                                                                 # Variable definitions
 
-sub Variable($;$%)                                                              # Create a new variable with the specified name initialized via an optional expression.
+sub Variable($;$%)                                                              #P Create a new variable with the specified name initialized via an optional expression.
  {my ($name, $expr, %options) = @_;                                             # Name of variable, optional expression initializing variable, options
   my $size   = 3;                                                               # Size  of variable in bytes as a power of 2
   my $width  = 2**$size;                                                        # Size of variable in bytes
@@ -2894,7 +2894,7 @@ sub K($$)                                                                       
   &Variable(@_, constant => 1)
  }
 
-sub R($)                                                                        # Define a reference variable.
+sub R($)                                                                        #P Define a reference variable.
  {my ($name) = @_;                                                              # Name of variable
   my $r = &Variable($name);                                                     # The referring variable is 64 bits wide
   $r->reference = 1;                                                            # Mark variable as a reference
@@ -3316,12 +3316,12 @@ sub Nasm::X86::Variable::copyZFInverted($)                                      
   PopR;
  }
 
-sub Nasm::X86::Variable::equals($$$)                                            # Equals operator.
+sub Nasm::X86::Variable::equals($$$)                                            #P Equals operator.
  {my ($op, $left, $right) = @_;                                                 # Operator, left variable,  right variable
   $op
  }
 
-sub Nasm::X86::Variable::assign($$$)                                            # Assign to the left hand side the value of the right hand side.
+sub Nasm::X86::Variable::assign($$$)                                            #P Assign to the left hand side the value of the right hand side.
  {my ($left, $op, $right) = @_;                                                 # Left variable, operator, right variable
   $left->constant and confess "Cannot assign to a constant";
 
@@ -3351,17 +3351,17 @@ sub Nasm::X86::Variable::assign($$$)                                            
   $left;
  }
 
-sub Nasm::X86::Variable::plusAssign($$)                                         # Implement plus and assign.
+sub Nasm::X86::Variable::plusAssign($$)                                         #P Implement plus and assign.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   $left->assign(\&Add, $right);
  }
 
-sub Nasm::X86::Variable::minusAssign($$)                                        # Implement minus and assign.
+sub Nasm::X86::Variable::minusAssign($$)                                        #P Implement minus and assign.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   $left->assign(\&Sub, $right);
  }
 
-sub Nasm::X86::Variable::arithmetic($$$$)                                       # Return a variable containing the result of an arithmetic operation on the left hand and right hand side variables.
+sub Nasm::X86::Variable::arithmetic($$$$)                                       #P Return a variable containing the result of an arithmetic operation on the left hand and right hand side variables.
  {my ($op, $name, $left, $right) = @_;                                          # Operator, operator name, Left variable,  right variable
 
   my $l = $left ->addressExpr;
@@ -3383,22 +3383,22 @@ sub Nasm::X86::Variable::arithmetic($$$$)                                       
   return $v;
  }
 
-sub Nasm::X86::Variable::add($$)                                                # Add the right hand variable to the left hand variable and return the result as a new variable.
+sub Nasm::X86::Variable::add($$)                                                #P Add the right hand variable to the left hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   Nasm::X86::Variable::arithmetic(\&Add, q(add), $left, $right);
  }
 
-sub Nasm::X86::Variable::sub($$)                                                # Subtract the right hand variable from the left hand variable and return the result as a new variable.
+sub Nasm::X86::Variable::sub($$)                                                #P Subtract the right hand variable from the left hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   Nasm::X86::Variable::arithmetic(\&Sub, q(sub), $left, $right);
  }
 
-sub Nasm::X86::Variable::times($$)                                              # Multiply the left hand variable by the right hand variable and return the result as a new variable.
+sub Nasm::X86::Variable::times($$)                                              #P Multiply the left hand variable by the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   Nasm::X86::Variable::arithmetic(\&Imul, q(times), $left, $right);
  }
 
-sub Nasm::X86::Variable::division($$$)                                          # Return a variable containing the result or the remainder that occurs when the left hand side is divided by the right hand side.
+sub Nasm::X86::Variable::division($$$)                                          #P Return a variable containing the result or the remainder that occurs when the left hand side is divided by the right hand side.
  {my ($op, $left, $right) = @_;                                                 # Operator, Left variable,  right variable
 
   my $l = $left ->addressExpr;
@@ -3415,17 +3415,17 @@ sub Nasm::X86::Variable::division($$$)                                          
   $v;
  }
 
-sub Nasm::X86::Variable::divide($$)                                             # Divide the left hand variable by the right hand variable and return the result as a new variable.
+sub Nasm::X86::Variable::divide($$)                                             #P Divide the left hand variable by the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   Nasm::X86::Variable::division("/", $left, $right);
  }
 
-sub Nasm::X86::Variable::mod($$)                                                # Divide the left hand variable by the right hand variable and return the remainder as a new variable.
+sub Nasm::X86::Variable::mod($$)                                                #P Divide the left hand variable by the right hand variable and return the remainder as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   Nasm::X86::Variable::division("%", $left, $right);
  }
 
-sub Nasm::X86::Variable::shiftLeft($$)                                          # Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
+sub Nasm::X86::Variable::shiftLeft($$)                                          #P Shift the left hand variable left by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   $left ->setReg(rbx);                                                          # Value to shift
   confess "Variable required not $right" unless ref($right);
@@ -3434,7 +3434,7 @@ sub Nasm::X86::Variable::shiftLeft($$)                                          
   V "shift left" => rbx;                                                        # Save result in a new variable
  }
 
-sub Nasm::X86::Variable::shiftRight($$)                                         # Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
+sub Nasm::X86::Variable::shiftRight($$)                                         #P Shift the left hand variable right by the number of bits specified in the right hand variable and return the result as a new variable.
  {my ($left, $right) = @_;                                                      # Left variable, right variable
   $left ->setReg(rbx);                                                          # Value to shift
   confess "Variable required not $right" unless ref($right);
@@ -3443,14 +3443,14 @@ sub Nasm::X86::Variable::shiftRight($$)                                         
   V "shift right" => rbx;                                                       # Save result in a new variable
  }
 
-sub Nasm::X86::Variable::not($)                                                 # Form two complement of left hand side and return it as a variable.
+sub Nasm::X86::Variable::not($)                                                 #P Form two complement of left hand side and return it as a variable.
  {my ($left) = @_;                                                              # Left variable
   $left->setReg(rdi);                                                           # Value to negate
   Not rdi;                                                                      # Two's complement
   V "neg" => rdi;                                                               # Save result in a new variable
  }
 
-sub Nasm::X86::Variable::booleanZF($$$$)                                        # Combine the left hand variable with the right hand variable via a boolean operator and indicate the result by setting the zero flag if the result is true.
+sub Nasm::X86::Variable::booleanZF($$$$)                                        #P Combine the left hand variable with the right hand variable via a boolean operator and indicate the result by setting the zero flag if the result is true.
  {my ($sub, $op, $left, $right) = @_;                                           # Operator, operator name, Left variable,  right variable
 
   !ref($right) or ref($right) =~ m(Variable) or confess "Variable expected";
@@ -3487,32 +3487,32 @@ sub Nasm::X86::Variable::booleanZF($$$$)                                        
   \$op
  }
 
-sub Nasm::X86::Variable::eq($$)                                                 # Check whether the left hand variable is equal to the right hand variable.
+sub Nasm::X86::Variable::eq($$)                                                 #P Check whether the left hand variable is equal to the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   Nasm::X86::Variable::booleanZF(\&IfEq, q(Jne),  $left, $right);
  }
 
-sub Nasm::X86::Variable::ne($$)                                                 # Check whether the left hand variable is not equal to the right hand variable.
+sub Nasm::X86::Variable::ne($$)                                                 #P Check whether the left hand variable is not equal to the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   Nasm::X86::Variable::booleanZF(\&IfNe, q(Je), $left, $right);
  }
 
-sub Nasm::X86::Variable::ge($$)                                                 # Check whether the left hand variable is greater than or equal to the right hand variable.
+sub Nasm::X86::Variable::ge($$)                                                 #P Check whether the left hand variable is greater than or equal to the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   Nasm::X86::Variable::booleanZF(\&IfGe, q(Jl), $left, $right);
  }
 
-sub Nasm::X86::Variable::gt($$)                                                 # Check whether the left hand variable is greater than the right hand variable.
+sub Nasm::X86::Variable::gt($$)                                                 #P Check whether the left hand variable is greater than the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   Nasm::X86::Variable::booleanZF(\&IfGt, q(Jle), $left, $right);
  }
 
-sub Nasm::X86::Variable::le($$)                                                 # Check whether the left hand variable is less than or equal to the right hand variable.
+sub Nasm::X86::Variable::le($$)                                                 #P Check whether the left hand variable is less than or equal to the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   Nasm::X86::Variable::booleanZF(\&IfLe, q(Jg), $left, $right);
  }
 
-sub Nasm::X86::Variable::lt($$)                                                 # Check whether the left hand variable is less than the right hand variable.
+sub Nasm::X86::Variable::lt($$)                                                 #P Check whether the left hand variable is less than the right hand variable.
  {my ($left, $right) = @_;                                                      # Left variable,  right variable
   Nasm::X86::Variable::booleanZF(\&IfLt, q(Jge), $left, $right);
  }
@@ -3589,7 +3589,7 @@ sub Nasm::X86::Variable::getConst($$)                                           
   $variable->getReg(rdi);
  }
 
-sub Nasm::X86::Variable::incDec($$)                                             # Increment or decrement a variable.
+sub Nasm::X86::Variable::incDec($$)                                             #P Increment or decrement a variable.
  {my ($left, $op) = @_;                                                         # Left variable operator, address of operator to perform inc or dec
   $left->constant and confess "Cannot increment or decrement a constant";
   my $l = $left->addressExpr;
@@ -3608,12 +3608,12 @@ END
    }
  }
 
-sub Nasm::X86::Variable::inc($)                                                 # Increment a variable.
+sub Nasm::X86::Variable::inc($)                                                 #P Increment a variable.
  {my ($left) = @_;                                                              # Variable
   $left->incDec("inc");
  }
 
-sub Nasm::X86::Variable::dec($)                                                 # Decrement a variable.
+sub Nasm::X86::Variable::dec($)                                                 #P Decrement a variable.
  {my ($left) = @_;                                                              # Variable
   $left->incDec("dec");
  }
@@ -3946,7 +3946,7 @@ sub Nasm::X86::Variable::copyMemory($$$)                                        
   &CopyMemory($source, $target, $size);                                         # Copy the memory
  }
 
-sub Nasm::X86::Variable::printMemory($$$)                                       # Print the specified number of bytes from the memory addressed by the variable on the specified channel.
+sub Nasm::X86::Variable::printMemory($$$)                                       #P Print the specified number of bytes from the memory addressed by the variable on the specified channel.
  {my ($address, $channel, $size) = @_;                                          # Address of memory, channel to print on as a constant, number of bytes to print
   @_ == 3 or confess "Three parameters";
 
@@ -4141,7 +4141,7 @@ sub ReadTimeStampCounter()                                                      
 
 #D2 Memory                                                                      # Allocate and print memory
 
-sub PrintMemoryInHex($)                                                         # Dump memory from the address in rax for the length in rdi on the specified channel. As this method prints in blocks of 8 up to 7 bytes will be missing from the end unless the length is a multiple of 8 .
+sub PrintMemoryInHex($)                                                         #P Dump memory from the address in rax for the length in rdi on the specified channel. As this method prints in blocks of 8 up to 7 bytes will be missing from the end unless the length is a multiple of 8 .
  {my ($channel) = @_;                                                           # Channel
   @_ == 1 or confess "One parameter";
   Comment "Print out memory in hex on channel: $channel";
@@ -11356,6 +11356,14 @@ END
  }
 
 #latest:
+if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
+  Start;
+  Exit(0);
+  ok Assemble eq => <<END;
+END
+ }
+
+#latest:
 if (1) {                                                                        #TPrintOutRaxInHexNL #TVmovdqu64
   my $s = Rb(0..255);
 
@@ -13430,6 +13438,23 @@ END
  }
 
 #latest:;
+if (1) {                                                                        #TNasm::X86::Area::read
+  my $a = CreateArea;
+  my $f = owf q(zzzArea.txt), "AA\n";
+  $a->read(V file => Rs $f);
+  $a->dump("AA");
+
+  ok Assemble(debug => 0, eq => <<END, avx512=>1);
+AA
+Area     Size:     4096    Used:       67
+.... .... .... ...0 | __10 ____ ____ ____  43__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..40 | 4141 .A__ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..80 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+.... .... .... ..C0 | ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
+END
+ }
+
+#latest:;
 if (1) {                                                                        #TNasm::X86::Variable::setMask
   my $z = V('zero', 0);
   my $o = V('one',  1);
@@ -13784,7 +13809,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TloadRegFromMm #TsaveRegIntoMm
+if (1) {                                                                        #TLoadRegFromMm #TSaveRegIntoMm
   Mov rax, 1; SaveRegIntoMm(zmm0, 0, rax);
   Mov rax, 2; SaveRegIntoMm(zmm0, 1, rax);
   Mov rax, 3; SaveRegIntoMm(zmm0, 2, rax);
@@ -13946,7 +13971,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TReadChar #TPrintOutRaxAsChar #TForEver
+if (1) {                                                                        #TReadChar #TPrintOutRaxAsChar #TPrintOutRaxAsCharNL #TForEver
   my $e = q(readChar);
 
   ForEver
@@ -13955,14 +13980,22 @@ if (1) {                                                                        
     Cmp rax, 0xa;
     Jle $end;
     PrintOutRaxAsChar;
-    PrintOutRaxAsChar;
+    PrintOutRaxAsCharNL;
    };
   PrintOutNL;
 
   Assemble keep => $e;
 
-  is_deeply qx(echo "ABCDCBA" | ./$e), <<END;
-AABBCCDDCCBBAA
+  my $r = qx(echo "ABCDCBA" | ./$e);
+  is_deeply $r, <<END;
+AA
+BB
+CC
+DD
+CC
+BB
+AA
+
 END
   unlink $e;
  }
@@ -18081,7 +18114,7 @@ END
 test6: goto test7 unless $test{6};
 
 #latest:
-if (1) {
+if (1) {                                                                        #TifOr
   my $a = K key => 1;
   my $b = K key => 1;
 
@@ -18125,7 +18158,7 @@ DDDD22
 END
  }
 
-#latest:                                                                        #TAND
+#latest:                                                                        #TifAnd
 if (1) {
   my $a = K key => 1;
   my $b = K key => 1;
@@ -18249,7 +18282,7 @@ if (1) {                                                                        
  }
 
 #latest:;
-if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder #TNasm::X86::Unisyn::Parse::dumpPostOrder
+if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder
   my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("va w m+ vb");
   my $t = '𝗮 ＋𝗯';
   is_deeply $u, $t;
