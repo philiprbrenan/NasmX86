@@ -7553,7 +7553,8 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
       structures => {tree=>$t},
       name       => qq(Nasm::X86::Tree::findSubTree);
 
-  $s->call(structures=>{tree => $t}, parameters=>{key => $key});
+  $s->call(structures => {tree => $t},
+           parameters => {key => ref($key) ? $key : K key => $key});
 
   $t
  }
@@ -8622,9 +8623,9 @@ sub Nasm::X86::Tree::peek($$)                                                   
  }
 
 sub Nasm::X86::Tree::peekSubTree($$)                                            # Pop the last value out of a tree and return a tree descriptor positioned on it with the first/found fields set.
- {my ($tree, $back) = @_;                                                       # Tree descriptor, how far back to go with 1 being the top
+ {my ($tree, $Back) = @_;                                                       # Tree descriptor, how far back to go with 1 being the top
   @_ == 2 or confess "Two parameters";
-  ref($back) =~ m(Variable) or confess "Must be a variable, not: ", dump($back);
+  my $back = ref($Back) ? $Back : K back => $Back;
 
   my $t = $tree->DescribeTree;                                                  # Create a tree descriptor
   $t->found->copy(0);                                                           # Mark tree as not set
@@ -11311,7 +11312,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11313 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11314 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -14656,6 +14657,22 @@ size of tree: .... .... .... ...0
 END
  }
 
+if (1) {                                                                        #TNasm::X86::Tree::findSubTree
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  $t->put(1, $T);
+  my $u = $t->findSubTree(1);
+  $T->first->outNL;
+  $u->first->outNL;
+
+  ok Assemble eq => <<END, avx512=>1;
+first  : .... .... .... ..80
+first  : .... .... .... ..80
+END
+ }
+
 #latest:
 if (1) {                                                                        #TNasm::X86::Tree::allocBlock #TNasm::X86::Tree::putBlock #TNasm::X86::Tree::getBlock #TNasm::X86::Tree::root
   my $a = CreateArea;
@@ -17704,6 +17721,24 @@ At:      780                                                                    
           end
      end
 end
+END
+ }
+
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::peekSubTree
+  my $a = CreateArea;
+  my $t = $a->CreateTree;
+  my $T = $a->CreateTree;
+
+  $T->push(0x22);
+  $t->push($T);
+  my $u = $t->peekSubTree(1);
+  $u->peek(1);
+  $u->found->outNL;
+  $u->data->outNL;
+  ok Assemble eq => <<END, avx512=>1;
+found  : .... .... .... ...1
+data   : .... .... .... ..22
 END
  }
 
