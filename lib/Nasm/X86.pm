@@ -2990,100 +2990,105 @@ sub Nasm::X86::Variable::outInDecNL($;$$)                                       
 
 #D3 Decimal representation right justified                                      # Print out a variable as a decimal number right adjusted in a field of specified width
 
-sub Nasm::X86::Variable::rightInDec($$$)                                        #P Dump the value of a variable on the specified channel as a decimal  number right adjusted in a field of specified width.
+sub Nasm::X86::Variable::rightInDec($$;$)                                       #P Dump the value of a variable on the specified channel as a decimal  number right adjusted in a field of specified width.
  {my ($number, $channel, $width) = @_;                                          # Number as variable, channel, width
+  @_ >= 2 or confess "At least two parameters";
   PushR rax;
   $number->setReg(rax);
   PrintRaxRightInDec($width, $channel);
   PopR;
  }
 
-sub Nasm::X86::Variable::errRightInDec($$)                                      #P Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width.
+sub Nasm::X86::Variable::errRightInDec($;$)                                     #P Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width.
  {my ($number, $width) = @_;                                                    # Number, width
+  @_ >= 1 or confess "At least one parameter";
   $number->rightInDec($stdout, $width);
  }
 
-sub Nasm::X86::Variable::errRightInDecNL($$)                                    #P Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width followed by a new line.
+sub Nasm::X86::Variable::errRightInDecNL($;$)                                   #P Dump the value of a variable on stderr as a decimal number right adjusted in a field of specified width followed by a new line.
  {my ($number, $width) = @_;                                                    # Number, width
+  @_ >= 1 or confess "At least one parameter";
   $number->rightInDec($stdout, $width);
   PrintErrNL;
  }
 
-sub Nasm::X86::Variable::outRightInDec($$)                                      # Dump the value of a variable on stdout as a decimal number right adjusted in a field of specified width.
+sub Nasm::X86::Variable::outRightInDec($;$)                                     # Dump the value of a variable on stdout as a decimal number right adjusted in a field of specified width.
  {my ($number, $width) = @_;                                                    # Number, width
+  @_ >= 1 or confess "At least one parameter";
   $number->rightInDec($stdout, $width);
  }
 
-sub Nasm::X86::Variable::outRightInDecNL($$)                                    # Dump the value of a variable on stdout as a decimal number right adjusted in a field of specified width followed by a new line.
+sub Nasm::X86::Variable::outRightInDecNL($;$)                                   # Dump the value of a variable on stdout as a decimal number right adjusted in a field of specified width followed by a new line.
  {my ($number, $width) = @_;                                                    # Number, width
+  @_ >= 1 or confess "At least one parameter";
   $number->rightInDec($stdout, $width);
   PrintOutNL;
  }
 
 #D2 Hexadecimal representation, right justified                                 # Print number variables in hexadecimal right justified in fields of specified width.
 
-sub Nasm::X86::Variable::rightInHex($$$)                                        #P Write the specified variable number in hexadecimal right justified in a field of specified width to the specified channel.
+sub Nasm::X86::Variable::rightInHex($$;$)                                       #P Write the specified variable number in hexadecimal right justified in a field of specified width to the specified channel.
  {my ($number, $channel, $width) = @_;                                          # Number to print as a variable, channel to print on, width of output field
-  @_ == 3 or confess "Three parameters";
+  @_ >= 2 or confess "At least two parameters";
   PrintRightInHex($channel, $number, $width);
  }
 
-sub Nasm::X86::Variable::errRightInHex($$)                                      #P Write the specified variable number in hexadecimal right justified in a field of specified width to stderr.
+sub Nasm::X86::Variable::errRightInHex($;$)                                     #P Write the specified variable number in hexadecimal right justified in a field of specified width to stderr.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
-  @_ == 2 or confess "Two parameters";
+  @_ >= 1 or confess "At least one parameter";
   PrintRightInHex($stderr, $number, $width);
  }
 
-sub Nasm::X86::Variable::errRightInHexNL($$)                                    #P Write the specified variable number in hexadecimal right justified in a field of specified width to stderr followed by a new line.
+sub Nasm::X86::Variable::errRightInHexNL($;$)                                   #P Write the specified variable number in hexadecimal right justified in a field of specified width to stderr followed by a new line.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
-  @_ == 2 or confess "Two parameters";
+  @_ >= 1 or confess "At least one parameter";
   PrintRightInHex($stderr, $number, $width);
   PrintErrNL;
  }
 
-sub Nasm::X86::Variable::outRightInHex($$)                                      # Write the specified variable number in hexadecimal right justified in a field of specified width to stdout.
+sub Nasm::X86::Variable::outRightInHex($;$)                                     # Write the specified variable number in hexadecimal right justified in a field of specified width to stdout.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
-  @_ == 2 or confess "Two parameters";
+  @_ >= 1 or confess "At least one parameter";
   PrintRightInHex($stdout, $number, $width);
  }
 
-sub Nasm::X86::Variable::outRightInHexNL($$)                                    # Write the specified variable number in hexadecimal right justified in a field of specified width to stdout followed by a new line.
+sub Nasm::X86::Variable::outRightInHexNL($;$)                                   # Write the specified variable number in hexadecimal right justified in a field of specified width to stdout followed by a new line.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
-  @_ == 1 or confess "At least one parameter";
+  @_ >= 1 or confess "At least one parameter";
   PrintRightInHex($stdout, $number, $width);
   PrintOutNL;
  }
 
 #D2 Binary representation, right justified                                      # Print number variables in binary right justified in fields of specified width.
 
-sub Nasm::X86::Variable::rightInBin($$$)                                        #P Write the specified variable number in binary right justified in a field of specified width to the specified channel.
+sub Nasm::X86::Variable::rightInBin($$;$)                                       #P Write the specified variable number in binary right justified in a field of specified width to the specified channel.
  {my ($number, $channel, $width) = @_;                                          # Number to print as a variable, channel to print on, width of output field
-  @_ == 3 or confess "Three parameters";
+  @_ >= 2 or confess "At least two parameters";
   PrintRightInBin($channel, $number, $width);
  }
 
-sub Nasm::X86::Variable::errRightInBin($$)                                      #P Write the specified variable number in binary right justified in a field of specified width to stderr.
+sub Nasm::X86::Variable::errRightInBin($;$)                                     #P Write the specified variable number in binary right justified in a field of specified width to stderr.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
-  @_ == 2 or confess "Two parameters";
+  @_ >= 1 or confess "At least one parameter";
   PrintRightInBin($stderr, $number, $width);
  }
 
-sub Nasm::X86::Variable::errRightInBinNL($$)                                    #P Write the specified variable number in binary right justified in a field of specified width to stderr followed by a new line.
+sub Nasm::X86::Variable::errRightInBinNL($;$)                                   #P Write the specified variable number in binary right justified in a field of specified width to stderr followed by a new line.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
-  @_ == 2 or confess "Two parameters";
+  @_ >= 1 or confess "At least one parameter";
   PrintRightInBin($stderr, $number, $width);
   PrintErrNL;
  }
 
-sub Nasm::X86::Variable::outRightInBin($$)                                      # Write the specified variable number in binary right justified in a field of specified width to stdout.
+sub Nasm::X86::Variable::outRightInBin($;$)                                     # Write the specified variable number in binary right justified in a field of specified width to stdout.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
-  @_ == 2 or confess "Two parameters";
+  @_ >= 1 or confess "At least one parameter";
   PrintRightInBin($stdout, $number, $width);
  }
 
-sub Nasm::X86::Variable::outRightInBinNL($$)                                    # Write the specified variable number in binary right justified in a field of specified width to stdout followed by a new line.
+sub Nasm::X86::Variable::outRightInBinNL($;$)                                   # Write the specified variable number in binary right justified in a field of specified width to stdout followed by a new line.
  {my ($number, $width) = @_;                                                    # Number to print as a variable, width of output field
-  @_ == 2 or confess "Two parameters";
+  @_ >= 1 or confess "At least one parameter";
   PrintRightInBin($stdout, $number, $width);
   PrintOutNL;
  }
@@ -11312,7 +11317,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11314 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11319 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -11777,7 +11782,7 @@ if (1)                                                                          
 END
  }
 
-#latest:
+latest:
 if (1) {                                                                        #TNasm::X86::Variable::allocateMemory #TNasm::X86::Variable::freeMemory
   my $N = K size => 2048;
   my $q = Rs('a'..'p');
@@ -11801,9 +11806,9 @@ END
 if (1) {                                                                        #TNasm::X86::Variable::outNL
   my $a = V a => 0x1111;
   $a->outNL('');
-  $a->outRightInBinNL(16);
-  $a->outRightInDecNL(16);
-  $a->outRightInHexNL(16);
+  $a->outRightInBinNL;
+  $a->outRightInDecNL;
+  $a->outRightInHexNL;
   ok Assemble eq => <<END;
 .... .... .... 1111
    1000100010001
