@@ -2568,7 +2568,7 @@ sub PrintRightInBin($$$)                                                        
 
   $channel =~ m(\A(1|2)\Z)     or confess "Channel should be stderr or stdout";
   my $number = ref($Number) ? $Number : V(number => $Number);                   # Variable or register
-  my $width  = ref($Width)  ? $Width  : K(width => $Width);                     # Promote constant
+  my $width  = ref($Width)  ? $Width  : K(width  => ($Width//16));              # Promote constant
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -13238,7 +13238,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TgetDFromZmm #TNasm::X86::Variable::dIntoZ
+if (1) {                                                                        #TgetDFromZmm #TNasm::X86::Variable::dIntoZ #TNasm::X86::Variable::bIntoZ #TNasm::X86::Variable::putWIntoZmm #TNasm::X86::Variable::qIntoZ
   my $s = Rb(0..8);
   my $c = V("Content",   "[$s]");
      $c->bIntoZ     (0, 4);
@@ -13259,6 +13259,18 @@ d at offset 12 in zmm0: .... .... .... .3.2
 q at offset 12 in zmm0: .3.2 .1.. .... .3.2
 END
  }
+
+# Nasm::X86::Variable::bFromZ
+# Nasm::X86::Variable::bIntoX
+# Nasm::X86::Variable::dFromZ
+# Nasm::X86::Variable::dIntoPointInZ
+# Nasm::X86::Variable::dIntoX
+# Nasm::X86::Variable::qFromZ
+# Nasm::X86::Variable::qIntoX
+# Nasm::X86::Variable::wFromZ
+# Nasm::X86::Variable::wIntoX
+
+
 
 #latest:
 if (1) {                                                                        #TNasm::X86::Subroutine::call
