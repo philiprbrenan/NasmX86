@@ -2639,7 +2639,7 @@ sub PrintOutRightInBin($$)                                                      
 
 sub PrintOutRightInBinNL($;$)                                                   # Write the specified variable in binary right justified in a field of specified width on stdout followed by a new line.
  {my ($number, $width) = @_;                                                    # Number as a variable, width of output field as a variable
-  PrintRightInBin($stdout, $number, $width//16);
+  PrintRightInBin $stdout, $number, ($width//16);
   PrintOutNL;
  }
 
