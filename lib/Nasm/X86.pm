@@ -336,11 +336,11 @@ sub dWordRegister($)                                                            
   $r."d"
  }
 
-#D1 Data                                                                        # Layout data
+#D1 Labels                                                                      # Create and set labels.
 
 my $Labels = 0;
 
-sub Label(;$)                                                                   #P Create a unique label or reuse the one supplied.
+sub Label(;$)                                                                   # Create a unique label or reuse the one supplied.
  {return "l".++$Labels unless @_;                                               # Generate a label
   $_[0];                                                                        # Use supplied label
  }
@@ -353,6 +353,11 @@ sub SetLabel(;$)                                                                
 END
   $l                                                                            # Return label name
  }
+
+#D1 Data                                                                        # Layout data
+
+
+#D2 Global variables                                                            # Create variables in the data segment if you are willing to make your program non reentrant.
 
 sub Ds(@)                                                                       # Layout bytes in memory and return their label.
  {my (@d) = @_;                                                                 # Data to be laid out
@@ -392,6 +397,8 @@ sub Dq(@)                                                                       
  {my (@qwords) = @_;                                                            # Quad words to layout
   Dbwdq 'q', @_;
  }
+
+#D2 Global constants                                                            # Create constants in read only memory,
 
 sub Rbwdq($@)                                                                   #P Layout data.
  {my ($s, @d) = @_;                                                             # Element size, data to be laid out
@@ -520,7 +527,7 @@ sub dSize {4}                                                                   
 sub wSize {2}                                                                   # Size of a word in bytes
 sub bSize {1}                                                                   # Size of a byte in bytes
 
-#D2 Push, Pop, Peek                                                             # Generic versions of push, pop, peek
+#D2 Push and Pop                                                                # Generic versions of push and pop with pop popping the last push.
 
 sub PushRR(@)                                                                   #P Push registers onto the stack without tracking.
  {my (@r) = @_;                                                                 # Register
@@ -560,7 +567,7 @@ sub PushRR(@)                                                                   
 
 my @PushR;                                                                      # Track pushes
 
-sub PushR(@)                                                                    #P Push registers onto the stack.
+sub PushR(@)                                                                    # Push registers onto the stack.
  {my (@r) = @_;                                                                 # Registers
   my @p = PushRR @r;                                                            # Push
   push @PushR, [@p];                                                            # Registers pushed we can pop them in order
@@ -707,6 +714,8 @@ sub ClearRegisters(@)                                                           
     Vpxorq $r, $r, $r if $size  > $w;
    }
  }
+
+#D2 Zero flag                                                                   # Actions on the Zero Flag.
 
 sub SetZF()                                                                     # Set the zero flag.
  {Cmp rax, rax;
@@ -11317,7 +11326,7 @@ test unless caller;                                                             
 # podDocumentation
 
 __DATA__
-# line 11319 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11328 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -12601,7 +12610,7 @@ END
  }
 
 #latest:;
-if (1) {                                                                        #TSetLabel #TRegisterSize #TSaveFirstFour #TSaveFirstSeven #TRestoreFirstFour #TRestoreFirstSeven #TRestoreFirstFourExceptRax #TRestoreFirstSevenExceptRax #TRestoreFirstFourExceptRaxAndRdi #TRestoreFirstSevenExceptRaxAndRdi #TReverseBytesInRax
+if (1) {                                                                        #TLabel  #TSetLabel #TRegisterSize #TSaveFirstFour #TSaveFirstSeven #TRestoreFirstFour #TRestoreFirstSeven #TRestoreFirstFourExceptRax #TRestoreFirstSevenExceptRax #TRestoreFirstFourExceptRaxAndRdi #TRestoreFirstSevenExceptRaxAndRdi #TReverseBytesInRax
   Mov rax, 1;
   Mov rdi, 1;
   SaveFirstFour;
