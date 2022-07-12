@@ -11361,7 +11361,7 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TPrintOutStringNL #TPrintErrStringNL #TAssemble
+if (1) {                                                                        #TStart #TExit
   Start;
   Exit(0);
   ok Assemble eq => <<END;
@@ -13261,7 +13261,7 @@ END
  }
 
 latest:;
-if (1) {                                                                        #TNasm::X86::Variable::bIntoX    #TNasm::X86::Variable::wIntoX    #TNasm::X86::Variable::dIntoX    #TNasm::X86::Variable::qIntoX    #TNasm::X86::Variable::bIntoZ    #TNasm::X86::Variable::bIntoZ    #TNasm::X86::Variable::dIntoZ    #TNasm::X86::Variable::qIntoZ    #TNasm::X86::Variable::bFromZ    #TNasm::X86::Variable::wFromZ    #TNasm::X86::Variable::dFromZ    #TNasm::X86::Variable::qFromZ    #TNasm::X86::Variable::dIntoPointInZ   #TNasm::X86::Variable::dFromPointInZ
+if (1) {                                                                        #TNasm::X86::Variable::bIntoX #TNasm::X86::Variable::wIntoX #TNasm::X86::Variable::dIntoX #TNasm::X86::Variable::qIntoX #TNasm::X86::Variable::bIntoZ #TNasm::X86::Variable::dIntoZ #TNasm::X86::Variable::qIntoZ #TNasm::X86::Variable::bFromZ #TNasm::X86::Variable::wFromZ #TNasm::X86::Variable::dFromZ #TNasm::X86::Variable::qFromZ #TNasm::X86::Variable::dIntoPointInZ #TNasm::X86::Variable::dFromPointInZ
   Mov rax, 0x12345678;
   my $c = V("Content", rax);
   $c->bIntoX(1, 0);
@@ -18169,7 +18169,7 @@ END
  }
 
 #latest:
-if (1) {
+if (1) {                                                                        #TNasm::X86::Variable::dereference #TNasm::X86::Variable::address #TNasm::X86::Variable::update
           V(a => 2);
           V(a => 1);
   my $a = V(a => 0)->address;
