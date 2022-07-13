@@ -9,6 +9,8 @@ use Nasm::X86 qw(:all);
 use utf8;
 use Test::More;
 
+say STDERR "TESTTTT";
+
 Mov rax, 1;
 PrintOutRegisterInHex rax;
 ok Assemble eq => <<END;
