@@ -1,7 +1,7 @@
 #!/usr/bin/perl -I/home/phil/perl/cpan/DataTableText/lib/ -I. -Ilib/ -I/home/phil/perl/cpan/AsmC/lib/
 #-------------------------------------------------------------------------------
 # Generate X86 assembler code using Perl as a macro pre-processor.
-# Philip R Brenan at appaapps dot com, Appa Apps Ltd Inc., 2021
+# Philip R Brenan at appaapps dot com, Appa Apps Ltd Inc., 2021-2022
 #-------------------------------------------------------------------------------
 # podDocumentation (\A.{80})\s+(#.*\Z) \1\2        (^sub.*#.*[^.]$) \1.
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
@@ -20,7 +20,7 @@
 # https://github.com/philiprbrenan/NasmX86/compare/9bb6e05..09d1ec9
 # Variable::at to replace addrExpr
 package Nasm::X86;
-our $VERSION = "20220606";
+our $VERSION = "20220712";
 use warnings FATAL => qw(all);
 use strict;
 use Carp qw(confess cluck);
@@ -340,7 +340,7 @@ sub dWordRegister($)                                                            
 
 my $Labels = 0;
 
-sub Label()                                                                     # Create a unique label or reuse the one supplied.
+sub Label()                                                                     # Create a unique label. Useful for constructing for and if statements.
  {"l".++$Labels unless @_;                                                      # Generate a label
  }
 
@@ -1601,7 +1601,7 @@ sub Nasm::X86::Area::readLibraryHeader($$;$)                                    
     if ($singleLetterArray)                                                     # Include single character routines if they are in the optional mapping array
      {my ($char, $size, $fail) = &GetNextUtf8CharAsUtf32($n);                   # Get the next UTF-8 encoded character from the addressed memory and return it as a UTF-32 char.
 
-      If $l == $size,                                                           # Did we read all of the name as one unicode character despit the fact that it occupied several bytes?
+      If $l == $size,                                                           # Did we read all of the name as one unicode character despite the fact that it occupied several bytes?
       Then                                                                      # Single character name
        {my ($n, $l) = &$singleLetterArray;
         If $char < $n,
@@ -4805,7 +4805,7 @@ sub Hash()                                                                      
 
 #D1 Unicode                                                                     # Convert between utf8 and utf32
 
-sub convert_rax_from_utf32_to_utf8                                              # Convert a utf32 character held in rax to a utf8 character held in rax.
+sub convert_rax_from_utf32_to_utf8                                              #P Convert a utf32 character held in rax to a utf8 character held in rax.
  {@_ and confess "Zero parameters";
 
   my $s = Subroutine
@@ -6030,7 +6030,7 @@ sub DescribeTree(%)                                                             
     fcDWidth             => $b / $o - 4,                                        # Number of dwords available in the first cache.  The first cache supplies an alternate area to store the values of keys less than this value  to fill the otherwise unused space in a way that improves the performance of trees when used to represent small arrays, stacks or structures.
     middleOffset         => $o * ($l2 + 0),                                     # Offset of the middle slot in bytes
     rightOffset          => $o * ($l2 + 1),                                     # Offset of the first right slot in bytes
-    stringTreeCountOff   => $o * 4,                                             # This field is used to count the total number of keys in a string tree so that we can assign unique numbers when pushing.  This field reuses an area used by small trees - so string trees are nort allowed to be small tees - which makes sense - why store big keys in a small tree?
+    stringTreeCountOff   => $o * 4,                                             # This field is used to count the total number of keys in a string tree so that we can assign unique numbers when pushing.
 
     data                 => V('data   '),                                       # Variable containing the current data
     first                => V('first  '),                                       # Variable addressing offset to first block of the tree which is the header block
@@ -6756,7 +6756,7 @@ sub Nasm::X86::Tree::indexEqLt($$$$$)                                           
          {Vpcmpub k2, $key, "[rdi+rsi]", $Vpcmp->gt;
           Kmovq rdi, k2;                                                        # Greater than mask
           Tzcnt rdx, rdx;                                                       # First quad at which the zmm registers differ
-          Bt rdi, rdx;                                                          # Test the next bit to determin greater than or less than
+          Bt rdi, rdx;                                                          # Test the next bit to determine greater than or less than
           IfC
           Then                                                                  # First byte that differs is less than the key
            {Mov rsi, 1;
@@ -6807,7 +6807,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
  {my ($tree, $offset) = @_;                                                     # Tree descriptor,  offset of block in area of tree as a variable
   @_ == 2 or confess 'Two parameters';
 
-  my $PK = 11;  my $PD = 2; my $PN = 3;                                         # Key, data, node blocks. insertionPoint uses zmm0,1 so we cannot use those registers
+  my $PK = 11;  my $PD = 2; my $PN = 3;                                         # Key, data, node blocks. L<insertionPoint> uses zmm registers 0 and 1 so we cannot use those registers
   my $LK =  4;  my $LD = 5; my $LN = 6;
   my $RK =  7;  my $RD = 8; my $RN = 9;
   my $F  = 10;
@@ -6871,7 +6871,7 @@ sub Nasm::X86::Tree::splitNode($$)                                              
         Mov rcx, 0;                                                             # Start the loop at zero
         my $W = RegisterSize zmm1;
 
-        Vmovdqu64 "[rsp-$W]", zmm $RN;                                          # Stack list of nodes to be reparented
+        Vmovdqu64 "[rsp-$W]", zmm $RN;                                          # Stack list of nodes to be re-parented
         For                                                                     # Reparent the children of the right hand side now known not to be a leaf
          {Mov esi, "[rsp+rcx*4-$W]";                                            # Offset of node
           Mov esi, "[rdi+rsi+$$t{loop}]";                                       # Offset of data node
@@ -7117,7 +7117,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
 
     Block
      {my ($success) = @_;                                                       # End label
-      PushR my $Q = r13, my $setEq = r14, my $setLt = r15,                      # Offset of current node, iInsertion point, Equality point
+      PushR my $Q = r13, my $setEq = r14, my $setLt = r15,                      # Offset of current node, insertion point, equality point
             my ($F, $K, $D, $N, $key) = zmm reverse 27..31;                     # First, keys, data, nodes, search key
       my $t = $$s{tree};
       my $k = $$p{key};
@@ -7200,7 +7200,7 @@ sub Nasm::X86::Tree::put($$$)                                                   
                             data    => $data->first,
                             subTree => K(subTree => 1)});
    }
-  else                                                                          # Not a usb tree
+  else                                                                          # Not a sub tree
    {$s->call(structures => {tree    => $tree},
              parameters => {key     => (ref($key)  ? $key  : K key  => $key),
                             data    => (ref($data) ? $data : K data => $data),
@@ -7221,7 +7221,7 @@ sub Nasm::X86::Tree::zero($)                                                    
  }
 
 sub Nasm::X86::Tree::find($$)                                                   # Find a key in a tree and tests whether the found data is a sub tree.  The results are held in the variables "found", "data", "subTree" addressed by the tree descriptor. The key just searched for is held in the key field of the tree descriptor. The point at which it was found is held in B<found> which will be zero if the key was not found.
- {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for which can either be a variable containing a double word for a normal tree or a zmm register containing the key to be sought for a stringTree.
+ {my ($tree, $key) = @_;                                                        # Tree descriptor, key field to search for which can either be a variable containing a double word for a normal tree or a zmm register containing the key to be sought for a string tree.
   @_ == 2 or confess "Two parameters";
 
   if ($tree->stringTree)                                                        # Key in variable
@@ -7240,7 +7240,7 @@ sub Nasm::X86::Tree::find($$)                                                   
       my $t = $$s{tree};                                                        # Tree to search
       $t->zero;                                                                 # Clear search fields
 
-      if (ref($$p{key}))                                                        # Does not apply to string trees whichuses zmm registers to pass inthe keys.
+      if (ref($$p{key}))                                                        # Does not apply to string trees which uses zmm registers to pass in the keys.
        {$t->key->copy(my $k = $$p{key});                                        # Copy in key so we know what was searched for
        }
 
@@ -8922,7 +8922,7 @@ sub Nasm::X86::Tree::getKeyString($$$)                                          
     $$p{address}->setReg($address);                                             # Address parameters
     $$p{size}   ->setReg($remainder);
 
-    my $T = $t->cloneDescriptor;                                                # Copy the descriptor for the tree so we can repositionit if needed
+    my $T = $t->cloneDescriptor;                                                # Copy the descriptor for the tree so we can reposition it if needed
 
     Block
      {my ($end) = @_;
@@ -8945,7 +8945,7 @@ sub Nasm::X86::Tree::getKeyString($$$)                                          
         Dec rsi;                                                                # All the zeroes left of the bit are now ones
         Kmovq k1, rsi;
         Vmovdqu8 zmmMZ($key, 1), "[$address+$offset]";
-        $T->find(zmm $key);                                                     # Find thw zmm
+        $T->find(zmm $key);                                                     # Find the zmm
        }, $offset, $remainder, RegisterSize(zmm0);
 
       $t->found->copy($T->found);                                               # Copy results into original tree
@@ -9680,7 +9680,7 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
     $v => {map {$_=>1} $a,         $B, $d, $F,     $q, $s    },
   );
 
-  $x{$_} = $x{$d} for @d;                                                       # The dyads all have the same sequencing
+  $x{$_} = $x{$d} for @d;                                                       # The infix operators all have the same sequencing
 
   for my $x(keys %x)
    {if ($x{$x}{$d})                                                             # If something can be followed by a dyad then it can be followed by any dyad
@@ -9842,10 +9842,10 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
   my $symbols     = $parse->CreateTree(stringTree=>1);                          # String tree of symbols encountered during the parse - they are stored along with the parse tree which refers to it.
 
   my $position    = V 'pos        ' => 0;                                       # Position in input string
-  my $last        = V 'last       ' => Nasm::X86::Unisyn::Lex::Number::S;       # Last lexical type starting on ths start symbol
+  my $last        = V 'last       ' => Nasm::X86::Unisyn::Lex::Number::S;       # Last lexical type starting on this start symbol
 
   my $parseFail   = V 'parseFail  ' =>  1;                                      # If not zero the parse has failed for some reason
-  my $parseReason = V 'parseReason' =>  0;                                      # The reason code describing the failure if parseFail is not zero - we could probably merge these two fields
+  my $parseReason = V 'parseReason' =>  0;                                      # The reason code describing the failure if L<parseFail> is not zero - we could probably merge these two fields
   my $parseMatch  = V 'parseMatch ' =>  0;                                      # The position of the bracket we failed to match
   my $parseChar   = V 'parseChar  ' =>  0;                                      # The last character recognized held as utf32
   my $firstChar   = V 'firstChar';                                              # First character recognized in a lexical item held as utf32
@@ -9922,7 +9922,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
     $stack->push($o);                                                           # Save the offset of the latest lexical item on the stack
     $lastNew->copy($o);                                                         # Update last created lexical item
     $itemLength->copy(0);                                                       # Length of lexical item in unicode characters
-    $firstChar->copy($parseChar);                                               # Copy the uf32 value of the current character as it is the first character in the lexical item
+    $firstChar->copy($parseChar);                                               # Copy the utf32 value of the current character as it is the first character in the lexical item
    };
 
   &$new for 1..3;                                                               # Initialize the parse tree with three start symbols to act as sentinels
@@ -10055,7 +10055,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
       ], Then {&$triple}; &$new};
 
-  my $l = sub                                                                   # Dyad3. THis dyad and all dyads of higher priority
+  my $l = sub                                                                   # Dyad3. This infix operator and all infix operators of higher priority
    {#PrintErrStringNL "Type: l";
     my $q = &$prev2;                                                            # Second previous item
     ifOr
@@ -10286,7 +10286,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
         Add rsi, rax;
         Mov al, "[rsi]";                                                        # Place transition symbol in low byte
 
-        Cmp al, 0;                                                              # Test transitionin low byte
+        Cmp al, 0;                                                              # Test transition in low byte
         IfGt
         Then                                                                    # The transition on this lexical type was a valid transition
          {Mov $prevLexType, $lexType;                                           # New lexical type we will be transitioning on
@@ -10386,7 +10386,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 #$parse->dump("AA");
 
   $pd->area     ->copyDescriptor($parse);                                       # The area in which the parse tree was built
-  $pd->tree     ->copy($parseTree);                                             # The offset of the start of the parse tree in the parse area - this is niot a conventional Tree as defined elsewhere - it is specific to parsing.
+  $pd->tree     ->copy($parseTree);                                             # The offset of the start of the parse tree in the parse area - this is not a conventional Tree as defined elsewhere - it is specific to parsing.
   $pd->char     ->copy($parseChar);                                             # Last character processed
   $pd->fail     ->copy($parseFail);                                             # If not zero the parse has failed for some reason
   $pd->position ->copy($position);                                              # The position reached in the input string
@@ -10409,7 +10409,7 @@ sub Nasm::X86::Unisyn::Parse::dumpParseResult($)                                
   $parse->dump;
  }
 
-sub Nasm::X86::Unisyn::Parse::dump($)                                           #P Dump a parse tree inorder.
+sub Nasm::X86::Unisyn::Parse::dump($)                                           #P Dump a parse tree in order.
  {my ($parse) = @_;                                                             # Parse
   @_ == 1 or confess "One parameter";
 
@@ -10535,7 +10535,7 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
     my $intersection = $$structures{intersection};                              # Intersection
     my $subroutines  = $$structures{subroutines};                               # Intersection
     my $library      = $$structures{library};                                   # Library
-    my $offset       = $$parameters{offset};                                    # The offset in the containg area of the current node of the parse tree
+    my $offset       = $$parameters{offset};                                    # The offset in the containing area of the current node of the parse tree
 
     my $w = dSize;
     $parse->area->getZmmBlock($offset, 1);                                      # Load parse tree node
@@ -10673,7 +10673,7 @@ sub Extern(@)                                                                   
  }
 
 sub Link(@)                                                                     # Libraries to link with.
- {my (@libraries) = @_;                                                         # Link library names which will be looked for on LIBPATH
+ {my (@libraries) = @_;                                                         # Link library names which will be looked for on "LIBPATH"
   push @link, @_;
  }
 
@@ -11223,19 +11223,14 @@ a powerful macro assembler.  The generated code can be run under the Intel
 emulator to obtain execution trace and instruction counts.
 
 Please see: L<https://github.com/philiprbrenan/NasmX86> for a complete working
-demonstration of how to run code produced by this module.
+demonstration of how to run code produced by this module and foir examples of
+its use.
 
 While this module allows you to intermix Perl and Assembler code it is
 noticeable that the more Perl code that is written the less new Assembler code
 is required because there are more opportunities to call a Perl routine to
 generate the required Assembler code rather than writing the Assembler out by
 hand.
-
-=head2 Examples
-
-Further examples are visible at: L<https://github.com/philiprbrenan/NasmX86>
-
-=head3 Avx512 instructions
 
 Use B<Avx512> instructions to perform B<64> comparisons in parallel.
 
@@ -11292,52 +11287,30 @@ instructions were executed:
 
 =head1 Description
 
-Generate X86 assembler code using Perl as a macro pre-processor.
-
-=head1 Installation
-
-This module is written in 100% Pure Perl and, thus, it is easy to read,
-comprehend, use, modify and install via B<cpan>:
-
-  sudo cpan install Nasm::X86
-
-=head1 Author
-
-L<philiprbrenan@gmail.com|mailto:philiprbrenan@gmail.com>
-
-L<http://www.appaapps.com|http://www.appaapps.com>
-
-=head1 Copyright
-
-Copyright (c) 2016-2021 Philip R Brenan.
-
-This module is free software. It may be used, redistributed and/or modified
-under the same terms as Perl itself.
-
 =cut
+
+
 
 # Tests and documentation
 
-sub test                                                                        #P Run tests with correct line numbers
- {binmode($_, ":utf8") for *STDOUT, *STDERR;
-  my $source = readFile $0;                                                     # Source code for this module
-  return if $source =~ m(\n#__DATA__);                                          # Return if the tests are not shielded - they will be executed inline
-
-  my ($s, $t) = split /__DATA__\n/, $source, 2;                                 # Split source into actual module and tests
-  my $l       = split /\n/, $s;                                                 # Lines in module source minus tests
-  $l += 2;
-  eval qq(# line $l $0\n$t);                                                    # Set line numbers and file for tests
+sub test
+ {my $p = __PACKAGE__;
+  binmode($_, ":utf8") for *STDOUT, *STDERR;
+  return if eval "eof(${p}::DATA)";
+  my $s = eval "join('', <${p}::DATA>)";
+  $@ and die $@;
+  eval $s;
   $@ and die $@;
   1
  }
 
-test unless caller;                                                             # Run shielded tests if called from the command line
+test unless caller;
 
 1;
 # podDocumentation
 
 __DATA__
-# line 11339 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11312 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
