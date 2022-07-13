@@ -1,4 +1,4 @@
-# Test NasmX86 2022-07-12 at 11:22:15
+# Test NasmX86 2022-07-13 at 09:11:38
 
 name: Test
 
@@ -6,6 +6,64 @@ on:
   push
 
 jobs:
+  test00:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: 'main'
+
+    - name: Download other repos
+      run: |
+        curl -sL https://github.com/philiprbrenan/NasmX86/archive/refs/heads/main.zip       > NasmX86.zip
+        curl -sL https://github.com/philiprbrenan/DataTableText/archive/refs/heads/main.zip > DataTableText.zip
+        curl -sL https://github.com/philiprbrenan/GitHubCrud/archive/refs/heads/main.zip    > GitHubCrud.zip
+        curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
+        ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
+        tree
+        unzip NasmX86
+        unzip DataTableText
+        unzip GitHubCrud
+        unzip AsmC.zip
+        tree
+        cp -R NasmX86-main/* .
+        cp -R DataTableText-main/* .
+        cp -R GitHubCrud-main/* .
+        cp -R AsmC-main/* .
+        tree
+
+    - name: avx
+      run: |
+        perl -e'my $f = {map {$_=>1} grep {/avx/} map {split /\s+/} grep {/flags/} split /\n/, qx(cat /proc/cpuinfo)}; print join q( ), sort keys %$f; print qq(\n)';
+        #printenv
+
+    - name: Install Test::Most
+      run: |
+        sudo cpan install -T Test::Most
+
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
+
+    - name: Install Intel Sde
+      run: |
+        tar -xf sde.tar.bz2
+        mv sde-external-8.63.0-2021-01-18-lin/ sde/
+        tree
+
+    - name: Install Nasm
+      run: |
+        sudo apt-get install -y nasm
+
+    - name: Test0
+      run: |
+        perl -Ilib test.pl
+
+    - name: Result0
+      run: |
+        cat zzzStatus.txt
+
   test01:
     runs-on: ubuntu-latest
 
@@ -58,7 +116,7 @@ jobs:
 
     - name: Test1
       run: |
-        perl -Ilib lib/Nasm/X86.pm 1
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result1
       run: |
@@ -116,7 +174,7 @@ jobs:
 
     - name: Test2
       run: |
-        perl -Ilib lib/Nasm/X86.pm 2
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result2
       run: |
@@ -174,7 +232,7 @@ jobs:
 
     - name: Test3
       run: |
-        perl -Ilib lib/Nasm/X86.pm 3
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result3
       run: |
@@ -232,7 +290,7 @@ jobs:
 
     - name: Test4
       run: |
-        perl -Ilib lib/Nasm/X86.pm 4
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result4
       run: |
@@ -290,7 +348,7 @@ jobs:
 
     - name: Test5
       run: |
-        perl -Ilib lib/Nasm/X86.pm 5
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result5
       run: |
@@ -348,7 +406,7 @@ jobs:
 
     - name: Test6
       run: |
-        perl -Ilib lib/Nasm/X86.pm 6
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result6
       run: |
@@ -406,7 +464,7 @@ jobs:
 
     - name: Test7
       run: |
-        perl -Ilib lib/Nasm/X86.pm 7
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result7
       run: |
@@ -464,7 +522,7 @@ jobs:
 
     - name: Test8
       run: |
-        perl -Ilib lib/Nasm/X86.pm 8
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result8
       run: |
@@ -522,7 +580,7 @@ jobs:
 
     - name: Test9
       run: |
-        perl -Ilib lib/Nasm/X86.pm 9
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result9
       run: |
@@ -580,7 +638,7 @@ jobs:
 
     - name: Test10
       run: |
-        perl -Ilib lib/Nasm/X86.pm 10
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result10
       run: |
@@ -638,7 +696,7 @@ jobs:
 
     - name: Test11
       run: |
-        perl -Ilib lib/Nasm/X86.pm 11
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result11
       run: |
@@ -696,7 +754,7 @@ jobs:
 
     - name: Test12
       run: |
-        perl -Ilib lib/Nasm/X86.pm 12
+        perl -Ilib lib/Nasm/X86.pm $test
 
     - name: Result12
       run: |
