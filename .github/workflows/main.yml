@@ -1,4 +1,4 @@
-# Test NasmX86 2022-07-13 at 10:07:07
+# Test NasmX86 2022-07-13 at 10:07:53
 
 name: Test
 
@@ -58,7 +58,7 @@ jobs:
 
     - name: Test0
       run: |
-        cat test.pl; perl -Ilib test.pl
+        perl -Ilib test.pl
 
   test01:
     runs-on: ubuntu-latest
