@@ -1,4 +1,4 @@
-# Test NasmX86 2022-07-13 at 10:40:52
+# Test NasmX86 2022-07-13 at 10:58:54
 
 name: Test
 
@@ -22,15 +22,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -76,15 +76,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -134,15 +134,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -192,15 +192,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -250,15 +250,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -308,15 +308,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -366,15 +366,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -424,15 +424,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -482,15 +482,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -540,15 +540,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -598,15 +598,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -656,15 +656,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
@@ -714,15 +714,15 @@ jobs:
         curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
         ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
         tree
+        unzip AsmC.zip
         unzip DataTableText
         unzip GitHubCrud
-        unzip AsmC.zip
         unzip NasmX86
         tree
-        cp -R NasmX86-main/* .
+        cp -R AsmC-main/* .
         cp -R DataTableText-main/* .
         cp -R GitHubCrud-main/* .
-        cp -R AsmC-main/* .
+        cp -R NasmX86-main/* .
         tree
 
     - name: avx
