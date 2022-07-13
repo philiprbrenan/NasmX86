@@ -1,22 +1,17 @@
-#!/usr/bin/perl -I/home/phil/perl/cpan/DataTableText/lib/ -I. -Ilib/ -I/home/phil/perl/cpan/AsmC/lib/
+#!/usr/bin/perl
 #-------------------------------------------------------------------------------
 # Generate X86 assembler code using Perl as a macro pre-processor.
 # Philip R Brenan at appaapps dot com, Appa Apps Ltd Inc., 2021-2022
 #-------------------------------------------------------------------------------
 # podDocumentation (\A.{80})\s+(#.*\Z) \1\2        (^sub.*#.*[^.]$) \1.
 # 0x401000 from sde-mix-out addresses to get offsets in z.txt
-# tree::print - speed up decision as to whether we are on a tree or not
-# Make hash accept parameters at: #THash
 # Document that V > 0 is required to create a boolean test
 # Make sure that we are using bts and bzhi as much as possible in mask situations
-# Replace calls to Tree::position with Tree::down
 # Do not use r11 over extended ranges because Linux sets it to the flags register on syscalls. Free: rsi rdi, r11, rbx, rcx, rdx, likewise the mmx registers mm0-7, zmm 0..15 and k0..3.
 # Make a tree read only - collapse all nodes possible, remove all leaf node arrays
 # Jump forwarding
 # All options checking immediately after parameters
 # Which subs do we actually need SaveFirst four on?
-# Binary search tighten up register saves
-# github.com/<username>/<repo_name>/compare/<commit1>...<commit2>
 # https://github.com/philiprbrenan/NasmX86/compare/9bb6e05..09d1ec9
 # Variable::at to replace addrExpr
 package Nasm::X86;
@@ -11310,7 +11305,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11312 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11307 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
