@@ -5,11 +5,13 @@
 #-------------------------------------------------------------------------------
 use warnings FATAL => qw(all);
 use strict;
+BEGIN{say STDERR "TESTTTT1111"}
 use Nasm::X86 qw(:all);
+BEGIN{say STDERR "TESTTTT2222"}
 use utf8;
 use Test::More;
 
-say STDERR "TESTTTT";
+say STDERR "TESTTTT3333";
 
 Mov rax, 1;
 PrintOutRegisterInHex rax;
