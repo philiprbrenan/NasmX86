@@ -6,7 +6,6 @@
 use warnings FATAL => qw(all);
 use strict;
 use Nasm::X86 qw(:all);
-use utf8;
 use Test::More;
 
 Mov rax, 1;
