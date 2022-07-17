@@ -9560,7 +9560,11 @@ sub Nasm::X86::Unisyn::Lex::Letter::nE {(0x1D7EC..0x1D7EC+9)}                   
 sub Nasm::X86::Unisyn::Lex::Number::nF {26}                                     #P Numbers - MATHEMATICAL MONOSPACE
 sub Nasm::X86::Unisyn::Lex::Letter::nF {(0x1D7F6..0x1D7F6+9)}                   #P
 
-# Add: 1d5a0 ,  0x1d608,   0x1d49c,  0x1d4d0,  0x1d504,     0x1d56c,  0x1d670,  0x1d538
+sub Nasm::X86::Unisyn::Lex::AlphabetNames                                       #P The names of the alphabets
+ {qw(A p v q s b B d e a f g h i j k l m w nA nB nC nD nE nF)
+ }
+
+# Add numbers above as entities like variables
 
 sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    # Compose phrases of Unisyn and return them as a string
  {my ($words) = @_;                                                             # String of words
@@ -9670,7 +9674,7 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
   my $S =  Nasm::X86::Unisyn::Lex::Number::S;                                   # Start
   my $v =  Nasm::X86::Unisyn::Lex::Number::v;                                   # Variable
 
-  my @d = (Nasm::X86::Unisyn::Lex::Number::a,
+  my @d = (Nasm::X86::Unisyn::Lex::Number::a,                                   # Infix operators
            Nasm::X86::Unisyn::Lex::Number::e,
            Nasm::X86::Unisyn::Lex::Number::f,
            Nasm::X86::Unisyn::Lex::Number::g,
@@ -9680,6 +9684,13 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
            Nasm::X86::Unisyn::Lex::Number::k,
            Nasm::X86::Unisyn::Lex::Number::l,
            Nasm::X86::Unisyn::Lex::Number::m);
+
+  my @n = (Nasm::X86::Unisyn::Lex::Number::nA,                                  # Numbers
+           Nasm::X86::Unisyn::Lex::Number::nB,
+           Nasm::X86::Unisyn::Lex::Number::nC,
+           Nasm::X86::Unisyn::Lex::Number::nD,
+           Nasm::X86::Unisyn::Lex::Number::nE,
+           Nasm::X86::Unisyn::Lex::Number::nF);
 
   my %x = (                                                                     # The transitions table: this tells us which combinations of lexical items are valid.  The table is augmented with start and end symbols so that we know where to start and end.
     $A => {map {$_=>1} $a,         $B, $d, $F,     $q, $s,   },
@@ -9718,7 +9729,7 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
 
 sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      # Create an array of utf32 to alphabet number.
  {my %a;
-  for my $a(qw(A p v q s b B d e a f g h i j k l m w))
+  for my $a(Nasm::X86::Unisyn::Lex::AlphabetNames)
    {eval <<END;
 \$a{Nasm::X86::Unisyn::Lex::Number::$a} = [Nasm::X86::Unisyn::Lex::Letter::$a]
 END
@@ -9741,7 +9752,7 @@ sub Nasm::X86::Unisyn::Lex::AlphabetFromUtf32($)                                
   {my ($utf32) = @_;                                                            # The utf32 code point
    my $U = $utf32 =~ s(\A\s*\\U) ()sr;                                          # Remove junk at front of present
    my $u = eval "0x$U";
-   for my $a(qw(A p v q s b B d e a f g h i j k l m w))
+   for my $a(Nasm::X86::Unisyn::Lex::AlphabetNames)
     {my @u = eval "Nasm::X86::Unisyn::Lex::Letter::$a";
      my %u = map {$_=>1} @u;
      if ($u{$u})
@@ -9755,7 +9766,7 @@ sub Nasm::X86::Unisyn::Lex::AlphabetFromUtf32($)                                
 
 sub Nasm::X86::Unisyn::Lex::letterToNumber                                      # Map each letter in the union of the alphabets to a sequential number
  {my %a;                                                                        # Letters mapped to unique numbers
-   for my $a(qw(A p v q s b B d e a f g h i j k l m w))
+   for my $a(Nasm::X86::Unisyn::Lex::AlphabetNames)
     {$a{$_} = keys %a for eval "Nasm::X86::Unisyn::Lex::Letter::$a";
     }
 
@@ -9769,7 +9780,7 @@ sub Nasm::X86::Unisyn::Lex::letterToNumber                                      
 sub Nasm::X86::Unisyn::Lex::numberToLetter                                      # Recover a letter from its unique number
  {my %a;                                                                        # Letters mapped to unique numbers
   my $i = 0;
-  for my $a(qw(A p v q s b B d e a f g h i j k l m w))
+  for my $a(Nasm::X86::Unisyn::Lex::AlphabetNames)
     {for my $a(eval "Nasm::X86::Unisyn::Lex::Letter::$a")                       # Each letter
       {$a{$a} = $i++;
        confess "Key mismatch on: ", sprintf("%x", $a), " at $i"
@@ -11322,7 +11333,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11324 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11335 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
