@@ -5176,7 +5176,7 @@ sub Nasm::X86::Area::free($)                                                    
   FreeMemory($area->address, $area->size)
  }
 
-sub Nasm::X86::Area::copyDescriptor($$)                                         #P Copy the description of one area into another
+sub Nasm::X86::Area::copy($$)                                                   #P Copy the description of one area into another
  {my ($target, $source) = @_;                                                   # Target area, source area
 
   $target->address->copy($source->address);                                     # target now addresses same area as source
@@ -5498,7 +5498,7 @@ sub Nasm::X86::Area::yggdrasil($)                                               
    },
   Else                                                                          # Yggdrasil has not been created
    {my $T = $area->CreateTree;
-    $t->copyDescriptor($T);
+    $t->copy($T);
     $T->first->setReg(r15);
     $area->address->setReg(rax);                                                # Address underlying area - it might have moved
     Mov "[rax+$$area{treeOffset}]", r15;                                        # Save offset of Yggdrasil
@@ -6092,15 +6092,15 @@ sub Nasm::X86::Tree::cloneDescriptor($)                                         
  {my ($tree) = @_;                                                              # Tree descriptor
   @_ == 1 or confess "One parameter";
   my $t = $tree->DescribeTree(length=>$tree->length);                           # Length of new tree must be same as old tree
-  $t->copyDescriptor($tree);                                                    # Load new descriptor from original descriptor
+  $t->copy($tree);                                                              # Load new descriptor from original descriptor
   $t                                                                            # Return new descriptor
  }
 
-sub Nasm::X86::Tree::copyDescriptor($$)                                         # Copy the description of one tree into another.
+sub Nasm::X86::Tree::copy($$)                                                   # Copy the description of one tree into another.
  {my ($target, $source) = @_;                                                   # The target of the copy, the source of the copy
   @_ == 2 or confess "Two parameters";
   $target->first->copy($source->first);                                         # Load the target first block from the source block
-  $target->area->copyDescriptor($source->area);                                 # Load the target area description from the source area description
+  $target->area->copy($source->area);                                           # Load the target area description from the source area description
   $target                                                                       # Return target
  }
 
@@ -7551,7 +7551,7 @@ sub Nasm::X86::Tree::findSubTree($$)                                            
   @_ == 2 or confess "Two parameters";
 
   my $t = $tree->DescribeTree;                                                  # The sub tree we are attempting to load
-     $t->copyDescriptor($tree);                                                 # Position on the tree
+     $t->copy($tree);                                                           # Position on the tree
 
   my $s = Subroutine
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -7672,7 +7672,7 @@ sub Nasm::X86::Tree::depth($$)                                                  
       parameters => [qw(node depth)],
       name       => qq(Nasm::X86::Tree::depth-$$tree{length}-$$tree{smallTree}-$$tree{lowTree}-$$tree{stringTree});
 
-  $s->call(structures => {tree => $tree->copyDescriptor},
+  $s->call(structures => {tree => $tree->copy},
            parameters => {node => $node, depth => my $d = V depth => 0});
 
   $d
@@ -8985,7 +8985,7 @@ sub Nasm::X86::Tree::putKeyString($$$$)                                         
        {my $k = $a->appendZmm(zmm $zKey);
         my $T = $a->CreateTree(stringTree => 1);
         $t->put($k, $T);
-        $t->copyDescriptor($T);
+        $t->copy($T);
        };
      }
     Then                                                                        # Append remainder of string as a full zmm block padded with zeroes
@@ -9835,8 +9835,27 @@ sub Nasm::X86::Unisyn::DescribeParse()                                          
    );
  }
 
-sub ParseUnisyn($$)                                                             # Parse a string of utf8 characters.
- {my ($a8, $s8) = @_;                                                           # Address of utf8 source string, size of utf8 source string in bytes
+sub Nasm::X86::Unisyn::Parse::copy($$)                                          #P Copy a parse description from one parse description to another
+ {my ($t, $s) = @_;                                                             # Target parse description, source description
+  $t->area    ->copy($s->area);
+  $t->tree    ->copy($s->tree);
+  $t->char    ->copy($s->char);
+  $t->fail    ->copy($s->fail);
+  $t->position->copy($s->position);
+  $t->match   ->copy($s->match);
+  $t->reason  ->copy($s->reason);
+  $t->symbols ->copy($s->symbols);
+  $t->length  ->copy($s->length);
+  $t->source  ->copy($s->source);
+ }
+
+sub sortHashKeysByIntegerValues($)                                              #P Sort the keys of a hash whose values are integers by those values returning the keys so sorted as an array.
+ {my ($h) = @_;                                                                 # Hash
+  sort {$$h{$a} <=> $$h{$b}} sort keys %$h;                                     # Done here to avoid collisions with the sort special variables,
+ }
+
+sub ParseUnisyn($$%)                                                            # Parse a string of utf8 characters.
+ {my ($a8, $s8, %options) = @_;                                                 # Address of utf8 source string, size of utf8 source string in bytes, subroutine options
 
   my $p = Nasm::X86::Unisyn::DescribeParse;                                     # Describe a parse - create a description of the parse on the stack
      $p->source->copy($a8);                                                     # Source
@@ -9847,17 +9866,13 @@ sub ParseUnisyn($$)                                                             
 
     &Nasm::X86::Unisyn::Parse($$s{parse});
 
-   } structures => {parse => $p}, name => qq(Nasm::X86::Unisyn::Parse);
+   } structures => {parse => $p},
+     name => qq(Nasm::X86::Unisyn::Parse), %options;
 
 
   $s->call(structures=>{parse => $p});
 
   $p
- }
-
-sub sortHashKeysByIntegerValues($)                                              #P Sort the keys of a hash whose values are integers by those values returning the keys so sorted as an array.
- {my ($h) = @_;                                                                 # Hash
-  sort {$$h{$a} <=> $$h{$b}} sort keys %$h;                                     # Done here to avoid collisions with the sort special variables,
  }
 
 sub Nasm::X86::Unisyn::Parse($)                                                 #P Parse a string of utf8 characters.
@@ -10417,14 +10432,14 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
 #$parse->dump("AA");
 
-  $pd->area     ->copyDescriptor($parse);                                       # The area in which the parse tree was built
+  $pd->area     ->copy($parse);                                                 # The area in which the parse tree was built
   $pd->tree     ->copy($parseTree);                                             # The offset of the start of the parse tree in the parse area - this is not a conventional Tree as defined elsewhere - it is specific to parsing.
   $pd->char     ->copy($parseChar);                                             # Last character processed
   $pd->fail     ->copy($parseFail);                                             # If not zero the parse has failed for some reason
   $pd->position ->copy($position);                                              # The position reached in the input string
   $pd->match    ->copy($parseMatch);                                            # The position of the matching bracket  that did not match
   $pd->reason   ->copy($parseReason);                                           # The reason code describing the failure if any
-  $pd->symbols  ->copyDescriptor($symbols);                                     # The symbol tree produced by the parse
+  $pd->symbols  ->copy($symbols);                                               # The symbol tree produced by the parse
 
  } # Parse
 
@@ -10709,7 +10724,7 @@ sub Link(@)                                                                     
   push @link, @_;
  }
 
-my $lastAsmFinishTime;                                                          # The last time we finished an assembly
+my $lastAsmFinishTime = time;                                                   # The last time we finished an assembly
 
 sub Start()                                                                     # Initialize the assembler.
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
@@ -10933,7 +10948,7 @@ our $testsThatFailed      = 0;                                                  
 
 sub Assemble(%)                                                                 # Assemble the generated code.
  {my (%options) = @_;                                                           # Options
-  my $avx512     = delete $options{avx512};                                     # Avx512 instruction set needed
+  my $avx512     = delete $options{avx512} // 1;                                # Avx512 instruction set needed
   my $clocks     = delete $options{clocks};                                     # Number of clocks required to execute this program - if a different number are required then a message is written to that effect.  Set mix > 0 for this to take effect.
   my $count      = delete $options{count}  // 0;                                # Count the comments that occur more frequently than this number
   my $debug      = delete $options{debug}  // 0;                                # Debug: 0 - print stderr and compare stdout to eq if present, 1 - print stdout and stderr and compare stderr to eq if present
@@ -11342,7 +11357,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11344 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11359 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -11429,7 +11444,7 @@ if (1)
   Mov rax, 2;
   Vpbroadcastq zmm29, rax;
   PrintOutRegisterInHex 29..31;
-  ok Assemble eq=><<END, avx512=>1;
+  ok Assemble eq=><<END;
  zmm29: .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2 + .... .... .... ...2  .... .... .... ...2 - .... .... .... ...2  .... .... .... ...2
  zmm30: .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1 + .... ...1 .... ...1  .... ...1 .... ...1 - .... ...1 .... ...1  .... ...1 .... ...1
  zmm31: .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1 + .... .... .... ...1  .... .... .... ...1 - .... .... .... ...1  .... .... .... ...1
@@ -11444,7 +11459,7 @@ if (1) {                                                                        
   $s->setReg(rax);
   Vpgatherqq zmmM(1, 1), "[rax+zmm0]";                                          # Target register must be different from source register
   PrintOutRegisterInHex zmm1, k1;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
   zmm1: 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ...0  .... .... .... ...0 + 3137 3635 3433 3231  3137 3635 3433 3231 - .... .... .... ...0  .... .... .... ...0
     k1: .... .... .... ...0
 END
@@ -11761,7 +11776,7 @@ if (1)                                                                          
   Mov rdi, length $s;
   PrintMemory r15;
   CloseFile;
-  ok Assemble eq=><<END, avx512=>1;
+  ok Assemble eq=><<END;
 END
   ok -e $s;
   unlink $s;
@@ -11792,7 +11807,7 @@ if (1) {                                                                        
   my ($t, $l) = constantString("Hello World");
   $t->printOutMemoryNL($l);
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 Hello World
 END
  }
@@ -11802,7 +11817,7 @@ if (1)                                                                          
  {my $v = V var => 2;
   Mov rax, $v->at;
   PrintOutRegisterInHex rax;
-  ok Assemble eq=><<END, avx512=>1;
+  ok Assemble eq=><<END;
    rax: .... .... .... ...2
 END
  }
@@ -12132,7 +12147,7 @@ if (1) {                                                                        
   PopR;
   PrintOutRegisterInHex zmm17;
   PrintOutRegisterInHex r14, r15;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  zmm17: 4F4E 4D4C 4B4A 4948  4746 4544 4342 4140 - 3F3E 3D3C 3B3A 3938  3736 3534 3332 3130 + 2F2E 2D2C 2B2A 2928  2726 2524 2322 2120 - 1F1E 1D1C 1B1A 1918  1716 1514 1312 1110
    r14: .... .... .... ...2
    r15: .... .... .... ...3
@@ -12308,7 +12323,7 @@ if (1) {
   $T->put(K(key=>0), $t);
   $T->dump("BB");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AA
 - empty
 BB
@@ -12329,7 +12344,7 @@ if (1) {                                                                        
   $a->putZmmBlock($z, 31);
   $a->printOut($z, K length => 3);
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 aaa
 END
  }
@@ -12359,7 +12374,7 @@ Area     Size:     4096    Used:       68
 END
  }
 
-if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::copy #TArea::nl
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::nl
   my $a = CreateArea;
   my $b = CreateArea;
   $a->q('aa');
@@ -12374,7 +12389,7 @@ bb
 END
  }
 
-if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::copy #TArea::nl
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::nl
   my $a = CreateArea;
   my $b = CreateArea;
   $a->q('aa');
@@ -12386,7 +12401,7 @@ aaAA
 END
  }
 
-if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::copy #TArea::nl
+if (1) {                                                                        #TCreateArea #TArea::clear #TArea::out #TArea::nl
   my $a = CreateArea;
   my $b = CreateArea;
   $a->q('aa');
@@ -12578,7 +12593,7 @@ if (1) {                                                                        
   my $y = $A->yggdrasil;
   my $T = $A->checkYggdrasilCreated;
      $T->found->outNL;
-  ok Assemble debug => 0, eq => <<END, avx512=>1;
+  ok Assemble debug => 0, eq => <<END;
 found  : .... .... .... ...0
 found  : .... .... .... ...1
 END
@@ -12721,7 +12736,7 @@ if (1) {
   my $N = K blocks => 2;
   CopyMemory64($s, $t, $N);
   $t->printOutMemoryNL($N*16);
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 0123456789abcdef0123456789abcdef
 END
  }
@@ -12766,7 +12781,7 @@ if (1) {                                                                        
   K(key => 2)->outSpaces;
   PrintOutStringNL 'b';
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 abc: .... .... .... .123
 abc: 291
 abc: 291
@@ -12827,7 +12842,7 @@ if (1) {                                                                        
   Else {Mov rax, 2};
   PrintOutRegisterInHex rax;
 
-  ok Assemble eq=><<END, avx512=>1;
+  ok Assemble eq=><<END;
    rax: .... .... .... ...1
 END
  }
@@ -14218,7 +14233,7 @@ if (1) {                                                                        
   PrintOutRightInHexNL rax, 16;
   PrintOutRightInBinNL rax, 16;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
               42
               2A
           101010
@@ -14759,7 +14774,7 @@ if (1) {                                                                        
   wRegIntoZmm $transfer, 31, $tree->treeBits;
   PrintOutRegisterInHex 31;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
   zmm1: .... .... ..DD ....  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0
  zmm31: .... .... ..DD ....  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0
 END
@@ -14811,7 +14826,7 @@ if (1) {                                                                        
   PrintOutStringNL "Final Right";
   PrintOutRegisterInHex zmm reverse 23..25;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 Initial Parent
  zmm31: F999 9999 E999 9999  D999 9999 C999 9999 - B999 9999 A999 9999  9999 9999 8999 9999 + 7999 9999 6999 9999  5999 9999 4999 9999 - 3999 9999 2999 9999  1999 9999 .999 9999
  zmm30: F777 7777 E777 7777  D777 7777 C777 7777 - B777 7777 A777 7777  9777 7777 8777 7777 + 7777 7777 6777 7777  5777 7777 4777 7777 - 3777 7777 2777 7777  1777 7777 .777 7777
@@ -14878,7 +14893,7 @@ if (1) {                                                                        
 
   Not r8; $t->setTreeBits(31, r8); PrintOutRegisterInHex 31;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  zmm31: .... .... ...4 ....  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0
  zmm31: .... .... ...6 ....  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0
  zmm31: .... .... ...7 ....  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0
@@ -14917,7 +14932,7 @@ if (1) {                                                                        
   $t->found->outNL;
   $t->data ->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 found  : .... .... .... ...1
 data   : .... .... .... ..22
 END
@@ -14940,7 +14955,7 @@ if (1) {
   $t->found->outNL;
   $t->data ->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 found  : .... .... .... ...1
 data   : .... .... .... ..11
 found  : .... .... .... ...2
@@ -14959,7 +14974,7 @@ if (1) {                                                                        
   $t->delete(K key => 1);
   $t->size->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 size of tree: .... .... .... ...0
 END
  }
@@ -14974,7 +14989,7 @@ if (1) {                                                                        
   $T->first->outNL;
   $u->first->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 first  : .... .... .... ..80
 first  : .... .... .... ..80
 END
@@ -15010,7 +15025,7 @@ if (1) {                                                                        
   If $t->leafFromNodes(28) > 0, Then {PrintOutStringNL "28 Leaf"}, Else {PrintOutStringNL "28 Branch"};
 
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  zmm25: .... ..C0 .... ...9  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... ..33 .... ....
 b at offset 56 in zmm25: .... .... .... ...9
 ZF=1
@@ -15050,7 +15065,7 @@ if (1) {                                                                        
     PrintOutStringNL " |"
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  0             1 |
  1            10 |
  2           100 |
@@ -15094,7 +15109,7 @@ if (1) {                                                                        
     PrintOutZF;
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  0             1 ZF=0
  1            10 ZF=0
  2           100 ZF=0
@@ -15131,7 +15146,7 @@ if (1) {                                                                        
     PrintOutStringNL " |"
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  0               1 |
  1               1 |
  2              10 |
@@ -15190,7 +15205,7 @@ if (1) {
     PrintOutZF;
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  0               1 ZF=1
  1               1 ZF=1
  2              10 ZF=0
@@ -15237,7 +15252,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex zmm $K;
   K( offset => 1 << 5)->dFromPointInZ($K)->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  zmm31: .... ...F .... ...E  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
 d: .... .... .... ...5
 END
@@ -15250,7 +15265,7 @@ if (1) {                                                                        
   PrintOutRegisterInHex k7;
   $tree->maskForFullNodesArea(7);                                               # Mask for full nodes area
   PrintOutRegisterInHex k7;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
     k7: .... .... .... 3FFF
     k7: .... .... .... 7FFF
 END
@@ -15271,7 +15286,7 @@ if (1) {                                                                        
   $t->decSizeInFirst($F); PrintOutRegisterInHex $F;
   $t->decSizeInFirst($F); PrintOutRegisterInHex $F;
 
-  ok Assemble eq => <<END, avx512=>1;                                           # Once we know the insertion point we can add the key/data/subTree triple, increase the length and update the tree bits
+  ok Assemble eq => <<END;                                           # Once we know the insertion point we can add the key/data/subTree triple, increase the length and update the tree bits
  zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0
  zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...1  .... .... .... ...0
  zmm31: .... ..FF .... ..EE  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... ...2  .... .... .... ...0
@@ -15313,7 +15328,7 @@ if (1) {                                                                        
   PrintOutStringNL "Overwritten";
   PrintOutRegisterInHex $F, $K, $D;
 
-  ok Assemble eq => <<END, avx512=>1;                                           # Once we know the insertion point we can add the key/data/subTree triple, increase the length and update the tree bits
+  ok Assemble eq => <<END;                                           # Once we know the insertion point we can add the key/data/subTree triple, increase the length and update the tree bits
 Start
  zmm31: .... ...F 3FF0 ...E  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
  zmm30: .... ...F .... ...5  .... ...D .... ...C - .... ...B .... ...A  .... ...9 .... ...8 + .... ...7 .... ...6  .... ...5 .... ...4 - .... ...3 .... ...2  .... ...1 .... ....
@@ -15353,7 +15368,7 @@ if (1) {
   $a->dump("4444", 11);
   $t->dump("4444");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 0000
 Area     Size:     4096    Used:      128
 .... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -15437,7 +15452,7 @@ if (1)                                                                          
   $t->found->outNL;
   $t->data ->outNL;
 
-  ok Assemble eq=><<END, avx512=>1;
+  ok Assemble eq=><<END;
 found  : .... .... .... ...1
 data   : .... .... .... ...1
 END
@@ -15455,7 +15470,7 @@ if (1) {
   $a->dump("4444", 11);
   $t->dump("4444");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 4444
 Area     Size:     4096    Used:      320
 .... .... .... ...0 | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -15490,7 +15505,7 @@ if (1) {
   $t->put(K(key=>5), K(data=>0x55));
   $a->dump("5555",   K depth => 11);
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 5555
 Area     Size:     4096    Used:      320
 .... .... .... ...0 | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -15520,7 +15535,7 @@ if (1) {
   $t->put(K(key=>6), K(data=>0x66));
   $a->dump("6666",   K depth => 14);
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 6666
 Area     Size:     4096    Used:      320
 .... .... .... ...0 | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -15554,7 +15569,7 @@ if (1) {
   $t->put(K(key=>7), K(data=>0x77));
   $a->dump("7777",   K depth => 14);
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 7777
 Area     Size:     4096    Used:      320
 .... .... .... ...0 | __10 ____ ____ ____  40.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -15583,7 +15598,7 @@ if (1) {
   $t->put(K(key=>1), K(data=>0x11));
   $t->dump("2222");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 2222
 At:   80                    length:    2,  data:   C0,  nodes:  100,  first:   40, root, leaf
   Index:    0    1
@@ -15608,7 +15623,7 @@ if (1) {
   $t->put(K(key=>8), K(data=>0x88));
   $t->dump("8888");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 8888
 At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   40, root, leaf
   Index:    0    1    2    3    4    5    6    7
@@ -15633,7 +15648,7 @@ if (1) {
   $t->put(K(key=>1), K(data=>0x11));
   $t->dump("8888");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 8888
 At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   40, root, leaf
   Index:    0    1    2    3    4    5    6    7
@@ -15659,7 +15674,7 @@ if (1) {
     $t->find($i); $t->found->outRightInDec(8); $t->data->outRightInDecNL(8);
    });
 
-   ok Assemble eq => <<END, avx512=>1;
+   ok Assemble eq => <<END;
        1       0
        2       1
        4       2
@@ -15716,7 +15731,7 @@ if (1) {                                                                        
     $t->find($q);                       $t->found->outRightInBin(8); $t->offset->outRightInHex(8);  $t->data->outRightInDecNL(8);
    });
 
-   ok Assemble eq => <<END, avx512=>1;
+   ok Assemble eq => <<END;
 AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 Indx   Found  Offset  Double   Found  Offset    Quad   Found  Offset    Octo   Found  Offset     *16   Found  Offset     *32   Found  Offset     *64   Found  Offset    *128   Found  Offset    *256   Found  Offset    *512
    0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0       1      80       0
@@ -15896,7 +15911,7 @@ if (1) {                                                                        
    });
   $t->printInOrder("AAAA");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 END
  }
@@ -15928,7 +15943,7 @@ if (1) {
    });
   $t->printInOrder("AAAA");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AAAA 256:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E  3F  40  41  42  43  44  45  46  47  48  49  4A  4B  4C  4D  4E  4F  50  51  52  53  54  55  56  57  58  59  5A  5B  5C  5D  5E  5F  60  61  62  63  64  65  66  67  68  69  6A  6B  6C  6D  6E  6F  70  71  72  73  74  75  76  77  78  79  7A  7B  7C  7D  7E  7F  80  81  82  83  84  85  86  87  88  89  8A  8B  8C  8D  8E  8F  90  91  92  93  94  95  96  97  98  99  9A  9B  9C  9D  9E  9F  A0  A1  A2  A3  A4  A5  A6  A7  A8  A9  AA  AB  AC  AD  AE  AF  B0  B1  B2  B3  B4  B5  B6  B7  B8  B9  BA  BB  BC  BD  BE  BF  C0  C1  C2  C3  C4  C5  C6  C7  C8  C9  CA  CB  CC  CD  CE  CF  D0  D1  D2  D3  D4  D5  D6  D7  D8  D9  DA  DB  DC  DD  DE  DF  E0  E1  E2  E3  E4  E5  E6  E7  E8  E9  EA  EB  EC  ED  EE  EF  F0  F1  F2  F3  F4  F5  F6  F7  F8  F9  FA  FB  FC  FD  FE  FF
 END
  }
@@ -15983,7 +15998,7 @@ if (1) {
     $t->subTree->out("s: ", "   "); $t->found->outNL;
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 Start
  zmm31: .... ..10 3333 ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
  zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19 + .... ..18 .... ..17  .... ..16 .... ..15 - .... ..14 .... ..13  .... ..12 .... ..11
@@ -16089,7 +16104,7 @@ if (1) {                                                                        
    (K(one => 1<<15) >> $index)->outRightInBinNL(16);
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
                1
 1000000000000000
               10
@@ -16143,7 +16158,7 @@ if (1) {                                                                        
   $f->outNL;
   $l->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  zmm31: .... ..10 .... ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
  zmm29: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
 d at offset 0 in zmm29: .... .... .... ...1
@@ -16169,7 +16184,7 @@ if (1) {                                                                        
   $f->outNL;
   $l->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  zmm31: .... ..10 .... ...D  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
  zmm29: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
 d at offset 0 in zmm29: .... .... .... ...1
@@ -16202,7 +16217,7 @@ if (1) {                                                                        
     PrintOutRegisterInHex $K, $D;
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 Start
  zmm31: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...E  .... ...F .... ..10
  zmm30: .... ...1 .... ...2  .... ...3 .... ...4 - .... ...5 .... ...6  .... ...7 .... ...8 + .... ...9 .... ...A  .... ...B .... ...C - .... ...D .... ...E  .... ...F .... ..10
@@ -16283,7 +16298,7 @@ if (1) {                                                                        
     $t->lengthFromKeys($K)->outNL;
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 Start
  zmm31: .... ..10 2AAA ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
  zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
@@ -16346,7 +16361,7 @@ if (1) {                                                                        
   PrintOutStringNL "Finish";
   PrintOutRegisterInHex 31, 30, 29;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 Start
  zmm31: .... ..10 2AAA ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
  zmm30: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
@@ -16371,7 +16386,7 @@ if (1) {                                                                        
   $t->nextNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
   $t->prevNode(K(offset=>0x440), 31, 29)->outRightInHexNL(K width => 3);
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 500
 380
 END
@@ -16405,7 +16420,7 @@ if (1) {                                                                        
     $t->printInOrder("A");
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 A  32:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20
 A  32:    2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21
 A  32:    3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22
@@ -16465,7 +16480,7 @@ if (1) {                                                                        
     $t->printInOrder("A");
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 A  31:   20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D  3E
 A  31:   1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C  3D
 A  31:   1E  1F  20  21  22  23  24  25  26  27  28  29  2A  2B  2C  2D  2E  2F  30  31  32  33  34  35  36  37  38  39  3A  3B  3C
@@ -16512,7 +16527,7 @@ if (1) {                                                                        
   $t->size->outRightInDecNL(4);  $t->dump("4"); $t->delete($i4);
   $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    4
 4
 At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -16546,7 +16561,7 @@ if (1) {                                                                        
   $t->size->outRightInDecNL(4);  $t->dump("40"); $t->delete($i40);
   $t->size->outRightInDecNL(4);  $t->dump("X");  $t->printInOrder("X");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    7
 33
 At:   80                    length:    7,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -16586,7 +16601,7 @@ if (1) {                                                                        
   $t->delete($i2);
   $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    4
 1
 At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -16631,7 +16646,7 @@ if (1) {                                                                        
   $t->size->outRightInDecNL(4);  $t->dump("1"); $a->dump("AAA", K blocks => 12); $t->delete($i1);
   $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    4
 1
 At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -16675,7 +16690,7 @@ if (1) {                                                                        
   $t->size->outRightInDecNL(4); $t->dump("2"); $t->delete($i2);
   $t->size->outRightInDecNL(4); $t->dump("X"); $t->printInOrder("X");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    4
 2
 At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -16705,7 +16720,7 @@ if (1) {                                                                        
   $t->size->outRightInDecNL(4);  $t->dump("3"); $t->delete($i3);
   $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    4
 3
 At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -16735,7 +16750,7 @@ if (1) {                                                                        
   $t->size->outRightInDecNL(4);  $t->dump("4"); $t->delete($i4);
   $t->size->outRightInDecNL(4);  $t->dump("X"); $t->printInOrder("X");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    4
 4
 At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -16768,7 +16783,7 @@ if (1) {                                                                        
   $t->size->outRightInDecNL(4);  $t->dump("4"); $t->delete($i1);
   $t->size->outRightInDecNL(4);  $t->dump("1");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    4
 0
 At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -16850,7 +16865,7 @@ if (1) {                                                                        
   $t->dump("3");
   $t->delete(K k=>4);
   $t->dump("4");
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 0
 At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
   Index:    0    1    2    3
@@ -16897,7 +16912,7 @@ if (1) {                                                                        
   $t->dump("2");
   $t->delete(K k=>1);
   $t->dump("1");
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 0
 At:   80                    length:    4,  data:   C0,  nodes:  100,  first:   40, root, leaf
   Index:    0    1    2    3
@@ -16950,7 +16965,7 @@ if (1) {                                                                        
   $t->size->outRightInDecNL(4);
   $t->dump("X");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    8
 1
 At:   80                    length:    8,  data:   C0,  nodes:  100,  first:   40, root, leaf
@@ -17044,7 +17059,7 @@ if (1) {                                                                        
   $t->delete(K k => 14);  $t->printInOrder("14");
   $t->delete(K k => 15);  $t->printInOrder("15");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 size of tree: .... .... .... ..14
 AA  20:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
  0  19:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13
@@ -17097,7 +17112,7 @@ if (1) {                                                                        
   $t->printInOrder("15"); $t->delete(K k => 15);
   $t->printInOrder("XX");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  0  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
  2  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
  4  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
@@ -17146,7 +17161,7 @@ if (1) {                                                                        
   $t->dump("Two:");
   $t->size->outRightInDecNL(4);
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 1111: .... .... .... ...8
 1111  15:    0   1   2   3   4   5   6   7   9   A   B   C   D   E   F
 2222: .... .... .... ...7
@@ -17237,7 +17252,7 @@ if (1) {                                                                        
      });
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 END
  }
 
@@ -17262,7 +17277,7 @@ if (1) {                                                                        
    });
   $t->printInOrder("CCCC");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AAAA  16:    0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
 AAAA  15:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
 AAAA  14:    1   3   4   5   6   7   8   9   A   B   C   D   E   F
@@ -17333,7 +17348,7 @@ if (1) {                                                                        
   $t->delete(K 1 => 29); $t->printInOrder("29");
   $t->delete(K 1 => 34); $t->printInOrder("34");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  0  35:    1   2   3   4   5   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
  5  34:    1   2   3   4   6   7   8   9   A   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
 10  33:    1   2   3   4   6   7   8   9   B   C   D   E   F  10  11  12  13  14  15  16  17  18  19  1A  1B  1C  1D  1E  1F  20  21  22  23
@@ -17392,7 +17407,7 @@ if (1) {                                                                        
     PrintOutStringNL '.';
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    0 -> f: .... .... .... ...2 key    : .... .... .... ...2.
    1 -> f: .... .... .... ...2 key    : .... .... .... ...2.
    2 -> f: .... .... .... ...4 key    : .... .... .... ...4.
@@ -17431,7 +17446,7 @@ if (1) {                                                                        
     PrintOutStringNL '.';
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    0 -> f: .... .... .... ...0 .
    1 -> f: .... .... .... ...1 key    : .... .... .... ...0.
    2 -> f: .... .... .... ...1 key    : .... .... .... ...0.
@@ -17569,7 +17584,7 @@ if (1) {                                                                        
     $tree->key->out("");  $tree->data->outNL(" ");
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 .... .... .... ...0 .... .... .... ...0
 .... .... .... ...1 .... .... .... ...2
 .... .... .... ...2 .... .... .... ...4
@@ -17604,7 +17619,7 @@ if (1) {                                                                        
     $tree->key->out("");  $tree->data->outNL(" ");
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 .... .... .... ...F .... .... .... ..1E
 .... .... .... ...E .... .... .... ..1C
 .... .... .... ...D .... .... .... ..1A
@@ -17743,7 +17758,7 @@ if (1) {                                                                        
   $a->clearZmmBlock($m);
   PrintOutRegisterInHex 31, 30, 29;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 A
 Area     Size:     4096    Used:      128
 .... .... .... ...0 | __10 ____ ____ ____  80__ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -17786,7 +17801,7 @@ if (1) {                                                                        
     $a->dump("C");
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 index: .... .... .... ...0
  zmm31: .... ..10 .... ...F  .... ...E .... ...D - .... ...C .... ...B  .... ...A .... ...9 + .... ...8 .... ...7  .... ...6 .... ...5 - .... ...4 .... ...3  .... ...2 .... ...1
  zmm30: .... ..20 .... ..1F  .... ..1E .... ..1D - .... ..1C .... ..1B  .... ..1A .... ..19 + .... ..18 .... ..17  .... ..16 .... ..15 - .... ..14 .... ..13  .... ..12 .... ..11
@@ -17883,7 +17898,7 @@ if (1) {                                                                        
   convert_rax_from_utf32_to_utf8;
   PrintOutRegisterInHex rax;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    rax: .... .... .... ..40
    rax: .... .... .... B1CE
    rax: .... .... ..AC 82E2
@@ -17915,7 +17930,7 @@ if (1) {                                                                        
   my $r = $T->reverse;
   $r->outAsUtf8NL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 αβγδ
 αβγδαβγδ
 αβγδαβγδαβγδαβγδ
@@ -17925,18 +17940,18 @@ END
  }
 
 #latest:
-if (1) {                                                                        #TNasm::X86::Tree::cloneDescriptor #TNasm::X86::Tree::copyDescriptor
+if (1) {                                                                        #TNasm::X86::Tree::cloneDescriptor #TNasm::X86::Tree::copy
   my $a = CreateArea;
   my $t = $a->CreateTree;
   $t->push(ord 'a');
   my $T = $t->cloneDescriptor;
   $T->push(ord 'b');
   my $c = $a->CreateTree;
-  $c->copyDescriptor($T);
+  $c->copy($T);
   $T->push(ord 'c');
 
   $t->outAsUtf8NL;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 abc
 END
  }
@@ -17957,7 +17972,7 @@ if (1) {                                                                        
   $c->outAsUtf8NL;
   my $d = $c->substring(1, 3);
   $d->outAsUtf8NL;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 A
 AA
 AAB
@@ -18043,7 +18058,7 @@ if (1) {                                                                        
   $u->peek(1);
   $u->found->outNL;
   $u->data->outNL;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 found  : .... .... .... ...1
 data   : .... .... .... ..22
 END
@@ -18061,7 +18076,7 @@ if (1) {                                                                        
   my $s = $t->popSubTree;
   $t->dump8xx('BB');
   $s->dump8xx('CC');
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AA
 Tree: .... .... .... ..40
 At:      180                                                                                length:        1,  data:      1C0,  nodes:      200,  first:       40, root, leaf,  trees:             1
@@ -18110,7 +18125,7 @@ if (1) {                                                                        
   my $i = $t->intersection;
   $i->dump('intersection 1');
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 input 1 2  1 3
 At:  280                    length:    2,  data:  2C0,  nodes:  300,  first:   C0, root, leaf,  trees:            11
   Index:    0    1
@@ -18163,7 +18178,7 @@ if (1) {
   $s->call(parameters => {p => V(p => 4)}, override=>K call => $s->start);
   $s->call(parameters => {p => V(p => 5)});
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 SSS
 p: .... .... .... ...1
 TTTT
@@ -18250,7 +18265,7 @@ if (1) {                                                                        
    {PrintOutStringNL "DDDD22";
    };
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AAAA11
 BBBB11
 CCCC11
@@ -18295,7 +18310,7 @@ if (1) {
    {PrintOutStringNL "DDDD22";
    };
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AAAA11
 BBBB22
 CCCC22
@@ -18311,7 +18326,7 @@ if (1) {
     Jmp $end;
     PrintOutStringNL "BBBB";
    };
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AAAA
 END
  }
@@ -18340,7 +18355,7 @@ if (1) {                                                                        
 
   my $a = expect Nasm::X86::Unisyn::Lex::Number::v;
   my $b = expect Nasm::X86::Unisyn::Lex::Number::d;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    rax: .... .... ...1 EEF2
    rax: .... .... .... ..$a
    rax: .... .... .... ..$b
@@ -18364,7 +18379,7 @@ if (1) {                                                                        
   Mov al, "[rax]";
   And rax, 0xff;
   PrintOutRegisterInHex rax;
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
    rax: .... .... .... ..FF
    rax: .... .... .... ...1
 END
@@ -18592,7 +18607,7 @@ if (1) {                                                                        
   $s->call  (parameters => {ppp => V ppp => 0x99});                             # Call   378
   $s->inline(parameters => {ppp => V ppp => 0xaa});                             # Inline 364
 
-  Assemble eq=><<END, avx512=>1;
+  Assemble eq=><<END;
 ppp: .... .... .... ..99
 ppp: .... .... .... ..AA
 END
@@ -18607,7 +18622,7 @@ if (1)
   my $t = $a->CreateTree;
   K(key => 100)->for(sub{my ($i) = @_; $t->put($i, $i)});
   $t->size->outNL;
-  ok Assemble eq =><<END, avx512=>1;
+  ok Assemble eq =><<END;
 size of tree: .... .... .... ..64
 END
  }
@@ -18691,7 +18706,7 @@ if (1)
    };
 
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 BBBB biggest
 AAAA smallest
 AAAA not equal to BBBB by not equal
@@ -18785,7 +18800,7 @@ if (1) {                                                                        
      };
    }
 
-  ok Assemble eq=><<END, avx512=>1;
+  ok Assemble eq=><<END;
    rax: .... .... .... .111
    rax: .... .... .... 9999
 END
@@ -18808,7 +18823,7 @@ END
                           override => $a->address + $inter->data);
    }
 
-  ok Assemble eq=><<END, avx512=>1;
+  ok Assemble eq=><<END;
 abcd
 a: .... .... .... 6666
    rax: .... .... .... .111
@@ -18990,7 +19005,7 @@ if (1) {                                                                        
      },
     size  => sub {my ($r) = @_; Mov $r, 0};
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 Empty
 END
  }
@@ -19018,7 +19033,7 @@ if (1) {                                                                        
        };
    }
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  1: before
  2: @ 0
  3: > 0
@@ -19049,7 +19064,7 @@ if (1) {                                                                        
 
   $t->getKeyString(constantString("d"));  $t->found->outNL; $t->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AA
 Area     Size:     4096    Used:      384
 .... .... .... ...0 | __10 ____ ____ ____  80.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -19081,7 +19096,7 @@ if (1) {                                                                        
   $t->getKeyString(constantString("d1")); $t->found->outNL; $t->data->outNL;
   $t->getKeyString(constantString("d2")); $t->found->outNL; $t->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AA
 Area     Size:     4096    Used:      448
 .... .... .... ...0 | __10 ____ ____ ____  C0.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -19116,7 +19131,7 @@ if (1) {                                                                        
   $t->getKeyString(constantString("d"));  $t->found->outNL; $t->data->outNL;
   $t->getKeyString(constantString("dd")); $t->found->outNL; $t->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AA
 Area     Size:     4096    Used:      448
 .... .... .... ...0 | __10 ____ ____ ____  C0.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -19167,7 +19182,7 @@ if (1) {                                                                        
   $t->getKeyString(constantString("dddd4444"));                                                          $t->data->outNL;
   $t->getKeyString(constantString("eeee5555"));                                                          $t->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AA
 Area     Size:     4096    Used:     1280
 .... .... .... ...0 | __10 ____ ____ ____  __.5 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -19258,7 +19273,7 @@ if (1) {                                                                        
     $t->size->outNL;
    });
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 size of tree: .... .... .... ...1
 size of tree: .... .... .... ...2
 size of tree: .... .... .... ...3
@@ -19304,7 +19319,7 @@ if (1) {                                                                        
   $t->popSubTree;
   $a->dump("BB");
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 AA
 Area     Size:     4096    Used:      384
 .... .... .... ...0 | __10 ____ ____ ____  80.1 ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____  ____ ____ ____ ____
@@ -19327,7 +19342,7 @@ if (1) {
   dRegFromZmm(rdx, 31, 8);
   PrintOutRegisterInHex 31, rdx;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
  zmm31: .... .... .... ...0  .... .... .... ...0 - .... .... .... ...0  .... .... .... ...0 + .... .... .... ...0  .... .... .... ...0 - .... .... .... 2222  .... .... .... ...0
    rdx: .... .... .... 2222
 END
@@ -19357,7 +19372,7 @@ if (1) {                                                                        
   $P->found->outNL;
   $P->data->outNL;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 found  : .... .... .... ...1
 data   : .... .... .... ..22
 subTree: .... .... .... ...0
@@ -19811,7 +19826,7 @@ if (1) {                                                                        
 
    } name => "operators",  parameters=>[qw(a b c)], export => $f;
 
-  ok Assemble eq => <<END, avx512=>1;
+  ok Assemble eq => <<END;
 END
 
   my $l = ReadArea $f;                                                          # Area containing subroutine library
@@ -19865,6 +19880,28 @@ Add
 And
 END
   unlink $f;
+ };
+
+latest:
+if (0) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators #TParseUnisyn #TNasm::X86::Unisyn::Parse::dumpParseResult
+  my $f = "lib/NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
+
+  my $library = Subroutine                                                      # This subroutine and all of the subroutines it contains will be saved in an area and that area will be written to a file from where it can be included via L<incBin> in subsequent assemblies.
+   {Subroutine                                                                  # A contained routine that we wish to export to a file
+     {my ($p, $s, $sub) = @_;
+
+      my $parse = ParseUnisyn($$p{source}, $$p{length});                        # Parse the utf8 string for the specified length
+
+      $$s{parse}->copy($parse);
+
+     } name       => "parse",
+       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+       parameters => [qw(source length)];
+
+   } export => $f;
+
+  ok Assemble eq => <<END;
+END
  };
 
 #latest:
