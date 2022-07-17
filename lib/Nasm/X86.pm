@@ -9624,7 +9624,7 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
    }
 
   for my $w(split /\s+/, $words)
-   {if ($w =~ m(\A[aAbBdefghijklmnpqsSvw]))
+   {if ($w =~ m(\A[aAbBdefghijklmnpqsSvwW]))
      {if    ($w =~ m(\AA(.*)))          {$s .= $1}                              # Ascii - normal letters where possible
       elsif ($w =~ m(\Aa=))             {$s .= "＝"}                             # Assign chosen by number
       elsif ($w =~ m/\Ab\(/)            {$s .= '【'}                             # Open bracket
@@ -9637,13 +9637,15 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
       elsif ($w =~ m(\AB(\d+)))         {$s .= c $1, "B"}                       # Close bracket
       elsif ($w =~ m(\Am\*))            {$s .= "✕"}                             # Multiply
       elsif ($w =~ m(\Am\+))            {$s .= "＋"}                             # Plus
-      elsif ($w =~ m(\An([A-F])(\d+))i) {$s .= c $2, "n$1"}                     # Number
+      elsif ($w =~ m(\An([A-F])(\d+))i) {$s .= c $2, "n".uc($1)}                # Number
       elsif ($w =~ m(\Ap(\d+)))         {$s .= c $1, "p"}                       # Prefix chosen by number
       elsif ($w =~ m(\Aq(\d+)))         {$s .= c $1, "q"}                       # Suffix chosen by number
       elsif ($w =~ m(\A[s;]\Z))         {$s .= c  0, "s"}                       # Semicolon
       elsif ($w =~ m(\AS\Z))            {$s .= ' '}                             # Space
       elsif ($w =~ m(\Aw\Z))            {$s .= ' '}                             # Single space
       elsif ($w =~ m(\Aw(\d+)))         {$s .= ' ' x $1}                        # Spaces
+      elsif ($w =~ m(\AW\Z))            {$s .= ' '}                             # Single ascii space
+      elsif ($w =~ m(\AW(\d+)))         {$s .= ' ' x $1}                        # Ascii spaces
       else
        {my $a = substr($w, 0, 1);
         if    ($w =~ m(\A$a(\d+)))      {c $1, $a}                              # Dyad chosen by number
@@ -11340,7 +11342,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11342 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11344 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18503,11 +18505,11 @@ testParseUnisyn 'va m+ p11 vb q11 lIF p21 b( vc m* vd B) q22 lELSE ve m* vf',
 
 test11: goto test12 unless $test{11};
 
-#latest:;
 testParseUnisyn 'va land vb',                              '𝗮𝐚𝐧𝐝𝗯',             qq(𝐚𝐧𝐝._𝗮._𝗯);
+testParseUnisyn 'va w a= w vb w  dand w vc w a= w vd', "𝗮 ＝ 𝗯 𝕒𝕟𝕕 𝗰 ＝ 𝗱", q(𝕒𝕟𝕕 ._＝ ._._𝗮 ._._𝗯 ._＝ ._._𝗰 ._._𝗱);
 
 #latest:
-testParseUnisyn 'va w a= w vb w  dand w vc w a= w vd', "𝗮 ＝ 𝗯 𝕒𝕟𝕕 𝗰 ＝ 𝗱", q(𝕒𝕟𝕕 ._＝ ._._𝗮 ._._𝗯 ._＝ ._._𝗰 ._._𝗱);
+testParseUnisyn "nA2 na3 m+ nB3 nB4", '２３＋𝟑𝟒', '＋._２３._𝟑𝟒';
 
 #latest:
 if (1)
@@ -19874,17 +19876,17 @@ END
 
 latest:;
 if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder
-  my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("nA2 m+ nB3");
-  my $t = '２＋𝟑';
+  my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("A1 dret A2");
+  my $t = '1𝕣𝕖𝕥2';
   is_deeply $u, $t;
 
   my $p = &ParseUnisyn(constantString $t);                                      # Parse the utf8 string minus the final new line
 
   $p->dumpPostOrder;
   ok Assemble eq <<END;
-._２
-._𝟑
-＋
+._1
+._2
+𝕣𝕖𝕥
 END
  }
 
