@@ -9699,29 +9699,12 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
  }
 
 sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      # Create an array of utf32 to alphabet number.
- {my %a =
-   (Nasm::X86::Unisyn::Lex::Number::A   => [Nasm::X86::Unisyn::Lex::Letter::A],
-    Nasm::X86::Unisyn::Lex::Number::p   => [Nasm::X86::Unisyn::Lex::Letter::p],
-    Nasm::X86::Unisyn::Lex::Number::v   => [Nasm::X86::Unisyn::Lex::Letter::v],
-    Nasm::X86::Unisyn::Lex::Number::q   => [Nasm::X86::Unisyn::Lex::Letter::q],
-    Nasm::X86::Unisyn::Lex::Number::s   => [Nasm::X86::Unisyn::Lex::Letter::s],
-
-    Nasm::X86::Unisyn::Lex::Number::b   => [Nasm::X86::Unisyn::Lex::Letter::b],
-    Nasm::X86::Unisyn::Lex::Number::B   => [Nasm::X86::Unisyn::Lex::Letter::B],
-
-    Nasm::X86::Unisyn::Lex::Number::d   => [Nasm::X86::Unisyn::Lex::Letter::d],
-    Nasm::X86::Unisyn::Lex::Number::e   => [Nasm::X86::Unisyn::Lex::Letter::e],
-    Nasm::X86::Unisyn::Lex::Number::a   => [Nasm::X86::Unisyn::Lex::Letter::a],
-    Nasm::X86::Unisyn::Lex::Number::f   => [Nasm::X86::Unisyn::Lex::Letter::f],
-    Nasm::X86::Unisyn::Lex::Number::g   => [Nasm::X86::Unisyn::Lex::Letter::g],
-    Nasm::X86::Unisyn::Lex::Number::h   => [Nasm::X86::Unisyn::Lex::Letter::h],
-    Nasm::X86::Unisyn::Lex::Number::i   => [Nasm::X86::Unisyn::Lex::Letter::i],
-    Nasm::X86::Unisyn::Lex::Number::j   => [Nasm::X86::Unisyn::Lex::Letter::j],
-    Nasm::X86::Unisyn::Lex::Number::k   => [Nasm::X86::Unisyn::Lex::Letter::k],
-    Nasm::X86::Unisyn::Lex::Number::l   => [Nasm::X86::Unisyn::Lex::Letter::l],
-    Nasm::X86::Unisyn::Lex::Number::m   => [Nasm::X86::Unisyn::Lex::Letter::m],
-    Nasm::X86::Unisyn::Lex::Number::w   => [Nasm::X86::Unisyn::Lex::Letter::w],
-   );
+ {my %a;
+  for my $a(qw(A p v q s b B d e a f g h i j k l m w))
+   {eval <<END;
+\$a{Nasm::X86::Unisyn::Lex::Number::$a} = [Nasm::X86::Unisyn::Lex::Letter::$a]
+END
+   }
 
   my @a;
   for my $n(sort keys %a)
@@ -9735,6 +9718,22 @@ sub Nasm::X86::Unisyn::Lex::AlphabetsArray                                      
 
   (Rq(scalar @a), Rb(@a))                                                       # Allowed utf32 characters array
  }
+
+sub Nasm::X86::Unisyn::Lex::AlphabetFromUtf32($)                                # Return the name of the alphabet containing a utf32 character
+  {my ($utf32) = @_;                                                            # The utf32 code point
+   my $U = $utf32 =~ s(\A\s*\\U) ()sr;                                          # Remove junk at front of present
+   my $u = eval "0x$U";
+   for my $a(qw(A p v q s b B d e a f g h i j k l m w))
+    {my @u = eval "Nasm::X86::Unisyn::Lex::Letter::$a";
+     my %u = map {$_=>1} @u;
+     if ($u{$u})
+      {confess "$utf32 occurs in $a";
+      }
+    }
+  confess "$utf32 does not occur in any alphabet";
+ }
+#Nasm::X86::Unisyn::Lex::AlphabetFromUtf32('a');
+#Nasm::X86::Unisyn::Lex::AlphabetFromUtf32('1D7EC');
 
 sub Nasm::X86::Unisyn::Lex::letterToNumber                                      # Map each letter in the union of the alphabets to a sequential number
  {my %a;                                                                        # Letters mapped to unique numbers
@@ -11305,7 +11304,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11307 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11306 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
