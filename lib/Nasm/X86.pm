@@ -9542,6 +9542,24 @@ sub Nasm::X86::Unisyn::Lex::Letter::w                                           
    0x2008, 0x2009, 0x200A, 0x202F, 0x205F, 0x3000)
  }
 
+sub Nasm::X86::Unisyn::Lex::Number::nA {21}                                     #P Numbers - FULLWIDTH DIGIT
+sub Nasm::X86::Unisyn::Lex::Letter::nA {(0xFF10..0xFF10+9)}                     #P
+
+sub Nasm::X86::Unisyn::Lex::Number::nB {22}                                     #P Numbers - MATHEMATICAL BOLD
+sub Nasm::X86::Unisyn::Lex::Letter::nB {(0x1D7CE..0x1D7CE+9)}                   #P
+
+sub Nasm::X86::Unisyn::Lex::Number::nC {23}                                     #P Numbers - MATHEMATICAL DOUBLE-STRUCK
+sub Nasm::X86::Unisyn::Lex::Letter::nC {(0x1D7D8..0x1D7D8+9)}                   #P
+
+sub Nasm::X86::Unisyn::Lex::Number::nD {24}                                     #P Numbers - MATHEMATICAL SANS-SERIF
+sub Nasm::X86::Unisyn::Lex::Letter::nD {(0x1D7E2..0x1D7E2+9)}                   #P
+
+sub Nasm::X86::Unisyn::Lex::Number::nE {25}                                     #P Numbers - MATHEMATICAL SANS-SERIF BOLD
+sub Nasm::X86::Unisyn::Lex::Letter::nE {(0x1D7EC..0x1D7EC+9)}                   #P
+
+sub Nasm::X86::Unisyn::Lex::Number::nF {26}                                     #P Numbers - MATHEMATICAL MONOSPACE
+sub Nasm::X86::Unisyn::Lex::Letter::nF {(0x1D7F6..0x1D7F6+9)}                   #P
+
 # Add: 1d5a0 ,  0x1d608,   0x1d49c,  0x1d4d0,  0x1d504,     0x1d56c,  0x1d670,  0x1d538
 
 sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    # Compose phrases of Unisyn and return them as a string
@@ -11304,7 +11322,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11306 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11324 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
