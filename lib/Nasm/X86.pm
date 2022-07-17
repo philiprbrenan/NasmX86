@@ -9561,10 +9561,8 @@ sub Nasm::X86::Unisyn::Lex::Number::nF {26}                                     
 sub Nasm::X86::Unisyn::Lex::Letter::nF {(0x1D7F6..0x1D7F6+9)}                   #P
 
 sub Nasm::X86::Unisyn::Lex::AlphabetNames                                       #P The names of the alphabets
- {qw(A p v q s b B d e a f g h i j k l m w nA nB nC nD nE nF)
+ {qw(A p v q s b B d e a f g h i j k l m w nA nB nC nD nE nF S F)
  }
-
-# Add numbers above as entities like variables
 
 sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    # Compose phrases of Unisyn and return them as a string
  {my ($words) = @_;                                                             # String of words
@@ -9626,29 +9624,30 @@ sub Nasm::X86::Unisyn::Lex::composeUnisyn($)                                    
    }
 
   for my $w(split /\s+/, $words)
-   {if ($w =~ m(\A[aAbBdefghijklmpqsSvw]))
-     {if    ($w =~ m(\AA(.*)))  {$s .= $1}                                      # Ascii - normal letters where possible
-      elsif ($w =~ m(\Aa=))     {$s .= "＝"}                                     # Assign chosen by number
-      elsif ($w =~ m/\Ab\(/)    {$s .= '【'}                                     # Open bracket
-      elsif ($w =~ m/\Ab\[/)    {$s .= '⟦'}                                     # Open bracket
-      elsif ($w =~ m/\Ab\</)    {$s .= '⟨'}                                     # Open bracket
-      elsif ($w =~ m(\Ab(\d+))) {$s .= c $1, "b"}                               # Open bracket
-      elsif ($w =~ m/\AB\)/)    {$s .= '】'}                                     # Open bracket
-      elsif ($w =~ m/\AB\]/)    {$s .= '⟧'}                                     # Open bracket
-      elsif ($w =~ m/\AB\>/)    {$s .= '⟩'}                                     # Open bracket
-      elsif ($w =~ m(\AB(\d+))) {$s .= c $1, "B"}                               # Close bracket
-      elsif ($w =~ m(\Am\*))    {$s .= "✕"}                                     # Multiply
-      elsif ($w =~ m(\Am\+))    {$s .= "＋"}                                     # Plus
-      elsif ($w =~ m(\Ap(\d+))) {$s .= c $1, "p"}                               # Prefix chosen by number
-      elsif ($w =~ m(\Aq(\d+))) {$s .= c $1, "q"}                               # Suffix chosen by number
-      elsif ($w =~ m(\A[s;]\Z)) {$s .= c  0, "s"}                               # Semicolon
-      elsif ($w =~ m(\AS\Z))    {$s .= ' '}                                     # Space
-      elsif ($w =~ m(\Aw\Z))    {$s .= ' '}                                     # Single space
-      elsif ($w =~ m(\Aw(\d+))) {$s .= ' ' x $1}                                # Spaces
+   {if ($w =~ m(\A[aAbBdefghijklmnpqsSvw]))
+     {if    ($w =~ m(\AA(.*)))          {$s .= $1}                              # Ascii - normal letters where possible
+      elsif ($w =~ m(\Aa=))             {$s .= "＝"}                             # Assign chosen by number
+      elsif ($w =~ m/\Ab\(/)            {$s .= '【'}                             # Open bracket
+      elsif ($w =~ m/\Ab\[/)            {$s .= '⟦'}                             # Open bracket
+      elsif ($w =~ m/\Ab\</)            {$s .= '⟨'}                             # Open bracket
+      elsif ($w =~ m(\Ab(\d+)))         {$s .= c $1, "b"}                       # Open bracket
+      elsif ($w =~ m/\AB\)/)            {$s .= '】'}                             # Open bracket
+      elsif ($w =~ m/\AB\]/)            {$s .= '⟧'}                             # Open bracket
+      elsif ($w =~ m/\AB\>/)            {$s .= '⟩'}                             # Open bracket
+      elsif ($w =~ m(\AB(\d+)))         {$s .= c $1, "B"}                       # Close bracket
+      elsif ($w =~ m(\Am\*))            {$s .= "✕"}                             # Multiply
+      elsif ($w =~ m(\Am\+))            {$s .= "＋"}                             # Plus
+      elsif ($w =~ m(\An([A-F])(\d+))i) {$s .= c $2, "n$1"}                     # Number
+      elsif ($w =~ m(\Ap(\d+)))         {$s .= c $1, "p"}                       # Prefix chosen by number
+      elsif ($w =~ m(\Aq(\d+)))         {$s .= c $1, "q"}                       # Suffix chosen by number
+      elsif ($w =~ m(\A[s;]\Z))         {$s .= c  0, "s"}                       # Semicolon
+      elsif ($w =~ m(\AS\Z))            {$s .= ' '}                             # Space
+      elsif ($w =~ m(\Aw\Z))            {$s .= ' '}                             # Single space
+      elsif ($w =~ m(\Aw(\d+)))         {$s .= ' ' x $1}                        # Spaces
       else
        {my $a = substr($w, 0, 1);
-        if    ($w =~ m(\A$a(\d+))) {c $1, $a}                                   # Dyad chosen by number
-        elsif ($w =~ m(\A$a(\w+))) {w $1, $a}                                   # Dyad chosen by letter
+        if    ($w =~ m(\A$a(\d+)))      {c $1, $a}                              # Dyad chosen by number
+        elsif ($w =~ m(\A$a(\w+)))      {w $1, $a}                              # Dyad chosen by letter
        }
      }
     else
@@ -9709,6 +9708,14 @@ sub Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray()                       
   for my $x(keys %x)
    {if ($x{$x}{$d})                                                             # If something can be followed by a dyad then it can be followed by any dyad
      {$x{$x}{$_} = 1 for @d;
+     }
+   }
+
+  $x{$_} = $x{$v} for @n;                                                       # The numbers can replace variables
+
+  for my $x(keys %x)
+   {if ($x{$x}{$v})                                                             # If something can be followed by a variable then it can be followed by a number
+     {$x{$x}{$_} = 1 for @n;
      }
    }
 
@@ -9884,29 +9891,29 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
   my ($letterToNumberN, $letterToNumberA) =                                     # Map utf32 to letter number because it is smaller than a dword and so can be conveniently used to designate the lexical number of single character items
                                          Nasm::X86::Unisyn::Lex::letterToNumber;
 
-  my $dumpStack = sub                                                           # Dump the parse stack
-   {my $i = V i => 0;                                                           # Position in stack
-    PrintOutStringNL "Dump parse stack";
-
-    $stack->stackVariableSize->for(sub                                          # Each item on stack
-     {my ($i, $start, $next, $end) = @_;
-      my $o = $stack->stackVariable($i);
-      $parse->getZmmBlock($o, 4);
-      my $t = dFromZ(4, $dWidth * Nasm::X86::Unisyn::Lex::type);
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::S), Then {PrintOutString "Start    "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::F), Then {PrintOutString "End      "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::A), Then {PrintOutString "ASCII    "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::l), Then {PrintOutString "Infix3   "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::p), Then {PrintOutString "Prefix   "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::a), Then {PrintOutString "Assign   "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::v), Then {PrintOutString "Variable "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::q), Then {PrintOutString "Suffix   "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::s), Then {PrintOutString "Seperator"};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::m), Then {PrintOutString "Infix4   "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::b), Then {PrintOutString "Open     "};
-      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::B), Then {PrintOutString "Close    "};
-     });
-   };
+#  my $dumpStack = sub                                                           # Dump the parse stack
+#   {my $i = V i => 0;                                                           # Position in stack
+#    PrintOutStringNL "Dump parse stack";
+#
+#    $stack->stackVariableSize->for(sub                                          # Each item on stack
+#     {my ($i, $start, $next, $end) = @_;
+#      my $o = $stack->stackVariable($i);
+#      $parse->getZmmBlock($o, 4);
+#      my $t = dFromZ(4, $dWidth * Nasm::X86::Unisyn::Lex::type);
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::S), Then {PrintOutString "Start    "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::F), Then {PrintOutString "End      "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::A), Then {PrintOutString "ASCII    "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::l), Then {PrintOutString "Infix3   "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::p), Then {PrintOutString "Prefix   "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::a), Then {PrintOutString "Assign   "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::v), Then {PrintOutString "Variable "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::q), Then {PrintOutString "Suffix   "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::s), Then {PrintOutString "Seperator"};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::m), Then {PrintOutString "Infix4   "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::b), Then {PrintOutString "Open     "};
+#      If $t == K(t => Nasm::X86::Unisyn::Lex::Number::B), Then {PrintOutString "Close    "};
+#     });
+#   };
 
   my $updateLength = sub                                                        # Update the length of the previous lexical item
    {If $lastNew >= 0,
@@ -10168,7 +10175,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      }
    };
 
-  my $v = sub                                                                   # Variable
+  my $v = my $nA = my $nB = my $nC = my $nD = my $nE = my $nF = sub             # Variable or number
    {#PrintErrStringNL "Type: v";
     my $p = &$prev;
     &$new;
@@ -10327,7 +10334,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
        {my ($end, $start) = @_;                                                 # Code with labels supplied
 
         my %l = map {$_ => eval "Nasm::X86::Unisyn::Lex::Number::$_"}           # Lexical items to lexical item numbers
-          qw(w a A b B l m p q s v d e f g h i j k S F);
+          Nasm::X86::Unisyn::Lex::AlphabetNames;
         my @l = sortHashKeysByIntegerValues \%l;                                # Sort the lexical item types into numerical order
         my @c;                                                                  # Check numbers are unique and sequential
         my @L;                                                                  # Labels
@@ -10351,7 +10358,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
           Jmp $end;
          }
 
-        confess "Lexical items do not start zero" unless defined $c[0];         # Check that the lexical item numbers can be used to create a jump table
+        confess "Lexical items do not start zero" unless grep {$c[$_-1]} 1..@c; # Check that the lexical item numbers can be used to create a jump table
         confess "Gaps in lexical items numbers"   unless @c == @l;
         for my $i(@c)
          {confess "Missing lexical item at $i"    unless ($c[$i]//0) == 1;      # Each jump has one lexical item
@@ -11333,7 +11340,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11335 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11342 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19633,7 +19640,7 @@ Area     Size:     4096    Used:       66
 END
  }
 
-latest:;
+#latest:;
 if (1)                                                                          #TNasm::X86::Variable::at #TNasm::X86::Variable::addressExpr #TNasm::X86::Variable::call #TNasm::X86::Variable::clearBit #TNasm::X86::Variable::clearMaskBit #TNasm::X86::Variable::clearMemory #TNasm::X86::Variable::copyMemory #TNasm::X86::Variable::isRef #TNasm::X86::Variable::loadZmm #TNasm::X86::Variable::printOutMemory #TNasm::X86::Variable::printOutMemoryNL #TNasm::X86::Variable::setBit #TNasm::X86::Variable::setMaskBit #TNasm::X86::Variable::setMaskFirst #TNasm::X86::Variable::spaces #TNasm::X86::Variable::str
  {my $a = V(key => 0x123);
   is_deeply $a->at,           "[rbp-8*(2)]";
@@ -19861,6 +19868,23 @@ END
 #latest:
 if (0) {                                                                        #TAssemble
   ok Assemble eq => <<END, mix=>1;
+END
+ }
+
+
+latest:;
+if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder
+  my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("nA2 m+ nB3");
+  my $t = '２＋𝟑';
+  is_deeply $u, $t;
+
+  my $p = &ParseUnisyn(constantString $t);                                      # Parse the utf8 string minus the final new line
+
+  $p->dumpPostOrder;
+  ok Assemble eq <<END;
+._２
+._𝟑
+＋
 END
  }
 
