@@ -20047,7 +20047,7 @@ if (1) {                                                                        
   my $f = "lib/NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
 
   ParseUnisynEx $f;
-exit;
+
   my $p = &ParseUnisynCall($f, constantString  qq(1𝕣𝕖𝕥2));
 
   $p->dumpParseResult;
