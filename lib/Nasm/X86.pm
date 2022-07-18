@@ -18919,8 +18919,6 @@ END
     my (undef, $s) = $a->readLibraryHeader;                                     # Create a string key tree mapping the subroutine numbers to subroutine offsets
 
     $s->getKeyString(constantString $sub);                                      # Look  up the offset of the containing subroutine
-$a->address->d;
-$s->data->d;
     $t->call(parameters=>{a        => K key => 0x6661},
                           override => $a->address + $s->data);
 
@@ -18942,10 +18940,6 @@ END
 
   unlink $f;
  }
-
-
-exit;
-
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Tree::uniqueKeyString #TNasm::X86::Tree::getKeyString
