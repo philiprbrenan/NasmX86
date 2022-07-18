@@ -1559,12 +1559,10 @@ sub Nasm::X86::Area::writeLibraryHeader($$)                                     
   $o                                                                            # Return the offset of the library header in the area
  }
 
-sub Nasm::X86::Area::readLibraryHeader($$;$)                                    #P Create a tree mapping the numbers assigned to subroutine names to the offsets of the corresponding routines in a library returning the intersection so formed mapping the lexical item numbers (not names) encountered during parsing with the matching routines in the library. Optionally a subroutine (like Nasm::X86::Unisyn::Lex::letterToNumber) can be provided that returns details of an array that maps a single utf32 character to a smaller number which will be assumed to be the number of the routine with that single letter as its name.
+sub Nasm::X86::Area::readLibraryHeader($;$$)                                    # Create a tree mapping the numbers assigned to subroutine names to the offsets of the corresponding routines in a library returning the intersection so formed mapping the lexical item numbers (not names) encountered during parsing with the matching routines in the library. Optionally a subroutine (like Nasm::X86::Unisyn::Lex::letterToNumber) can be provided that returns details of an array that maps a single utf32 character to a smaller number which will be assumed to be the number of the routine with that single letter as its name.
  {my ($area, $uniqueStrings, $singleLetterArray) = @_;                          # Area containing subroutine library, unique strings from parse, subroutine returning details of a single character mapping array
-  @_ >= 2 or confess "At least two parameters";
 
   my $a = $area;
-  my $u = $uniqueStrings;                                                       # Unique strings from parse
   my $y = $a->yggdrasil;                                                        # Establish Yggdrasil
   $y->find(&Nasm::X86::Yggdrasil::SubroutineOffsets);                           # Find subroutine offsets
 
@@ -1614,11 +1612,13 @@ sub Nasm::X86::Area::readLibraryHeader($$;$)                                    
        };
      }
 
-    $u->getKeyString(V(address => $name), V(length => "[$sub+$w]"));            # Check whether the subroutine name matches any string in the key string tree.
-    If $u->found > 0,
-    Then                                                                        # Subroutine name matches a unique string so record the mapping between string number and subroutine offset
-     {$t->put($u->data, V offset => "[$sub]");
-     };
+    if (my $u = $uniqueStrings)                                                 # Check whether the subroutine name matches any string in the key string tree.
+     {$u->getKeyString(V(address => $name), V(length => "[$sub+$w]"));
+      If $u->found > 0,
+      Then                                                                      # Subroutine name matches a unique string so record the mapping between string number and subroutine offset
+       {$t->put($u->data, V offset => "[$sub]");
+       };
+     }
     Add $name, "[$sub+$w]";
     Add $sub, 2 * $w;
    } $count;
@@ -1628,13 +1628,13 @@ sub Nasm::X86::Area::readLibraryHeader($$;$)                                    
  ($t, $s)                                                                       # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
  }
 
-sub Nasm::X86::Subroutine::subroutineDefinition($$$)                            #P Get the definition of a subroutine from an area.
- {my ($area, $file, $name) = @_;                                                # Area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
+sub Nasm::X86::Subroutine::subroutineDefinitions($$)                            # Get the definitions of subroutines as a Perl structure from a library held in an area
+ {my ($area, $file) = @_;                                                       # Area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
   my $a = readBinaryFile $file;                                                 # Reload the area
   my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
   my $c = eval $b;                                                              # Convert to Perl data structure
-  confess "Cannot extract subroutine definition from file $file\n$@\n" if $@;   # Complain if the eval failed
-  $$c{a};                                                                       # Extract subroutine definition
+  confess "Cannot extract subroutine definitions from file $file\n$@\n" if $@;  # Complain if the eval failed
+  $c                                                                            # Subroutine definitions
  }
 
 sub Nasm::X86::Subroutine::mapStructureVariables($$@)                           #P Find the paths to variables in the copies of the structures passed as parameters and replace those variables with references so that in the subroutine we can refer to these variables regardless of where they are actually defined.
@@ -8957,7 +8957,7 @@ sub Nasm::X86::Tree::getKeyString($$$)                                          
  }
 
 sub Nasm::X86::Tree::putKeyString($$$$)                                         # Associate a string of any length with a double word.
- {my ($tree, $address, $size, $data) = @_;                                      # Tree descriptor, address of key, length of key, data associated with key
+ {my ($tree, $address, $size, $data) = @_;                                      # Tree descriptor, address of key, length of key, data associated with key as either a constant or a variable
   @_ == 4 or confess "Four parameters";
 
   $tree->stringTree or confess "Not a string tree";                             # Check that we are creating a string tree
@@ -9007,8 +9007,9 @@ sub Nasm::X86::Tree::putKeyString($$$$)                                         
 
   If $tree->found == 0,                                                         # Not found so insert
   Then
-   {$s->call(parameters => {address => $address, size=>$size, data=>$data},
-            structures => {tree    => $tree});
+   {$s->call(parameters => {address => $address, size=>$size,
+                            data    => ref($data) ? $data : K(data => $data)},
+            structures  => {tree    => $tree});
     $tree->found->copy(0);                                                      # We had to insert
    };
  }
@@ -9854,25 +9855,38 @@ sub sortHashKeysByIntegerValues($)                                              
   sort {$$h{$a} <=> $$h{$b}} sort keys %$h;                                     # Done here to avoid collisions with the sort special variables,
  }
 
-sub ParseUnisyn($$%)                                                            # Parse a string of utf8 characters.
- {my ($a8, $s8, %options) = @_;                                                 # Address of utf8 source string, size of utf8 source string in bytes, subroutine options
+sub ParseUnisyn($$)                                                             # Parse a string of utf8 characters.
+ {my ($a8, $s8) = @_;                                                           # Address of utf8 source string, size of utf8 source string in bytes
 
   my $p = Nasm::X86::Unisyn::DescribeParse;                                     # Describe a parse - create a description of the parse on the stack
      $p->source->copy($a8);                                                     # Source
      $p->length->copy($s8);                                                     # Length
 
-  my $s = Subroutine                                                            # Print a tree
+  my $s = Subroutine                                                            # Parse unisyn
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     &Nasm::X86::Unisyn::Parse($$s{parse});
 
    } structures => {parse => $p},
-     name => qq(Nasm::X86::Unisyn::Parse), %options;
+     name => qq(Nasm::X86::Unisyn::Parse);
 
 
   $s->call(structures=>{parse => $p});
 
   $p
+ }
+
+sub ParseUnisynEx($)                                                            # Export a subroutine to parse unisyn.
+ {my ($file) = @_;                                                              # File to export to
+
+  Subroutine                                                                    # Pare unisyn
+   {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
+
+    &Nasm::X86::Unisyn::Parse($$s{parse});
+
+   } structures => {parse => Nasm::X86::Unisyn::DescribeParse},
+     name       => qq(Nasm::X86::Unisyn::Parse),
+     export     => $file;
  }
 
 sub Nasm::X86::Unisyn::Parse($)                                                 #P Parse a string of utf8 characters.
@@ -11357,7 +11371,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11359 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11373 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18739,7 +18753,7 @@ if (1) {                                                                        
 END
  }
 
-#latest:;
+latest:;
 if (1) {                                                                        # Create and use a library demonstrating that we can place the containing subroutine in an area, reload that area and call both the containing and the contained subroutines. #TloadAreaIntoAssembly
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
@@ -18767,32 +18781,43 @@ if (1) {                                                                        
 
   my sub mapSubroutines                                                         # Create a string tree mapping subroutine names to subroutine numbers
    {my $n = CreateArea->CreateTree(stringTree=>1);
-    $n->putKeyString(constantString("abcd"), K offset => 0);
-    $n->putKeyString(constantString("a"),    K offset => 1);
-    $n->putKeyString(constantString("b"),    K offset => 2);
+    $n->putKeyString(constantString("abcd"), 0);
+    $n->putKeyString(constantString("a"),    1);
+    $n->putKeyString(constantString("b"),    2);
     $n
    }
 
   if (1)                                                                        # Read a library and call the subroutines there-in
    {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-    my ($inter, $symbols) = $a->readLibraryHeader(mapSubroutines);              # Create a tree mapping the subroutine numbers to subroutine offsets
+    my ($inter) = $a->readLibraryHeader(mapSubroutines);                        # Create a tree mapping the subroutine numbers to subroutine offsets
 
-    $inter->find(K sub => 1);                                                   # Look up the offset of the first subroutine
+    $inter->find(0);                                                            # Look up the offset of the containing subroutine
 
     If $inter->found > 0,
     Then
-     {$t->call(parameters=>{a => K key => 0x9999},                              # Call position independent code
+     {$t->call(parameters=>{a => K key => 0x5555},
                             override => $a->address + $inter->data);
      },
     Else
      {PrintOutStringNL "Unable to locate subroutine 'a'";
      };
 
-    $inter->find(K sub => 2);                                                   # Look  up the offset of the second subroutine
+    $inter->find(1);                                                            # Look up the offset of the first subroutine
 
     If $inter->found > 0,
     Then
-     {$t->call(parameters=>{a        => K key => 0x9999},                       # Call position independent code
+     {$t->call(parameters=>{a => K key => 0x9999},
+                            override => $a->address + $inter->data);
+     },
+    Else
+     {PrintOutStringNL "Unable to locate subroutine 'a'";
+     };
+
+    $inter->find(2);                                                            # Look  up the offset of the second subroutine
+
+    If $inter->found > 0,
+    Then
+     {$t->call(parameters=>{a        => K key => 0x9999},
                             override => $a->address + $inter->data);
      },
     Else
@@ -18801,26 +18826,52 @@ if (1) {                                                                        
    }
 
   ok Assemble eq=><<END;
+abcd
+a: .... .... .... 5555
    rax: .... .... .... .111
    rax: .... .... .... 9999
 END
   ok -e $f;                                                                     # Confirm we have created the library
 
-  if (1)                                                                        # Include a library in a program
+  if (1)                                                                        # Include a library in a program then decode the subroutine offsets via an intersection tree
    {my $a = loadAreaIntoAssembly $f;                                            # Load the library from the file it was exported to
-    my ($inter, $subroutines) = $a->readLibraryHeader(mapSubroutines);          # Create a tree mapping the subroutine numbers to subroutine offsets
+    my ($i) = $a->readLibraryHeader(mapSubroutines);                            # Create a tree mapping the subroutine numbers to subroutine offsets
 
-    $inter->find(K sub => 0);                                                   # Look  up the offset of the containing subroutine
-    $t->call(parameters=>{a        => K key => 0x6666},                         # Call position independent code
-                          override => $a->address + $inter->data);
+    $i->find(0);                                                                # Look  up the offset of the containing subroutine
+    $t->call(parameters=>{a        => K key => 0x6666},
+                          override => $a->address + $i->data);
 
-    $inter->find(K sub => 1);                                                   # Look  up the offset of the first subroutine
-    $t->call(parameters=>{a        => K key => 0x7777},                         # Call position independent code
-                          override => $a->address + $inter->data);
+    $i->find(1);                                                                # Look  up the offset of the first subroutine
+    $t->call(parameters=>{a        => K key => 0x7777},
+                          override => $a->address + $i->data);
 
-    $inter->find(K sub => 2);                                                   # Look  up the offset of the second subroutine
-    $t->call(parameters=>{a        => K key => 0x8888},                         # Call position independent code
-                          override => $a->address + $inter->data);
+    $i->find(2);                                                                # Look  up the offset of the second subroutine
+    $t->call(parameters=>{a        => K key => 0x8888},
+                          override => $a->address + $i->data);
+   }
+
+  ok Assemble eq=><<END;
+abcd
+a: .... .... .... 6666
+   rax: .... .... .... .111
+   rax: .... .... .... 8888
+END
+
+  if (1)                                                                        # Include a library in a program then decode names via key string tree
+   {my $a = loadAreaIntoAssembly $f;                                            # Load the library from the file it was exported to
+    my (undef, $s) = $a->readLibraryHeader;                                     # Create a string key tree mapping the subroutine numbers to subroutine offsets
+
+    $s->getKeyString(constantString "abcd");                                    # Look  up the offset of the containing subroutine
+    $t->call(parameters=>{a        => K key => 0x6666},
+                          override => $a->address + $s->data);
+
+    $s->getKeyString(constantString "a");                                       # Look  up the offset of the first subroutine
+    $t->call(parameters=>{a        => K key => 0x7777},
+                          override => $a->address + $s->data);
+
+    $s->getKeyString(constantString "b");                                       # Look  up the offset of the second subroutine
+    $t->call(parameters=>{a        => K key => 0x8888},
+                          override => $a->address + $s->data);
    }
 
   ok Assemble eq=><<END;
