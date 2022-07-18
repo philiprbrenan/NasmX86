@@ -19990,7 +19990,7 @@ END
   unlink $f;
  };
 
-#latest:;
+latest:;
 if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder
   my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("A1 dret A2");
   my $t = '1𝕣𝕖𝕥2';
@@ -20021,9 +20021,10 @@ if (1) {
   SetLabel $endGetRip;
   Align $N;
   Call $getRip;
-  PrintErrRegisterInHex rax;
+  PrintOutRegisterInHex rax;
 
   ok Assemble eq => <<END, trace=>1;
+   rax: .... .... .... ...0
 END
  };
 
