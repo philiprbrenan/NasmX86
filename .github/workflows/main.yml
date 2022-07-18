@@ -1,4 +1,4 @@
-# Test NasmX86 2022-07-18 at 06:09:05
+# Test NasmX86 2022-07-18 at 06:21:57
 
 name: Test
 
@@ -112,7 +112,7 @@ jobs:
 
     - name: Test1
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 1
 
     - name: Result1
       run: |
@@ -170,7 +170,7 @@ jobs:
 
     - name: Test2
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 2
 
     - name: Result2
       run: |
@@ -228,7 +228,7 @@ jobs:
 
     - name: Test3
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 3
 
     - name: Result3
       run: |
@@ -286,7 +286,7 @@ jobs:
 
     - name: Test4
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 4
 
     - name: Result4
       run: |
@@ -344,7 +344,7 @@ jobs:
 
     - name: Test5
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 5
 
     - name: Result5
       run: |
@@ -402,7 +402,7 @@ jobs:
 
     - name: Test6
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 6
 
     - name: Result6
       run: |
@@ -460,7 +460,7 @@ jobs:
 
     - name: Test7
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 7
 
     - name: Result7
       run: |
@@ -518,7 +518,7 @@ jobs:
 
     - name: Test8
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 8
 
     - name: Result8
       run: |
@@ -576,7 +576,7 @@ jobs:
 
     - name: Test9
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 9
 
     - name: Result9
       run: |
@@ -634,7 +634,7 @@ jobs:
 
     - name: Test10
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 10
 
     - name: Result10
       run: |
@@ -692,7 +692,7 @@ jobs:
 
     - name: Test11
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 11
 
     - name: Result11
       run: |
@@ -750,7 +750,7 @@ jobs:
 
     - name: Test12
       run: |
-        perl -Ilib lib/Nasm/X86.pm $test
+        perl -Ilib lib/Nasm/X86.pm 12
 
     - name: Result12
       run: |
