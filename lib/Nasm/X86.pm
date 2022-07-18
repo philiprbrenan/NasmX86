@@ -1502,7 +1502,12 @@ sub Nasm::X86::Subroutine::writeLibraryToArea($$)                               
   $y->put(&Nasm::X86::Yggdrasil::SubroutineOffsets, $h);                        # Record the location of the library header
 
   if (1)                                                                        # Save the definitions of the subs in this area
-   {my $s = "SubroutineDefinitions:".dump(\%saved)."ZZZZ";                      # String to save
+   {my %safed = %saved;
+    for my $k(sort keys %saved)
+     {delete $safed{$k}{block};                                                     # Remove subroutine references that cannot be safely dumped
+     }
+
+    my $s = "SubroutineDefinitions:".dump(\%safed)."ZZZZ";                      # String to save
     my $d = $a->appendMemory(constantString($s));                               # Offset of string containing subroutine definition
     $y->put(&Nasm::X86::Yggdrasil::SubroutineDefinitions, $d);                  # Record the offset of the subroutine definition under the unique string number for this subroutine
    }
@@ -1628,10 +1633,10 @@ sub Nasm::X86::Area::readLibraryHeader($;$$)                                    
  ($t, $s)                                                                       # Tree mapping subroutine assigned numbers to subroutine offsets in the library area
  }
 
-sub Nasm::X86::Subroutine::subroutineDefinitions($$)                            # Get the definitions of subroutines as a Perl structure from a library held in an area
+sub Nasm::X86::Area::subroutineDefinitions($$)                                  # Get the definitions of subroutines as a Perl structure from a library held in an area
  {my ($area, $file) = @_;                                                       # Area - but only to get easy access to this routine, file containing area, name of subroutine whose details we want
   my $a = readBinaryFile $file;                                                 # Reload the area
-  my $b = $a =~ m(SubroutineDefinitions:(.*)ZZZZ)s ? $1 : '';                   # Extract Perl subroutine definition code from area as a string
+  my $b = $a =~ m(SubroutineDefinitions:(.*?)ZZZZ)s ? $1 : '';                  # Extract Perl subroutine definition code from area as a string
   my $c = eval $b;                                                              # Convert to Perl data structure
   confess "Cannot extract subroutine definitions from file $file\n$@\n" if $@;  # Complain if the eval failed
   $c                                                                            # Subroutine definitions
@@ -9876,17 +9881,55 @@ sub ParseUnisyn($$)                                                             
   $p
  }
 
-sub ParseUnisynEx($)                                                            # Export a subroutine to parse unisyn.
+sub ParseUnisynEx($)                                                            # Export the subroutine to parse unisyn to a library file.
  {my ($file) = @_;                                                              # File to export to
 
-  Subroutine                                                                    # Pare unisyn
+  unlink $file if -e $file;
+
+  Subroutine                                                                    # Parse unisyn
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
     &Nasm::X86::Unisyn::Parse($$s{parse});
 
    } structures => {parse => Nasm::X86::Unisyn::DescribeParse},
-     name       => qq(Nasm::X86::Unisyn::Parse),
+     name       => q(Nasm::X86::Unisyn::Parse),
      export     => $file;
+
+  &Assemble();                                                                  # Assemble the library
+ }
+
+sub ParseUnisynEx2($)                                                           # Export the subroutine to parse unisyn to a library file.
+ {my ($file) = @_;                                                              # File to export to
+
+  unlink $file if -e $file;
+
+  Subroutine                                                                    # Parse unisyn
+   {PrintOutStringNL "In subAAA";
+   } name       => q(Nasm::X86::Unisyn::Parse),
+     export     => $file;
+
+  &Assemble();                                                                  # Assemble the library
+ }
+
+sub ParseUnisynCall($$$)                                                        # Load and call the subroutine to parse unisyn from a library file.
+ {my ($file, $source, $length) = @_;                                            # File to import from, address of source as a variable, length of source as a variable
+
+  my $a = loadAreaIntoAssembly $file;                                           # Load the library from the file it was exported to
+  my (undef, $s) = $a->readLibraryHeader;                                       # Read the library header to the get the sub routine definitions
+
+  my $d = $a->subroutineDefinitions($file);                                     # Reread the library file to get the subroutine definitions in Perl format
+
+  my $t = $$d{"Nasm::X86::Unisyn::Parse"} or                                    # Parse routine definition
+    confess "Cannot find Nasm::X86::Unisyn::Parse in library $file";
+
+  my $p = Nasm::X86::Unisyn::DescribeParse;                                     # Describe a parse - create a description of the parse on the stack
+  $p->source->copy($source);                                                    # Source
+  $p->length->copy($length);                                                    # Length
+
+  $s->getKeyString(constantString q(Nasm::X86::Unisyn::Parse));                 # Look  up the offset of the containing subroutine
+  $t->call(structures=>{parse => $p}, override => $a->address + $s->data);      # Call parse routine
+
+  $p                                                                            # Return parse description
  }
 
 sub Nasm::X86::Unisyn::Parse($)                                                 #P Parse a string of utf8 characters.
@@ -9919,8 +9962,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
   my $dWidth      = RegisterSize eax;                                           # Size of a dword
 
   my ($alphabetN, $alphabetA) = Nasm::X86::Unisyn::Lex::AlphabetsArray;         # Mapping of characters to alphabets
-  my ($letterToNumberN, $letterToNumberA) =                                     # Map utf32 to letter number because it is smaller than a dword and so can be conveniently used to designate the lexical number of single character items
-                                         Nasm::X86::Unisyn::Lex::letterToNumber;
+#  my ($letterToNumberN, $letterToNumberA) =                                     # Map utf32 to letter number because it is smaller than a dword and so can be conveniently used to designate the lexical number of single character items
+#                                         Nasm::X86::Unisyn::Lex::letterToNumber;
 
 #  my $dumpStack = sub                                                           # Dump the parse stack
 #   {my $i = V i => 0;                                                           # Position in stack
@@ -10262,8 +10305,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      {Mov $lexType, -1;                                                         # Show invalid character
      },
     Else                                                                        # Character is in range
-     {Mov rdx, $alphabetA;                                                      # Classify character into an alphabet
-      Add rdx, $char->addressExpr;                                              # Position in alphabets array
+     {Lea rdx, "[$alphabetA]";                                                  # Classify character into an alphabet
+      Add rdx, rsi;                                                             # Position in alphabets array
       Mov byteRegister rdx, "[rdx]";                                            # Classify letter
       And rdx, 0xFF;                                                            # Clear rest of register
 
@@ -10343,7 +10386,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
         Add rsi, $lexType;                                                      # The index into the allowed transitions array
 
         my ($tN, $tA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;    # Load permissible transitions
-        Mov rax, $tA;
+        Lea rax, "[$tA]";
         Add rsi, rax;
         Mov al, "[rsi]";                                                        # Place transition symbol in low byte
 
@@ -10371,12 +10414,9 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
         my @L;                                                                  # Labels
         my $jumpTable = Label;                                                  # Start of jump table
 
-        Comment "Jump to table";
         $last->setReg(rax);
-        Shl rax, 4;
-        Mov rsi, $jumpTable;
-        Add rax, rsi;
-        Jmp rax;
+        Mov rax, $lexType;
+        Jmp $jumpTable;
 
         for my $L(@l)                                                           # Create code to process each lexical item depending on its type
          {my $n = eval "Nasm::X86::Unisyn::Lex::Number::$L";
@@ -10396,13 +10436,19 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
          }
 
         Comment "Jump Table target";
-        Align 16;
+        my $rip = SetLabel;
+        Pop rsi;
+        Add rax, rsi;
+        Push rax;
+        Ret;
         SetLabel $jumpTable;
+        $last->setReg(rax);
+        Shl rax, 4;
+        Call $rip;
         for my $L(@L)                                                           # The jump table
          {Jmp $L;                                                               # Jump to code that will process the lexical item
           Align 16;
          }
-
         Align 1024;
         PrintErrTraceBack "Unexpected lexical type" if $DebugMode;              # Something unexpected came along
        };
@@ -11371,7 +11417,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11373 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11419 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18753,8 +18799,8 @@ if (1) {                                                                        
 END
  }
 
-latest:;
-if (1) {                                                                        # Create and use a library demonstrating that we can place the containing subroutine in an area, reload that area and call both the containing and the contained subroutines. #TloadAreaIntoAssembly
+#latest:;
+if (1) {                                                                        #TNasm::X86::Area::readLibraryHeader # Create and use a library demonstrating that we can place the containing subroutine in an area, reload that area and call both the containing and the contained subroutines. #TloadAreaIntoAssembly
   unlink my $f = q(zzzArea.data);
   my $sub = "abcd";
 
@@ -18773,7 +18819,18 @@ if (1) {                                                                        
       PrintOutRegisterInHex rax;
      } name => 'b', parameters=>[qw(a)];
 
-    PrintOutStringNL "abcd";
+    PrintOutStringNL 'abcd';
+#my $end = Label;
+#Call $end;
+#SetLabel $end;
+#Pop rax;
+#PrintErrStringNL "AAAA";
+#PrintErrRegisterInHex rax;
+#my $data = Rb(1,2,3,4);
+#Lea rax, "[$data]";
+#Mov al, "[rax+2]";
+#PrintErrRegisterInHex rax;
+
     $$p{a}->outNL;
    } name => $sub, parameters=>[qw(a)], export => $f;                           # Export the library
 
@@ -18781,7 +18838,7 @@ if (1) {                                                                        
 
   my sub mapSubroutines                                                         # Create a string tree mapping subroutine names to subroutine numbers
    {my $n = CreateArea->CreateTree(stringTree=>1);
-    $n->putKeyString(constantString("abcd"), 0);
+    $n->putKeyString(constantString($sub),   0);
     $n->putKeyString(constantString("a"),    1);
     $n->putKeyString(constantString("b"),    2);
     $n
@@ -18861,28 +18918,34 @@ END
    {my $a = loadAreaIntoAssembly $f;                                            # Load the library from the file it was exported to
     my (undef, $s) = $a->readLibraryHeader;                                     # Create a string key tree mapping the subroutine numbers to subroutine offsets
 
-    $s->getKeyString(constantString "abcd");                                    # Look  up the offset of the containing subroutine
-    $t->call(parameters=>{a        => K key => 0x6666},
+    $s->getKeyString(constantString $sub);                                      # Look  up the offset of the containing subroutine
+$a->address->d;
+$s->data->d;
+    $t->call(parameters=>{a        => K key => 0x6661},
                           override => $a->address + $s->data);
 
     $s->getKeyString(constantString "a");                                       # Look  up the offset of the first subroutine
-    $t->call(parameters=>{a        => K key => 0x7777},
+    $t->call(parameters=>{a        => K key => 0x7771},
                           override => $a->address + $s->data);
 
     $s->getKeyString(constantString "b");                                       # Look  up the offset of the second subroutine
-    $t->call(parameters=>{a        => K key => 0x8888},
+    $t->call(parameters=>{a        => K key => 0x8881},
                           override => $a->address + $s->data);
    }
 
   ok Assemble eq=><<END;
 abcd
-a: .... .... .... 6666
+a: .... .... .... 6661
    rax: .... .... .... .111
-   rax: .... .... .... 8888
+   rax: .... .... .... 8881
 END
 
   unlink $f;
  }
+
+
+exit;
+
 
 #latest:;
 if (1) {                                                                        #TNasm::X86::Tree::uniqueKeyString #TNasm::X86::Tree::getKeyString
@@ -19933,36 +19996,7 @@ END
   unlink $f;
  };
 
-latest:
-if (0) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators #TParseUnisyn #TNasm::X86::Unisyn::Parse::dumpParseResult
-  my $f = "lib/NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
-
-  my $library = Subroutine                                                      # This subroutine and all of the subroutines it contains will be saved in an area and that area will be written to a file from where it can be included via L<incBin> in subsequent assemblies.
-   {Subroutine                                                                  # A contained routine that we wish to export to a file
-     {my ($p, $s, $sub) = @_;
-
-      my $parse = ParseUnisyn($$p{source}, $$p{length});                        # Parse the utf8 string for the specified length
-
-      $$s{parse}->copy($parse);
-
-     } name       => "parse",
-       structures => {parse => Nasm::X86::Unisyn::DescribeParse},
-       parameters => [qw(source length)];
-
-   } export => $f;
-
-  ok Assemble eq => <<END;
-END
- };
-
-#latest:
-if (0) {                                                                        #TAssemble
-  ok Assemble eq => <<END, mix=>1;
-END
- }
-
-
-latest:;
+#latest:;
 if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder
   my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("A1 dret A2");
   my $t = '1𝕣𝕖𝕥2';
@@ -19975,6 +20009,56 @@ if (1) {                                                                        
 ._1
 ._2
 𝕣𝕖𝕥
+END
+ }
+
+#latest:
+if (1) {
+  my $N = 32;
+  my $endGetRip = Label;
+  Jmp $endGetRip;
+  Align $N;
+  my $getRip = SetLabel;
+    Mov rax, "[rsp]";
+    Mov rsi, $getRip;
+    Sub rax, rsi;
+    Sub rax, $N+5;
+    Ret;
+  SetLabel $endGetRip;
+  Align $N;
+  Call $getRip;
+  PrintErrRegisterInHex rax;
+
+  ok Assemble eq => <<END, trace=>1;
+END
+ };
+
+latest:
+if (1) {                                                                        #TParseUnisynEx #TParseUnisynCall
+  my $f = "lib/NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
+
+  ParseUnisynEx $f;
+
+  my $p = &ParseUnisynCall($f, constantString  qq(1𝕣𝕖𝕥2));
+
+  $p->dumpParseResult;
+
+  ok Assemble eq => <<END;
+parseChar  : .... .... .... ..32
+parseFail  : .... .... .... ...0
+position   : .... .... .... ...E
+parseMatch : .... .... .... ...0
+parseReason: .... .... .... ...0
+𝕣𝕖𝕥
+._1
+._2
+END
+ };
+
+
+#latest:
+if (0) {                                                                        #TAssemble
+  ok Assemble eq => <<END, mix=>1;
 END
  }
 
