@@ -50,7 +50,7 @@ our $stdout      = 1;                                                           
 our $stderr      = 2;                                                           # File descriptor for standard error
 
 our $TraceMode   = 0;                                                           # 1: writes trace data into rax after every instruction to show the call stack by line number in this file for the instruction being executed.  This information is then visible in the sde trace from whence it is easily extracted to give a trace back for instructions executed in this mode.  This mode assumes that you will not be using the mm0 register (most people are not)and that you have any IDE like Geany that can interpret a Perl error line number and position on that line in this file.
-our $DebugMode   = 0;                                                           # 1: enables checks that take time and sometimes catch programming errors.
+our $DebugMode   = 1;                                                           # 1: enables checks that take time and sometimes catch programming errors.
 our $LibraryMode = 0;                                                           # 1: we are building a library so constants must appear in line in the text section rather than in a block in the data section
 
 my %Registers;                                                                  # The names of all the registers
@@ -493,9 +493,20 @@ sub Rutf8(@)                                                                    
   return $L if defined $L;                                                      # Data already exists so return it
   my $l = Label;                                                                # New label for new data
   $rodatas{$e} = $l;                                                            # Record label
-  push @rodata, <<END;                                                          # Define bytes
+
+  if ($LibraryMode)                                                             # Place the string in line if we are in library mode
+   {my $end = Label;
+    Jmp $end;
+    push @text, <<END;
   $l: db  $e, 0;
 END
+    SetLabel $end;
+   }
+  else                                                                          # Place string  in read only date as we are not in library mode
+   {push @rodata, <<END;
+  $l: db  $e, 0;
+END
+   }
   $l                                                                            # Return label
  }
 
@@ -1400,17 +1411,24 @@ sub Subroutine(&%)                                                              
      }
    }
 
-  my %subroutinesSaved;                                                         # Current set of subroutine definitions
-  my %rodataSaved;                                                              # Current set of read only elements
-  my %rodatasSaved;                                                             # Current set of read only strings
+#  my %subroutinesSaved;                                                         # Current set of subroutine definitions
+#  my %rodataSaved;                                                              # Current set of read only elements
+#  my %rodatasSaved;                                                             # Current set of read only strings
 
   if ($export)                                                                  # Create a new set of subroutines for this routine and all of its sub routines
-   {%subroutinesSaved = %subroutines;                                           # Save current set of subroutines
-    %subroutines      = ();                                                     # New set of subroutines
-    %rodataSaved      = %rodata;                                                # Current set of read only elements
-    %rodata           = ();                                                     # New set of read only elements
-    %rodatasSaved     = %rodatas;                                               # Current set of read only strings
-    %rodatas          = ();                                                     # New set of read only strings
+   {#%subroutinesSaved = %subroutines;                                           # Save current set of subroutines
+    #%subroutines      = ();                                                     # New set of subroutines
+    #%rodataSaved      = %rodata;                                                # Current set of read only elements
+    #%rodata           = ();                                                     # New set of read only elements
+    #%rodatasSaved     = %rodatas;                                               # Current set of read only strings
+    #%rodatas          = ();                                                     # New set of read only strings
+    confess "Exporting a library but subroutines set"  if keys %subroutines;
+    confess "Exporting a library but .data set"        if @data;
+    confess "Exporting a library but .rodata set"      if @rodata;
+    confess "Exporting a library but .bss set"         if @bss;
+    confess "Exporting a library but .text set"        if @text;
+    confess "Exporting a library but externs supplied" if @extern;
+    confess "Exporting a library but links supplied"   if @link;
     $LibraryMode      = 1;                                                      # Please do not try to create a library while creating another library - create them one after the other in separate processes.
    }
 
@@ -1472,10 +1490,8 @@ END
 
   if ($export)                                                                  # Create a new set of subroutines for this routine and all of its sub routines
    {$s->writeLibraryToArea({%subroutines});                                     # Place the subroutine in an area then write the area containing the subroutine and its contained routines to a file
-    %subroutines = %subroutinesSaved;                                           # Save current set of subroutines
-    %rodata      = %rodataSaved;                                                # Restore current set of read only elements
-    %rodatas     = %rodatasSaved;                                               # Restore current set of read only strings
-    $subroutines{$name} = $s if $name;                                          # Save current subroutine so we do not regenerate it
+
+    &Assemble();                                                                # Assemble the library
     $LibraryMode = 0;                                                           # Please do not try to create a library while creating another library - create them one after the other.
    }
 
@@ -1504,11 +1520,12 @@ sub Nasm::X86::Subroutine::writeLibraryToArea($$)                               
   if (1)                                                                        # Save the definitions of the subs in this area
    {my %safed = %saved;
     for my $k(sort keys %saved)
-     {delete $safed{$k}{block};                                                     # Remove subroutine references that cannot be safely dumped
+     {delete $safed{$k}{block};                                                 # Remove subroutine references that cannot be safely dumped
      }
 
     my $s = "SubroutineDefinitions:".dump(\%safed)."ZZZZ";                      # String to save
-    my $d = $a->appendMemory(constantString($s));                               # Offset of string containing subroutine definition
+    my ($S, $L) = constantString($s);                                           # Offset of string containing subroutine definition
+    my $d = $a->appendMemory($S, $L);                                           # Offset of string containing subroutine definition
     $y->put(&Nasm::X86::Yggdrasil::SubroutineDefinitions, $d);                  # Record the offset of the subroutine definition under the unique string number for this subroutine
    }
 
@@ -3188,7 +3205,8 @@ sub constantString($)                                                           
   my $L = length($string);
   my $l = K length => $L;
   return ($l, $l) unless $L;
-  my $s = V string => Rutf8 $string;
+  my $r = Rutf8 $string;
+  my $s = V string => $r;
   ($s, $l)
  }
 
@@ -5118,7 +5136,7 @@ sub DescribeArea(%)                                                             
     freeOffset => $free,                                                        # Free chain offset
     treeOffset => $tree,                                                        # Yggdrasil - a tree of global variables in this area
     dataOffset => $data,                                                        # The start of the data
-    address    => ($address || V address => 0),                                 # Variable that addresses the memory containing the area
+    address    => $address || V('address'),                                     # Variable that addresses the memory containing the area
     zmmBlock   => $w,                                                           # Size of a zmm block - 64 bytes
     nextOffset => $w - RegisterSize(eax),                                       # Position of next offset on free chain
    );
@@ -5547,7 +5565,7 @@ sub Nasm::X86::Area::appendMemory($$$)                                          
 
     my $area = $$s{area};
     $area->address->setReg(rax);                                                # Address area
-    my $oldUsed = V("used", $used);                                             # Record currently used space
+    my $oldUsed = V(used => $used);                                             # Record currently used space
     $area->updateSpace($$p{size});                                              # Update space if needed
 
     my $target  = $oldUsed + $area->address;                                    # Where to write the copied memory to
@@ -6002,7 +6020,7 @@ sub DescribeTree(%)                                                             
     lengthRight          => $length - 1 - $l2,                                  # Right minimal number of keys
     loop                 => $b - $o,                                            # Offset of keys, data, node loop.
     maxKeys              => $length,                                            # Maximum number of keys allowed in this tree which might well ne less than the maximum we can store in a zmm.
-    offset               => V(offset  => 0),                                    # Offset of last node found
+    offset               => V('offset'),                                        # Offset of last node found
     splittingKey         => ($l2 + 1) * $o,                                     # Offset at which to split a full block
     treeBits             => $keyAreaWidth + 2,                                  # Offset of tree bits in keys block.  The tree bits field is a word, each bit of which tells us whether the corresponding data element is the offset (or not) to a sub tree of this tree .
     treeBitsMask         => 0x3fff,                                             # Total of 14 tree bits
@@ -9894,8 +9912,6 @@ sub ParseUnisynEx($)                                                            
    } structures => {parse => Nasm::X86::Unisyn::DescribeParse},
      name       => q(Nasm::X86::Unisyn::Parse),
      export     => $file;
-
-  &Assemble();                                                                  # Assemble the library
  }
 
 sub ParseUnisynEx2($)                                                           # Export the subroutine to parse unisyn to a library file.
@@ -10122,7 +10138,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
   my $d = sub {my $q = &$prev2; ifAnd [                                         # List all the operators that have higher priority than the operator mentioned
       sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::d},
       sub {$q <= K p => Nasm::X86::Unisyn::Lex::Number::m},
-      ], Then {&$triple}; &$new; PrintErrStringNL "BBBB";};
+      ], Then {&$triple}; &$new};
 
   my $e = sub {my $q = &$prev2; ifAnd [
       sub {$q >= K p => Nasm::X86::Unisyn::Lex::Number::e},
@@ -10278,9 +10294,9 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      {#PrintOutStringNL "AAAA";
       #$index->outNL;
       #$char->outNL;
-      PrintErrStringNL "AAAA";
-      $index->d;
-      $char->d;
+      #PrintErrStringNL "AAAA";
+      #$index->d;
+      #$char->d;
       #$stack->dump("Stack");
       #$parse->dump("Parse", 20);
      };
@@ -10415,7 +10431,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
 
         $last->setReg(rax);
         Shl rax, 4;
-        Lea rbx, "[$jumpTable+rax]";
+        Lea rbx, "[$jumpTable]";
+        Add rbx, rax;
         Jmp rbx;
 
         for my $L(@l)                                                           # Create code to process each lexical item depending on its type
@@ -11009,7 +11026,7 @@ sub Assemble(%)                                                                 
   my $foot       = delete $options{foot};                                       # Foot print required
   my $keep       = delete $options{keep};                                       # Keep the executable rather than running it
   my $label      = delete $options{label};                                      # Label for this test if provided
-  my $library    = delete $options{library};                                    # Create  the named library if supplied from the supplied assembler code
+# my $library    = delete $options{library};                                    # Create  the named library if supplied from the supplied assembler code
   my $list       = delete $options{list};                                       # Create and retain a listing file so we can see where a trace error occurs
   my $mix        = delete $options{mix} // ($clocks ? 1 : 0);                   # Create mix output and fix with line number locations in source - required if we want clocks
   my $ptr        = delete $options{ptr};                                        # Pointer check required
@@ -11018,7 +11035,8 @@ sub Assemble(%)                                                                 
 
   my $execFile   = $keep // q(z);                                               # Executable file
   my $listFile   = q(z.txt);                                                    # Assembler listing
-  my $objectFile = $library // q(z.o);                                          # Object file
+# my $objectFile = $library // q(z.o);                                          # Object file
+  my $objectFile = q(z.o);                                                      # Object file
   my $o1         = $programOut;                                                 # Stdout from run
   my $o2         = $programErr;                                                 # Stderr from run
 
@@ -11026,7 +11044,8 @@ sub Assemble(%)                                                                 
 
   unlink $o1, $o2, $objectFile, $execFile, $listFile, $sourceFile;              # Remove output files
 
-  Exit 0 unless $library or @text > 4 && $text[-4] =~ m(Exit code:);            # Exit with code 0 if an exit was not the last thing coded in a program but ignore for a library.
+# Exit 0 unless $LibraryMode or @text > 4 && $text[-4] =~ m(Exit code:);        # Exit with code 0 if an exit was not the last thing coded in a program but ignore for a library.
+  Exit 0 unless @text > 4 && $text[-4] =~ m(Exit code:);                        # Exit with code 0 if an exit was not the last thing coded in a program but ignore for a library.
 
 # Optimize(@_);                                                                 # Perform any optimizations requested
   OptimizeReload(@_);
@@ -11039,22 +11058,25 @@ sub Assemble(%)                                                                 
     my $x = join "\n", map {qq(extern $_)} @extern;
     my $N = $VariableStack[0];                                                  # Number of variables needed on the stack
 
+    if ($LibraryMode)
+     {confess ".rodata present\n$r" if $r;
+      confess ".data present\n$d"   if $d;
+      confess ".bss present\n$d"    if $B;
+      confess "extern present"      if $x;
+     }
+
     my $A = <<END;                                                              # Source code
 bits 64
 default rel
 END
 
-    $A .= <<END if $t and !$library;
+    $A .= <<END if $t;
 global _start, main
   _start:
   main:
   Enter $N*8, 0
   $t
   Leave
-END
-
-    $A .= <<END if $t and $library;
-  $t
 END
 
     $A .= <<END if $r;
@@ -11094,7 +11116,7 @@ END
 
   my $emulate = hasAvx512 ? 0 : ($avx512 // 1) ;                                # Emulate if necessary
   my $sde     = LocateIntelEmulator;                                            # Locate the emulator
-  my $run     = !$keep && !$library;                                            # Are we actually going to run the resulting code?
+  my $run     = !$keep;                                                         # Are we actually going to run the resulting code?
 
   if ($run and $emulate and !$sde)                                              # Complain about the emulator if we are going to run and we have not suppressed the emulator and the emulator is not present
    {my $f = fpf(currentDirectory, $execFile);
@@ -11137,9 +11159,11 @@ END
     my $l = $trace || $list ? qq(-l $listFile) : q();                           # Create a list file if we are tracing because otherwise it it is difficult to know what we are tracing
     my $a = qq(nasm -O0 $l -o $objectFile $sourceFile);                         # Assembly options
 
-    my $cmd  = $library
-      ? qq($a -fbin)
-      : qq($a -felf64 -g  && ld $I $L -o $e $objectFile && chmod 744 $e);
+#    my $cmd  = $LibraryMode
+#      ? qq($a -fbin)
+#      : qq($a -felf64 -g  && ld $I $L -o $e $objectFile && chmod 744 $e);
+
+    my $cmd  = qq($a -felf64 -g  && ld $I $L -o $e $objectFile && chmod 744 $e);
 
     qx($cmd);
     confess "Assembly failed $?" if $?;                                         # Stop if assembly failed
@@ -11229,7 +11253,7 @@ END
    {locateRunTimeErrorInDebugTraceOutput($trace);
    }
 
-  unlink $objectFile unless $library;                                           # Delete files
+  unlink $objectFile; # unless $library;                                        # Delete files
   unlink $execFile   unless $keep;                                              # Delete executable unless asked to keep it or its a library
 
   Start;                                                                        # Clear work areas for next assembly
@@ -11410,7 +11434,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11412 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11436 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18486,7 +18510,11 @@ sub testParseUnisyn($$$)                                                        
       say STDERR "Want: ", dump($parse);
       say STDERR "Got : ", dump($r);
       confess "Parse failed" unless onGitHub;
+      $testsThatFailed++;
       return 0;
+     }
+    else
+     {$testsThatPassed++;
      }
    }
   else
@@ -18840,50 +18868,50 @@ if (1) {                                                                        
     $n
    }
 
-  if (1)                                                                        # Read a library and call the subroutines there-in
-   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
-    my ($inter) = $a->readLibraryHeader(mapSubroutines);                        # Create a tree mapping the subroutine numbers to subroutine offsets
-
-    $inter->find(0);                                                            # Look up the offset of the containing subroutine
-
-    If $inter->found > 0,
-    Then
-     {$t->call(parameters=>{a => K key => 0x5555},
-                            override => $a->address + $inter->data);
-     },
-    Else
-     {PrintOutStringNL "Unable to locate subroutine 'a'";
-     };
-
-    $inter->find(1);                                                            # Look up the offset of the first subroutine
-
-    If $inter->found > 0,
-    Then
-     {$t->call(parameters=>{a => K key => 0x9999},
-                            override => $a->address + $inter->data);
-     },
-    Else
-     {PrintOutStringNL "Unable to locate subroutine 'a'";
-     };
-
-    $inter->find(2);                                                            # Look  up the offset of the second subroutine
-
-    If $inter->found > 0,
-    Then
-     {$t->call(parameters=>{a        => K key => 0x9999},
-                            override => $a->address + $inter->data);
-     },
-    Else
-     {PrintOutStringNL "Unable to locate subroutine 'b'";
-     };
-   }
-
-  ok Assemble eq=><<END;
-abcd
-a: .... .... .... 5555
-   rax: .... .... .... .111
-   rax: .... .... .... 9999
-END
+#  if (1)                                                                        # Read a library and call the subroutines there-in
+#   {my $a = ReadArea $f;                                                        # Reload the area elsewhere
+#    my ($inter) = $a->readLibraryHeader(mapSubroutines);                        # Create a tree mapping the subroutine numbers to subroutine offsets
+#
+#    $inter->find(0);                                                            # Look up the offset of the containing subroutine
+#
+#    If $inter->found > 0,
+#    Then
+#     {$t->call(parameters=>{a => K key => 0x5555},
+#                            override => $a->address + $inter->data);
+#     },
+#    Else
+#     {PrintOutStringNL "Unable to locate subroutine 'a'";
+#     };
+#
+#    $inter->find(1);                                                            # Look up the offset of the first subroutine
+#
+#    If $inter->found > 0,
+#    Then
+#     {$t->call(parameters=>{a => K key => 0x9999},
+#                            override => $a->address + $inter->data);
+#     },
+#    Else
+#     {PrintOutStringNL "Unable to locate subroutine 'a'";
+#     };
+#
+#    $inter->find(2);                                                            # Look  up the offset of the second subroutine
+#
+#    If $inter->found > 0,
+#    Then
+#     {$t->call(parameters=>{a        => K key => 0x9999},
+#                            override => $a->address + $inter->data);
+#     },
+#    Else
+#     {PrintOutStringNL "Unable to locate subroutine 'b'";
+#     };
+#   }
+#
+#  ok Assemble eq=><<END;
+#abcd
+#a: .... .... .... 5555
+#   rax: .... .... .... .111
+#   rax: .... .... .... 9999
+#END
   ok -e $f;                                                                     # Confirm we have created the library
 
   if (1)                                                                        # Include a library in a program then decode the subroutine offsets via an intersection tree
@@ -20019,13 +20047,13 @@ if (1) {
   Call $getRip;
   PrintOutRegisterInHex rax;
 
-  ok Assemble eq => <<END, trace=>1;
+  ok Assemble eq => <<END;
    rax: .... .... .... ...0
 END
  };
 
 latest:
-if (0) {                                                                        #TParseUnisynEx #TParseUnisynCall
+if (1) {                                                                        #TParseUnisynEx #TParseUnisynCall
   my $f = "lib/NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
 
   ParseUnisynEx $f;
@@ -20034,7 +20062,7 @@ if (0) {                                                                        
 
   $p->dumpParseResult;
 
-  ok Assemble eq => <<END;
+  ok Assemble eq => <<END;;
 parseChar  : .... .... .... ..32
 parseFail  : .... .... .... ...0
 position   : .... .... .... ...E
