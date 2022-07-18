@@ -9914,19 +9914,6 @@ sub ParseUnisynEx($)                                                            
      export     => $file;
  }
 
-sub ParseUnisynEx2($)                                                           # Export the subroutine to parse unisyn to a library file.
- {my ($file) = @_;                                                              # File to export to
-
-  unlink $file if -e $file;
-
-  Subroutine                                                                    # Parse unisyn
-   {PrintOutStringNL "In subAAA";
-   } name       => q(Nasm::X86::Unisyn::Parse),
-     export     => $file;
-
-  &Assemble();                                                                  # Assemble the library
- }
-
 sub ParseUnisynCall($$$)                                                        # Load and call the subroutine to parse unisyn from a library file.
  {my ($file, $source, $length) = @_;                                            # File to import from, address of source as a variable, length of source as a variable
 
@@ -11434,7 +11421,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11436 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11423 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -20056,11 +20043,11 @@ test13: goto testX unless $test{13};
 
 latest:
 if (1) {                                                                        #TParseUnisynEx #TParseUnisynCall
-  makePath q(lib);                                                              # Path to library being created
+  makePath fpd currentDirectory, q(lib);                                        # Path to library being created
   my $f = "lib/NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
 
   ParseUnisynEx $f;
-
+exit;
   my $p = &ParseUnisynCall($f, constantString  qq(1𝕣𝕖𝕥2));
 
   $p->dumpParseResult;
