@@ -9907,7 +9907,7 @@ sub ParseUnisynEx($)                                                            
   Subroutine                                                                    # Parse unisyn
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    &Nasm::X86::Unisyn::Parse($$s{parse});
+    #&Nasm::X86::Unisyn::Parse($$s{parse});
 
    } structures => {parse => Nasm::X86::Unisyn::DescribeParse},
      name       => q(Nasm::X86::Unisyn::Parse),
@@ -20054,7 +20054,8 @@ END
 
 latest:
 if (1) {                                                                        #TParseUnisynEx #TParseUnisynCall
-  my $f = "NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
+  makePath q(lib);                                                              # Path to library being created
+  my $f = "lib/NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
 
   ParseUnisynEx $f;
 
