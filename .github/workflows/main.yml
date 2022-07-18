@@ -1,4 +1,4 @@
-# Test NasmX86 2022-07-18 at 17:50:25
+# Test NasmX86 2022-07-18 at 17:53:52
 
 name: Test
 
@@ -753,5 +753,63 @@ jobs:
         perl -Ilib lib/Nasm/X86.pm 12
 
     - name: Result12
+      run: |
+        cat zzzStatus.txt
+
+  test13:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: 'main'
+
+    - name: Download other repos
+      run: |
+        curl -sL https://github.com/philiprbrenan/NasmX86/archive/refs/heads/main.zip       > NasmX86.zip
+        curl -sL https://github.com/philiprbrenan/DataTableText/archive/refs/heads/main.zip > DataTableText.zip
+        curl -sL https://github.com/philiprbrenan/GitHubCrud/archive/refs/heads/main.zip    > GitHubCrud.zip
+        curl -sL https://github.com/philiprbrenan/AsmC/archive/refs/heads/main.zip          > AsmC.zip
+        ls -la NasmX86.zip DataTableText.zip GitHubCrud.zip AsmC.zip
+        tree
+        unzip AsmC.zip
+        unzip DataTableText
+        unzip GitHubCrud
+        unzip NasmX86
+        tree
+        cp -R AsmC-main/* .
+        cp -R DataTableText-main/* .
+        cp -R GitHubCrud-main/* .
+        cp -R NasmX86-main/* .
+        tree
+
+    - name: avx
+      run: |
+        perl -e'my $f = {map {$_=>1} grep {/avx/} map {split /\s+/} grep {/flags/} split /\n/, qx(cat /proc/cpuinfo)}; print join q( ), sort keys %$f; print qq(\n)';
+        #printenv
+
+    - name: Install Test::Most
+      run: |
+        sudo cpan install -T Test::Most
+
+    - name: Install Data::Dump
+      run: |
+        sudo cpan install -T Data::Dump
+
+    - name: Install Intel Sde
+      run: |
+        tar -xf sde.tar.bz2
+        mv sde-external-8.63.0-2021-01-18-lin/ sde/
+        tree
+
+    - name: Install Nasm
+      run: |
+        sudo apt-get install -y nasm
+
+    - name: Test13
+      run: |
+        perl -Ilib lib/Nasm/X86.pm 13
+
+    - name: Result13
       run: |
         cat zzzStatus.txt
