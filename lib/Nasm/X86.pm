@@ -9907,7 +9907,7 @@ sub ParseUnisynEx($)                                                            
   Subroutine                                                                    # Parse unisyn
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
 
-    #&Nasm::X86::Unisyn::Parse($$s{parse});
+    &Nasm::X86::Unisyn::Parse($$s{parse});
 
    } structures => {parse => Nasm::X86::Unisyn::DescribeParse},
      name       => q(Nasm::X86::Unisyn::Parse),
@@ -18998,7 +18998,7 @@ data   : .... .... .... ...0
 END
  }
 
-test12: goto testX unless $test{12};
+test12: goto test13 unless $test{12};
 
 #latest:
 
@@ -20052,6 +20052,8 @@ if (1) {
 END
  };
 
+test13: goto testX unless $test{13};
+
 latest:
 if (1) {                                                                        #TParseUnisynEx #TParseUnisynCall
   makePath q(lib);                                                              # Path to library being created
@@ -20074,7 +20076,6 @@ parseReason: .... .... .... ...0
 ._2
 END
  };
-
 
 #latest:
 if (0) {                                                                        #TAssemble
