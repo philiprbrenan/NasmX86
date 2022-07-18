@@ -20054,7 +20054,7 @@ END
 
 latest:
 if (1) {                                                                        #TParseUnisynEx #TParseUnisynCall
-  my $f = "lib/NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
+  my $f = "NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
 
   ParseUnisynEx $f;
 
