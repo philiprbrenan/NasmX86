@@ -398,26 +398,53 @@ sub Dq(@)                                                                       
 
 sub Rbwdq($@)                                                                   #P Layout data.
  {my ($s, @d) = @_;                                                             # Element size, data to be laid out
-  my $d = join ', ', map {$_ =~ m(\A\d+\Z) ? sprintf "0x%x", $_ : $_} @d;       # Data to be laid out
-  if (my $c = $rodata{$s}{$d})                                                  # Data already exists so return it
+  my $dump = dump \@d;                                                          # Signature
+  if (my $c = $rodata{$s}{$dump})                                               # Data already exists so return it
    {return $c
    }
+
+  my @c;
+  for my $d(@d)                                                                 # Compress like elements
+   {if (@c and $d == $c[-1][1])
+     {$c[-1][0]++
+     }
+    else
+     {push @c, [1, $d];
+     }
+   }
+
+  my @e;
+  for my $c(@c)                                                                 # Data to be laid out
+   {my ($count, $data) = @$c;
+    my $e = $data =~ m(\A\d+\Z) ? sprintf "0x%x", $data : $data;                # Convert to hex if numeric
+    if ($count == 1)
+     {push @e, " d$s $e";
+     }
+    else
+     {push @e, " times $count d$s $e";
+     }
+   }
+
+  my $d = join "\n", @e;                                                        # Data to be laid out
+
   if ($LibraryMode)                                                             # Create data in a library - we put it inline so that is copied with the position independent subroutine after optimizing the jumps just before assembly.
    {my $l = Label; my $x = Label;                                               # New data - create a label for the data  and then jump over it as it is in the code section -- we will have to optimize jumps later
     push @text, <<END;                                                          # Save in read only data
     Jmp $x;
-    $l: d$s $d
+    $l:
+    $d
     $x:
 END
-    $rodata{$s}{$d} = $l;                                                       # Record label
+    $rodata{$s}{$dump} = $l;                                                    # Record label
     return $l;
    }
   else
    {my $l = Label;                                                              # New data - create a label
     push @rodata, <<END;                                                        # Save in read only data
-    $l: d$s $d
+    $l:
+    $d
 END
-    $rodata{$s}{$d} = $l;                                                       # Record label
+    $rodata{$s}{$dump} = $l;                                                    # Record label
     return $l;
    }
  }
@@ -11473,7 +11500,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11475 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11502 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
