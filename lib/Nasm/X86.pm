@@ -27,6 +27,7 @@ use utf8;
 
 makeDieConfess unless &onGitHub;
 
+my $Labels = 0;
 my %rodata;                                                                     # Read only data already written
 my %rodatas;                                                                    # Read only string already written
 my %subroutines;                                                                # Subroutines generated
@@ -36,6 +37,9 @@ my @bss;                                                                        
 my @text;                                                                       # Code
 my @extern;                                                                     # External symbols imports for linking with C libraries
 my @link;                                                                       # Specify libraries which to link against in the final assembly stage
+
+my $lastAsmFinishTime = time;                                                   # The last time we finished an assembly
+
 my $interpreter  = q(-I /usr/lib64/ld-linux-x86-64.so.2);                       # The ld command needs an interpreter if we are linking with C.
 our $sdeMixOut   = q(sde-mix-out.txt);                                          # Emulator hot spot output file
 our $sdeTraceOut = q(sde-debugtrace-out.txt);                                   # Emulator trace output file
@@ -332,8 +336,6 @@ sub dWordRegister($)                                                            
  }
 
 #D1 Labels                                                                      # Create and set labels.
-
-my $Labels = 0;
 
 sub Label()                                                                     # Create a unique label. Useful for constructing for and if statements.
  {"l".++$Labels unless @_;                                                      # Generate a label
@@ -1411,25 +1413,48 @@ sub Subroutine(&%)                                                              
      }
    }
 
-#  my %subroutinesSaved;                                                         # Current set of subroutine definitions
-#  my %rodataSaved;                                                              # Current set of read only elements
-#  my %rodatasSaved;                                                             # Current set of read only strings
+  my %rodataSaved;                                                              # Read only data already written
+  my %rodatasSaved;                                                             # Read only string already written
+  my %subroutinesSaved;                                                         # Subroutines generated
+  my @rodataSaved;                                                              # Read only data
+  my @dataSaved;                                                                # Data
+  my @bssSaved;                                                                 # Block started by symbol
+  my @textSaved;                                                                # Code
+  my @externSaved;                                                              # External symbols imports for linking with C libraries
+  my @linkSaved;                                                                # Specify libraries which to link against in the final assembly stage
+
+  my @PushRSaved;
+  my @VariableStackSaved;
+  my %loadAreaIntoAssemblySaved;
+
+  my $DebugModeSaved;
+  my $LabelsSaved;
+  my $TraceModeSaved;
+  my $lastAsmFinishTimeSaved;
 
   if ($export)                                                                  # Create a new set of subroutines for this routine and all of its sub routines
-   {#%subroutinesSaved = %subroutines;                                           # Save current set of subroutines
-    #%subroutines      = ();                                                     # New set of subroutines
-    #%rodataSaved      = %rodata;                                                # Current set of read only elements
-    #%rodata           = ();                                                     # New set of read only elements
-    #%rodatasSaved     = %rodatas;                                               # Current set of read only strings
-    #%rodatas          = ();                                                     # New set of read only strings
-    confess "Exporting a library but subroutines set"  if keys %subroutines;
-    confess "Exporting a library but .data set"        if @data;
-    confess "Exporting a library but .rodata set"      if @rodata;
-    confess "Exporting a library but .bss set"         if @bss;
-    confess "Exporting a library but .text set"        if @text;
-    confess "Exporting a library but externs supplied" if @extern;
-    confess "Exporting a library but links supplied"   if @link;
-    $LibraryMode      = 1;                                                      # Please do not try to create a library while creating another library - create them one after the other in separate processes.
+   {confess "Cannot make a library inside a library" if $LibraryMode;
+    %rodataSaved               = %rodata;                                       # Read only data already written
+    %rodatasSaved              = %rodatas;                                      # Read only string already written
+    %subroutinesSaved          = %subroutines;                                  # Subroutines generated
+    @rodataSaved               = @rodata;                                       # Read only data
+    @dataSaved                 = @data;                                         # Data
+    @bssSaved                  = @bss;                                          # Block started by symbol
+    @textSaved                 = @text;                                         # Code
+    @externSaved               = @extern;                                       # External symbols imports for linking with C libraries
+    @linkSaved                 = @link;                                         # Specify libraries which to link against in the final assembly stage
+
+    @PushRSaved                = @PushR;
+    @VariableStackSaved        = @VariableStack;
+    %loadAreaIntoAssemblySaved = %loadAreaIntoAssembly;
+
+    $DebugModeSaved            = $DebugMode;
+    $LabelsSaved               = $Labels;
+    $TraceModeSaved            = $TraceMode;
+    $lastAsmFinishTimeSaved    = $lastAsmFinishTime;
+
+    &Start();
+    $LibraryMode               = 1;                                             # Start new library
    }
 
 # $name or confess "Name required for subroutine, use name=>";
@@ -1492,7 +1517,27 @@ END
    {$s->writeLibraryToArea({%subroutines});                                     # Place the subroutine in an area then write the area containing the subroutine and its contained routines to a file
 
     &Assemble();                                                                # Assemble the library
-    $LibraryMode = 0;                                                           # Please do not try to create a library while creating another library - create them one after the other.
+
+    %rodata               = %rodataSaved;                                       # Read only data already written
+    %rodatas              = %rodatasSaved;                                      # Read only string already written
+    %subroutines          = %subroutinesSaved;                                  # Subroutines generated
+    @rodata               = @rodataSaved;                                       # Read only data
+    @data                 = @dataSaved;                                         # Data
+    @bssSaved             = @bssSaved;                                          # Block started by symbol
+    @text                 = @textSaved;                                         # Code
+    @extern               = @externSaved;                                       # External symbols imports for linking with C libraries
+    @link                 = @linkSaved;                                         # Specify libraries which to link against in the final assembly stage
+
+    @PushR                = @PushRSaved;
+    @VariableStack        = @VariableStackSaved;
+    %loadAreaIntoAssembly = %loadAreaIntoAssemblySaved;
+
+    $DebugMode            = $DebugModeSaved;
+    $Labels               = $LabelsSaved;
+    $TraceMode            = $TraceModeSaved;
+    $lastAsmFinishTime    = $lastAsmFinishTimeSaved;
+
+    $LibraryMode          = 0;                                                      # Resume normal assembly
    }
 
   $s                                                                            # Return subroutine definition
@@ -9899,10 +9944,15 @@ sub ParseUnisyn($$)                                                             
   $p
  }
 
-sub ParseUnisynEx($)                                                            # Export the subroutine to parse unisyn to a library file.
- {my ($file) = @_;                                                              # File to export to
+my $ParseUnisynLibrary = fpe currentDirectory, qw(lib NasmX86ParseUnisyn lib);  # Library file
+unlink $ParseUnisynLibrary if -e $ParseUnisynLibrary and                        # Unlink if we have modified this file more recently than the library file
+  fileModTime($ParseUnisynLibrary) < fileModTime($0);
 
-  unlink $file if -e $file;
+sub ParseUnisynEx()                                                             # Export the subroutine to parse unisyn to a library file.
+ {my $file = $ParseUnisynLibrary;                                               # Library file
+  return $file if -e $file;                                                           # Up-to-date library exists so skip recreating it
+
+  makePath $file;
 
   Subroutine                                                                    # Parse unisyn
    {my ($p, $s, $sub) = @_;                                                     # Parameters, structures, subroutine definition
@@ -9912,12 +9962,16 @@ sub ParseUnisynEx($)                                                            
    } structures => {parse => Nasm::X86::Unisyn::DescribeParse},
      name       => q(Nasm::X86::Unisyn::Parse),
      export     => $file;
+
+   $file
  }
 
-sub ParseUnisynCall($$$)                                                        # Load and call the subroutine to parse unisyn from a library file.
- {my ($file, $source, $length) = @_;                                            # File to import from, address of source as a variable, length of source as a variable
+sub ParseUnisynCall($$)                                                         # Load and call the subroutine to parse unisyn from a library file.
+ {my ($source, $length) = @_;                                                   # Address of source as a variable, length of source as a variable
 
-  my $a = loadAreaIntoAssembly $file;                                           # Load the library from the file it was exported to
+  ParseUnisynEx();                                                              # Export the subroutine to parse unisyn to a library file.
+
+  my $a = loadAreaIntoAssembly(my $file = $ParseUnisynLibrary);                 # Load the library from the file it was exported to
   my (undef, $s) = $a->readLibraryHeader;                                       # Read the library header to the get the sub routine definitions
 
   my $d = $a->subroutineDefinitions($file);                                     # Reread the library file to get the subroutine definitions in Perl format
@@ -10460,7 +10514,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       Add rsi, Nasm::X86::Unisyn::Lex::Number::F;                               # Check we can transition to the final state from the current state
 
       my ($tN, $tA) = Nasm::X86::Unisyn::Lex::PermissibleTransitionsArray;      # Load permissible transitions
-      Mov rax, $tA;
+      Lea rax, "[$tA]";
       Add rsi, rax;
       Mov al, "[rsi]";
 
@@ -10780,8 +10834,6 @@ sub Link(@)                                                                     
  {my (@libraries) = @_;                                                         # Link library names which will be looked for on "LIBPATH"
   push @link, @_;
  }
-
-my $lastAsmFinishTime = time;                                                   # The last time we finished an assembly
 
 sub Start()                                                                     # Initialize the assembler.
  {@bss = @data = @rodata = %rodata = %rodatas = %subroutines = @text =
@@ -11421,7 +11473,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11423 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11475 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18483,7 +18535,7 @@ sub testParseUnisyn($$$)                                                        
 
   is_deeply $u, $text;
 
-  my $p = &ParseUnisyn(constantString $text);                                   # Parse the utf8 string minus the final new line
+  my $p = &ParseUnisynCall(constantString $text);                               # Parse the utf8 string minus the final new line
 
   $p->dump;
   Assemble;
@@ -20041,14 +20093,9 @@ END
 
 test13: goto testX unless $test{13};
 
-latest:
+#latest:
 if (1) {                                                                        #TParseUnisynEx #TParseUnisynCall
-  makePath fpd currentDirectory, q(lib);                                        # Path to library being created
-  my $f = "lib/NasmX86ParseUnisyn.lib";                                         # Methods to be called against each syntactic item
-
-  ParseUnisynEx $f;
-
-  my $p = &ParseUnisynCall($f, constantString  qq(1𝕣𝕖𝕥2));
+  my $p = &ParseUnisynCall(constantString  qq(1𝕣𝕖𝕥2));
 
   $p->dumpParseResult;
 
