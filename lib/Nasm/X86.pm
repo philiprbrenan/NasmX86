@@ -93,10 +93,10 @@ BEGIN{
   registerContaining("r${_}",  "r${_}l", "r${_}w", "r${_}b", "r${_}d") for 8..15;
   registerContaining("r${_}p", "e${_}p", "${_}p",  "${_}pl")           for qw(s b);
   registerContaining("r${_}i", "e${_}i", "${_}i", "${_}il")            for qw(s d);
-  my @i0 = qw(cpuid lahf leave popfq pushfq rdtsc ret syscall);                 # Zero operand instructions
+  my @i0 = qw(cpuid lahf leave nop popfq pushfq rdtsc ret syscall);             # Zero operand instructions
 
   my @i1 = split /\s+/, <<END;                                                  # Single operand instructions
-align bswap call dec div idiv  inc jmp ja jae jb jbe jc jcxz je jecxz jg jge jl jle
+bswap call dec div idiv  inc jmp ja jae jb jbe jc jcxz je jecxz jg jge jl jle
 jna jnae jnb jnbe jnc jne jng jnge jnl jnle jno jnp jns jnz jo jp jpe jpo jrcxz
 js jz loop neg not seta setae setb setbe setc sete setg setge setl setle setna setnae
 setnb setnbe setnc setne setng setnge setnl setno setnp setns setnz seto setp
@@ -333,6 +333,14 @@ sub dWordRegister($)                                                            
   return edi if $r eq rdi;
   return esi if $r eq rsi;
   $r."d"
+ }
+
+sub Align($)                                                                    # Align code
+ {my ($n) = @_;                                                                 # Alignment required
+  push @text, <<END;
+[sectalign $n]
+times ($n - (($-$$) % $n)) nop
+END
  }
 
 #D1 Labels                                                                      # Create and set labels.
@@ -5255,9 +5263,7 @@ sub loadAreaIntoAssembly($)                                                     
 
   my  $areaFinish = $loadAreaIntoAssembly{$file} = Label;                       # Label at start of area
   Jmp $areaFinish;                                                              # Jump over area
-  push @text, <<END;
-  align 16
-END
+  Align 16;
   my  $areaStart = SetLabel;
   Incbin qq("$file");                                                           # Include area as a binary file
   SetLabel $areaFinish;
@@ -9997,8 +10003,7 @@ sub ParseUnisynCall($$)                                                         
  {my ($source, $length) = @_;                                                   # Address of source as a variable, length of source as a variable
 
   ParseUnisynEx();                                                              # Export the subroutine to parse unisyn to a library file.
-say STDERR qx(cat -n z.asm);
-exit;
+
   my $a = loadAreaIntoAssembly(my $file = $ParseUnisynLibrary);                 # Load the library from the file it was exported to
   my (undef, $s) = $a->readLibraryHeader;                                       # Read the library header to the get the sub routine definitions
 
@@ -10497,9 +10502,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
         my @c;                                                                  # Check numbers are unique and sequential
         my @L;                                                                  # Labels
         my $jumpTable = Label;                                                  # Start of jump table
-
         $last->setReg(rax);
-        Shl rax, 4;
+        Shl rax, 3;                                                             # Each jump vector entry is 8 byes long 5 jump, 3 nop
         Lea rbx, "[$jumpTable]";
         Add rbx, rax;
         Jmp rbx;
@@ -10522,11 +10526,10 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
          }
 
         Comment "Jump Table target";
-        Align 16;
         SetLabel $jumpTable;
         for my $L(@L)                                                           # The jump table
          {Jmp $L;                                                               # Jump to code that will process the lexical item
-          Align 16;
+          Nop; Nop; Nop;
          }
         Align 1024;
         PrintErrTraceBack "Unexpected lexical type" if $DebugMode;              # Something unexpected came along
@@ -11122,7 +11125,7 @@ sub Assemble(%)                                                                 
     my $d = join "\n", map {s/\s+\Z//sr}   @data;
     my $B = join "\n", map {s/\s+\Z//sr}   @bss;
     my $t = join "\n", map {s/\s+\Z//sr}   @text;
-    my $x = join "\n", map {qq(extern $_)} @extern;
+    my $x = join "\n", map {qq([extern $_])} @extern;
     my $N = $VariableStack[0];                                                  # Number of variables needed on the stack
 
     if ($LibraryMode)
@@ -11133,12 +11136,13 @@ sub Assemble(%)                                                                 
      }
 
     my $A = <<END;                                                              # Source code
-bits 64
-default rel
+[bits 64]
+[default rel]
 END
 
     $A .= <<END if $t;
-global _start, main
+[global main]
+[global _start]
   _start:
   main:
   Enter $N*8, 0
@@ -11147,20 +11151,20 @@ global _start, main
 END
 
     $A .= <<END if $r;
-section .rodata
+[section .rodata]
   $r
 END
     $A .= <<END if $d;
-section .data
+[section .data]
   $d
 END
     $A .= <<END if $B;
-section .bss
+[section .bss]
   $B
   $d
 END
     $A .= <<END if $x;
-section .text
+[section .text]
 $x
 END
 
@@ -11224,7 +11228,7 @@ END
     my $L = join " ",  map {qq(-l$_)} @link;                                    # List of libraries to link supplied via Link directive.
     my $e = $execFile;
     my $l = $trace || $list ? qq(-l $listFile) : q();                           # Create a list file if we are tracing because otherwise it it is difficult to know what we are tracing
-    my $a = qq(nasm -O0 $l -o $objectFile $sourceFile);                         # Assembly options
+    my $a = qq(nasm -a -O0 $l -o $objectFile $sourceFile);                      # Assembly options
 
 #    my $cmd  = $LibraryMode
 #      ? qq($a -fbin)
@@ -11392,7 +11396,7 @@ use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 
 @ISA          = qw(Exporter);
 @EXPORT       = qw();
-@EXPORT_OK    = qw(Add Align AllocateMemory And AndBlock Andn Assemble BinarySearchD Block Bsf Bsr Bswap Bt Btc Btr Bts Bzhi Call CallC   ChooseRegisters ClearMemory ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmovne Cmp Comment  ConvertUtf8ToUtf32 CopyMemory CopyMemory4K CopyMemory64 Cpuid CreateArea Db Dd Dec DescribeArea Div Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNs IfNz IfS IfZ Imul Imul3 Inc Incbin Include InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadZmm Loop Lzcnt Mov Movd Movdqa Movq Movw Mulpd Neg Not OnSegv OpenRead OpenWrite Or OrBlock ParseUnisyn Pass Pdep Pext Pextrb Pextrd Pextrq Pextrw Pinsrb Pinsrd Pinsrq Pinsrw Pop PopR Popcnt Popfq PrintCString PrintCStringNL PrintErrOneRegisterInHex PrintErrOneRegisterInHexNL PrintErrRaxInHex PrintErrRaxInHexNL PrintErrRax_InHex PrintErrRax_InHexNL PrintErrRegisterInHex PrintErrRightInBin PrintErrRightInBinNL PrintErrRightInHex PrintErrRightInHexNL PrintErrTraceBack PrintMemory PrintMemoryInHex PrintMemory_InHex PrintNL PrintOneRegisterInHex PrintOutNL PrintOutOneRegisterInHex PrintOutOneRegisterInHexNL PrintOutRaxInHex PrintOutRaxInHexNL PrintOutRax_InHex PrintOutRax_InHexNL PrintOutRegisterInHex PrintOutRightInBin PrintOutRightInBinNL PrintOutRightInDec PrintOutRightInDecNL PrintOutRightInHex PrintOutRightInHexNL PrintOutSpace PrintOutString PrintOutStringNL PrintOutTraceBack PrintRaxAsChar PrintRaxAsText PrintRaxInDec PrintRaxInHex PrintRaxRightInDec PrintRax_InHex PrintRegisterInHex PrintRightInBin PrintRightInDec PrintRightInHex PrintSpace PrintString PrintStringNL PrintTraceBack Pslldq Psrldq Push Pushfq R RComment Rb Rd Rdtsc ReadArea ReadChar ReadFile ReadInteger ReadLine ReadTimeStampCounter RegisterSize RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstSeven RestoreFirstSevenExceptRax Ret Rq Rs Rutf8 Rw Sal Sar SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength Sub Subroutine Syscall Test Then ToZero Tzcnt V Vaddd Vaddpd Valignb Valignd Valignq Valignw Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetmantps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpaddb Vpaddd Vpaddq Vpaddw Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpgatherqd Vpgatherqq Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmovb2m Vpmovd2m Vpmovm2b Vpmovm2d Vpmovm2q Vpmovm2w Vpmovq2m Vpmovw2m Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bFromX bFromZ bRegFromZmm bRegIntoZmm bh bl bp bpl bx byteRegister ch checkZmmRegister cl constantString copyStructureMinusVariables countComments createBitNumberFromAlternatingPattern cs cx dFromPointInZ dFromX dFromZ dRegFromZmm dRegIntoZmm dWordRegister dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp executeFileViaBash extractRegisterNumberFromMM fs getBwdqFromMm gs ifAnd ifOr k0 k1 k2 k3 k4 k5 k6 k7 loadAreaIntoAssembly locateRunTimeErrorInDebugTraceOutput mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 opposingJump qFromX qFromZ r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx registerNameFromNumber rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 unlinkFile uptoNTimes wFromX wFromZ wRegFromZmm wRegIntoZmm wordRegister xmm xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9 zmmM zmmMZ);
+@EXPORT_OK    = qw(Add AllocateMemory And AndBlock Andn Assemble BinarySearchD Block Bsf Bsr Bswap Bt Btc Btr Bts Bzhi Call CallC   ChooseRegisters ClearMemory ClearRegisters ClearZF CloseFile Cmova Cmovae Cmovb Cmovbe Cmovc Cmove Cmovg Cmovge Cmovl Cmovle Cmovna Cmovnae Cmovnb Cmovne Cmp Comment  ConvertUtf8ToUtf32 CopyMemory CopyMemory4K CopyMemory64 Cpuid CreateArea Db Dd Dec DescribeArea Div Dq Ds Dw Ef Else Enter Exit Extern Fail For ForEver ForIn Fork FreeMemory GetNextUtf8CharAsUtf32 GetPPid GetPid GetPidInHex GetUid Hash Idiv If IfC IfEq IfGe IfGt IfLe IfLt IfNc IfNe IfNs IfNz IfS IfZ Imul Imul3 Inc Incbin Include InsertOneIntoRegisterAtPoint InsertZeroIntoRegisterAtPoint Ja Jae Jb Jbe Jc Jcxz Je Jecxz Jg Jge Jl Jle Jmp Jna Jnae Jnb Jnbe Jnc Jne Jng Jnge Jnl Jnle Jno Jnp Jns Jnz Jo Jp Jpe Jpo Jrcxz Js Jz K Kaddb Kaddd Kaddq Kaddw Kandb Kandd Kandnb Kandnd Kandnq Kandnw Kandq Kandw Kmovb Kmovd Kmovq Kmovw Knotb Knotd Knotq Knotw Korb Kord Korq Kortestb Kortestd Kortestq Kortestw Korw Kshiftlb Kshiftld Kshiftlq Kshiftlw Kshiftrb Kshiftrd Kshiftrq Kshiftrw Ktestb Ktestd Ktestq Ktestw Kunpckb Kunpckd Kunpckq Kunpckw Kxnorb Kxnord Kxnorq Kxnorw Kxorb Kxord Kxorq Kxorw Lahf Lea Leave Link LoadBitsIntoMaskRegister LoadConstantIntoMaskRegister LoadZmm Loop Lzcnt Mov Movd Movdqa Movq Movw Mulpd Neg Not OnSegv OpenRead OpenWrite Or OrBlock ParseUnisyn Pass Pdep Pext Pextrb Pextrd Pextrq Pextrw Pinsrb Pinsrd Pinsrq Pinsrw Pop PopR Popcnt Popfq PrintCString PrintCStringNL PrintErrOneRegisterInHex PrintErrOneRegisterInHexNL PrintErrRaxInHex PrintErrRaxInHexNL PrintErrRax_InHex PrintErrRax_InHexNL PrintErrRegisterInHex PrintErrRightInBin PrintErrRightInBinNL PrintErrRightInHex PrintErrRightInHexNL PrintErrTraceBack PrintMemory PrintMemoryInHex PrintMemory_InHex PrintNL PrintOneRegisterInHex PrintOutNL PrintOutOneRegisterInHex PrintOutOneRegisterInHexNL PrintOutRaxInHex PrintOutRaxInHexNL PrintOutRax_InHex PrintOutRax_InHexNL PrintOutRegisterInHex PrintOutRightInBin PrintOutRightInBinNL PrintOutRightInDec PrintOutRightInDecNL PrintOutRightInHex PrintOutRightInHexNL PrintOutSpace PrintOutString PrintOutStringNL PrintOutTraceBack PrintRaxAsChar PrintRaxAsText PrintRaxInDec PrintRaxInHex PrintRaxRightInDec PrintRax_InHex PrintRegisterInHex PrintRightInBin PrintRightInDec PrintRightInHex PrintSpace PrintString PrintStringNL PrintTraceBack Pslldq Psrldq Push Pushfq R RComment Rb Rd Rdtsc ReadArea ReadChar ReadFile ReadInteger ReadLine ReadTimeStampCounter RegisterSize RestoreFirstFour RestoreFirstFourExceptRax RestoreFirstSeven RestoreFirstSevenExceptRax Ret Rq Rs Rutf8 Rw Sal Sar SaveFirstFour SaveFirstSeven SaveRegIntoMm SetLabel SetMaskRegister SetZF Seta Setae Setb Setbe Setc Sete Setg Setge Setl Setle Setna Setnae Setnb Setnbe Setnc Setne Setng Setnge Setnl Setno Setnp Setns Setnz Seto Setp Setpe Setpo Sets Setz Shl Shr Start StatSize StringLength Sub Subroutine Syscall Test Then ToZero Tzcnt V Vaddd Vaddpd Valignb Valignd Valignq Valignw Variable Vcvtudq2pd Vcvtudq2ps Vcvtuqq2pd Vdpps Vgetmantps Vmovd Vmovdqa32 Vmovdqa64 Vmovdqu Vmovdqu32 Vmovdqu64 Vmovdqu8 Vmovq Vmulpd Vpaddb Vpaddd Vpaddq Vpaddw Vpandb Vpandd Vpandnb Vpandnd Vpandnq Vpandnw Vpandq Vpandw Vpbroadcastb Vpbroadcastd Vpbroadcastq Vpbroadcastw Vpcmpeqb Vpcmpeqd Vpcmpeqq Vpcmpeqw Vpcmpub Vpcmpud Vpcmpuq Vpcmpuw Vpcompressd Vpcompressq Vpexpandd Vpexpandq Vpextrb Vpextrd Vpextrq Vpextrw Vpgatherqd Vpgatherqq Vpinsrb Vpinsrd Vpinsrq Vpinsrw Vpmovb2m Vpmovd2m Vpmovm2b Vpmovm2d Vpmovm2q Vpmovm2w Vpmovq2m Vpmovw2m Vpmullb Vpmulld Vpmullq Vpmullw Vporb Vpord Vporq Vporvpcmpeqb Vporvpcmpeqd Vporvpcmpeqq Vporvpcmpeqw Vporw Vprolq Vpsubb Vpsubd Vpsubq Vpsubw Vptestb Vptestd Vptestq Vptestw Vpxorb Vpxord Vpxorq Vpxorw Vsqrtpd WaitPid Xchg Xor ah al ax bFromX bFromZ bRegFromZmm bRegIntoZmm bh bl bp bpl bx byteRegister ch checkZmmRegister cl constantString copyStructureMinusVariables countComments createBitNumberFromAlternatingPattern cs cx dFromPointInZ dFromX dFromZ dRegFromZmm dRegIntoZmm dWordRegister dh di dil dl ds dx eax ebp ebx ecx edi edx es esi esp executeFileViaBash extractRegisterNumberFromMM fs getBwdqFromMm gs ifAnd ifOr k0 k1 k2 k3 k4 k5 k6 k7 loadAreaIntoAssembly locateRunTimeErrorInDebugTraceOutput mm0 mm1 mm2 mm3 mm4 mm5 mm6 mm7 opposingJump qFromX qFromZ r10 r10b r10d r10l r10w r11 r11b r11d r11l r11w r12 r12b r12d r12l r12w r13 r13b r13d r13l r13w r14 r14b r14d r14l r14w r15 r15b r15d r15l r15w r8 r8b r8d r8l r8w r9 r9b r9d r9l r9w rax rbp rbx rcx rdi rdx registerNameFromNumber rflags rip rsi rsp si sil sp spl ss st0 st1 st2 st3 st4 st5 st6 st7 unlinkFile uptoNTimes wFromX wFromZ wRegFromZmm wRegIntoZmm wordRegister xmm xmm0 xmm1 xmm10 xmm11 xmm12 xmm13 xmm14 xmm15 xmm16 xmm17 xmm18 xmm19 xmm2 xmm20 xmm21 xmm22 xmm23 xmm24 xmm25 xmm26 xmm27 xmm28 xmm29 xmm3 xmm30 xmm31 xmm4 xmm5 xmm6 xmm7 xmm8 xmm9 ymm ymm0 ymm1 ymm10 ymm11 ymm12 ymm13 ymm14 ymm15 ymm16 ymm17 ymm18 ymm19 ymm2 ymm20 ymm21 ymm22 ymm23 ymm24 ymm25 ymm26 ymm27 ymm28 ymm29 ymm3 ymm30 ymm31 ymm4 ymm5 ymm6 ymm7 ymm8 ymm9 zmm zmm0 zmm1 zmm10 zmm11 zmm12 zmm13 zmm14 zmm15 zmm16 zmm17 zmm18 zmm19 zmm2 zmm20 zmm21 zmm22 zmm23 zmm24 zmm25 zmm26 zmm27 zmm28 zmm29 zmm3 zmm30 zmm31 zmm4 zmm5 zmm6 zmm7 zmm8 zmm9 zmmM zmmMZ);
 %EXPORT_TAGS  = (all=>[@EXPORT, @EXPORT_OK]);
 
 
@@ -11501,7 +11505,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11503 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11507 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18549,7 +18553,7 @@ if (1) {                                                                        
   my $p = &ParseUnisyn(constantString $t);                                      # Parse the utf8 string minus the final new line
 
   $p->dumpPostOrder;
-  ok Assemble eq <<END;
+  ok Assemble eq =><<END;
 ._𝗮 
 ._𝗯
 ＋
@@ -18593,7 +18597,7 @@ sub testParseUnisyn($$$)                                                        
 
 test7: goto test8 unless $test{7};
 
-latest:;
+#latest:;
 ok testParseUnisyn 'b( vaaaa  w2 m+ w2 vbbbb B)', "【𝗮𝗮𝗮𝗮  ＋  𝗯𝗯𝗯𝗯】", q(【._＋  ._._𝗮𝗮𝗮𝗮  ._._𝗯𝗯𝗯𝗯);
 
 ok testParseUnisyn 'b( va m+ vb B)', "【𝗮＋𝗯】", q(【._＋._._𝗮._._𝗯);
@@ -20098,7 +20102,7 @@ END
  }
 
 #latest:
-if (1) {
+if (0) {
   my $N = 32;
   my $endGetRip = Label;
   Jmp $endGetRip;
