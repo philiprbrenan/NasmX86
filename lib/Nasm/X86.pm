@@ -9997,7 +9997,8 @@ sub ParseUnisynCall($$)                                                         
  {my ($source, $length) = @_;                                                   # Address of source as a variable, length of source as a variable
 
   ParseUnisynEx();                                                              # Export the subroutine to parse unisyn to a library file.
-
+say STDERR qx(cat -n z.asm);
+exit;
   my $a = loadAreaIntoAssembly(my $file = $ParseUnisynLibrary);                 # Load the library from the file it was exported to
   my (undef, $s) = $a->readLibraryHeader;                                       # Read the library header to the get the sub routine definitions
 
@@ -11500,7 +11501,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11502 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11503 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -18592,7 +18593,7 @@ sub testParseUnisyn($$$)                                                        
 
 test7: goto test8 unless $test{7};
 
-#latest:;
+latest:;
 ok testParseUnisyn 'b( vaaaa  w2 m+ w2 vbbbb B)', "【𝗮𝗮𝗮𝗮  ＋  𝗯𝗯𝗯𝗯】", q(【._＋  ._._𝗮𝗮𝗮𝗮  ._._𝗯𝗯𝗯𝗯);
 
 ok testParseUnisyn 'b( va m+ vb B)', "【𝗮＋𝗯】", q(【._＋._._𝗮._._𝗯);
