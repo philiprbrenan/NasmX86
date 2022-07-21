@@ -20147,7 +20147,7 @@ And
 END
   unlink $f;
  };
-exit;
+
 #latest:;
 if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder
   my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("A1 dret A2");
