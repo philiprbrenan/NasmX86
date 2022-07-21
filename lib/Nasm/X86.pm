@@ -3655,6 +3655,37 @@ sub Nasm::X86::Variable::setReg($$)                                             
      {Kmovq $r, rdi;
      }
    }
+  elsif ($variable->constant)                                                   # Set normal register to constant
+   {Lea $r, $variable->addressExpr;
+    Mov $r, "[$r]";
+   }
+  else                                                                          # Set normal register to variable
+   {if ($variable->isRef)
+     {Mov $r, $variable->addressExpr;
+      Mov $r, "[$r]";
+     }
+    else
+     {Mov $r, $variable->addressExpr;
+     }
+   }
+
+  $register                                                                     # Name of register being set
+ }
+
+sub Nasm::X86::Variable::setReg22($$)                                             # Set the named registers from the content of the variable.
+ {my ($variable, $register) = @_;                                               # Variable, register to load
+  @_ == 2 or confess "Two parameters";
+
+  my $r = registerNameFromNumber $register;
+  if ($r  =~ m(\Ak?[0-7]\Z))                                                    # Mask register is being set
+   {Mov  rdi, $variable->addressExpr;
+    if ($variable->isRef)
+     {Kmovq $r, "[rdi]";
+     }
+    else
+     {Kmovq $r, rdi;
+     }
+   }
   else                                                                          # Set normal register
    {if ($variable->isRef)
      {Mov $r, $variable->addressExpr;
@@ -10098,7 +10129,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       Else                                                                      # The lexical item has multiple characters in it so we look them up in the conventional manner
        {$s->copy($symbols->uniqueKeyString($a8+$startPos, $l));                 # The symbol number of the previous lexical item
        };
-
+#$s->d;      ### AAAAAAAAAAAAAAAAA
       $parse->getZmmBlock($lastNew, 0);                                         # Reload the description of the last lexical item
       $s->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::symbol);                  # Record lexical symbol number of previous item in its describing tree
       $l->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::length);                  # Record length of previous item in its describing tree
@@ -10502,10 +10533,10 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
         my @c;                                                                  # Check numbers are unique and sequential
         my @L;                                                                  # Labels
         my $jumpTable = Label;                                                  # Start of jump table
-$last->d;
         $last->setReg(rax);
         Shl rax, 3;                                                             # Each jump vector entry is 8 byes long 5 jump, 3 nop
         Lea rbx, "[$jumpTable]";
+#PrintErrRegisterInHex rbx;
         Add rbx, rax;
         Jmp rbx;
 
@@ -11505,7 +11536,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11507 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11538 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -20116,7 +20147,7 @@ And
 END
   unlink $f;
  };
-
+exit;
 #latest:;
 if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder
   my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("A1 dret A2");
