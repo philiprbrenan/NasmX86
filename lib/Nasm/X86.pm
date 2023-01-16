@@ -9915,7 +9915,6 @@ sub Nasm::X86::Unisyn::Lex::letterToNumber                                      
   my @a; $a[$_] = $a{$_} for sort keys %a;                                      # Mapping from letter to number
 
   $a[$_] //= -1 for 0..$#a;                                                     # Mark disallowed characters
-
   (K(size => scalar @a), K array => Rd @a)                                      # Size of array, array
  }
 
@@ -10120,9 +10119,15 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       Then                                                                      # Single letter item so we use -its position in the alphabets as its lexical number as this is much faster than looking it up in a tree
        {my ($N, $A) = Nasm::X86::Unisyn::Lex::letterToNumber;
 
+Comment("Load LLLLLLLLLLL");
         $A->setReg(rax);                                                        # Address array of single letters
-        $firstChar->setReg(rsi);                                                # The first and only character if the lexical item
+        $firstChar->setReg(rsi);                                                # The first and only character of the lexical item
         Mov edx, "[rax+4*rsi]";                                                 # The smaller number representing the letter
+PrintErrStringNL "SSSSS lexical symbol in parse";
+$firstChar->d;
+PrintErrRegisterInHex rax, rsi, rdx;
+$N->d;
+$A->d;
         Neg rdx;                                                                # Count down from zero to differentiate from multi letter lexical items which count up from zero.
         $s->getReg(rdx);                                                        # Access routine via a single character operator name
        },
@@ -10133,6 +10138,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
       $parse->getZmmBlock($lastNew, 0);                                         # Reload the description of the last lexical item
       $s->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::symbol);                  # Record lexical symbol number of previous item in its describing tree
       $l->dIntoZ(0, $dWidth * Nasm::X86::Unisyn::Lex::length);                  # Record length of previous item in its describing tree
+#$lastNew->d;
       $parse->putZmmBlock($lastNew, 0);                                         # Save the lexical item back into memory
       $lastNew->copy(-1);                                                       # Finished with this symbol
      };
@@ -10148,6 +10154,9 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
     $lastNew->copy($o);                                                         # Update last created lexical item
     $itemLength->copy(0);                                                       # Length of lexical item in unicode characters
     $firstChar->copy($parseChar);                                               # Copy the utf32 value of the current character as it is the first character in the lexical item
+PrintErrStringNL "CCCC";
+$parseChar->d;
+$firstChar->d;
    };
 
   &$new for 1..3;                                                               # Initialize the parse tree with three start symbols to act as sentinels
@@ -10196,7 +10205,7 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
    };
 
   my $A = sub                                                                   # Ascii
-   {#PrintErrStringNL "Type: A";
+   {PrintErrStringNL "Type: A";
     my $p = &$prev;
     &$new;
     If $p == K(p => Nasm::X86::Unisyn::Lex::Number::p),
@@ -10302,8 +10311,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
    };
 
   my $F = sub                                                                   # Final: at this point there are no brackets left.
-   {#PrintErrStringNL "Type: F";
-    &$updateLength;                                                             # Update the length of the previous lexical item
+   {PrintErrStringNL "Type: F";
+    &$updateLength; ## Seems superfluous as already called on any change                                                            # Update the length of the previous lexical item
 
     Block                                                                       # Reduce all the remaining items on the stack
      {my ($end, $start) = @_;
@@ -10399,9 +10408,9 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
      {#PrintOutStringNL "AAAA";
       #$index->outNL;
       #$char->outNL;
-      #PrintErrStringNL "AAAA";
-      #$index->d;
-      #$char->d;
+      PrintErrStringNL "AAAA";
+      $index->d;
+      $char->d;
       #$stack->dump("Stack");
       #$parse->dump("Parse", 20);
      };
@@ -10521,7 +10530,8 @@ sub Nasm::X86::Unisyn::Parse($)                                                 
           Jmp $end;
          };
        };
-
+PrintErrStringNL "BBBB";
+$parseChar->d;
       &$updateLength;                                                           # Update the length of the previous lexical item
 
       Block                                                                     # Parse each lexical item to produce a parse tree of trees
@@ -10764,7 +10774,7 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
     my $type     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::type);                # Type of operator
     my $left     = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::left);                # Left operand found
     my $right    = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::right);               # Right operand found
-    my $symbol   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::symbol);              # Lexical symbol
+    my $symbol   = dFromZ(1, $w * Nasm::X86::Unisyn::Lex::symbol);              # Lexical symbol - the number of the symbol as created during the parse
 
     If $left > 0,
     Then                                                                        # There is a left sub tree
@@ -10803,7 +10813,12 @@ sub Nasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators($$)              
      };
 
     my $byName = sub                                                            # Look up method name that matches the lexical item
-     {$intersection->find($symbol);                                             # Lexical item number to library routine offset
+     {
+PrintErrStringNL "AAAA";
+$symbol->d;
+      $intersection->find($symbol);                                             # Lexical item number to library routine offset
+$intersection->found->d;
+$intersection->data->d;
 
       If $intersection->found > 0,
       Then
@@ -11536,7 +11551,7 @@ test unless caller;
 # podDocumentation
 
 __DATA__
-# line 11538 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
+# line 11553 "/home/phil/perl/cpan/NasmX86/lib/Nasm/X86.pm"
 use Time::HiRes qw(time);
 use Test::Most;
 
@@ -19991,10 +20006,18 @@ if (1)                                                                          
 END
  }
 
-latest:
+#latest:
+if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators #TParseUnisyn #TNasm::X86::Unisyn::Parse::dumpParseResult
+  testParseUnisyn("A2", "2", "");
+  ok Assemble eq => <<END;
+END
+ }
+
+#latest:
 if (1) {                                                                        #TNasm::X86::Tree::outAsUtf8 #TNasm::X86::Tree::append #TNasm::X86::Unisyn::Parse::traverseApplyingLibraryOperators #TParseUnisyn #TNasm::X86::Unisyn::Parse::dumpParseResult
   my $f = "zzzOperators.lib";                                                   # Methods to be called against each syntactic item
-
+unlink $f;
+#unlink q(/home/phil/perl/cpan/NasmX86/lib/Nasm/lib/NasmX86ParseUnisyn.lib);
   my $library = Subroutine                                                      # This subroutine and all of the subroutines it contains will be saved in an area and that area will be written to a file from where it can be included via L<incBin> in subsequent assemblies.
    {my ($p, $s, $sub) = @_;
 
@@ -20067,13 +20090,13 @@ END
 
   my ($A, $N) = constantString  qq(1＋𝗔✕𝗕＋𝗖𝕒𝕟𝕕2✕𝗔＋𝗕＋𝗖);                          # Utf8 string to parse
 
-  my $p = ParseUnisyn($A, $N);                                                  # 10_445 Parse utf8 string  5_340 after single character lexical items, 4_950 after jump table
-
+#  my $p = ParseUnisyn($A, $N);                                                  # 10_445 Parse utf8 string  5_340 after single character lexical items, 4_950 after jump table
+  my $p = ParseUnisynCall($A, $N);                                              # 10_445 Parse utf8 string  5_340 after single character lexical items, 4_950 after jump table
   $p->area->dump("AA", 28);
 
   $p->dumpParseResult;
 
-  $p->traverseApplyingLibraryOperators($l);                                      # Traverse a parse tree applying a library of operators where they intersect with lexical items in the parse tree
+  $p->traverseApplyingLibraryOperators($l);                                     # Traverse a parse tree applying a library of operators where they intersect with lexical items in the parse tree
 
 # ✕ 2715
 # ＋ ff0b
@@ -20146,9 +20169,26 @@ Add
 And
 END
   unlink $f;
+exit unless onGitHub;
  };
 
-#latest:;
+latest:;
+if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder
+  my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("A1 m+ A2 m+ A3");
+
+  my $p = &ParseUnisyn(constantString $u);                                      # Parse the utf8 string minus the final new line
+
+  $p->dumpPostOrder;
+  ok Assemble eq <<END;
+._._1
+._._2
+._＋
+._3
+＋
+END
+ }
+
+latest:;
 if (1) {                                                                        #TNasm::X86::Unisyn::Parse::dumpPostOrder
   my $u = Nasm::X86::Unisyn::Lex::composeUnisyn("A1 dret A2");
   my $t = '1𝕣𝕖𝕥2';
