@@ -1,0 +1,57 @@
+{
+   "abstract" : "Generate X86 assembler code using Perl as a macro pre-processor.",
+   "author" : [
+      "philiprbrenan@gmail.com"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "Module::Build version 0.4231",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : 2
+   },
+   "name" : "Nasm-X86",
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "Module::Build" : "0.4224"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Carp" : "0",
+            "Data::Dump" : "0",
+            "Data::Table::Text" : "20210725",
+            "Test2::API" : "0",
+            "Test::More" : "0",
+            "Test::Most" : "0",
+            "feature" : "0"
+         }
+      }
+   },
+   "provides" : {
+      "Nasm::X86" : {
+         "file" : "lib/Nasm/X86.pm",
+         "version" : "20220712"
+      },
+      "Nasm::X86::Variable" : {
+         "file" : "lib/Nasm/X86.pm"
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/philiprbrenan/NasmX86/issues"
+      },
+      "license" : [
+         "http://dev.perl.org/licenses/"
+      ],
+      "repository" : {
+         "url" : "https://github.com/philiprbrenan/NasmX86"
+      }
+   },
+   "version" : "20220712",
+   "x_serialization_backend" : "JSON::PP version 4.02"
+}

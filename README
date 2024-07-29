@@ -1,0 +1,21 @@
+# Installation of sde64 example
+## Linux
+- Download sde-external-9.33.0-2024-01-07-lin.tar.xz from:
+https://www.intel.com/content/www/us/en/download/684897/intel-software-development-emulator.html
+
+- Extract: 
+
+$ tar xvf sde-external-9.33.0-2024-01-07-lin.tar.xz
+
+- Install:
+
+$ sudo -i
+# mkdir /opt/sde
+# cp -r sde-external-9.33.0-2024-01-07-lin/ /opt/sde/sde-9.33.0
+# exit
+
+- Update PATH
+
+$ export PATH=/opt/sde/sde-9.33.0:$PATH
+
+
